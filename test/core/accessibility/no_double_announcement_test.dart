@@ -45,8 +45,13 @@ int _occurrences(String haystack, String needle) =>
 /// Snippets seeded without touching SQLite.
 class _OneSnippet extends SnippetsNotifier {
   @override
-  Future<List<SnippetItem>> build() async => const [
-    SnippetItem(id: 's1', title: 'Mein Snippet', body: 'Body-Zeile'),
+  Future<List<SnippetItem>> build() async => [
+    SnippetItem(
+      createdAt: DateTime(2026),
+      id: 's1',
+      title: 'Mein Snippet',
+      body: 'Body-Zeile',
+    ),
   ];
 }
 
@@ -60,13 +65,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             Center(
-              child: WpHeroButton(
-                label: 'Weiter',
-                onPressed: () {},
-                gradient: const LinearGradient(
-                  colors: [Colors.teal, Colors.cyan],
-                ),
-              ),
+              child: WpHeroButton(label: 'Weiter', onPressed: () {}),
             ),
           ),
         );
@@ -90,7 +89,7 @@ void main() {
       }
     });
 
-    testWidgets('SettingRow names itself once and keeps its toggle separate', (
+    testWidgets('a toggle row and its switch each say their part once', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
@@ -102,25 +101,22 @@ void main() {
                 icon: LucideIcons.bell,
                 label: 'Benachrichtigungen',
                 subtitle: 'Beim Abschluss einer Aufnahme',
-                semanticToggledValue: true,
-                trailing: settingsToggle(value: true, onChanged: (_) {}),
+                switchNamesRow: true,
+                trailing: settingsToggle(
+                  label: 'Benachrichtigungen',
+                  value: true,
+                  onChanged: (_) {},
+                ),
               ),
             ),
           ),
         );
 
-        // The row node carries label and subtitle exactly once each. Before
-        // the fix this read "Benachrichtigungen, Benachrichtigungen, Beim
-        // Abschluss einer Aufnahme" and then repeated the subtitle a third
-        // time as the node's hint.
+        // The row reads only its explanation: name and state belong to the
+        // switch, so a screen reader does not meet them twice.
         expect(
           tester.getSemantics(find.byType(SettingRow)),
-          matchesSemantics(
-            label: 'Benachrichtigungen',
-            hint: 'Beim Abschluss einer Aufnahme',
-            hasToggledState: true,
-            isToggled: true,
-          ),
+          matchesSemantics(label: 'Beim Abschluss einer Aufnahme'),
         );
 
         // …and the Switch stays its own operable node rather than being
@@ -129,6 +125,7 @@ void main() {
         expect(
           tester.getSemantics(find.byType(Switch)),
           matchesSemantics(
+            label: 'Benachrichtigungen',
             hasToggledState: true,
             isToggled: true,
             hasEnabledState: true,
@@ -196,7 +193,7 @@ void main() {
         // …and the favourite star survives as its own operable node, which
         // is exactly what MergeSemantics would have cost here.
         final l10n = await L10n.delegate.load(const Locale('en'));
-        expect(find.bySemanticsLabel(l10n.notesFavorite), findsOneWidget);
+        expect(find.bySemanticsLabel(l10n.historyPinToTop), findsOneWidget);
       } finally {
         handle.dispose();
       }
@@ -221,7 +218,7 @@ void main() {
         final l10n = await L10n.delegate.load(const Locale('en'));
         expect(
           node.hint,
-          l10n.snippetsEditSnippet,
+          l10n.actionOpen,
           reason: 'the affordance moved from the label into the hint',
         );
       } finally {

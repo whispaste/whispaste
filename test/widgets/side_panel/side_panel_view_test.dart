@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/services/side_panel/side_panel_snapshot.dart';
 import 'package:whispaste/widgets/side_panel/side_panel_row_tile.dart';
 import 'package:whispaste/widgets/side_panel/side_panel_view.dart';
@@ -13,6 +12,13 @@ const _fullSnapshot = SidePanelSnapshot(
   transcriptions: [SidePanelRow(id: 't1', title: 'Hello world')],
   snippets: [SidePanelRow(id: 's1', title: 'My signature')],
   clipboardHistory: [SidePanelRow(id: 'c1', title: 'Copied text')],
+);
+
+/// The header title: the first AnimatedSwitcher in the panel. The tab bar
+/// labels carry the same words, so header lookups are scoped to it.
+Finder _headerText(String text) => find.descendant(
+  of: find.byType(AnimatedSwitcher).first,
+  matching: find.text(text),
 );
 
 void main() {
@@ -30,7 +36,7 @@ void main() {
 
       // Header spells out the active section; the other two sections'
       // rows are not rendered while their tab is inactive.
-      expect(find.text('Transcriptions'), findsOneWidget);
+      expect(_headerText('Recordings'), findsOneWidget);
       expect(find.text('Hello world'), findsOneWidget);
       expect(find.text('My signature'), findsNothing);
       expect(find.text('Copied text'), findsNothing);
@@ -49,16 +55,42 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.notebookText));
       await tester.pumpAndSettle();
-      expect(find.text('Snippets'), findsOneWidget);
+      expect(_headerText('Snippets'), findsOneWidget);
       expect(find.text('My signature'), findsOneWidget);
       expect(find.text('Hello world'), findsNothing);
       expect(find.text('Copied text'), findsNothing);
 
       await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
       await tester.pumpAndSettle();
-      expect(find.text('Clipboard History'), findsOneWidget);
+      expect(_headerText('Clipboard history'), findsOneWidget);
       expect(find.text('Copied text'), findsOneWidget);
       expect(find.text('My signature'), findsNothing);
+    });
+
+    testWidgets('a PIN-locked clipboard tab shows the lock hint and no text', (
+      tester,
+    ) async {
+      // Rows are passed on purpose: even if a row slipped through, a locked
+      // tab must render no copied text, tooltip or paste target.
+      await tester.pumpWidget(
+        makeTestable(
+          const WpSidePanelView(
+            snapshot: SidePanelSnapshot(
+              clipboardHistory: [SidePanelRow(id: 'c1', title: 'Copied text')],
+              clipboardLocked: true,
+            ),
+            onRowTap: _noopTap,
+            onClose: _noopClose,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
+      await tester.pumpAndSettle();
+      expect(_headerText('Clipboard history'), findsOneWidget);
+      expect(find.text('Copied text'), findsNothing);
+      expect(find.text('Locked by PIN'), findsOneWidget);
+      expect(find.text('Nothing copied yet'), findsNothing);
     });
 
     testWidgets('each tab renders its own empty state', (tester) async {
@@ -85,58 +117,6 @@ void main() {
       expect(find.text('Nothing copied yet'), findsOneWidget);
       expect(find.text('No snippets yet'), findsNothing);
     });
-
-    // The panel is a transparent canvas docked flush against a screen edge,
-    // so the painted surface is its silhouette: the hard edge must face the
-    // docked side and the close button the screen-facing side — in both
-    // reading directions, since the dock side is physical.
-    for (final edge in ['left', 'right']) {
-      for (final direction in TextDirection.values) {
-        testWidgets('docked $edge (${direction.name}): rounded corners and '
-            'the close button face the screen, not the $edge edge', (
-          tester,
-        ) async {
-          await tester.pumpWidget(
-            makeTestable(
-              Directionality(
-                textDirection: direction,
-                child: WpSidePanelView(
-                  snapshot: SidePanelSnapshot(edge: edge),
-                  onRowTap: _noopTap,
-                  onClose: _noopClose,
-                ),
-              ),
-            ),
-          );
-
-          final surface = tester.widget<Container>(
-            find
-                .descendant(
-                  of: find.byType(WpSidePanelView),
-                  matching: find.byType(Container),
-                )
-                .first,
-          );
-          final radius =
-              (surface.decoration! as BoxDecoration).borderRadius!
-                  as BorderRadius;
-          const round = Radius.circular(WpRadius.xl);
-          final dockedRight = edge == 'right';
-          expect(radius.topLeft, dockedRight ? round : Radius.zero);
-          expect(radius.bottomLeft, dockedRight ? round : Radius.zero);
-          expect(radius.topRight, dockedRight ? Radius.zero : round);
-          expect(radius.bottomRight, dockedRight ? Radius.zero : round);
-
-          final closeX = tester.getCenter(find.byIcon(LucideIcons.x)).dx;
-          final titleX = tester.getCenter(find.text('Transcriptions')).dx;
-          expect(
-            closeX < titleX,
-            dockedRight,
-            reason: 'the close button sits on the screen-facing side',
-          );
-        });
-      }
-    }
 
     testWidgets('close button reports onClose', (tester) async {
       var closed = false;
@@ -189,7 +169,7 @@ void main() {
           .widgetList<InkWell>(
             find.descendant(
               of: find.byWidgetPredicate(
-                (w) => w.runtimeType.toString() == '_SidePanelTab',
+                (w) => w.runtimeType.toString() == '_SegmentButton',
               ),
               matching: find.byType(InkWell),
             ),
@@ -198,11 +178,9 @@ void main() {
       expect(tabInkWells, isNotEmpty);
       for (final tab in tabInkWells) {
         expect(
-          tab.focusNode,
-          isNotNull,
-          reason:
-              'each section tab must own a focus node to be reachable '
-              'by Tab',
+          tab.canRequestFocus,
+          isTrue,
+          reason: 'each section tab must be reachable by Tab',
         );
       }
     });
@@ -399,94 +377,6 @@ void main() {
       expect(find.text('Image'), findsOneWidget);
     });
 
-    testWidgets('row gap is compact (issue 08)', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpSidePanelView(
-            snapshot: SidePanelSnapshot(
-              clipboardHistory: [
-                SidePanelRow(id: 'c1', title: 'First'),
-                SidePanelRow(id: 'c2', title: 'Second'),
-              ],
-            ),
-            onRowTap: _noopTap,
-            onClose: _noopClose,
-          ),
-        ),
-      );
-      await tester.tap(find.byIcon(LucideIcons.clipboardList));
-      await tester.pumpAndSettle();
-
-      final tiles = find.byType(WpSidePanelRowTile);
-      expect(tiles, findsNWidgets(2));
-      final firstRect = tester.getRect(tiles.at(0));
-      final secondRect = tester.getRect(tiles.at(1));
-      final gap = secondRect.top - firstRect.bottom;
-
-      // Noticeably tighter than the old WpSpacing.xxs (4px) wrapper gap.
-      expect(gap, lessThan(WpSpacing.xxs));
-    });
-
-    testWidgets(
-      'row tile height matches a standalone render (tap target unchanged)',
-      (tester) async {
-        const row = SidePanelRow(id: 'c1', title: 'First', subtitle: '09:00');
-
-        await tester.pumpWidget(
-          makeTestable(
-            const WpSidePanelView(
-              snapshot: SidePanelSnapshot(clipboardHistory: [row]),
-              onRowTap: _noopTap,
-              onClose: _noopClose,
-            ),
-          ),
-        );
-        await tester.tap(find.byIcon(LucideIcons.clipboardList));
-        await tester.pumpAndSettle();
-        final panelHeight = tester
-            .getSize(find.byType(WpSidePanelRowTile))
-            .height;
-
-        await tester.pumpWidget(
-          makeTestable(
-            WpSidePanelRowTile(
-              row: row,
-              leadingIcon: LucideIcons.clipboardList,
-              onTap: () {},
-            ),
-          ),
-        );
-        final standaloneHeight = tester
-            .getSize(find.byType(WpSidePanelRowTile))
-            .height;
-
-        expect(panelHeight, standaloneHeight);
-      },
-    );
-
-    testWidgets('search field is visible below the tab bar in every tab', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpSidePanelView(
-            snapshot: _fullSnapshot,
-            onRowTap: _noopTap,
-            onClose: _noopClose,
-          ),
-        ),
-      );
-      expect(find.byType(TextField), findsOneWidget);
-
-      await tester.tap(find.byIcon(LucideIcons.notebookText));
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsOneWidget);
-
-      await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsOneWidget);
-    });
-
     testWidgets('typing filters the list live, without pressing enter', (
       tester,
     ) async {
@@ -585,10 +475,16 @@ void main() {
       await tester.enterText(find.byType(TextField), 'nonexistent');
       await tester.pump();
 
-      expect(find.text('No matches'), findsOneWidget);
-      expect(find.text('Try a different search term.'), findsOneWidget);
+      final clear = find.byKey(const ValueKey('side-panel-search-clear'));
+      expect(clear, findsOneWidget);
       // Distinct from the genuinely-empty-section state.
       expect(find.text('No recordings yet'), findsNothing);
+
+      // The no-matches state's way back empties the field and the filter.
+      await tester.tap(clear);
+      await tester.pump();
+      expect(find.text('Hello world'), findsOneWidget);
+      expect(clear, findsNothing);
     });
 
     testWidgets('clearing the query restores the full list', (tester) async {

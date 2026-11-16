@@ -1531,6 +1531,13 @@
   font-size: var(--wp-font-size-card-title);
   max-width: 44rem;
 }
+.page-hero__note {
+  margin-top: var(--wp-space-4);
+  max-width: 44rem;
+  font-size: var(--wp-font-size-md);
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
 .page-hero__actions:not(:empty) {
   margin-top: clamp(1.75rem, var(--wp-space-6) + 1vw, var(--wp-space-10));
   display: flex;

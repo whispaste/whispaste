@@ -9,9 +9,15 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/entry_version_rules.dart';
+import 'package:whispaste/core/logging/app_logger.dart';
 import 'package:whispaste/features/history/data/history_title.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_retroactive_service.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_providers.dart';
+import 'package:whispaste/services/app_identity/app_identity_service.dart';
+
+final _log = AppLogger('HistoryDetail');
 
 // ---------------------------------------------------------------------------
 // State
@@ -25,6 +31,7 @@ class HistoryDetailState {
     required this.notes,
     this.viewingEditedVersion = false,
     this.applyingPreset = false,
+    this.reprocessInstruction,
   });
 
   final HistoryEntry entry;
@@ -40,6 +47,11 @@ class HistoryDetailState {
   /// Whether a retroactive preset application is currently in flight — lets
   /// the UI show a spinner and disable the action while it runs.
   final bool applyingPreset;
+
+  /// The stored order of the shown edited version when it is a reprocessing
+  /// result (#680), see [reprocessInstruction] in `smart_mode_presets.dart`;
+  /// null when there is none or it is not known.
+  final String? reprocessInstruction;
 
   /// The text currently selected for display per [viewingEditedVersion] —
   /// falls back to the raw [content][HistoryEntry.content] whenever no
@@ -59,12 +71,16 @@ class HistoryDetailState {
     List<EntryNote>? notes,
     bool? viewingEditedVersion,
     bool? applyingPreset,
+    String? Function()? reprocessInstruction,
   }) => HistoryDetailState(
     entry: entry ?? this.entry,
     tags: tags ?? this.tags,
     notes: notes ?? this.notes,
     viewingEditedVersion: viewingEditedVersion ?? this.viewingEditedVersion,
     applyingPreset: applyingPreset ?? this.applyingPreset,
+    reprocessInstruction: reprocessInstruction == null
+        ? this.reprocessInstruction
+        : reprocessInstruction(),
   );
 }
 
@@ -78,6 +94,14 @@ sealed class HistoryPresetApplicationResult {
 final class HistoryPresetApplicationSuccess
     extends HistoryPresetApplicationResult {
   const HistoryPresetApplicationSuccess();
+}
+
+/// Another Smart-Mode write (an undo, a restore or a preset) holds the entry's
+/// lock. Not a failure: nothing was applied and the user may simply retry
+/// (DEV-175).
+final class HistoryPresetApplicationBusy
+    extends HistoryPresetApplicationResult {
+  const HistoryPresetApplicationBusy();
 }
 
 final class HistoryPresetApplicationFailure
@@ -105,20 +129,31 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     }
     final tags = await _db.tagsForEntry(_entryId);
     final notes = await _db.notesForEntry(_entryId);
-    return HistoryDetailState(entry: entry, tags: tags, notes: notes);
+    return HistoryDetailState(
+      entry: entry,
+      tags: tags,
+      notes: notes,
+      reprocessInstruction: await _instructionOf(entry),
+    );
   }
 
-  /// Reload all data from DB (e.g. after external mutation).
-  Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => build());
+  /// The order stored with [entry]'s shown edited version (#680).
+  Future<String?> _instructionOf(HistoryEntry entry) async {
+    final shown = entry.smartModeEditedContent;
+    if (shown == null) return null;
+    final rows = await _db.reprocessedVersionsFor(entry.id);
+    return rows.where((v) => v.content == shown).firstOrNull?.instruction;
   }
 
   // ── Transcript / content ──────────────────────────────────────────────
 
   Future<void> updateContent(String newContent) async {
     final current = state.asData?.value;
-    if (current == null) return;
+    // Silently returning would let a caller show "saved" for text that never
+    // reached the database; the caller reports the failure instead.
+    if (current == null) {
+      throw StateError('Entry $_entryId is not loaded, content not saved');
+    }
     final derivedTitle = deriveHistoryTitle(newContent);
     await _db.updateEntry(
       _entryId,
@@ -138,9 +173,26 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
             : Value(derivedTitle),
       ),
     );
+    await recordTypedTranscriptVersion(_db, _entryId, newContent);
     state = AsyncValue.data(
       current.copyWith(entry: await _db.getEntry(_entryId) ?? current.entry),
     );
+  }
+
+  /// Brings an older transcript version back (#635). The replaced text stays
+  /// as a version, so this can be undone the same way. Returns false when the
+  /// version is gone or cannot be read.
+  Future<bool> restoreVersion(String versionId) async {
+    final current = state.asData?.value;
+    if (current == null) return false;
+    final restored = await _db.restoreEntryVersion(
+      versionId,
+      deriveTitle: deriveHistoryTitle,
+    );
+    final entry = await _db.getEntry(_entryId);
+    final latest = state.asData?.value ?? current;
+    state = AsyncValue.data(latest.copyWith(entry: entry ?? latest.entry));
+    return restored;
   }
 
   /// Switches the detail panel's transcript view between raw and edited
@@ -153,12 +205,30 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     );
   }
 
-  /// Applies [preset] to this entry's raw content and overwrites its
-  /// "current edited version" on success (ticket 05). The raw content is
-  /// never touched. On failure the existing edited version (if any) is left
+  /// Applies [preset] to this entry's raw content and stores the result as a
+  /// new reprocessed version with its order, which becomes the shown edited
+  /// version (ticket 05, #680); [undoReprocess] takes it back. The raw
+  /// content is never touched. On failure the existing edited version (if any) is left
   /// exactly as it was — no silent data loss — and the returned result
   /// tells the caller why, for a tailored error message.
   Future<HistoryPresetApplicationResult> applyPreset(
+    SmartModePreset preset, {
+    SmartModeTargetLanguage? targetLanguage,
+  }) async {
+    final lock = ref.read(smartModeBusyProvider.notifier);
+    // Shared with undo/restore (DEV-155): neither may start while the other
+    // writes to this entry.
+    if (!lock.tryAcquire(_entryId)) {
+      return const HistoryPresetApplicationBusy();
+    }
+    try {
+      return await _applyPresetLocked(preset, targetLanguage: targetLanguage);
+    } finally {
+      lock.release(_entryId);
+    }
+  }
+
+  Future<HistoryPresetApplicationResult> _applyPresetLocked(
     SmartModePreset preset, {
     SmartModeTargetLanguage? targetLanguage,
   }) async {
@@ -170,31 +240,115 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     }
 
     state = AsyncValue.data(current.copyWith(applyingPreset: true));
-    final result = await ref
-        .read(smartModeRetroactiveServiceProvider)
-        .apply(
-          rawText: current.entry.content,
-          preset: preset,
-          targetLanguage: targetLanguage,
-        );
+    final SmartModeRetroactiveResult result;
+    try {
+      result = await ref
+          .read(smartModeRetroactiveServiceProvider)
+          .apply(
+            rawText: current.entry.content,
+            preset: preset,
+            targetLanguage: targetLanguage,
+            languageCode: current.entry.language,
+            detectedLanguage: current.entry.languageHint,
+          );
+    } on Object catch (error) {
+      // Fail closed: the stored versions stay as they were, and the busy flag
+      // is cleared on every path (DEV-141). Only the class is logged.
+      _log.warning('Retroactive Smart Mode failed (${error.runtimeType})');
+      _clearApplyingPreset();
+      return const HistoryPresetApplicationFailure(
+        SmartModeRetroactiveFailureReason.engineError,
+      );
+    }
 
     switch (result) {
       case SmartModeRetroactiveSuccess(:final editedContent):
-        await _db.updateEntry(
+        final recorded = await _db.recordReprocessResult(
           _entryId,
-          HistoryEntriesCompanion(smartModeEditedContent: Value(editedContent)),
+          result: editedContent,
+          instruction: reprocessInstruction(
+            preset,
+            targetLanguage: targetLanguage,
+          ),
         );
+        if (!recorded) {
+          _clearApplyingPreset();
+          return const HistoryPresetApplicationFailure(
+            SmartModeRetroactiveFailureReason.engineError,
+          );
+        }
         final entry = await _db.getEntry(_entryId);
+        final latest = state.asData?.value ?? current;
+        final shown = entry ?? latest.entry;
+        final instruction = await _instructionOf(shown);
         state = AsyncValue.data(
-          (current.copyWith(applyingPreset: false)).copyWith(
-            entry: entry ?? current.entry,
+          latest.copyWith(
+            applyingPreset: false,
+            entry: shown,
             viewingEditedVersion: true,
+            reprocessInstruction: () => instruction,
           ),
         );
         return const HistoryPresetApplicationSuccess();
       case SmartModeRetroactiveFailure(:final reason):
-        state = AsyncValue.data(current.copyWith(applyingPreset: false));
+        _clearApplyingPreset();
         return HistoryPresetApplicationFailure(reason);
+    }
+  }
+
+  void _clearApplyingPreset() {
+    final latest = state.asData?.value;
+    if (latest == null) return;
+    state = AsyncValue.data(latest.copyWith(applyingPreset: false));
+  }
+
+  /// Takes the shown reprocessing result back (#680): the result before it is
+  /// shown again, or the raw transcript after the first one. Returns false
+  /// when the shown edited version is not a stored result.
+  Future<bool> undoReprocess() async {
+    final changed = await _writeSmartModeUndo(
+      () => _db.undoReprocessResult(_entryId),
+    );
+    final latest = state.asData?.value;
+    if (changed && latest != null) {
+      final instruction = await _instructionOf(latest.entry);
+      final now = state.asData?.value ?? latest;
+      state = AsyncValue.data(
+        now.copyWith(
+          viewingEditedVersion: now.entry.smartModeEditedContent != null,
+          reprocessInstruction: () => instruction,
+        ),
+      );
+    }
+    return changed;
+  }
+
+  /// Smart-Mode undo (Block C): the raw input becomes the content again and
+  /// the result is kept for [restoreSmartMode]. Returns false when no undo is
+  /// in effect (for example after a manual edit cleared it).
+  Future<bool> undoSmartMode() =>
+      _writeSmartModeUndo(() => _db.undoSmartMode(_entryId));
+
+  /// Reverses [undoSmartMode] and brings the stored result back.
+  Future<bool> restoreSmartMode() =>
+      _writeSmartModeUndo(() => _db.restoreSmartModeOutput(_entryId));
+
+  /// Runs one undo/restore write. Refused while a preset is being applied
+  /// (DEV-155). The state is re-read after the await, so a snapshot taken
+  /// before the write never overwrites newer state.
+  Future<bool> _writeSmartModeUndo(Future<bool> Function() write) async {
+    final current = state.asData?.value;
+    if (current == null || current.applyingPreset) return false;
+    final lock = ref.read(smartModeBusyProvider.notifier);
+    if (!lock.tryAcquire(_entryId)) return false;
+    try {
+      final changed = await write();
+      final entry = await _db.getEntry(_entryId);
+      final latest = state.asData?.value ?? current;
+      state = AsyncValue.data(latest.copyWith(entry: entry ?? latest.entry));
+      return changed;
+    } finally {
+      lock.release(_entryId);
     }
   }
 
@@ -304,12 +458,15 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 
   Future<void> softDelete() async {
     await _db.softDeleteEntry(_entryId);
+    await ref.read(pendingAudioQueueProvider).discard(_entryId);
   }
 
   Future<void> restore() => _applyEntryAction(() => _db.restoreEntry(_entryId));
 
   Future<void> permanentDelete() async {
     await _db.permanentDeleteEntry(_entryId);
+    await pruneAppIdentityCache(_db, ref.read(appIdentityServiceProvider));
+    await ref.read(pendingAudioQueueProvider).discard(_entryId);
   }
 
   Future<HistoryEntry?> duplicate() async {
@@ -321,9 +478,59 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 // Provider
 // ---------------------------------------------------------------------------
 
+/// Entry IDs with a Smart-Mode write in flight (a preset apply or an
+/// undo/restore). Each entry takes the lock at most once at a time, whichever
+/// path (detail panel or toast) starts the write (DEV-155).
+final smartModeBusyProvider =
+    NotifierProvider<SmartModeBusyNotifier, Set<String>>(
+      SmartModeBusyNotifier.new,
+    );
+
+class SmartModeBusyNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  /// Returns false when [entryId] is already locked.
+  bool tryAcquire(String entryId) {
+    if (state.contains(entryId)) return false;
+    state = {...state, entryId};
+    return true;
+  }
+
+  void release(String entryId) {
+    state = {...state}..remove(entryId);
+  }
+}
+
 /// Family provider keyed by entry ID. Auto-disposes when the detail panel
 /// is closed (no listeners).
 final historyDetailProvider = AsyncNotifierProvider.autoDispose
     .family<HistoryDetailNotifier, HistoryDetailState, String>(
       HistoryDetailNotifier.new,
     );
+
+final _versionLog = AppLogger('TranscriptVersions');
+
+/// Keeps a snapshot of [text] as typed. A failure is logged and never fails
+/// the save it follows: the text itself is already written.
+///
+/// [session] is the step in the editing session (see [EditSessionStep]);
+/// null falls back to the time window. Returns the outcome, null on failure.
+Future<EntryVersionOutcome?> recordTypedTranscriptVersion(
+  HistoryDatabase db,
+  String entryId,
+  String text, {
+  EditSessionStep? session,
+}) async {
+  try {
+    return await db.recordEntryVersion(
+      entryId,
+      text,
+      EntryVersionSource.typed,
+      session: session,
+    );
+  } catch (e, st) {
+    _versionLog.warning('Transcript version could not be kept', e, st);
+    return null;
+  }
+}

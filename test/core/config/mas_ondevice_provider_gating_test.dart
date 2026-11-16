@@ -7,8 +7,7 @@ import 'package:whispaste/core/config/settings_sections.dart';
 /// Anchors that `SttProviderType.onDevice` is not gated or excluded in Mac
 /// App Store (MAS) builds.
 ///
-/// Context: after the FFI-engine migration (see
-/// `internal-notes`), the onDevice provider no longer shells
+/// Context: after the FFI-engine migration, the onDevice provider no longer shells
 /// out to a subprocess/HTTP server, so nothing about it is
 /// sandbox-unclean anymore. `kIsMasBuild` (`lib/core/config/build_config.dart`)
 /// legitimately gates two unrelated concerns — simulated-keystroke
@@ -52,6 +51,7 @@ void main() {
       const allowedFiles = <String>{
         'lib/core/config/build_config.dart',
         'lib/features/settings/sections/feedback_section.dart',
+        'lib/features/settings/search/settings_search_entry.dart',
         'lib/features/onboarding/onboarding_overlay.dart',
         'lib/services/paste/paste_policy.dart',
         // Decides whether a restart is a meaningful permission recovery at
@@ -60,11 +60,19 @@ void main() {
         'lib/services/paste/paste_capability_notifier.dart',
         'lib/services/desktop_paste/desktop_paste_controller.dart',
         'lib/services/deploy_channel_service.dart',
-        'lib/widgets/status_bar.dart',
+        'lib/widgets/recording_dock.dart',
         // StoreKit tips exist only in the MAS build. Support purchases
         // only — never STT provider selection.
         'lib/services/support/support_store_bridge_factory.dart',
         'lib/services/support/mac_storekit_support_store_bridge.dart',
+        // A failed store-review link never falls back to GitHub in the MAS
+        // build (review guideline) — never STT provider selection.
+        'lib/features/settings/sections/review_support_section.dart',
+        // Sandbox hint for the correction-learning field read and the system
+        // review dialog surface: MAS review/sandbox behaviour only — never
+        // STT provider selection.
+        'lib/services/replacements/target_field_learning.dart',
+        'lib/services/review_prompt_service.dart',
       };
 
       final flagPattern = RegExp(r'\b(kIsMasBuild|MAS_BUILD|WHISPASTE_MAS)\b');

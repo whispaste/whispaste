@@ -13,16 +13,18 @@
 /// step is where the feature is actually switched on. It renders the probe
 /// verdict as a status card and a real, reversible choice: with Auto-Paste
 /// off, an enable CTA (persists `clipboard_and_paste`); with it on, the
-/// ghost opt-out back to clipboard-only. The remaining edge case is
+/// opt-out button back to clipboard-only. The remaining edge case is
 /// UIPI/UAC-protected windows (e.g. Auto-Paste running un-elevated while
 /// the focused target is an elevated process) — there the probe surfaces as
 /// `permissionMissing` and the step shows a non-blocking warn card plus the
 /// explicit Skip path (analogue to the macOS Skip).
 ///
-/// On Linux: never rendered — the page is omitted from the step sequence
-/// entirely (no paste controller is wired there), so Linux runs a six-step
-/// flow rather than a seven-step one with a blank page in it. See
-/// `onboardingIncludesAutoPasteStep`.
+/// On Linux: no permission prompt, but the same real choice as on Windows
+/// (XP-5-05). Without write access to `/dev/uinput` the status card says so
+/// and offers the one-time setup command to copy; switching Auto-Paste on
+/// stays possible, the transcript then lands on the clipboard until the
+/// access is set up. Sandboxed formats keep their package-specific hint, see
+/// [LinuxPasteHint]. See `onboardingIncludesAutoPasteStep`.
 ///
 /// The Skip path persists `afterTranscription = clipboard` (the codebase's
 /// representation of "Auto-Paste off, copy still happens"); page navigation
@@ -32,6 +34,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -40,17 +43,33 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../core/config/settings_enums.dart';
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/onboarding/onboarding_surface.dart';
 import '../../../core/theme/colors.dart';
+import '../../settings/sections/linux_input_setup.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/desktop_paste/desktop_paste_controller.dart';
+import '../../../services/desktop_paste/linux_desktop_paste_controller.dart'
+    show linuxUinputCopyCommand;
+import '../../../services/desktop_paste/linux_package_format.dart';
+import '../../../services/desktop_paste/linux_uinput_access.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
+import '../../../services/paste/paste_policy.dart';
 import '../../../services/paste/paster.dart';
+import '../../../services/permissions/mic_permission_notifier.dart';
+import '../../../services/permissions/permissions_overview_provider.dart';
+import '../../../services/permissions/settings_window_placement.dart';
 import '../../../services/permissions/stale_entry_removal_guide.dart';
+import '../../../services/permissions/tcc_entry_reset_confirm.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_command_box.dart';
+import '../../../widgets/wp_permission_row.dart';
+import '../../../widgets/wp_page_notice.dart';
+import '../../../widgets/wp_copy_feedback.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// Edge of the square status badge, from DESIGN.md's Quiet Status Rule
@@ -94,6 +113,18 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// fresh [State] instance.
   bool _restartHintEmitted = false;
 
+  /// The user asked for the paste permission in this step: macOS "Allow"
+  /// (also via repair) or the copied Linux setup command. Only then does a
+  /// change to ready switch Auto-Paste on (see
+  /// [shouldEnableAutoPasteAfterGrant]).
+  bool _grantRequestedHere = false;
+
+  /// Live check of the permission cards (Onboarding v6, S1). While the step is
+  /// on screen both permissions are re-read every second, so a switch flipped
+  /// in System Settings shows its checkmark within two seconds, without a click
+  /// and without the user returning to the window first.
+  Timer? _liveTimer;
+
   @override
   void initState() {
     super.initState();
@@ -104,6 +135,10 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       if (!mounted) return;
       _cachedNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
       _cachedNotifier!.check();
+      _liveTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _liveCheck(),
+      );
     });
   }
 
@@ -112,23 +147,72 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
     // Polling lives in the shared notifier; stop it explicitly when the user
     // leaves the step so we don't keep a timer alive after navigation.
     // Use the cached reference because `ref` is unsafe in dispose().
+    _liveTimer?.cancel();
     _cachedNotifier?.stopPolling();
     super.dispose();
+  }
+
+  /// One live tick: re-reads the microphone (every platform but Linux, which
+  /// has no microphone card) and, where Auto-Paste is a permission, the
+  /// capability until it reads ready. A failed read keeps the last shown
+  /// status; the next tick tries again.
+  void _liveCheck() {
+    if (!mounted) return;
+    final platform = defaultTargetPlatform;
+    if (platform != TargetPlatform.linux) {
+      unawaited(
+        ref
+            .read(micPermissionNotifierProvider.notifier)
+            .check()
+            .catchError((Object _) => false),
+      );
+    }
+    // Linux only after the setup command was copied: from then on a working
+    // /dev/uinput shows up without a click, the same as a macOS grant.
+    if (platform != TargetPlatform.windows &&
+        (platform != TargetPlatform.linux || _grantRequestedHere) &&
+        ref.read(pasteCapabilityNotifierProvider).capability?.status !=
+            PasteCapabilityStatus.ready) {
+      unawaited(
+        ref
+            .read(pasteCapabilityNotifierProvider.notifier)
+            .check()
+            .catchError((Object _) {}),
+      );
+    }
   }
 
   Future<void> _onGrantPressed() async {
     if (_grantInFlight) return;
     _emitBreadcrumb('grant.requested');
+    _grantRequestedHere = true;
     setState(() => _grantInFlight = true);
     _emitBreadcrumb('grant.busy_state_armed');
     try {
       final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
       await notifier.requestGrant();
+      // The deep-link has just been asked for; the window moves beside it
+      // once System Settings is up (no-op off macOS).
+      unawaited(placeBesideSystemSettings());
     } finally {
       if (mounted) {
         setState(() => _grantInFlight = false);
       }
     }
+  }
+
+  /// Microphone row action on the permission page. The notifier decides between
+  /// the one-time OS dialog and the Settings deep-link, so the step only hands
+  /// over the tap.
+  void _onMicActionPressed() {
+    final mic = ref.read(micPermissionNotifierProvider.notifier);
+    // A hung status read is retried as a read; it must not spend the dialog.
+    if (ref.read(micPermissionNotifierProvider).status ==
+        MicPermissionStatus.unresponsive) {
+      unawaited(mic.check());
+      return;
+    }
+    unawaited(mic.request());
   }
 
   /// Runs the macOS TCC self-heal and — on success — chains into a fresh
@@ -148,14 +232,22 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       );
       return;
     }
+    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    // No evidence of a stale entry: a reset would wipe a grant that is not
+    // stale, so the only action is the Settings deep-link.
+    if (!notifier.staleEntryResetCandidate) {
+      await notifier.openAccessibilitySettings();
+      return;
+    }
     setState(() {
       _repairInFlight = true;
       _lastRepairResult = null;
     });
-    final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    TccRepairResult result;
+    TccRepairResult? result;
     try {
-      result = await notifier.repair();
+      result = await notifier.resetStaleEntry(
+        confirmReset: () => confirmTccEntryReset(l10n: L10n.of(context)),
+      );
     } on Exception catch (e, st) {
       _log.warning('Repair call threw', e, st);
       result = const TccRepairResult(
@@ -165,6 +257,11 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       );
     }
     if (!mounted) return;
+    // Declined in the confirmation dialog: nothing was reset.
+    if (result == null) {
+      setState(() => _repairInFlight = false);
+      return;
+    }
     setState(() {
       _lastRepairResult = result;
       _repairInFlight = false;
@@ -199,6 +296,65 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         );
   }
 
+  /// A grant asked for in this step took effect: Auto-Paste goes on, the way
+  /// the Windows button and the .deb grant already do (maintainer 2026-10-31,
+  /// 1a). Existing values elsewhere are never migrated.
+  void _onCapabilityStatusChanged(
+    PasteCapabilityStatus? previous,
+    PasteCapabilityStatus? next,
+  ) {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    // Only the first run sets the choice. A revision run or a review reopened
+    // from Settings belongs to an existing install (maintainer 2026-11-02).
+    final freshOnboarding =
+        !settings.onboarding.onboardingCompleted &&
+        !ref.read(onboardingManuallyOpenProvider) &&
+        !ref.read(onboardingRevisionRunProvider);
+    if (!shouldEnableAutoPasteAfterGrant(
+      grantRequestedHere: _grantRequestedHere,
+      previous: previous,
+      next: next,
+      current: settings.afterTranscriptionAction,
+      freshOnboarding: freshOnboarding,
+      // The first probe of the step (no previous state) on macOS finds a grant
+      // that was there before this step. Windows and Linux have no such
+      // grant; there the explicit switch is the only way on.
+      alreadyGrantedAtStart:
+          defaultTargetPlatform == TargetPlatform.macOS && previous == null,
+    )) {
+      return;
+    }
+    _emitBreadcrumb('grant.took_effect');
+    unawaited(_onEnableAutoPastePressed());
+  }
+
+  /// Linux installs without the password grant (AppImage, Flatpak, tarball):
+  /// the copied command is the user's request for the access.
+  void _onSetupCommandCopied() {
+    _grantRequestedHere = true;
+  }
+
+  /// .deb only: grants /dev/uinput through the password prompt (R-02),
+  /// then re-checks and switches Auto-Paste on, which is what the user just
+  /// agreed to.
+  Future<void> _onGrantLinuxPressed(bool autoPasteEnabled) async {
+    final result = await ref.read(linuxUinputAccessProvider).enable();
+    if (!mounted) return;
+    switch (result) {
+      case UinputAccessChange.done:
+        await ref.read(pasteCapabilityNotifierProvider.notifier).check();
+        if (!autoPasteEnabled) await _onEnableAutoPastePressed();
+      case UinputAccessChange.failed || UinputAccessChange.unavailable:
+        showWpAppError(
+          context,
+          id: 'linux-uinput-grant-failed',
+          message: L10n.of(context).linuxUinputGrantFailed,
+        );
+      case UinputAccessChange.cancelled:
+        break;
+    }
+  }
+
   Future<void> _onSkipPressed() async {
     // Capture the grant-handoff bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
@@ -209,6 +365,9 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       'skipped',
       data: {'sent_to_os_grant_flow': sentToOsGrantFlow},
     );
+    // A later grant after the skip must not turn Auto-Paste on: the user
+    // declined here, so the step stays on clipboard.
+    _grantRequestedHere = false;
     // Skip explicitly disables Auto-Paste rather than silently leaving the
     // user in a half-state. "clipboard" is the codebase's encoding for
     // "transcript goes to clipboard, no automated paste". Navigation stays
@@ -247,14 +406,18 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
 
   @override
   Widget build(BuildContext context) {
-    // Branch on `defaultTargetPlatform` (not `Platform.isMacOS`) so widget
+    ref.listen<PasteCapabilityStatus?>(
+      pasteCapabilityNotifierProvider.select((s) => s.capability?.status),
+      _onCapabilityStatusChanged,
+    );
+    // Branch on `defaultTargetPlatform` (not `dart:io` Platform) so widget
     // tests can simulate the Windows surface from a macOS / Linux test host
     // via `debugDefaultTargetPlatformOverride`. The macOS-only inner call
     // (`PasteCapabilityNotifier.requestGrant`) still guards with
-    // `Platform.isMacOS`, which is fine: those code paths only fire from
+    // `defaultTargetPlatform == TargetPlatform.macOS`, which is fine: those code paths only fire from
     // user-driven taps the Windows branch never exposes.
     final isWindows = defaultTargetPlatform == TargetPlatform.windows;
-    if (isWindows) {
+    if (isWindows || defaultTargetPlatform == TargetPlatform.linux) {
       // Whether Auto-Paste is actually ON — i.e. the after-transcription
       // action injects the transcript at the cursor. The factory default is
       // clipboard-only, so a first run lands here with Auto-Paste *off*;
@@ -267,9 +430,23 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         AfterTranscriptionAction.clipboard ||
         AfterTranscriptionAction.nothing => false,
       };
+      if (!isWindows) {
+        return _LinuxBody(
+          state: ref.watch(pasteCapabilityNotifierProvider),
+          format: linuxPasteFormatForOnboarding(),
+          autoPasteEnabled: autoPasteEnabled,
+          canGrant: ref.watch(linuxUinputAccessProvider).canManage,
+          onGrant: () => _onGrantLinuxPressed(autoPasteEnabled),
+          onEnable: _onEnableAutoPastePressed,
+          onSetupCommandCopied: _onSetupCommandCopied,
+          onSkip: _onSkipPressed,
+        );
+      }
       return _WindowsBody(
         state: ref.watch(pasteCapabilityNotifierProvider),
         autoPasteEnabled: autoPasteEnabled,
+        permissions: ref.watch(permissionsOverviewProvider),
+        onMicAction: _onMicActionPressed,
         onEnable: _onEnableAutoPastePressed,
         onSkip: _onSkipPressed,
       );
@@ -304,7 +481,9 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
       lastRepairResult: _lastRepairResult,
       showTccMismatchBanner: showTccMismatchBanner,
       restartCanRecover: restartCanRecover,
+      permissions: ref.watch(permissionsOverviewProvider),
       onGrant: _onGrantPressed,
+      onMicAction: _onMicActionPressed,
       onRepair: _onRepairPressed,
       onSkip: _onSkipPressed,
     );
@@ -315,6 +494,50 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
 // macOS body — full Grant/Repair/Skip flow.
 // =============================================================================
 
+/// One permission card of the access page (Onboarding v6, S1): icon, name, one
+/// purpose sentence and its own "Erlauben" button. The status (granted
+/// checkmark) comes from [permissionsOverviewProvider], which the step keeps
+/// fresh with a one-second live check while it is on screen.
+Widget _permissionCard({
+  required PermissionOverviewEntry entry,
+  required L10n l10n,
+  required bool grantInFlight,
+  required VoidCallback onMicAction,
+  Future<void> Function()? onGrant,
+}) {
+  final isMic = entry.id == PermissionOverviewId.microphone;
+  return Semantics(
+    container: true,
+    identifier: 'onboarding-access-card-${isMic ? 'microphone' : 'auto-paste'}',
+    child: WpPermissionRow(
+      actionTestId:
+          'onboarding-autopaste-permission-${entry.id.name.toLowerCase()}-action',
+      id: isMic ? 'microphone' : 'auto-paste',
+      icon: isMic ? LucideIcons.mic : LucideIcons.clipboardPaste,
+      title: isMic ? l10n.permissionRowMicTitle : l10n.permissionRowPasteTitle,
+      purpose: switch ((isMic, entry.status)) {
+        (true, PermissionOverviewStatus.unresponsive) =>
+          l10n.permissionRowMicNoResponse,
+        (true, _) => l10n.permissionRowMicPurpose,
+        _ => l10n.permissionRowPastePurpose,
+      },
+      status: entry.status,
+      optional: entry.optional,
+      actionLabel: switch (entry.status) {
+        PermissionOverviewStatus.granted => null,
+        PermissionOverviewStatus.unresponsive => l10n.actionRetry,
+        _ => l10n.permissionRowAllow,
+      },
+      actionLoading: !isMic && grantInFlight,
+      onAction: isMic
+          ? onMicAction
+          : (grantInFlight || onGrant == null
+                ? null
+                : () => unawaited(onGrant())),
+    ),
+  );
+}
+
 class _MacOsBody extends StatelessWidget {
   const _MacOsBody({
     required this.state,
@@ -324,7 +547,9 @@ class _MacOsBody extends StatelessWidget {
     required this.lastRepairResult,
     required this.showTccMismatchBanner,
     required this.restartCanRecover,
+    required this.permissions,
     required this.onGrant,
+    required this.onMicAction,
     required this.onRepair,
     required this.onSkip,
   });
@@ -349,9 +574,33 @@ class _MacOsBody extends StatelessWidget {
   /// hint, since a relaunch would only re-read the same stale TCC entry.
   final bool restartCanRecover;
 
+  /// Every permission this page is about, microphone and Auto-Paste alike, so
+  /// the user sees the whole picture in one place (see [_permissionRows]).
+  final List<PermissionOverviewEntry> permissions;
+
   final Future<void> Function() onGrant;
+  final VoidCallback onMicAction;
   final Future<void> Function() onRepair;
   final Future<void> Function() onSkip;
+
+  /// One row per permission, above the phase body. Auto-Paste's row carries
+  /// the grant action that used to sit under the status card; the card keeps
+  /// the explanation and the way out.
+  List<Widget> _permissionRows(L10n l10n) {
+    return [
+      for (final entry in permissions) ...[
+        _permissionCard(
+          entry: entry,
+          l10n: l10n,
+          grantInFlight: grantInFlight,
+          onMicAction: onMicAction,
+          onGrant: onGrant,
+        ),
+        const SizedBox(height: WpSpacing.xs),
+      ],
+      const SizedBox(height: WpSpacing.sm),
+    ];
+  }
 
   /// Phase the UI is currently rendering. Derived from `state.capability`
   /// and `state.pollingPhase` so the build is a pure function of state.
@@ -362,8 +611,8 @@ class _MacOsBody extends StatelessWidget {
       return _AutoPastePhase.granted;
     }
     if (cap.status == PasteCapabilityStatus.unsupported) {
-      // Defensive — the parent step list excludes this body on Linux so the
-      // user never sees it; render the intro layout as a fallback.
+      // Defensive: Linux returns before this point (see build), so the
+      // capability status only reaches here on macOS and Windows.
       return _AutoPastePhase.intro;
     }
     if (showTccMismatchBanner) return _AutoPastePhase.troubleshoot;
@@ -376,18 +625,17 @@ class _MacOsBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     // Ticket 15: `okColor` where `successColor` used to be. A granted
     // permission is a state at rest — it is still granted tomorrow — and the
     // repair banner reports on a run that is over by the time it is read.
     // Neither is the instant *The Earned-Green Rule* keeps green for, and
     // both are the succeeding-flow register DESIGN.md answers with accent.
-    const okColor = WpColors.accent;
-    const warningColor = WpColors.warning;
-    const errorColor = WpColors.error;
+    final okColor = WpColors.accent;
+    final warningColor = WpColors.warning;
+    final errorColor = WpColors.error;
 
     final phase = _phase;
 
@@ -399,7 +647,13 @@ class _MacOsBody extends StatelessWidget {
         // the heading (see the overlay's page composition) — the same two
         // strings this block used to carry as a section label.
         //
-        // -- Phase body — exactly one card + one primary CTA per phase ----
+        // -- Every permission on one page, then the phase body ------------
+        // The recovery phases (waiting, troubleshoot) drop the rows: their
+        // banner or card is the one status object, and the rows would push
+        // the page past the fixed window (measured at text scale 1.3).
+        if (phase != _AutoPastePhase.waiting &&
+            phase != _AutoPastePhase.troubleshoot)
+          ..._permissionRows(l10n),
         ..._buildPhase(
           phase: phase,
           l10n: l10n,
@@ -455,8 +709,9 @@ class _MacOsBody extends StatelessWidget {
     final skip = Align(
       alignment: AlignmentDirectional.centerStart,
       child: WpButton(
+        testId: 'onboarding-autopaste-skip-button',
         label: l10n.onboardingPasteSkip,
-        variant: WpButtonVariant.ghost,
+        variant: WpButtonVariant.secondary,
         tone: WpButtonTone.neutral,
         onPressed: onSkip,
       ),
@@ -522,7 +777,9 @@ class _MacOsBody extends StatelessWidget {
     // print the same sentence twice on one screen, in the future tense, for a
     // permission the user has just granted.
     final String? detail = switch (phase) {
-      _AutoPastePhase.waiting => l10n.onboardingPasteWaitingForGrantHint,
+      _AutoPastePhase.waiting =>
+        '${l10n.onboardingPasteWaitingForGrantHint}\n\n'
+            '${l10n.onboardingAccessRemoveReAddHint}',
       // Live-probe leg of the recovery phase: no restart banner leads here, so
       // the card is the status object and has to say what went wrong. The
       // repair hint is exactly that sentence ("macOS remembers an old entry
@@ -543,31 +800,10 @@ class _MacOsBody extends StatelessWidget {
       textSecondary: textSecondary,
     );
 
+    // `intro` has no button of its own any more: its grant action is the
+    // Auto-Paste row above the card, so the page does not carry two "allow"
+    // buttons for the same permission.
     final actions = switch (phase) {
-      _AutoPastePhase.intro => <Widget>[
-        // A `primary` WpButton, not the gradient WpHeroButton it used to be
-        // (Ticket 15, *The One-Loud-Action Rule*). The shell's own Next button
-        // is a hero and sits eight pixels below this one, wearing the identical
-        // `accentWarmGradient` — two heroes on one page is two answers to
-        // "what am I supposed to do here", which is the same as none. The
-        // ladder now reads off the components: gradient hero for the flow CTA
-        // in the chrome, filled accent button for the page's own action, ghost
-        // for the escape hatch. Same split `test_recording_step.dart` already
-        // made for exactly this reason.
-        // Start-inset like the card above it — the filled button's box is a
-        // visible object on the shared `kSettingRowInset` reading edge.
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-          child: SizedBox(
-            width: double.infinity,
-            child: WpButton(
-              label: l10n.onboardingPasteGrantCta,
-              variant: WpButtonVariant.primary,
-              onPressed: grantInFlight ? null : onGrant,
-            ),
-          ),
-        ),
-      ],
       _AutoPastePhase.troubleshoot => <Widget>[
         if (restartCanRecover) ...[
           // Start-inset like the status card — the banner is the branch's
@@ -590,6 +826,7 @@ class _MacOsBody extends StatelessWidget {
         Padding(
           padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
           child: WpButton(
+            testId: 'onboarding-autopaste-repair-button',
             label: l10n.pasteCapabilityRepairButton,
             variant: WpButtonVariant.secondary,
             tone: WpButtonTone.neutral,
@@ -620,7 +857,9 @@ class _MacOsBody extends StatelessWidget {
     // (`xxs`) — 4:1, which is what makes the card read as one object and the
     // page as four. It used to run `sm` against `xs`, 1.5:1, close enough
     // that the Skip button looked like part of the block above it.
-    if (phase == _AutoPastePhase.granted) return [card];
+    // Granted: the Auto-Paste row above already carries the checkmark, so a
+    // second "ready" card would repeat it (Onboarding v6 screen 3).
+    if (phase == _AutoPastePhase.granted) return const [];
     return [
       // `troubleshoot` is the one phase whose leading block is not the card:
       // [WpPasteCapabilityRestartBanner] is already a status object — it
@@ -634,7 +873,13 @@ class _MacOsBody extends StatelessWidget {
       // the live-probe leg no banner leads, so dropping the card too would
       // leave the recovery with no status object at all — just a lone "Reset
       // entry" button under the page header, with nothing saying why.
-      if (phase != _AutoPastePhase.troubleshoot || !restartCanRecover) ...[
+      // `intro` and `checking` drop the card: the Auto-Paste row above already
+      // states that status and carries the action, so the card would only
+      // repeat it. At text scale 1.3 the page otherwise runs past the fixed
+      // window.
+      if (phase != _AutoPastePhase.intro &&
+          phase != _AutoPastePhase.checking &&
+          (phase != _AutoPastePhase.troubleshoot || !restartCanRecover)) ...[
         card,
         const SizedBox(height: WpSpacing.md),
       ],
@@ -648,7 +893,11 @@ class _MacOsBody extends StatelessWidget {
       // at text scale 1.3 ran 631 px against the 567 px the fixed window
       // offers (measured; see the troubleshoot fold tests, which now run at
       // every scale in `foldTextScales` rather than at 1.0 only).
-      if (phase != _AutoPastePhase.troubleshoot) ...[
+      // `intro` and `checking` drop the why-line too: the Auto-Paste row says
+      // the same ("the text lands on the clipboard").
+      if (phase != _AutoPastePhase.troubleshoot &&
+          phase != _AutoPastePhase.intro &&
+          phase != _AutoPastePhase.checking) ...[
         why,
         const SizedBox(height: WpSpacing.md),
       ],
@@ -689,11 +938,18 @@ class _WindowsBody extends StatelessWidget {
   const _WindowsBody({
     required this.state,
     required this.autoPasteEnabled,
+    required this.permissions,
+    required this.onMicAction,
     required this.onEnable,
     required this.onSkip,
   });
 
   final PasteCapabilityState state;
+
+  /// Only the microphone is a permission on Windows; Auto-Paste needs none and
+  /// is decided by the choice below instead of a card with a grant button.
+  final List<PermissionOverviewEntry> permissions;
+  final VoidCallback onMicAction;
 
   /// Whether the persisted after-transcription action currently injects the
   /// transcript at the cursor. The factory default is clipboard-only, so the
@@ -715,12 +971,12 @@ class _WindowsBody extends StatelessWidget {
     // between leaving Auto-Paste on or skipping to clipboard-only mode.
     final isUipiEdge = cap?.status == PasteCapabilityStatus.permissionMissing;
 
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     // Accent, not green — see the macOS body above (Ticket 15).
-    const okColor = WpColors.accent;
-    const warningColor = WpColors.warning;
+    final okColor = WpColors.accent;
+    final warningColor = WpColors.warning;
 
     // Same object as the macOS body renders, on purpose: this is one page in
     // the flow, and it had two private card classes of its own here — a
@@ -734,7 +990,7 @@ class _WindowsBody extends StatelessWidget {
     //  - Auto-Paste OFF (the factory default): "ready" card explaining what
     //    turning it on does, plus the enable CTA.
     //  - Auto-Paste ON: "on" card stating what now happens after each
-    //    dictation, plus the ghost opt-out (the same `onboardingPasteSkip`
+    //    dictation, plus the opt-out button (the same `onboardingPasteSkip`
     //    wording the macOS flow and the UIPI edge use).
     // Each state shows only the transition it can make, which is what keeps
     // a mis-tap harmless — the card says what changed, and the way back is
@@ -776,7 +1032,7 @@ class _WindowsBody extends StatelessWidget {
       child: Text(
         l10n.onboardingPasteWinAdminCaveat,
         textAlign: TextAlign.start,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: WpTypography.small,
           color: textMuted,
           height: 1.4,
@@ -789,6 +1045,17 @@ class _WindowsBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // No title — the page owns the heading (see the macOS body).
+        for (final entry in permissions.where(
+          (e) => e.id == PermissionOverviewId.microphone,
+        )) ...[
+          _permissionCard(
+            entry: entry,
+            l10n: l10n,
+            grantInFlight: false,
+            onMicAction: onMicAction,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
         card,
         if (isUipiEdge) ...[
           // The UIPI edge keeps its original shape: warn card + the explicit
@@ -797,8 +1064,9 @@ class _WindowsBody extends StatelessWidget {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: WpButton(
+              testId: 'onboarding-autopaste-skip-button',
               label: l10n.onboardingPasteSkip,
-              variant: WpButtonVariant.ghost,
+              variant: WpButtonVariant.secondary,
               tone: WpButtonTone.neutral,
               onPressed: onSkip,
             ),
@@ -812,6 +1080,7 @@ class _WindowsBody extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: WpButton(
+                testId: 'onboarding-autopaste-win-enable',
                 label: l10n.onboardingPasteWinEnableCta,
                 variant: WpButtonVariant.primary,
                 onPressed: onEnable,
@@ -827,8 +1096,241 @@ class _WindowsBody extends StatelessWidget {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: WpButton(
+              testId: 'onboarding-autopaste-skip-button',
               label: l10n.onboardingPasteSkip,
-              variant: WpButtonVariant.ghost,
+              variant: WpButtonVariant.secondary,
+              tone: WpButtonTone.neutral,
+              onPressed: onSkip,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Linux: the Windows choice plus the honest uinput state (XP-5-05).
+class _LinuxBody extends StatelessWidget {
+  const _LinuxBody({
+    required this.state,
+    required this.format,
+    required this.autoPasteEnabled,
+    required this.canGrant,
+    required this.onGrant,
+    required this.onEnable,
+    required this.onSetupCommandCopied,
+    required this.onSkip,
+  });
+
+  final PasteCapabilityState state;
+
+  /// Whether this install grants the access itself (the .deb, R-02).
+  final bool canGrant;
+  final Future<void> Function() onGrant;
+
+  /// How the app was installed, or null when that cannot be detected.
+  final LinuxPackageFormat? format;
+
+  /// See [_WindowsBody.autoPasteEnabled].
+  final bool autoPasteEnabled;
+  final Future<void> Function() onEnable;
+
+  /// The setup command was copied; see [_AutoPasteStepState._onSetupCommandCopied].
+  final VoidCallback onSetupCommandCopied;
+  final Future<void> Function() onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    // On Linux `permissionMissing` means this user cannot write to
+    // /dev/uinput. Only the user can fix that (with sudo), so the page names
+    // it and hands over the command instead of claiming Auto-Paste works.
+    final status = state.capability?.status;
+    final setupNeeded = status == PasteCapabilityStatus.permissionMissing;
+    // No /dev/uinput node at all (`unsupported`): no command can fix that
+    // from here, so the page says so instead of showing the ready card.
+    final unavailable = status == PasteCapabilityStatus.unsupported;
+    // Clipboard fallback applies whenever the paste itself cannot work yet.
+    final blocked = setupNeeded || unavailable;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
+    const inset = EdgeInsetsDirectional.only(start: kSettingRowInset);
+
+    final card = setupNeeded
+        ? _PermissionStatusCard(
+            icon: LucideIcons.triangleAlert,
+            color: WpColors.warning,
+            tint: WpColors.warningActiveFill,
+            title: null,
+            detail: l10n.pasteFailureLinuxUinputHint,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          )
+        : unavailable
+        ? _PermissionStatusCard(
+            icon: LucideIcons.triangleAlert,
+            color: WpColors.warning,
+            tint: WpColors.warningActiveFill,
+            // On Linux the state is about this system, not the platform.
+            title: defaultTargetPlatform == TargetPlatform.linux
+                ? l10n.pasteCapabilityUnavailableLinux
+                : l10n.pasteCapabilityUnsupported,
+            // The text still reaches the user: the clipboard, then a paste key.
+            detail: l10n.onboardingPasteLinuxUnavailableDetail(
+              pasteShortcutLabel(l10n: l10n),
+            ),
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          )
+        : status == null
+        ? _PermissionStatusCard(
+            icon: LucideIcons.loaderCircle,
+            color: WpColors.accent,
+            tint: WpColors.accentActiveFill,
+            title: l10n.pasteCapabilityCheckTitle,
+            detail: null,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          )
+        : _PermissionStatusCard(
+            icon: LucideIcons.circleCheck,
+            color: WpColors.accent,
+            tint: WpColors.accentActiveFill,
+            title: autoPasteEnabled
+                ? l10n.onboardingPasteWinOnTitle
+                : l10n.onboardingPasteChipReady,
+            detail: autoPasteEnabled
+                ? l10n.onboardingPasteWinOnDetail
+                : l10n.onboardingPasteWhyWin,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // No title — the page owns the heading (see the macOS body).
+        card,
+        if (setupNeeded) ...[
+          const SizedBox(height: WpSpacing.sm),
+          // The command runs with sudo, so it is shown, not only copied.
+          Padding(
+            padding: inset,
+            child: WpCommandBox(
+              command: linuxUinputCopyCommand(
+                format ?? LinuxPackageFormat.native,
+              ),
+              textKey: const ValueKey('onboarding-autopaste-linux-command'),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: inset,
+            child: Text(
+              l10n.linuxUinputConsentDetail,
+              key: const ValueKey('onboarding-autopaste-linux-consent'),
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: inset,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: canGrant
+                  ? WpButton(
+                      testId: 'onboarding-autopaste-linux-grant-button',
+                      label: l10n.linuxUinputGrantButton,
+                      icon: LucideIcons.shield,
+                      variant: WpButtonVariant.secondary,
+                      onPressed: onGrant,
+                    )
+                  : WpCopyButton(
+                      testId: 'onboarding-autopaste-linux-copy-command',
+                      label: l10n.pasteFailureLinuxUinputCopy,
+                      variant: WpButtonVariant.secondary,
+                      text: () => linuxUinputCopyCommand(
+                        format ?? LinuxPackageFormat.native,
+                      ),
+                      onCopied: onSetupCommandCopied,
+                    ),
+            ),
+          ),
+          // Sandboxed installs need more than the udev rule (Flatpak device
+          // access, the snap interface); their hint explains it.
+          if (format != LinuxPackageFormat.native) ...[
+            const SizedBox(height: WpSpacing.sm),
+            Padding(
+              padding: inset,
+              child: LinuxPasteHint(
+                format: format,
+                l10n: l10n,
+                includeNative: false,
+              ),
+            ),
+          ],
+        ],
+        // Only Snap has a fix without the device: connecting the uinput
+        // interface. Native and Flatpak need a device that does not exist here.
+        if (unavailable && format == LinuxPackageFormat.snap) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: inset,
+            child: LinuxPasteHint(
+              format: format,
+              l10n: l10n,
+              includeNative: false,
+            ),
+          ),
+        ],
+        // Optional setups the user starts: desktop permission, GNOME extension.
+        const LinuxInputSetup(idPrefix: 'onboarding'),
+        const SizedBox(height: WpSpacing.md),
+        if (!autoPasteEnabled && !unavailable)
+          // Switching on stays possible without the access: the transcript
+          // then goes to the clipboard, and the notice below says so.
+          Padding(
+            padding: inset,
+            child: SizedBox(
+              width: double.infinity,
+              child: WpButton(
+                testId: 'onboarding-autopaste-linux-enable-button',
+                label: l10n.onboardingPasteWinEnableCta,
+                variant: WpButtonVariant.primary,
+                onPressed: onEnable,
+              ),
+            ),
+          )
+        else ...[
+          if (autoPasteEnabled && blocked) ...[
+            Padding(
+              padding: inset,
+              child: Text(
+                l10n.onboardingPasteLinuxClipboardFallback,
+                key: const ValueKey(
+                  'onboarding-autopaste-linux-fallback-notice',
+                ),
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.md),
+          ],
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WpButton(
+              testId: 'onboarding-autopaste-skip-button',
+              label: l10n.onboardingPasteSkip,
+              variant: WpButtonVariant.secondary,
               tone: WpButtonTone.neutral,
               onPressed: onSkip,
             ),
@@ -908,8 +1410,8 @@ class _PermissionStatusCard extends StatelessWidget {
     //
     // Two spellings of one material, because the grounds differ. Do not
     // "fix" this back to `cardFill`.
-    const surface = WpColors.floatingSurface;
-    const border = WpColors.cardEdgeHighlight;
+    final surface = WpColors.floatingSurface;
+    final border = WpColors.cardEdgeHighlight;
 
     // Start-inset like the page heading above and the why-line below: every
     // text block on this page starts `kSettingRowInset` into the frame (the
@@ -1067,6 +1569,7 @@ class _RepairResultBanner extends StatelessWidget {
         if (nothingCleared) ...[
           const SizedBox(height: WpSpacing.sm),
           WpButton(
+            testId: 'onboarding-autopaste-restart-button',
             label: l10n.pasteCapabilityRestartButton,
             variant: WpButtonVariant.secondary,
             tone: WpButtonTone.neutral,
@@ -1074,6 +1577,81 @@ class _RepairResultBanner extends StatelessWidget {
             onPressed: onRestart,
           ),
         ],
+      ],
+    );
+  }
+}
+
+/// Test seam: forces the Linux package format the onboarding hint uses.
+@visibleForTesting
+LinuxPackageFormat? debugLinuxPackageFormatOverride;
+
+/// The format the Linux onboarding hint describes: the override when a test
+/// set one, otherwise detected from this process (environment, executable
+/// path and the runtime's marker files).
+LinuxPackageFormat? linuxPasteFormatForOnboarding() {
+  final override = debugLinuxPackageFormatOverride;
+  if (override != null) return override;
+  // Without an executable path neither a snap nor a native install can be
+  // told apart, so the caller shows the hint for every format.
+  if (Platform.resolvedExecutable.isEmpty) return null;
+  final env = Platform.environment;
+  final appImage = env['APPIMAGE'] ?? '';
+  return linuxPackageFormatFrom(
+    env: env,
+    executable: Platform.resolvedExecutable,
+    flatpakInfoPresent: File('/.flatpak-info').existsSync(),
+    appImageFilePresent: appImage.isNotEmpty && File(appImage).existsSync(),
+  );
+}
+
+String linuxPasteHintText(L10n l10n, LinuxPackageFormat format) =>
+    switch (format) {
+      LinuxPackageFormat.native => l10n.onboardingPasteLinuxNative,
+      LinuxPackageFormat.flatpak => l10n.onboardingPasteLinuxFlatpak,
+      LinuxPackageFormat.snap => l10n.onboardingPasteLinuxSnap,
+      LinuxPackageFormat.appimage => l10n.onboardingPasteLinuxAppImage,
+    };
+
+/// The Linux Auto-Paste hint. Shows the text for [format]; when the install
+/// cannot be detected ([format] is null) it shows the hint for every format.
+class LinuxPasteHint extends StatelessWidget {
+  const LinuxPasteHint({
+    super.key,
+    required this.format,
+    required this.l10n,
+    this.includeNative = true,
+  });
+
+  final LinuxPackageFormat? format;
+  final L10n l10n;
+
+  /// Whether the undetected case lists the native hint too. The onboarding
+  /// page leaves it out: it already shows the real uinput state.
+  final bool includeNative;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(color: WpColors.textSecondary);
+    final formats = format == null
+        ? [
+            for (final f in LinuxPackageFormat.values)
+              if (includeNative || f != LinuxPackageFormat.native) f,
+          ]
+        : [format!];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Selectable, so the commands in the hint can be copied.
+        for (final f in formats)
+          Semantics(
+            container: true,
+            identifier: 'onboarding-autopaste-linux-hint-${f.name}',
+            child: SelectableText(linuxPasteHintText(l10n, f), style: style),
+          ),
       ],
     );
   }

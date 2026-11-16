@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # build-libwhisper-linux.sh — reproducible build + bundle of `libwhisper` shared
-# libraries (whisper.cpp v1.9.5, Vulkan + CPU) for the Linux app bundle.
+# libraries (whisper.cpp, scripts/whisper-cpp.pin; Vulkan + CPU) for the Linux app bundle.
 #
 # Mirrors scripts/build-libwhisper-macos.sh: same pinned source, same flat +
 # relocatable staging, but with `$ORIGIN` rpath (the ELF equivalent of macOS
 # `@loader_path`) so the co-located `libggml*` backends resolve inside the
 # Flutter Linux bundle's lib/ directory.
 #
-# Verified live via WSL2 Ubuntu during v1.2.45 release prep: `ldd` on the
+# Verified live on Ubuntu during v1.2.45 release prep: `ldd` on the
 # staged libwhisper.so resolves libggml.so.0/libggml-base.so.0 correctly via
 # the $ORIGIN rpath with no extra runtime setup (unlike Windows — its PE
 # format has no rpath equivalent, which is why whisper_ffi_engine.dart needs
@@ -56,9 +56,11 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-WHISPER_TAG="v1.9.5"
+# Pinned source: scripts/whisper-cpp.pin (one pin for all platforms).
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$REPO_ROOT/scripts/whisper-cpp.pin"
 WHISPER_SRC="$REPO_ROOT/.build/deps/whisper.cpp/$WHISPER_TAG"
-WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
+WHISPER_PINNED_COMMIT="$WHISPER_COMMIT"
 
 BUILD_DIR="$REPO_ROOT/.build/libwhisper/linux-build"
 STAGE_DIR="$REPO_ROOT/.build/libwhisper/linux"
@@ -76,17 +78,22 @@ fi
 echo "=== build-libwhisper-linux ($WHISPER_TAG) ==="
 
 # --- 1. Verify pinned source (AC3) ------------------------------------------
-if [[ ! -d "$WHISPER_SRC" ]]; then
-  echo "ERROR: whisper.cpp source not found at $WHISPER_SRC" >&2
-  echo "       git clone --depth 1 --branch $WHISPER_TAG https://github.com/ggml-org/whisper.cpp \"$WHISPER_SRC\"" >&2
-  exit 1
-fi
+bash "$REPO_ROOT/scripts/fetch-native-deps.sh" whisper
 ACTUAL_COMMIT="$(git -C "$WHISPER_SRC" rev-parse HEAD 2>/dev/null || echo 'unknown')"
 if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then
   echo "ERROR: whisper.cpp source commit mismatch (expected $WHISPER_PINNED_COMMIT, got $ACTUAL_COMMIT)" >&2
   exit 1
 fi
 echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
+bash "$REPO_ROOT/scripts/apply-whisper-patches.sh" "$WHISPER_SRC"
+
+# Staging below names each .so by its SONAME and sets the $ORIGIN rpath with
+# patchelf. Without it those steps used to fall back silently and stage
+# libraries whose DT_NEEDED entries (libggml.so.0, …) never resolve.
+if ! command -v patchelf >/dev/null 2>&1; then
+  echo "ERROR: patchelf not found (sudo apt install patchelf)." >&2
+  exit 1
+fi
 
 if [[ "$CUDA" == 1 ]]; then
   echo "[2/4] cmake configure + build (ggml-cuda module only) …"

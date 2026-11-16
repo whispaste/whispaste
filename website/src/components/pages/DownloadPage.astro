@@ -26,6 +26,7 @@ import {
   LINUX_APPIMAGE_URL,
   LINUX_DEB_URL,
   GITHUB_REPO_URL,
+  MS_STORE_URL,
   getLivePkgManagersGroupedByPlatform,
 } from '../../data/platforms.ts';
 import { PKG_MANAGER_ICONS } from '../../scripts/pkgManagerIcons.ts';
@@ -36,7 +37,7 @@ interface Props {
 
 const { lang } = Astro.props;
 const pkgManagerGroups = getLivePkgManagersGroupedByPlatform();
-const contactMail = lang === 'de' ? 'kontakt@whispaste.de' : 'contact@whispaste.de';
+const contactMail = 'kontakt@whispaste.de';
 const breadcrumbItems = [
   { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
   { name: t(lang, 'breadcrumb.download'), item: localePath(lang, 'download') },
@@ -82,7 +83,7 @@ import PageSheet from "../PageSheet.astro";
              below the fold, no DOM reflow (data-os is set before first paint
              by the inline head script in Layout.astro). Unknown OS keeps the
              natural source order — no forced Store CTA. -->
-        <div class="download-primary-group" data-testid="download-primary-group">
+        <div class="download-primary-group" data-testid="download-primary-group" data-cw-avoid>
 
         <!-- Section 1: Microsoft Store (recommended for Windows) -->
         <div id="windows" class="download-card hud-frame rounded-2xl border p-6 sm:p-8 mb-6 relative scroll-mt-24" data-platform-card="windows">
@@ -210,7 +211,7 @@ import PageSheet from "../PageSheet.astro";
               href={LINUX_APPIMAGE_URL}
               class="dl-btn"
               data-testid="linux-appimage-button"
-              onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+              data-download-trigger
             >
               <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
               <span class="dl-btn__text">
@@ -224,8 +225,9 @@ import PageSheet from "../PageSheet.astro";
               class="text-ink-muted hover:text-ink text-xs underline transition-colors"
               data-testid="linux-deb-button"
               data-i18n="download.linux.deb.button"
-              onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+              data-download-trigger
             >{t(lang, "download.linux.deb.button")}</a>
+            <p class="text-ink-subtle text-xs text-center max-w-sm" data-testid="linux-autopaste-note" data-i18n="download.linux.autopaste">{t(lang, "download.linux.autopaste")}</p>
             {/* Erklär-Seite: benennt die drei Artefakte beim Namen und
                 beantwortet „ohne Installation? ohne Python?" ausführlicher,
                 als es in eine Download-Karte passt.
@@ -244,7 +246,7 @@ import PageSheet from "../PageSheet.astro";
         </div>
 
         <!-- Secondary: build from source, collapsed by default -->
-        <details class="download-card tech-helper group rounded-2xl border border-[color:var(--wp-border-subtle)] mb-6" data-testid="linux-source-build">
+        <details class="download-card tech-helper group rounded-2xl border border-[color:var(--wp-border-subtle)] mb-6" data-testid="linux-source-build" data-platform-card="linux-source">
           <summary class="tech-helper__summary flex items-start gap-3 p-6 sm:p-8 cursor-pointer select-none">
             <div class="shrink-0 w-10 h-10 rounded-xl bg-[var(--wp-surface-control)] border border-[color:var(--wp-border-default)] flex items-center justify-center">
               <svg class="w-5 h-5 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -309,6 +311,7 @@ import PageSheet from "../PageSheet.astro";
             <div>
               <h2 class="text-xl font-semibold text-ink" data-i18n="download.github.title">{t(lang, "download.github.title")}</h2>
               <p class="text-ink-muted text-sm mt-1" data-i18n="download.github.desc">{t(lang, "download.github.desc")}</p>
+              <p class="text-ink-subtle text-xs mt-1" data-testid="download-github-unsigned" data-i18n="download.github.unsigned">{t(lang, "download.github.unsigned")}</p>
             </div>
           </div>
 
@@ -317,7 +320,7 @@ import PageSheet from "../PageSheet.astro";
               href={WINDOWS_SETUP_URL}
               class="dl-btn dl-btn--windows"
               data-testid="github-windows-button"
-              onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+              data-download-trigger
             >
               <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
               <span class="dl-btn__text">
@@ -329,7 +332,7 @@ import PageSheet from "../PageSheet.astro";
 
           <!-- SmartScreen guide — demoted to secondary/collapsible (issue 13),
                collapsed by default; content unchanged. -->
-          <details class="smartscreen-box tech-helper group rounded-xl border border-[color-mix(in_srgb,var(--wp-highlight-default)_10%,transparent)] bg-[color-mix(in_srgb,var(--wp-highlight-default)_3%,transparent)]">
+          <details data-testid="download-smartscreen-box" class="smartscreen-box tech-helper group rounded-xl border border-[color-mix(in_srgb,var(--wp-highlight-default)_10%,transparent)] bg-[color-mix(in_srgb,var(--wp-highlight-default)_3%,transparent)]">
             <summary class="tech-helper__summary flex items-start gap-3 p-5 cursor-pointer select-none">
               <svg class="w-5 h-5 text-[var(--wp-highlight-text)] shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div class="flex-1">
@@ -340,6 +343,21 @@ import PageSheet from "../PageSheet.astro";
             </summary>
 
             <div class="tech-helper__body px-5 pb-5">
+              <!-- Smart App Control may block unsigned installers (and then
+                   "Run anyway" may be unavailable), so the Store is the
+                   hurdle-free path. Wording is hedged on purpose. -->
+              <div class="ml-8 mb-4 rounded-lg border border-[color:var(--wp-border-subtle)] p-3" data-testid="download-sac-note">
+                <p class="text-ink-muted text-xs leading-relaxed" data-i18n="download.sac.desc">{t(lang, "download.sac.desc")}</p>
+                <a
+                  href={MS_STORE_URL}
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-block mt-2 text-xs font-medium text-brand-cyan underline underline-offset-2"
+                  data-testid="download-sac-store-link"
+                  data-i18n="download.store.fallback"
+                  data-download-trigger
+                >{t(lang, "download.store.fallback")}</a>
+              </div>
               <div class="space-y-3 ml-8">
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-[var(--wp-accent-soft)] border border-[color-mix(in_srgb,var(--wp-accent-default)_20%,transparent)] flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
@@ -385,7 +403,27 @@ import PageSheet from "../PageSheet.astro";
             <AppleButton size="lg" />
           </div>
 
-          <p class="text-center text-xs text-ink-subtle mb-4" data-i18n="download.macos.hint">{t(lang, "download.macos.hint")}</p>
+          <!-- Install guide (#245): three numbered steps, text only from i18n. -->
+          <div class="mb-5" data-testid="download-macos-install">
+            <p class="font-medium text-ink text-sm mb-3" data-i18n="download.macos.install.title">{t(lang, "download.macos.install.title")}</p>
+            <ol class="space-y-2" data-testid="download-macos-install-steps">
+              {[1, 2, 3].map((n) => (
+                <li class="flex items-center gap-3" data-testid={`download-macos-install-step${n}`}>
+                  <span class="shrink-0 w-6 h-6 rounded-full bg-[var(--wp-accent-soft)] border border-[color-mix(in_srgb,var(--wp-accent-default)_20%,transparent)] flex items-center justify-center text-brand-cyan font-semibold text-xs" aria-hidden="true">{n}</span>
+                  <span class="text-ink-muted text-sm" data-i18n={`download.macos.install.step${n}`}>{t(lang, `download.macos.install.step${n}`)}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <div class="mb-4 text-xs text-ink-muted leading-relaxed" data-testid="download-macos-permissions">
+            <p class="font-medium text-ink text-sm mb-1" data-i18n="download.macos.permissions.title">{t(lang, "download.macos.permissions.title")}</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li data-i18n="download.macos.permissions.mic">{t(lang, "download.macos.permissions.mic")}</li>
+              <li data-i18n="download.macos.permissions.accessibility">{t(lang, "download.macos.permissions.accessibility")}</li>
+              <li data-i18n="download.macos.permissions.inputMonitoring">{t(lang, "download.macos.permissions.inputMonitoring")}</li>
+            </ul>
+          </div>
 
           <!-- Gatekeeper guide — demoted to secondary/collapsible (issue 13):
                full Apple-style step-by-step stays available, just collapsed
@@ -436,6 +474,18 @@ import PageSheet from "../PageSheet.astro";
           </details>
         </div>
 
+        <!-- Other platforms (ticket 19): with a known OS the cards of the other
+             two systems sit behind this toggle; CSS shows or hides them. -->
+        <button
+          type="button"
+          class="other-platforms-toggle"
+          aria-expanded="false"
+          data-other-platforms-toggle
+          data-testid="other-platforms-toggle"
+        >
+          <span data-i18n="download.otherPlatforms">{t(lang, "download.otherPlatforms")}</span>
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
         </div>
         <!-- /download-primary-group -->
 
@@ -630,6 +680,15 @@ import PageSheet from "../PageSheet.astro";
         }).catch(() => { /* clipboard permission denied — silent fail */ });
       });
     });
+
+    // "Andere Plattformen" toggle: CSS shows the other systems' cards when
+    // the group carries data-others-open; this only flips that flag.
+    const primaryGroup = document.querySelector<HTMLElement>('[data-testid="download-primary-group"]');
+    const otherToggle = document.querySelector<HTMLButtonElement>('[data-other-platforms-toggle]');
+    otherToggle?.addEventListener('click', () => {
+      const open = primaryGroup?.toggleAttribute('data-others-open') ?? false;
+      otherToggle.setAttribute('aria-expanded', String(open));
+    });
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />
@@ -690,6 +749,61 @@ import PageSheet from "../PageSheet.astro";
   /* The collapsed source build belongs after every primary card. */
   .download-primary-group [data-testid="linux-source-build"] {
     order: 10;
+  }
+
+  /* Other platforms (ticket 19): with a known OS, the matched family keeps
+     its primary card and free route at full width; the cards of the other
+     two systems sit behind the "Andere Plattformen" toggle (closed by
+     default, opened via [data-others-open] on the group). Unknown OS: no
+     toggle, everything in source order as before. */
+  .other-platforms-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp-space-2);
+    grid-column: 1 / -1;
+    order: 20;
+    min-height: 2.75rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border: 1px solid var(--wp-border-default);
+    border-radius: var(--wp-radius-control);
+    background: transparent;
+    color: var(--wp-text-link);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .other-platforms-toggle:hover {
+    text-decoration: underline;
+  }
+  .other-platforms-toggle:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  .other-platforms-toggle svg {
+    transition: transform var(--dur-fast) var(--ease-flow);
+  }
+  .other-platforms-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+  :global(html[data-os]) .other-platforms-toggle {
+    display: inline-flex;
+  }
+  :global(html[data-os="windows"]) .download-primary-group [data-platform-card^="windows"],
+  :global(html[data-os="macos"]) .download-primary-group [data-platform-card^="macos"],
+  :global(html[data-os="linux"]) .download-primary-group [data-platform-card^="linux"] {
+    grid-column: 1 / -1;
+  }
+  :global(html[data-os="windows"]) .download-primary-group [data-platform-card]:not([data-platform-card^="windows"]),
+  :global(html[data-os="macos"]) .download-primary-group [data-platform-card]:not([data-platform-card^="macos"]),
+  :global(html[data-os="linux"]) .download-primary-group [data-platform-card]:not([data-platform-card^="linux"]) {
+    display: none;
+    order: 21;
+  }
+  :global(html[data-os="windows"]) .download-primary-group[data-others-open] [data-platform-card]:not([data-platform-card^="windows"]),
+  :global(html[data-os="macos"]) .download-primary-group[data-others-open] [data-platform-card]:not([data-platform-card^="macos"]),
+  :global(html[data-os="linux"]) .download-primary-group[data-others-open] [data-platform-card]:not([data-platform-card^="linux"]) {
+    display: block;
   }
 
   .dl-layout {

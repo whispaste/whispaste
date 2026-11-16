@@ -5,21 +5,26 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_favourite_star.dart';
 import '../../../widgets/wp_row_action.dart';
 import '../../../widgets/wp_row_checkbox.dart';
+
 import 'package:whispaste/core/data/database.dart';
+
 import '../data/providers.dart';
 import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
+import '../../../widgets/wp_collection_list_pane.dart';
 
 // ---------------------------------------------------------------------------
 // Compact view — dense power-user list
 // ---------------------------------------------------------------------------
 
 class HistoryCompactView extends StatelessWidget {
-  HistoryCompactView({
+  const HistoryCompactView({
     super.key,
+    this.leading,
     required this.groups,
     required this.selectedId,
     required this.onEntryTap,
@@ -29,61 +34,59 @@ class HistoryCompactView extends StatelessWidget {
     this.onDuplicate,
     required this.multiSelectMode,
     required this.selectedIds,
+    this.onRestore,
+    this.isTrashView = false,
     this.focusedId,
   });
 
   final List<DateGroup> groups;
+
+  /// Shown above the first row, inside the same scroll owner.
+  final Widget? leading;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
   final ValueChanged<HistoryEntry>? onDuplicate;
+  final ValueChanged<HistoryEntry>? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
 
-  /// Flattened index: each element is either a date header or an entry row.
-  late final List<HistoryFlatItem> _flatItems = buildHistoryFlatItems(groups);
-
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return ListView.builder(
-      // The list owns the horizontal page inset — see HistoryEntryList
-      // (ticket 03, point 5): all three view modes line up with the bar.
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.xs,
-        WpSpacing.xl,
-        WpSpacing.xxl,
+    return WpCollectionListPane<HistoryEntry>(
+      storageKey: 'history-scroll-compact',
+      copyTargetPrefix: 'history',
+      leading: leading,
+      focusedId: focusedId,
+      // The dense mode: rows sit flush, the row's own padding separates them.
+      rowGap: 0,
+      rows: historyCollectionRows(
+        groups,
+        (labelKey) =>
+            HistoryCompactDateHeader(label: resolveDateLabel(labelKey, l10n)),
       ),
-      itemCount: _flatItems.length,
-      itemBuilder: (_, i) {
-        final item = _flatItems[i];
-        if (item.headerLabel != null) {
-          return HistoryCompactDateHeader(
-            label: resolveDateLabel(item.headerLabel!, l10n),
-          );
-        }
-        final entry = item.entry!;
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryCompactRowState.build
-        return HistoryCompactRow(
-          key: ValueKey(entry.id),
-          entry: entry,
-          isSelected: multiSelectMode
-              ? selectedIds.contains(entry.id)
-              : entry.id == selectedId,
-          isFocused: !multiSelectMode && entry.id == focusedId,
-          onTap: () => onEntryTap(entry),
-          onCopy: () => onCopy(entry),
-          onPin: () => onPin(entry),
-          onDelete: () => onDelete(entry),
-          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
-          multiSelectMode: multiSelectMode,
-          isChecked: selectedIds.contains(entry.id),
-        );
-      },
+      itemBuilder: (_, entry) => HistoryCompactRow(
+        key: ValueKey(entry.id),
+        entry: entry,
+        isSelected: multiSelectMode
+            ? selectedIds.contains(entry.id)
+            : entry.id == selectedId,
+        isFocused: !multiSelectMode && entry.id == focusedId,
+        onTap: () => onEntryTap(entry),
+        onCopy: () => onCopy(entry),
+        onPin: () => onPin(entry),
+        onDelete: () => onDelete(entry),
+        onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
+        onRestore: onRestore != null ? () => onRestore!(entry) : null,
+        isTrashView: isTrashView,
+        multiSelectMode: multiSelectMode,
+        isChecked: selectedIds.contains(entry.id),
+      ),
     );
   }
 }
@@ -95,6 +98,8 @@ class HistoryCompactView extends StatelessWidget {
 class HistoryCompactRow extends StatefulWidget {
   const HistoryCompactRow({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.isSelected,
     required this.onTap,
@@ -114,6 +119,8 @@ class HistoryCompactRow extends StatefulWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -127,9 +134,9 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     final Color bg;
     if (widget.isSelected) {
@@ -151,6 +158,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
       // Group variant of the house idiom — see history_list_tile.dart:134 for
       // the full reasoning; the row holds the same several interactive nodes,
       // so the wrapper keeps `label:` and the rendered title is excluded below.
+      identifier: 'history-row-${widget.entry.id}',
       label: semanticLabel,
       button: true,
       // Arrow cursor, not detail selection — see history_list_tile.dart.
@@ -210,7 +218,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     padding: EdgeInsets.only(right: 6),
                     child: FaIcon(
                       FontAwesomeIcons.solidStar,
-                      size: 10,
+                      size: WpIconSize.xxs,
                       color: WpSharedColors.pinnedAccent,
                     ),
                   ),
@@ -226,7 +234,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                           : l10n.historyUntitledRecording,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w500,
                         color: textPrimary,
@@ -244,12 +252,14 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   onPin: widget.onPin,
                   onDelete: widget.onDelete,
                   onDuplicate: widget.onDuplicate,
+                  onRestore: widget.onRestore,
+                  isTrashView: widget.isTrashView,
                 ),
                 const SizedBox(width: WpSpacing.sm),
                 // Duration
                 Text(
                   formatHistoryDuration(widget.entry.durationSec),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -259,7 +269,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   const SizedBox(width: WpSpacing.sm),
                   Text(
                     widget.entry.language.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.caption,
                       color: textMuted,
                       fontWeight: FontWeight.w500,
@@ -270,7 +280,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Time
                 Text(
                   formatHistoryTime(widget.entry.timestamp),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -299,6 +309,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 class HistoryCompactRowActions extends StatelessWidget {
   const HistoryCompactRowActions({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.visible,
     required this.onCopy,
@@ -313,32 +325,47 @@ class HistoryCompactRowActions extends StatelessWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final restore = onRestore;
+    // In the trash only restore and permanent delete make sense (UIA-HIS-09).
+    if (isTrashView && restore != null) {
+      return WpRowActions(
+        visible: visible,
+        dense: true,
+        children: [
+          WpRowAction(
+            icon: LucideIcons.undo2,
+            tooltip: l10n.historyRestore,
+            onTap: restore,
+            dense: true,
+          ),
+          WpRowAction(
+            icon: LucideIcons.trash2,
+            tooltip: l10n.historyDeleteForever,
+            onTap: onDelete,
+            isDestructive: true,
+            dense: true,
+          ),
+        ],
+      );
+    }
     final pinned = entry.pinned;
     return WpRowActions(
       visible: visible,
       dense: true,
       children: [
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
         WpRowAction(
           icon: LucideIcons.copy,
           tooltip: l10n.historyCopyText,
           onTap: onCopy,
           dense: true,
         ),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-        WpRowAction(
-          faIcon: pinned ? FontAwesomeIcons.solidStar : null,
-          icon: pinned ? null : LucideIcons.star,
-          activeColor: pinned ? WpSharedColors.pinnedAccent : null,
-          tooltip: pinned ? l10n.historyUnpin : l10n.historyPinToTop,
-          onTap: onPin,
-          dense: true,
-        ),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+        WpFavouriteStar(isFavourite: pinned, onToggle: onPin),
         if (onDuplicate case final onDuplicate?)
           WpRowAction(
             icon: LucideIcons.files,

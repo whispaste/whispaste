@@ -9,10 +9,11 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/semantics.dart';
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'core/accessibility/announce.dart' as a11y;
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/persisted_l10n.dart';
 
@@ -77,7 +78,7 @@ abstract interface class RenderChannel {
   /// Reports an uncaught Dart error from this render engine back to the
   /// native shell, best-effort (fire-and-forget, no native receiver required).
   ///
-  /// Investigation note (`internal-notes`):
+  /// Investigation note:
   /// before this existed, an exception thrown while rebuilding the render
   /// engine's widget tree (e.g. reacting to a relayed snapshot) had NO
   /// visibility anywhere — not in `NSLog`/`log show`, not in the app's
@@ -123,11 +124,7 @@ abstract class RenderEngineState<
   @protected
   void announce(String message) {
     if (!mounted || message.isEmpty) return;
-    SemanticsService.sendAnnouncement(
-      View.of(context),
-      message,
-      TextDirection.ltr,
-    );
+    a11y.announce(View.of(context), message, TextDirection.ltr);
   }
 
   /// Creates the concrete channel. Called by [initState].
@@ -177,6 +174,18 @@ abstract class RenderEngineState<
     if (mounted) setState(() => semanticsLabel = labelOf(resolved));
   }
 
+  /// Re-reads the persisted locale, for an engine that outlives an app
+  /// language change. The engines are booted once per app session, so the
+  /// language resolved in [initState] would otherwise stay until a restart
+  /// (#1680: the snippet picker kept the old language). Call it inside a
+  /// `setState` at the surface's own "shown" signal.
+  @protected
+  void refreshL10n() {
+    final resolved = resolvePersistedL10nNow();
+    _l10n = resolved;
+    semanticsLabel = labelOf(resolved);
+  }
+
   @override
   void dispose() {
     FlutterError.onError = FlutterError.presentError;
@@ -195,6 +204,7 @@ abstract class RenderEngineState<
 Widget buildRenderEngineRoot({
   required String semanticsLabel,
   required VoidCallback onTap,
+  ValueChanged<Offset>? onTapAt,
   required VoidCallback onPanStart,
   required VoidCallback onSecondaryOrLongPress,
   required Widget child,
@@ -209,6 +219,7 @@ Widget buildRenderEngineRoot({
     child: RenderEngineGestureLayer(
       semanticsLabel: semanticsLabel,
       onTap: onTap,
+      onTapAt: onTapAt,
       onPanStart: onPanStart,
       onSecondaryOrLongPress: onSecondaryOrLongPress,
       child: child,
@@ -216,17 +227,99 @@ Widget buildRenderEngineRoot({
   );
 }
 
-/// Wraps [child] with a [Semantics] button and a [GestureDetector] that
-/// forwards the three coarse interactions used by both render engines.
+/// Keeps a hidden render surface presenting frames of real content.
 ///
-/// - [onTap] — primary action (toggle recording / body click).
-/// - [onPanStart] — native window drag.
+/// A hidden overlay paints nothing, and a scene without content reaches the
+/// macOS embedder as a present with no surfaces. Its size reads 0x0, so the
+/// resize synchronizer never sees the new size: every `setContentSize` then
+/// blocks the shared main thread for the full 1 s timeout. One invisible layer
+/// gives the frame its real size; the resize returns in about 15 ms. The fill
+/// is only there while [hidden], so a visible surface keeps its transparent
+/// edges, and the box stays in the tree either way, so [child] keeps its state
+/// across show and hide. It only has an effect on macOS: Windows and Linux hide
+/// the window, so the fill changes nothing there. This does not address the
+/// backing-store message of #375.
+class HiddenSurfaceFill extends StatelessWidget {
+  const HiddenSurfaceFill({
+    super.key,
+    required this.hidden,
+    required this.child,
+  });
+
+  /// The lowest alpha that still counts as content; never visible on screen.
+  static const Color fill = Color(0x01000000);
+
+  final bool hidden;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      ColoredBox(color: hidden ? fill : const Color(0x00000000), child: child);
+}
+
+/// Separates a click from a drag for the floating button and the overlay.
+///
+/// A native window drag starts only once the pointer has moved more than
+/// [dragThreshold] away from where it went down. Smaller movement is the
+/// tremor of a hand on a mouse, so the press still counts as a click. Flutter's
+/// own tap recogniser gives up after 1 px of mouse movement, which is why the
+/// layer below does not use it for the primary button.
+class ClickOrDragGate {
+  ClickOrDragGate({this.dragThreshold = defaultDragThreshold});
+
+  /// Logical pixels: above the roughly 6 px a shaky hand produces, below the
+  /// distance at which a deliberate drag clearly begins.
+  static const double defaultDragThreshold = 8.0;
+
+  final double dragThreshold;
+  Offset? _pressedAt;
+  bool _dragging = false;
+
+  /// The primary pointer went down at [position].
+  void press(Offset position) {
+    _pressedAt = position;
+    _dragging = false;
+  }
+
+  /// The pointer moved to [position]. Returns true exactly once, when the
+  /// movement crosses the threshold and the native drag should start.
+  bool move(Offset position) {
+    final start = _pressedAt;
+    if (start == null || _dragging) return false;
+    if ((position - start).distance <= dragThreshold) return false;
+    _dragging = true;
+    return true;
+  }
+
+  /// The primary pointer was released. Returns true when the press was a
+  /// click, that is when no drag started.
+  bool release() {
+    final isClick = _pressedAt != null && !_dragging;
+    cancel();
+    return isClick;
+  }
+
+  /// The gesture ended without a release, or is being reset.
+  void cancel() {
+    _pressedAt = null;
+    _dragging = false;
+  }
+}
+
+/// Wraps [child] with a [Semantics] button that forwards the three coarse
+/// interactions used by both render engines.
+///
+/// - [onTap] — primary action (toggle recording / body click). Fires on
+///   release when the pointer stayed within [ClickOrDragGate.dragThreshold].
+/// - [onPanStart] — native window drag, once the pointer moves past that
+///   threshold.
 /// - [onSecondaryOrLongPress] — context menu (right-click or long-press).
-class RenderEngineGestureLayer extends StatelessWidget {
+class RenderEngineGestureLayer extends StatefulWidget {
   const RenderEngineGestureLayer({
     super.key,
     required this.semanticsLabel,
     required this.onTap,
+    this.onTapAt,
     required this.onPanStart,
     required this.onSecondaryOrLongPress,
     required this.child,
@@ -234,22 +327,55 @@ class RenderEngineGestureLayer extends StatelessWidget {
 
   final String semanticsLabel;
   final VoidCallback onTap;
+
+  /// When set, a click calls this with the press position (local to the
+  /// layer) instead of [onTap], so the caller can tell hit zones apart.
+  final ValueChanged<Offset>? onTapAt;
   final VoidCallback onPanStart;
   final VoidCallback onSecondaryOrLongPress;
   final Widget child;
 
   @override
+  State<RenderEngineGestureLayer> createState() =>
+      _RenderEngineGestureLayerState();
+}
+
+class _RenderEngineGestureLayerState extends State<RenderEngineGestureLayer> {
+  final _gate = ClickOrDragGate();
+  Offset _pressedAt = Offset.zero;
+
+  @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: semanticsLabel,
-      child: GestureDetector(
+      label: widget.semanticsLabel,
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        onPanStart: (_) => onPanStart(),
-        onSecondaryTap: onSecondaryOrLongPress,
-        onLongPress: onSecondaryOrLongPress,
-        child: child,
+        onPointerDown: (event) {
+          if ((event.buttons & kPrimaryButton) != 0) {
+            _pressedAt = event.localPosition;
+            _gate.press(event.localPosition);
+          }
+        },
+        onPointerMove: (event) {
+          if (_gate.move(event.localPosition)) widget.onPanStart();
+        },
+        onPointerUp: (_) {
+          if (!_gate.release()) return;
+          final onTapAt = widget.onTapAt;
+          if (onTapAt != null) {
+            onTapAt(_pressedAt);
+          } else {
+            widget.onTap();
+          }
+        },
+        onPointerCancel: (_) => _gate.cancel(),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onSecondaryTap: widget.onSecondaryOrLongPress,
+          onLongPress: widget.onSecondaryOrLongPress,
+          child: widget.child,
+        ),
       ),
     );
   }

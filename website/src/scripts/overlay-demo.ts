@@ -75,7 +75,6 @@ export interface OverlayDemoOptions {
 
 const FRAME_MS = 1000 / 30; // 30 fps redraw (OverlayMotion cadence)
 const TICK_EVERY = Math.max(1, Math.round(OVERLAY_WAVEFORM_MOTION.tickMs / FRAME_MS));
-const DOT_PERIOD_MS = 900; // OverlayMotion.dotPulsePeriod
 const DEMO_MAX_SECONDS = 8; // mockup pace so the timeline visibly fills
 
 /** Demo episode phases (recording arc + rest between episodes). */
@@ -178,7 +177,6 @@ export class OverlayDemo {
       timerText: '0:07',
       statusText: '',
       progress: 0.6,
-      dotPulse: 1,
       glassPhase: 0,
       liquidMotion: 0,
       liquidLevel: 0,
@@ -388,7 +386,6 @@ export class OverlayDemo {
       timerText: this.phase === 'recording' ? this.recordingTimerText() : '',
       statusText: this.textFor(state),
       progress: this.phase === 'recording' ? this.recordingProgress() : 0,
-      dotPulse: 0.5 + 0.5 * Math.sin((this.totalElapsed / DOT_PERIOD_MS) * Math.PI * 2),
       glassPhase: (this.totalElapsed % OVERLAY_LIQUID.driftPeriodMs) / OVERLAY_LIQUID.driftPeriodMs,
       liquidMotion: 1,
       liquidLevel,

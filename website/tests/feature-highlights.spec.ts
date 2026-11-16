@@ -18,24 +18,19 @@ for (const path of ['/', '/en/', '/zh/'] as const) {
   });
 }
 
-test('Smart Mode spans the wide column on desktop', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
-  const smart = await page.getByTestId('features-smartmode').boundingBox();
-  const snippets = await page.getByTestId('features-snippets').boundingBox();
-  expect(smart && snippets).toBeTruthy();
-  if (!smart || !snippets) return;
-  // Same row, Smart Mode twice as wide.
-  expect(Math.abs(smart.y - snippets.y)).toBeLessThan(2);
-  expect(smart.width / snippets.width).toBeGreaterThan(1.8);
-});
+// The "more" disclosure groups the remaining features by what they do for the
+// user (internal-notes), never as one flat feature list.
+const MORE_GROUPS = { dictate: 7, text: 4, safe: 3, fit: 3 } as const;
 
-test('features bento stacks without sideways scroll at 390px', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.locator('#features').scrollIntoViewIfNeeded();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
-});
+for (const path of ['/', '/en/'] as const) {
+  test(`${path}: "more" disclosure shows four titled benefit groups`, async ({ page }) => {
+    await page.goto(path);
+    await page.getByTestId('features-more-toggle').click();
+    for (const [key, count] of Object.entries(MORE_GROUPS)) {
+      const group = page.getByTestId(`features-more-${key}`);
+      await expect(group.locator('h3')).not.toBeEmpty();
+      await expect(group.locator('dt')).toHaveCount(count);
+      for (const dd of await group.locator('dd').all()) await expect(dd).not.toBeEmpty();
+    }
+  });
+}

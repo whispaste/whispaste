@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-libllama-linux.sh — reproducible build + bundle of the on-device Smart
-# Mode engine for Linux: `libllama` (llama.cpp b10150, Vulkan + CPU backends)
+# Mode engine for Linux: `libllama` (llama.cpp from scripts/llama-cpp.pin, Vulkan + CPU backends)
 # plus WhisPaste's own `libsmartmode_shim.so` (native/smart_mode/).
 #
 # Linux equivalent of build-libllama-macos.sh + build-smartmode-shim-macos.sh
@@ -39,16 +39,18 @@
 #         shipped) and, with --bundle, copies the libraries into
 #         <flutter-bundle-dir>/lib/smart_mode/.
 #
-# Requires: cmake, g++, patchelf, libvulkan-dev + glslc (Vulkan backend), a
-# checked-out llama.cpp source tree (see LLAMA_SRC below).
+# Requires: cmake, g++, patchelf, libvulkan-dev + glslc + spirv-headers
+# (Vulkan backend; spirv-headers since llama.cpp v0.8.0), a checked-out
+# llama.cpp source tree (see LLAMA_SRC below).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# --- Pinned source provenance (identical pin to build-libllama-macos.sh) ----
-LLAMA_TAG="b10150"
+# Pinned source: scripts/llama-cpp.pin (one pin for all platforms).
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$REPO_ROOT/scripts/llama-cpp.pin"
 LLAMA_SRC="$REPO_ROOT/.build/deps/llama.cpp/$LLAMA_TAG"
-LLAMA_PINNED_COMMIT="dee2a846b82f15d27f84a48fa387cb53e0d99c25"
+LLAMA_PINNED_COMMIT="$LLAMA_COMMIT"
 
 BUILD_DIR="$REPO_ROOT/.build/libllama/linux-build"
 STAGE_DIR="$REPO_ROOT/.build/libllama/linux"
@@ -62,11 +64,7 @@ fi
 echo "=== build-libllama-linux ($LLAMA_TAG) ==="
 
 # --- 1. Verify pinned source -------------------------------------------------
-if [[ ! -d "$LLAMA_SRC" ]]; then
-  echo "ERROR: llama.cpp source not found at $LLAMA_SRC" >&2
-  echo "       git clone --depth 1 --branch $LLAMA_TAG https://github.com/ggml-org/llama.cpp \"$LLAMA_SRC\"" >&2
-  exit 1
-fi
+bash "$REPO_ROOT/scripts/fetch-native-deps.sh" llama
 ACTUAL_COMMIT="$(git -C "$LLAMA_SRC" rev-parse HEAD 2>/dev/null || echo 'unknown')"
 if [[ "$ACTUAL_COMMIT" != "$LLAMA_PINNED_COMMIT" ]]; then
   echo "ERROR: llama.cpp source commit mismatch (supply-chain guard)." >&2
@@ -78,6 +76,14 @@ echo "[1/5] source verified: $LLAMA_TAG @ $LLAMA_PINNED_COMMIT"
 
 # --- 2. Configure + build shared libs (Vulkan + CPU variants, backend-dl) ---
 echo "[2/5] cmake configure + build (Vulkan + CPU variants, shared, backend-dl) …"
+# A CMake cache left by another pin points at that pin's source tree and makes
+# cmake refuse to configure ("source does not match the source used to
+# generate cache"); drop the build dir then so it is configured afresh.
+CACHED_SRC="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)"
+if [[ -n "$CACHED_SRC" && "$CACHED_SRC" != "$LLAMA_SRC" ]]; then
+  echo "      stale cmake cache ($CACHED_SRC) — discarding $BUILD_DIR"
+  rm -rf "$BUILD_DIR"
+fi
 cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_FLAGS=-g -DCMAKE_CXX_FLAGS=-g \
@@ -95,7 +101,7 @@ cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DLLAMA_OPENSSL=OFF
 # BUILD_JOBS caps parallelism: the CPU-variant + Vulkan-shader compile peaks
 # at well over 1 GB per job, so an unbounded -j on a small-RAM box (verified:
-# 8 jobs on an 8 GB WSL2 VM) gets cc1plus OOM-killed.
+# 8 jobs on an 8 GB Ubuntu VM) gets cc1plus OOM-killed.
 cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(nproc)}"
 echo "      built."
 

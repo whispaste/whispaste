@@ -4,7 +4,14 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gio/gio.h>
 
+#include "autorepeat_filter.h"
+#include "menu_mask.h"
+
+#include <array>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <vector>
 
 // Xlib's own typedef, repeated so this header does not drag the Xlib macros
 // (None, Bool, Status, ...) into every includer.
@@ -31,12 +38,21 @@ typedef struct _XDisplay Display;
 //     (GNOME >= 48, KDE Plasma >= 6), via GDBus. X11 grabs over XWayland only
 //     fire while an X11 window has focus, so here the compositor owns the
 //     shortcut: CreateSession + BindShortcuts with the hotkey as preferred
-//     trigger, then Activated/Deactivated become onKeyDown/onKeyUp.
+//     trigger, then Activated/Deactivated become onKeyDown/onKeyUp. The
+//     portal needs an app ID, which an unsandboxed app only has with an
+//     installed `<app-id>.desktop` (desktop_entry_installer.h writes one).
 //
-// `start` replies {x11: bool, portal: bool}. Neither path → both false and
-// Dart keeps the toggle-only behaviour; nothing here may crash or block the
-// hotkey. A portal binding that fails after the reply (user declined the
-// dialog, no backend) is pushed as onCapabilities {x11, portal: false}.
+// `start` replies {x11, portal, wayland: bool, reason?: string}. Neither path
+// → both false and Dart keeps the toggle-only behaviour; nothing here may
+// crash or block the hotkey. On Wayland the binding outcome arrives later as
+// onCapabilities {x11, portal, wayland, bound, reason?}: bound once the
+// compositor owns the hotkey, or portal: false with a reason ("no-app-id",
+// "unavailable", "declined") when it never will.
+// libXtst entry points, resolved with dlopen (see keyboard_monitor_host.cc).
+// Xlib's Bool is int; spelled out here like Display above, without its macros.
+using XTestFakeKeyEventFn = int (*)(Display*, unsigned int, int, unsigned long);
+using XTestQueryExtensionFn = int (*)(Display*, int*, int*, int*, int*);
+
 class KeyboardMonitorHost {
  public:
   explicit KeyboardMonitorHost(FlBinaryMessenger* main_messenger);
@@ -62,10 +78,39 @@ class KeyboardMonitorHost {
                            gpointer user_data);
   void HandleMethodCall(FlMethodCall* method_call);
 
-  void Start(FlMethodCall* method_call, const std::string& trigger);
-  void ArmRelease();
+  void Start(FlMethodCall* method_call, const std::string& trigger,
+             const std::string& description);
+  // Returns whether the armed main key is still held. False means it was
+  // already up at the snapshot, so no release will come.
+  bool ArmRelease();
+
+  // Whether the watched key is down right now: 1 held, 0 up, -1 unknown
+  // (portal path, no display, nothing watched).
+  int IsWatchedKeyHeld();
+  // Whether the modifier-only watch still has its XInput2 connection, its
+  // event source and a key to watch (#773).
+  bool ModifierWatchActive() const;
+
+  // Menu mask after a Super-only hold (PAR-036, see menu_mask.h). The
+  // mask key is an unmapped X keycode pressed and released through XTest.
+  bool LoadXTest();
+  unsigned int FindUnusedKeycode();
+  void SendMenuMask();
   void Stop();
+
+  // Modifier-only pass-through for `watchModifier` (replies itself).
+  void WatchModifier(FlMethodCall* method_call, const std::string& key);
   void SendToDart(const char* method, FlValue* args = nullptr);
+  // onKeyUp with the press length ({pressMs}), or without it when unknown.
+  void SendKeyUp(std::optional<long> press_ms,
+                 std::optional<std::uint64_t> at_ms = std::nullopt);
+  // Same for a release of the watched modifier (onModifierUp).
+  void SendModifierUp(std::optional<long> press_ms,
+                      std::optional<std::uint64_t> at_ms = std::nullopt);
+  // onModifierDown, with the X server time of the press when known.
+  void SendModifierDown(std::optional<std::uint64_t> at_ms);
+  // X server times of the raw events as growing 64-bit values.
+  UnwrappedServerTime server_time_;
   void SendCapabilities();
 
   // ── X11 / XInput2 ────────────────────────────────────────────────────────
@@ -80,12 +125,17 @@ class KeyboardMonitorHost {
 
   // ── GlobalShortcuts portal ───────────────────────────────────────────────
   void ProbePortal(FlMethodCall* method_call);
-  void FinishProbe(AsyncCall* ctx, bool portal_available);
+  void CallRegister(AsyncCall* ctx);
+  void ProbeVersion(AsyncCall* ctx);
+  void CancelRegisterRetry();
+  static gboolean OnRegisterRetry(gpointer user_data);
+  void FinishProbe(AsyncCall* ctx, bool portal_available,
+                   const char* reason);
   void CreatePortalSession();
   void OnSessionCreated(guint32 response, GVariant* results);
   void OnShortcutsBound(guint32 response, GVariant* results);
   void ClosePortalSession();
-  void PortalFailed(const char* why);
+  void PortalFailed(const char* why, const char* reason);
   // Calls a GlobalShortcuts method that answers through an
   // org.freedesktop.portal.Request::Response signal; `handler` receives it.
   // Only one request is ever in flight (CreateSession, then BindShortcuts).
@@ -125,19 +175,56 @@ class KeyboardMonitorHost {
   guint x_watch_id_ = 0;
   bool x11_active_ = false;
   unsigned int watched_keycode_ = 0;
+
+  // Press timing (X server time, ms). press_down_ms_[k] is when keycode k last
+  // went down; press_known_[k] is false until an XI press was seen for it
+  // (e.g. it went down before Start). release_ms_ is the time of the watched
+  // key's release that is waiting for confirmation.
+  std::array<unsigned int, 256> press_down_ms_{};
+  std::array<bool, 256> press_known_{};
+  unsigned int release_ms_ = 0;
+
+  // Modifier-only pass-through (see `watchModifier`): the X keycode of the
+  // watched modifier (0 = none) and the modifier keycodes of the current
+  // keymap, looked up once when the watch starts.
+  unsigned int watched_modifier_keycode_ = 0;
+  std::vector<unsigned int> modifier_keycodes_;
+  // X server time of the watched modifier's first press (repeats keep it);
+  // its release sends the press length with `onModifierUp` (F15-4).
+  bool modifier_down_known_ = false;
+  unsigned int modifier_down_ms_ = 0;
+
+  // Menu mask state: tracker, whether the watched key is a Super key, the
+  // unmapped keycode used as mask (0 = none) and XTestFakeKeyEvent (nullptr
+  // when libXtst or the XTEST extension is missing).
+  MenuMaskTracker menu_mask_;
+  bool menu_mask_for_watched_ = false;
+  unsigned int menu_mask_keycode_ = 0;
+  XTestFakeKeyEventFn menu_mask_fake_key_ = nullptr;
   guint release_timer_id_ = 0;
 
   // Portal path.
   GDBusConnection* bus_ = nullptr;
   std::string trigger_;
+  std::string description_;
   std::string session_handle_;
+  std::string portal_reason_;
   bool portal_active_ = false;
   bool portal_bound_ = false;
+  // trigger_description the compositor reported for the bound shortcut.
+  std::string bound_trigger_;
+  // Timestamp of the last Activated (portal units), for the press length.
+  guint64 portal_down_units_ = 0;
+  bool portal_press_known_ = false;
   guint activated_sub_id_ = 0;
   guint deactivated_sub_id_ = 0;
   guint request_sub_id_ = 0;
   ResponseHandler request_handler_ = nullptr;
   guint token_counter_ = 0;
+  bool app_id_registered_ = false;
+  int register_attempt_ = 0;
+  guint register_retry_id_ = 0;
+  AsyncCall* register_retry_ctx_ = nullptr;
 };
 
 #endif  // FLUTTER_KEYBOARD_MONITOR_HOST_H_

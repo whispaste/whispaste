@@ -15,6 +15,8 @@ import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/platform/posix_native.dart';
+
 /// Resolves the `.app` bundle the running executable lives in, or `null` when
 /// not running from a bundle (dev/test/non-bundle context) — in which case the
 /// caller falls back to merely opening the DMG.
@@ -173,7 +175,9 @@ class DefaultMacUpdateInstaller implements MacUpdateInstaller {
     // happens; the timeout keeps this call itself from hanging the update
     // flow.
     await Isolate.run(() async {
-      await Process.run('chmod', ['+x', scriptPath]);
+      // 0755, what `chmod +x` gives a fresh 0644 file. In process: the Mac
+      // App Store sandbox blocks spawning `chmod`.
+      nativeChmod(scriptPath, 0x1ED);
       await Process.start('/bin/bash', [
         scriptPath,
         parentPid.toString(),

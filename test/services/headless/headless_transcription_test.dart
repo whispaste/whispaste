@@ -120,7 +120,7 @@ class _FakeLifecycle implements OnDeviceEngineLifecycle {
       EngineLifecycleStatus(isReady: ready, errorMessage: error);
 
   @override
-  Future<void> ensureRunning() async {}
+  Future<void> ensureRunning({bool warmup = true}) async {}
 
   @override
   Future<void> prewarm() async {}
@@ -368,7 +368,71 @@ void main() {
         clockMs: () => clock.nowMs,
       );
 
-      expect(lifecycle.events, ['recordingStarted', 'transcriptionCompleted']);
+      expect(lifecycle.events, [
+        'recordingStarted',
+        'recordingStopped',
+        'transcriptionCompleted',
+      ]);
+    });
+
+    test('ends the busy window before the timed decodes, so they run at full '
+        'threads like a dictation after capture', () async {
+      final container = containerWith(_FakeTranscriber(clock));
+
+      await runHeadlessTranscription(
+        container,
+        options([]),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
+      expect(
+        lifecycle.events.indexOf('recordingStopped'),
+        lessThan(lifecycle.events.indexOf('transcriptionCompleted')),
+      );
+    });
+
+    test('signals stop exactly once when the engine is not ready', () async {
+      lifecycle = _FakeLifecycle(ready: false, error: 'model file not found');
+      final container = containerWith(_FakeTranscriber(clock));
+
+      await expectLater(
+        runHeadlessTranscription(
+          container,
+          options([]),
+          _wav(),
+          clockMs: () => clock.nowMs,
+        ),
+        throwsA(isA<HeadlessTranscriptionException>()),
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
+    });
+
+    test('signals stop exactly once when the transcript is empty', () async {
+      final container = containerWith(_FakeTranscriber(clock, text: ' \n '));
+
+      await expectLater(
+        runHeadlessTranscription(
+          container,
+          options([]),
+          _wav(),
+          clockMs: () => clock.nowMs,
+        ),
+        throwsA(isA<HeadlessTranscriptionException>()),
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
     });
 
     test('applies the pipeline whitespace cleanup and, only when asked, the '
@@ -442,6 +506,27 @@ void main() {
         expect(report.toJson()['gpuDevice'], 'CUDA0');
       },
     );
+
+    // #1666: NVIDIA without the CUDA pack. The engine is configured for cuda
+    // but runs on Vulkan0; the report named `cuda` (GTX 1650 lab run).
+    test('reports vulkan when a cuda engine runs on Vulkan0', () async {
+      final report = await runHeadlessTranscription(
+        containerWith(
+          _FakeTranscriber(clock),
+          whisperStatus: const WhisperEngineStatus(
+            isLoaded: true,
+            backend: WhisperBackend.cuda,
+            gpuDevice: 'Vulkan0',
+          ),
+        ),
+        options([]),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(report.toJson()['backend'], 'vulkan');
+      expect(report.toJson()['gpuDevice'], 'Vulkan0');
+    });
 
     test('reports cpu when the GPU engine did not load (CPU fallback) and '
         'for parakeet', () async {
@@ -526,6 +611,21 @@ void main() {
         ),
         throwsA(isA<HeadlessTranscriptionException>()),
       );
+    });
+
+    test('--allow-empty (GPU probe tone) reports an empty transcript as a '
+        'finished run (#1349)', () async {
+      final container = containerWith(_FakeTranscriber(clock, text: ' '));
+
+      final report = await runHeadlessTranscription(
+        container,
+        options(['--allow-empty']),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(report.transcript, isEmpty);
+      expect(report.runs, hasLength(1));
     });
   });
 

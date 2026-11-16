@@ -25,6 +25,11 @@ void main() {
     const allowedFiles = <String, String>{
       // The component itself — it may build whatever it likes.
       'lib/widgets/wp_row_checkbox.dart': 'the component this guard protects',
+      // A form consent checkbox (feedback publish consent, unticked by
+      // default). Not a row multi-select, so the family this guard protects
+      // does not apply; see the note above on other selection affordances.
+      'lib/widgets/wp_consent_checkbox.dart':
+          'form consent checkbox, not a row multi-select',
     };
 
     // Constructor-shaped: `\b` keeps identifiers that merely contain

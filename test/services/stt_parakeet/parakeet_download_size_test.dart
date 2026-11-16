@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/text/byte_size.dart';
 
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_gpu_policy.dart';
@@ -8,7 +9,10 @@ import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart';
 void main() {
   test('sherpa-only download is the sherpa bundle alone', () {
     expect(parakeetDownloadBytes(gpuWanted: false), parakeetModelTotalBytes);
-    expect(parakeetDownloadSizeLabel(gpuWanted: false), '639 MB');
+    expect(
+      parakeetDownloadSizeLabel(gpuWanted: false),
+      formatByteSize(parakeetModelTotalBytes),
+    );
   });
 
   test('GPU download adds the GGUF model on top of the sherpa bundle', () {
@@ -16,7 +20,10 @@ void main() {
       parakeetDownloadBytes(gpuWanted: true),
       parakeetModelTotalBytes + parakeetGgufActive.sizeBytes,
     );
-    expect(parakeetDownloadSizeLabel(gpuWanted: true), '1.2 GB');
+    expect(
+      parakeetDownloadSizeLabel(gpuWanted: true),
+      formatByteSize(parakeetModelTotalBytes + parakeetGgufActive.sizeBytes),
+    );
   });
 
   test('gpuAcceleration setting maps to the GPU download decision', () {

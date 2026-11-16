@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "native_context_menu.h"
+
 #include "floating_button_window.h"
 
 class FloatingButtonHost {
@@ -57,7 +59,7 @@ class FloatingButtonHost {
   // Relay helpers → render engine
   void RelaySetState(const std::string& state);
   void RelaySetDiameter(int disc_size);
-  void RelaySetTheme(bool is_dark);
+  void RelaySetTheme(const std::string& background, const std::string& wave);
 
   // Handle calls coming from the render engine.
   void HandleRenderCall(
@@ -69,7 +71,7 @@ class FloatingButtonHost {
   // report the final position as "onDragEnded".
   void BeginDrag();
 
-  // Build and show a native TrackPopupMenu from context_menu_items_.
+  // Show the native menu built from context_menu_ (native_context_menu.h).
   void ShowNativeContextMenu();
 
   // Fire-and-forget event to the main Dart engine (safe if no listener).
@@ -99,10 +101,21 @@ class FloatingButtonHost {
   // the latest state/diameter and flush them in HandleRenderCall("ready").
   bool render_ready_ = false;
   std::string latest_state_ = "idle";
+  // Last setTheme presets (ticket); cached like latest_state_ for the ready flush.
+  std::string latest_background_ = "marine";
+  std::string latest_wave_ = "cyan";
+  // ticket button look: shape ("round"/"square"), recording ring, and the
+  // resting opacity (0.4-1.0). Relayed with the presets above.
+  std::string latest_shape_ = "round";
+  bool latest_ring_ = true;
+  double latest_idle_opacity_ = 1.0;
+  bool latest_idle_capsule_ = false;  // overlay_button_idle_capsule
   int latest_disc_size_ = 56;  // logical pixels (without shadow padding)
+  // Whether setTheme arrived yet; gates the theme boot arguments (#977).
+  bool has_theme_ = false;
 
-  // ── Context menu items ────────────────────────────────────────────
-  std::vector<std::pair<std::string, std::wstring>> context_menu_items_;
+  // ── Context menu (#393) ───────────────────────────────────────────
+  NativeMenu context_menu_;
 };
 
 #endif  // FLOATING_BUTTON_HOST_H_

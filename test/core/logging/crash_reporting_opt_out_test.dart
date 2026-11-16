@@ -148,6 +148,7 @@ void main() {
     });
 
     test('no stored opt-out: Sentry wraps the app runner', () async {
+      writeStoredSettings({'onboarding_completed': 'true'});
       await AppMonitoring.startMonitoring(
         appRunner: () async => appRan = true,
         consentMarker: marker,
@@ -157,6 +158,50 @@ void main() {
       expect(sentryInitCalls, 1);
       expect(appRan, isTrue);
       expect(CrashReporter.instance!.consentGranted, isTrue);
+    });
+  });
+
+  group('first run before the privacy choice (#686)', () {
+    Future<void> start() => AppMonitoring.startMonitoring(
+      appRunner: () async => appRan = true,
+      consentMarker: marker,
+      sentryInit: fakeSentryInit,
+    );
+
+    test('fresh profile: Sentry is not started, the app runs', () async {
+      expect(marker.firstRunPending(), isTrue);
+      await start();
+      expect(sentryInitCalls, 0);
+      expect(appRan, isTrue);
+      expect(Sentry.isEnabled, isFalse);
+    });
+
+    test(
+      'onboarding not completed in the stored settings: not started',
+      () async {
+        writeStoredSettings({'onboarding_completed': 'false'});
+        await start();
+        expect(sentryInitCalls, 0);
+        expect(appRan, isTrue);
+      },
+    );
+
+    test('settings without the onboarding row count as first run', () async {
+      writeStoredSettings({'theme': 'dark'});
+      expect(marker.firstRunPending(), isTrue);
+    });
+
+    test('completed onboarding: Sentry starts as before', () async {
+      writeStoredSettings({'onboarding_completed': 'true'});
+      expect(marker.firstRunPending(), isFalse);
+      await start();
+      expect(sentryInitCalls, 1);
+    });
+
+    test('an unreadable settings database never silences an existing '
+        'install', () async {
+      File(p.join(dir.path, 'history.db')).writeAsStringSync('not sqlite');
+      expect(marker.firstRunPending(), isFalse);
     });
   });
 

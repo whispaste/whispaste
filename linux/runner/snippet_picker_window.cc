@@ -2,7 +2,8 @@
 
 #include <gdk/gdk.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_engine.h"
+#include "secondary_plugin_registrant.h"
 
 SnippetPickerWindow::SnippetPickerWindow() = default;
 
@@ -41,12 +42,10 @@ void SnippetPickerWindow::Create() {
   }
 
   // ── Second Flutter engine (entrypoint arg: --snippet-picker) ─────────────
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
-  const gchar* picker_args[] = {"--snippet-picker", nullptr};
-  fl_dart_project_set_dart_entrypoint_arguments(
-      project, const_cast<gchar**>(picker_args));
+  g_autoptr(FlDartProject) project = secondary_project_new("--snippet-picker");
 
   FlView* view = fl_view_new(project);
+  secondary_view_watch_first_frame(view, "Snippet picker");
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
@@ -54,7 +53,7 @@ void SnippetPickerWindow::Create() {
 
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
 
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
 
   gtk_widget_show(GTK_WIDGET(fl_view_));
 

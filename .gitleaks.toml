@@ -3,6 +3,11 @@
 
 title = "WhisPaste gitleaks config"
 
+# Keep gitleaks' default ruleset active next to the custom rules below. Without
+# [extend] a config file that defines [[rules]] replaces the defaults entirely.
+[extend]
+  useDefault = true
+
 # Custom rules (2026-07-21 incident): gitleaks' default ruleset targets
 # secret-SHAPED strings (sk-…, ghp_…, high-entropy blobs). It does NOT catch
 # account-identifying values that don't look random — an email address, a
@@ -29,8 +34,8 @@ title = "WhisPaste gitleaks config"
     # email-like form, required by GNOME), not an account address.
     regexes = ['''whispaste-gsc-sitemap-ping@gcp-project\.iam\.gserviceaccount\.com''', '''whispaste-focus@whispaste\.de''']
 
-[allowlist]
-  description = "Allowlist for false positives"
+[[allowlists]]
+  description = "Scrubbed 2026-07 history incident: one reviewed commit and the REDACTED-* placeholders"
 
   regexTarget = "match"
   commits = ["3e202004ec33e483964ff040548f75961594b046"]
@@ -43,7 +48,61 @@ title = "WhisPaste gitleaks config"
   # weakening the rule's real detection.
   regexes = ['''REDACTED-[A-Z-]+''']
 
-  [[allowlist.rules]]
-    description = "Test API key in Dart test files"
-    regex = '''sk-test-\d+'''
-    path = '''.*_test\.dart'''
+[[allowlists]]
+  description = "Fake test API key value (sk-test-<digits>), matched by value in any file"
+  # No paths here: gitleaks skips a whole file when a global allowlist path matches
+  # (even with condition = "AND"), which would exempt every *_test.dart from all rules.
+  regexTarget = "match"
+  regexes = ['''sk-test-\d+''']
+
+# Reviewed false positives of the default ruleset (the review found
+# no real secret). One entry per file, scoped to the
+# single rule that fired, so a real secret in the same file or another rule
+# still reports. Several files exist only in history (renamed or removed).
+
+# Category: checksum, not a credential.
+[[allowlists]]
+  description = "SHA-256 pin of the sherpa-onnx C API archive (public checksum)"
+  targetRules = ["generic-api-key"]
+  paths = ['''scripts/sherpa-onnx\.pin$''']
+
+[[allowlists]]
+  description = "Signature/verification key text in the vendored WinSparkle README (public documentation sample)"
+  targetRules = ["generic-api-key"]
+  paths = ['''packages/auto_updater_windows/windows/WinSparkle-0\.9\.3/README\.md$''']
+
+# Category: identifier that merely contains the word "key" (model-size map key).
+[[allowlists]]
+  description = "Dart constant naming a model-size lookup key, not a credential"
+  targetRules = ["generic-api-key"]
+  paths = ['''packages/whispaste_gpu_probe/lib/src/wav2vec2_direct_ml_candidate\.dart$''', '''packages/whispaste_gpu_probe/test/vram_gating_test\.dart$''']
+
+# Category: synthetic test fixture.
+[[allowlists]]
+  description = "Fake key=value strings that exercise the diagnostics sanitizer and log reader redaction"
+  targetRules = ["generic-api-key"]
+  paths = ['''packages/whispaste_diagnostics/test/privacy/sanitizer_test\.dart$''', '''packages/whispaste_diagnostics/test/probes/log_reader_test\.dart$''']
+
+[[allowlists]]
+  description = "Fake INDEXNOW_KEY values in the unit test of the IndexNow post-build hook (network is mocked; the real IndexNow key is public by protocol anyway)"
+  targetRules = ["generic-api-key"]
+  paths = ['''website/scripts/__tests__/push-indexnow\.test\.ts$''']
+
+[[allowlists]]
+  description = "Historic Go prototype test (file no longer in the tree) assigning a dummy APIKey"
+  targetRules = ["generic-api-key"]
+  paths = ['''(^|/)config_test\.go$''']
+
+# Category: legacy public key kept in history.
+[[allowlists]]
+  description = "Supabase anon key (role=anon, protected by RLS) of the legacy feedback backend, only in these seven historic commits of the testimonials component (#691 removed it from the tree); the push hook scans the full history; the service-role key is never allowed here"
+  targetRules = ["jwt"]
+  commits = [
+    "7b63759a4cfe56514ad625879f7de326a879d124",
+    "110ebd2ac882362508a448a48f9199c8fa6018d7",
+    "ff4b7e83a52188888c28deda8b809fa979b08b9d",
+    "2f9f28bcbcdeece68a373bb37d2646e2039d58e4",
+    "fa6ffd25f6acb74350f24025d4e6a1e06f2de376",
+    "ca4f7a336cc4c21bff00854c9a46ebbdcaf8a31c",
+    "a76999eaa43bd9729332ec3e34745819c9dc9c00",
+  ]

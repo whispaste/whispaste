@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
@@ -35,11 +36,15 @@ class WpSection extends StatelessWidget {
     this.collapsible = false,
     this.initiallyExpanded = true,
     this.padding = EdgeInsets.zero,
+    this.testId,
   });
 
   final String title;
   final String? subtitle;
   final Widget child;
+
+  /// Accessibility identifier of the section heading.
+  final String? testId;
   final Widget? trailing;
   final bool collapsible;
   final bool initiallyExpanded;
@@ -52,6 +57,7 @@ class WpSection extends StatelessWidget {
 
     if (collapsible) {
       return _CollapsibleSection(
+        testId: testId,
         title: title,
         subtitle: subtitle,
         trailing: trailing,
@@ -74,6 +80,7 @@ class WpSection extends StatelessWidget {
             trailing: trailing,
             headerStyle: headerStyle,
             colorScheme: cs,
+            testId: testId,
           ),
           const SizedBox(height: WpSpacing.md),
           child,
@@ -83,32 +90,11 @@ class WpSection extends StatelessWidget {
   }
 }
 
-/// The section head's reading edge — the one number this header owes the rows
-/// beneath it.
-///
-/// A settings section used to present four competing left edges: 0 (accent bar
-/// and row hover surface), 15 (section title), 12 (row icon) and 40 (row
-/// label). 15-against-12 was the worst of them — near enough to look like a
-/// mistake, far enough to see. `settings_widgets.dart` exports
-/// `kSettingRowInset` (12) as the app's shared reading edge, and
-/// `onboarding_headings.dart` deliberately pins its headings to it; only the
-/// section head that sits directly above those rows ignored it.
-///
-/// This used to be a *sum*: a 3 px warm-gradient accent bar plus a 9 px gutter,
-/// so the bar hung in the margin as decoration while the title landed on 12.
-/// Ticket 08 removed the bar — it was a generic interaction accent on a
-/// non-interactive heading, and the app now spends `accentWarmGradient` only
-/// where it marks a real selection (the sidebar's active rail marker). The
-/// title's edge is unchanged; only the way it is produced is, which is why the
-/// constant is now stated directly instead of assembled from two halves.
-///
-/// Off the spacing scale on purpose: `WpSpacing.sm` happens to be 12 as well,
-/// but the constraint here is *equality with `kSettingRowInset`*, not a
-/// spacing-scale step. Not imported from `settings_widgets.dart` — a shared
-/// widget must not depend on a feature — so the number is restated here with
-/// its reason, and `section_test.dart` pins it so the two cannot drift apart
-/// silently.
-const double _headerTextInset = 12;
+/// The section title starts on the section's own edge, where the cards,
+/// panels and paragraphs below it start too (Übersicht, Statistik, Handbuch).
+/// It used to sit 12 px in to match the settings rows' inset, but settings
+/// no longer use this widget, and the indent left every remaining caller with
+/// a title that stood off its own content.
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
@@ -120,6 +106,7 @@ class _SectionHeader extends StatelessWidget {
     this.onTap,
     this.isExpanded,
     this.focusNode,
+    this.testId,
   });
 
   final String title;
@@ -134,6 +121,9 @@ class _SectionHeader extends StatelessWidget {
   /// inner [InkWell] for keyboard activation (Enter/Space).
   final FocusNode? focusNode;
 
+  /// Accessibility identifier of the heading node.
+  final String? testId;
+
   @override
   Widget build(BuildContext context) {
     final inkWell = InkWell(
@@ -144,14 +134,7 @@ class _SectionHeader extends StatelessWidget {
       focusColor: Colors.transparent,
       highlightColor: Colors.transparent,
       child: Padding(
-        // Left inset only: the ink of the (collapsible) header still spans the
-        // full section width, the *text* starts on the shared reading edge.
-        padding: const EdgeInsets.fromLTRB(
-          _headerTextInset,
-          WpSpacing.xxs,
-          0,
-          WpSpacing.xxs,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
         child: Row(
           children: [
             Expanded(
@@ -188,8 +171,8 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
 
-    // House idiom for a composed control (see `mic_permission_chip.dart`):
-    // MergeSemantics + a *label-less* Semantics. A `label:` here would not
+    // House idiom for a composed control: MergeSemantics + a *label-less*
+    // Semantics. A `label:` here would not
     // replace the subtree's own text, it would be prepended to it — the
     // rendered `Text(title)` still contributes a node, so a screen reader
     // read the title twice ("Title, Title, Subtitle") on all ~20 call sites
@@ -203,6 +186,7 @@ class _SectionHeader extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         header: true,
+        identifier: testId,
         button: onTap != null,
         expanded: isExpanded,
         child: focusNode != null
@@ -227,6 +211,7 @@ class _CollapsibleSection extends StatefulWidget {
     required this.initiallyExpanded,
     required this.padding,
     required this.child,
+    this.testId,
   });
 
   final String title;
@@ -237,6 +222,7 @@ class _CollapsibleSection extends StatefulWidget {
   final bool initiallyExpanded;
   final EdgeInsets padding;
   final Widget child;
+  final String? testId;
 
   @override
   State<_CollapsibleSection> createState() => _CollapsibleSectionState();
@@ -297,6 +283,7 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
         children: [
           // loam-ignore: a11y-interactive-semantics – semantics provided in _SectionHeader.build
           _SectionHeader(
+            testId: widget.testId,
             title: widget.title,
             subtitle: widget.subtitle,
             trailing: widget.trailing,

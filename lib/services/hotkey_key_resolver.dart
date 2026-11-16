@@ -13,6 +13,13 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 // Key resolution
 // ---------------------------------------------------------------------------
 
+/// Flutter's key id of F1; the ids of F2 and up follow in order.
+const int _functionKeyBase = 0x00100000801;
+
+/// Storage accepts F1–F24. macOS registration is limited to the keys its
+/// native key map exposes (currently F1–F20).
+const int _lastFunctionKey = 24;
+
 /// Lookup table for arrow-key resolution.  Keyed on the upper-cased storage
 /// token (symbol or word form).
 const Map<String, LogicalKeyboardKey> _arrowKeyMap = {
@@ -53,7 +60,7 @@ const Map<String, LogicalKeyboardKey> _namedKeyMap = {
 /// Accepted inputs (case-insensitive unless indicated):
 /// - Single letter: `'A'`–`'Z'`
 /// - Digit (top row, not numpad): `'0'`–`'9'`
-/// - Function keys: `'F1'`–`'F12'`
+/// - Function keys: `'F1'`–`'F24'`
 /// - Arrow keys: `'←'`/`'ARROWLEFT'`/`'LEFT'`,
 ///   `'↑'`/`'ARROWUP'`/`'UP'`,
 ///   `'↓'`/`'ARROWDOWN'`/`'DOWN'`,
@@ -95,12 +102,12 @@ LogicalKeyboardKey resolveKey(String label) {
     return LogicalKeyboardKey(0x00000000030 + offset); // digit0 = 0x30
   }
 
-  // Function keys F1–F12
+  // Function keys F1–F24
   final fnMatch = RegExp(r'^F(\d+)$').firstMatch(upper);
   if (fnMatch != null) {
     final n = int.parse(fnMatch.group(1)!);
-    if (n >= 1 && n <= 12) {
-      return LogicalKeyboardKey(0x00100000070 + n - 1); // f1..f12
+    if (n >= 1 && n <= _lastFunctionKey) {
+      return LogicalKeyboardKey(_functionKeyBase + n - 1);
     }
   }
 
@@ -167,11 +174,11 @@ final Map<LogicalKeyboardKey, String> _namedKeyLabels = {
   LogicalKeyboardKey.pageDown: 'PageDown',
 };
 
-/// Precomputed F1–F12 reverse lookup.  Uses the same keyId arithmetic as
+/// Precomputed F1–F24 reverse lookup. Uses the same keyId arithmetic as
 /// [resolveKey] so the two tables stay in sync.
 final Map<LogicalKeyboardKey, String> _fnKeyLabels = {
-  for (var n = 1; n <= 12; n++)
-    LogicalKeyboardKey(0x00100000070 + n - 1): 'F$n',
+  for (var n = 1; n <= _lastFunctionKey; n++)
+    LogicalKeyboardKey(_functionKeyBase + n - 1): 'F$n',
 };
 
 /// Reverse lookup built from [_punctuationKeys] so there is a single source of
@@ -224,8 +231,7 @@ String? labelForKey(LogicalKeyboardKey key) {
 ///
 /// Returns `true` for keys the [resolveKey] reader can later parse back from
 /// storage, **plus** the small set of keys accepted without a modifier
-/// (function keys, selected media keys) that don't appear in
-/// [labelForKey]'s table.
+/// (selected media keys) that don't appear in [labelForKey]'s table.
 ///
 /// This is the **single source of truth** that guards the recorder's
 /// write path. If [isRecordableKey] returns `false`, the recorder must not
@@ -286,6 +292,12 @@ LogicalKeyboardKey? logicalForPhysicalKey(PhysicalKeyboardKey physicalKey) =>
 /// digit positions (used when a non-Latin layout reports a non-ASCII
 /// logical key for the same physical position).
 final Map<PhysicalKeyboardKey, LogicalKeyboardKey> _physicalToLogical = {
+  // X11 may report XF86Tools for the physical F13 key. Persist the F-key,
+  // which the Linux registrar resolves against the active X11 key map.
+  for (var n = 13; n <= 24; n++)
+    PhysicalKeyboardKey(0x00070068 + n - 13): LogicalKeyboardKey(
+      _functionKeyBase + n - 1,
+    ),
   PhysicalKeyboardKey.semicolon: LogicalKeyboardKey.semicolon,
   PhysicalKeyboardKey.quote: LogicalKeyboardKey.quote,
   PhysicalKeyboardKey.backquote: LogicalKeyboardKey.backquote,
@@ -335,26 +347,9 @@ final Map<PhysicalKeyboardKey, LogicalKeyboardKey> _physicalToLogical = {
   PhysicalKeyboardKey.digit9: LogicalKeyboardKey.digit9,
 };
 
-/// Keys that are recordable but whose canonical [LogicalKeyboardKey] instance
-/// does not match the F-key keyId table used inside [resolveKey]/[labelForKey]
-/// (Flutter assigns F1=0x00100000801 etc., while the resolver currently
-/// indexes F-keys via a different magic offset — see [resolveKey]). These
-/// canonical instances must still pass the recordability gate so the
-/// recorder accepts F1–F12 and the media keys it whitelists as no-modifier
-/// keys.
+/// Keys that are recordable without a [labelForKey] entry: the media keys the
+/// recorder whitelists as no-modifier keys.
 final Set<LogicalKeyboardKey> _recordableNoLabelKeys = {
-  LogicalKeyboardKey.f1,
-  LogicalKeyboardKey.f2,
-  LogicalKeyboardKey.f3,
-  LogicalKeyboardKey.f4,
-  LogicalKeyboardKey.f5,
-  LogicalKeyboardKey.f6,
-  LogicalKeyboardKey.f7,
-  LogicalKeyboardKey.f8,
-  LogicalKeyboardKey.f9,
-  LogicalKeyboardKey.f10,
-  LogicalKeyboardKey.f11,
-  LogicalKeyboardKey.f12,
   LogicalKeyboardKey.mediaPlayPause,
   LogicalKeyboardKey.mediaStop,
   LogicalKeyboardKey.audioVolumeMute,

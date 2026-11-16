@@ -1,0 +1,11 @@
+{
+  "_comment": "Released consent text versions (SHA-256 of label + newline + explanation per locale). Append only: never edit or remove an entry. Add a new version here in its own commit once it is released.",
+  "feedback-quote-v1": {
+    "de": "d1d22cc59d894df88ef99dbe59762c1d7d09dd719d9b84c601fad82e741d5bb5",
+    "en": "b2ace2ac775ac9023243fe862edf7387de7fc744aa58caf7d185de5bc3b284fb",
+    "es": "2af78ad2c629f7c8b828f88df7744a0596a51a429bbe508df70e887848e9fe28",
+    "he": "7445c43bc9395e2985ffb9081f1f0f9e29ad31751339f7708d75e3ef232f20a3",
+    "pt": "9f2e107408e42b8f28e967fdf83f2a641b14c294106e6fec32b0bf5396709cb6",
+    "ru": "c251bd7dbb9bd9d8fde67896c6d6522801d592d860c310ee1f2afbc6d044e7d3"
+  }
+}

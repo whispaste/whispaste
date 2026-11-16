@@ -8,19 +8,37 @@
 /// which the parent (e.g. [WpSttModelManager]) supplies.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/config/selectable_speech_models.dart';
+import '../../core/config/settings_enums.dart';
+import '../../core/text/byte_size.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/l10n/download_error_text.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/speech_recommendation.dart';
+import '../../services/short_model_benchmark.dart';
+import '../../services/stt/backend_utilization_notifier.dart'
+    show processorCountProvider;
 import '../../services/hardware_info_service.dart' as hw;
 import '../../services/model_download_service.dart';
+import '../../services/model_hardware_telemetry.dart';
+import '../../services/telemetry_model_buckets.dart';
 import '../../services/stt/stt_bundle.dart';
+import '../../widgets/wp_progress_bar.dart';
+import '../../widgets/model_ram_precheck_dialog.dart';
+import '../../widgets/recommendation_reason.dart';
 import '../../widgets/tier_performance_presentation.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/dialog.dart';
 import '../../widgets/wp_focus_ring.dart';
+import '../../core/recording/recording_helpers.dart' show displayNameForModel;
 
 /// Tier-based STT model selector.
 ///
@@ -65,9 +83,34 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
     final l10n = L10n.of(context);
     final gpu = widget.gpu;
 
-    final recommendedTier = gpu != null
-        ? recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor)
-        : null;
+    // The tiers only show while Whisper is the active engine, so the badge
+    // is the recommendation within Whisper (UIA-RT-03, E2a): the benchmark's
+    // verdict when this machine has measured tiers, else the hardware class
+    // (MV-03). Without GPU info only a measurement can recommend a tier. The same
+    // provider feeds onboarding's model step (MV-04).
+    final cpuCores = ref.watch(processorCountProvider);
+    final ramMB = ref.watch(ramMBProvider);
+    final recommendation = whisperRecommendationFor(
+      gpu: gpu,
+      measuredRtf: widget.benchmarkRtf,
+      compactBenchmarkRtf: ref.watch(shortModelBenchmarkRtfProvider),
+      cpuCores: cpuCores,
+      ramMB: ramMB,
+    );
+    final recommendedTier = recommendation.tier;
+    final recommendationMeasured =
+        recommendation.tierSource == TierRecommendationSource.measured;
+    final reason = recommendationReason(
+      l10n,
+      SpeechRecommendation(
+        recommendation: recommendation,
+        gpuName: gpu?.name ?? '',
+        vramMB: gpu?.vramMB,
+        cpuCores: cpuCores,
+        ramMB: ramMB,
+      ),
+      recommendation,
+    );
 
     final currentTier = widget.currentModelId != null
         ? tierForModel(widget.currentModelId!)
@@ -81,11 +124,20 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (sttStatus.restartNeeded) ...[
+          Text(
+            l10n.sttEngineRestartHint,
+            key: const ValueKey('settings-stt-engine-restart-hint'),
+            style: TextStyle(color: WpColors.error),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
         // Tier cards
         for (final tier in QualityTier.values) ...[
           _TierRow(
             tier: tier,
             isRecommended: tier == recommendedTier,
+            recommendationMeasured: recommendationMeasured,
             isCurrentTier: tier == currentTier,
             performance: gpu != null
                 ? tierPerformance(tier, gpu, benchmarkRtf: widget.benchmarkRtf)
@@ -95,6 +147,7 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
             l10n: l10n,
             isBenchmarking: isBenchmarking && benchmarkingTier == tier,
             benchmarkingTier: benchmarkingTier,
+            benchmarkRtf: widget.benchmarkRtf,
             onSelect: downloadState.isBusy
                 ? null
                 : () => _selectTier(tier, downloadState),
@@ -103,32 +156,63 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
                       ref.read(modelDownloadProvider.notifier).cancelDownload()
                 : null,
             onDelete: _isTierDownloaded(tier, downloadState)
-                ? () {
-                    for (final m in modelsForTier(tier)) {
-                      if (downloadState.downloadedModels.contains(m.id)) {
-                        ref
-                            .read(modelDownloadProvider.notifier)
-                            .deleteModel(
-                              m.id,
-                              releaseEngine: ref
-                                  .read(localSttBundleProvider.notifier)
-                                  .releaseModel,
-                            );
-                      }
+                ? () async {
+                    final downloaded = [
+                      for (final m in modelsForTier(tier))
+                        if (_installedModelIds().contains(m.id)) m,
+                    ];
+                    final confirmed = await showWpConfirmDialog(
+                      context: context,
+                      title: l10n.modelTierDeleteConfirm,
+                      message: l10n.modelTierDeleteConfirmMessage(
+                        downloaded.length,
+                        formatModelSizeLabel(
+                          downloaded.fold(0, (sum, m) => sum + m.sizeBytes),
+                        ),
+                      ),
+                      confirmLabel: l10n.actionDelete,
+                      cancelLabel: l10n.actionCancel,
+                      destructive: true,
+                    );
+                    if (!confirmed) return;
+                    final downloads = ref.read(modelDownloadProvider.notifier);
+                    final releaseEngine = ref
+                        .read(localSttBundleProvider.notifier)
+                        .releaseModel;
+                    for (final m in downloaded) {
+                      downloads.deleteModel(m.id, releaseEngine: releaseEngine);
                     }
                   }
                 : null,
+          ),
+        ],
+        // Why that tier is recommended, in the words onboarding uses (MV-03).
+        if (reason != null) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            reason,
+            key: const ValueKey('settings-stt-recommendation-reason'),
+            style: TextStyle(
+              fontSize: WpTypography.caption,
+              color: WpColors.textMuted,
+            ),
           ),
         ],
         // Error message
         if (downloadState.isError && downloadState.errorMessage != null) ...[
           const SizedBox(height: WpSpacing.sm),
           _ErrorBanner(
-            message: downloadState.errorMessage == modelDeleteInUseError
-                ? l10n.modelDeleteInUse
-                : downloadState.errorMessage!,
+            message: downloadFailureText(
+              l10n,
+              message: downloadState.errorMessage,
+              kind: downloadState.errorKind,
+            ),
             l10n: l10n,
-            onRetry: () => ref.invalidate(modelDownloadProvider),
+            onRetry: () => unawaited(
+              ref
+                  .read(modelDownloadProvider.notifier)
+                  .retry(fallbackModelId: widget.currentModelId),
+            ),
           ),
         ],
       ],
@@ -136,16 +220,34 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
   }
 
   /// Select a tier: notify parent and auto-download if needed.
-  void _selectTier(QualityTier tier, ModelDownloadState downloadState) {
+  Future<void> _selectTier(
+    QualityTier tier,
+    ModelDownloadState downloadState,
+  ) async {
+    ref
+        .read(modelHardwareTelemetryProvider)
+        .modelSwitched(toCatalogId: tierCatalogId(tier));
     if (_isTierDownloaded(tier, downloadState)) {
       // Model already available — activate the best downloaded model.
       _activateTier(tier, downloadState);
     } else {
-      // Model needs downloading — start download; [_markModelDone] in the
-      // notifier auto-activates it in settings once the download succeeds.
-      ref
-          .read(modelDownloadProvider.notifier)
-          .downloadModel(bestModelForTier(tier).id);
+      // Model needs downloading — the RAM precheck applies, because the model
+      // loads right after its download. [_markModelDone] in the notifier
+      // auto-activates it in settings once the download succeeds.
+      final modelId = bestModelForTier(tier).id;
+      final base = ref.read(settingsProvider).value;
+      if (base != null &&
+          !await confirmSttSettingsRam(
+            context: context,
+            settings: base.copyWith(
+              sttEngine: OnDeviceEngine.whisper.value,
+              sttModel: modelId,
+            ),
+          )) {
+        return;
+      }
+      if (!mounted) return;
+      ref.read(modelDownloadProvider.notifier).downloadModel(modelId);
     }
   }
 
@@ -153,7 +255,7 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
   void _activateTier(QualityTier tier, ModelDownloadState downloadState) {
     final downloaded = modelsForTier(
       tier,
-    ).where((m) => downloadState.downloadedModels.contains(m.id));
+    ).where((m) => _installedModelIds().contains(m.id));
     final modelId = downloaded.isNotEmpty
         ? downloaded.first.id
         : bestModelForTier(tier).id;
@@ -166,11 +268,16 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
     return modelsForTier(tier).any((m) => m.id == state.activeModelId);
   }
 
+  /// The Whisper models the user can pick, read from the same provider as the
+  /// dock's speech selector.
+  Set<String> _installedModelIds() => {
+    for (final model in ref.read(selectableSpeechModelsProvider))
+      if (model.isInstalled) model.modelId,
+  };
+
   /// Whether any model in this tier is downloaded.
   bool _isTierDownloaded(QualityTier tier, ModelDownloadState state) {
-    return modelsForTier(
-      tier,
-    ).any((m) => state.downloadedModels.contains(m.id));
+    return modelsForTier(tier).any((m) => _installedModelIds().contains(m.id));
   }
 }
 
@@ -184,6 +291,7 @@ class _TierRow extends StatefulWidget {
   const _TierRow({
     required this.tier,
     required this.isRecommended,
+    this.recommendationMeasured = false,
     this.isCurrentTier = false,
     required this.performance,
     required this.gpu,
@@ -194,12 +302,19 @@ class _TierRow extends StatefulWidget {
     required this.onDelete,
     this.isBenchmarking = false,
     this.benchmarkingTier,
+    this.benchmarkRtf,
   });
 
   final QualityTier tier;
   final bool isRecommended;
+
+  /// The recommendation rests on this machine's measurements, not the estimate.
+  final bool recommendationMeasured;
   final bool isCurrentTier;
   final TierPerformance performance;
+
+  /// Measured RTF per tier; lets the info line quote the real numbers.
+  final Map<QualityTier, double>? benchmarkRtf;
   final hw.GpuInfo? gpu;
   final ModelDownloadState downloadState;
   final L10n l10n;
@@ -245,11 +360,10 @@ class _TierRowState extends State<_TierRow> {
     QualityTier.premium => LucideIcons.crown,
   };
 
-  String _tierLabel(L10n l10n) => switch (widget.tier) {
-    QualityTier.compact => l10n.qualityTierCompactLabel,
-    QualityTier.balanced => l10n.qualityTierBalancedLabel,
-    QualityTier.premium => l10n.qualityTierPremiumLabel,
-  };
+  /// The row title is the model's display name ("Whisper · Balanced"), the
+  /// same one the dock, statistics and toasts show (UIA-NAM-01).
+  String _tierLabel(L10n l10n) =>
+      displayNameForModel(bestModelForTier(widget.tier).id, l10n);
 
   String _tierDesc(L10n l10n) => switch (widget.tier) {
     QualityTier.compact => l10n.qualityTierCompactDesc,
@@ -268,11 +382,11 @@ class _TierRowState extends State<_TierRow> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const accentButtonFill = WpColors.accentButtonFill;
-    const accentBorder30 = WpColors.accentBorder30;
-    const textMuted = WpColors.textMuted;
-    const hoverBg = WpColors.hover;
+    final accent = WpColors.accent;
+    final accentButtonFill = WpColors.accentButtonFill;
+    final accentBorder30 = WpColors.accentBorder30;
+    final textMuted = WpColors.textMuted;
+    final hoverBg = WpColors.hover;
 
     // Performance info is only shown on the current tier
     final showPerformanceInfo = widget.isCurrentTier || widget.isBenchmarking;
@@ -281,6 +395,8 @@ class _TierRowState extends State<_TierRow> {
             l10n: widget.l10n,
             tier: widget.tier,
             performance: widget.performance,
+            rtf: widget.benchmarkRtf?[widget.tier],
+            benchmarkRtf: widget.benchmarkRtf,
           )
         : null;
     final infoPerformance = _infoPerformance;
@@ -302,12 +418,13 @@ class _TierRowState extends State<_TierRow> {
         // as visible Text descendants further down this subtree, and a
         // Semantics label is prepended to (not substituted for) that text,
         // so adding one here would announce the tier name twice (see the
-        // identical tradeoff documented on `_SnippetTile._buildRow`).
+        // identical tradeoff documented on `_SnippetRow` in snippets_page.dart).
         button: isSelectable,
         child: WpFocusRing(
           focusNode: _focusNode,
           radius: WpRadius.sm,
           child: InkWell(
+            key: ValueKey('stt-model-tier-${widget.tier.name}'),
             onTap: isSelectable ? widget.onSelect : null,
             focusNode: _focusNode,
             borderRadius: BorderRadius.circular(WpRadius.sm),
@@ -356,6 +473,7 @@ class _TierRowState extends State<_TierRow> {
                           label: _tierLabel(widget.l10n),
                           desc: _tierDesc(widget.l10n),
                           isRecommended: widget.isRecommended,
+                          recommendationMeasured: widget.recommendationMeasured,
                           isBenchmarking: widget.isBenchmarking,
                           infoMessage: infoMessage,
                           infoColor: infoColor,
@@ -409,7 +527,6 @@ class _TierRowState extends State<_TierRow> {
         (_phase == DownloadPhase.downloading ||
             _phase == DownloadPhase.extracting ||
             _phase == DownloadPhase.verifying)) {
-      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
       return _ActionChip(
         label: widget.l10n.actionCancel,
         icon: LucideIcons.x,
@@ -422,7 +539,6 @@ class _TierRowState extends State<_TierRow> {
     // this row states that the model is on disk.
     if (_isDownloaded) {
       if (_isHovered) {
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
         return _ActionChip(
           label: widget.l10n.actionDelete,
           icon: LucideIcons.trash2,
@@ -433,15 +549,15 @@ class _TierRowState extends State<_TierRow> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             LucideIcons.circleCheck,
             size: WpIconSize.xs,
             color: WpColors.textSecondary,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: WpSpacing.xxs),
           Text(
             widget.l10n.modelReady,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.caption,
               fontWeight: FontWeight.w500,
               color: WpColors.textSecondary,
@@ -465,7 +581,6 @@ class _TierRowState extends State<_TierRow> {
     if (widget.isCurrentTier &&
         widget.downloadState.scanned &&
         widget.onSelect != null) {
-      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
       return _ActionChip(
         key: ValueKey('stt-model-download-${widget.tier.name}'),
         label: widget.l10n.modelMissingDownloadAction,
@@ -489,6 +604,7 @@ class _TierRowInfo extends StatelessWidget {
     required this.label,
     required this.desc,
     required this.isRecommended,
+    this.recommendationMeasured = false,
     required this.isBenchmarking,
     required this.infoMessage,
     required this.infoColor,
@@ -502,6 +618,7 @@ class _TierRowInfo extends StatelessWidget {
   final String label;
   final String desc;
   final bool isRecommended;
+  final bool recommendationMeasured;
   final bool isBenchmarking;
   final String? infoMessage;
   final Color infoColor;
@@ -512,27 +629,29 @@ class _TierRowInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
     final bestModel = bestModelForTier(tier);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        // A Wrap, not a Row: at large text scale the label, info icon and
+        // badges do not fit one line, and the badges move to the next line
+        // instead of overflowing the row.
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: WpSpacing.xs,
+          runSpacing: WpSpacing.xxs,
           children: [
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: textPrimary,
-                ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
               ),
             ),
-            const SizedBox(width: WpSpacing.xxs),
             Tooltip(
               message: l10n.qualityTierModelTooltip(
                 bestModel.label,
@@ -544,8 +663,7 @@ class _TierRowInfo extends StatelessWidget {
                 color: textMuted,
               ),
             ),
-            if (isRecommended) ...[
-              const SizedBox(width: WpSpacing.xs),
+            if (isRecommended)
               Container(
                 // Sub-scale pill padding: keeps the micro-type badge hugging
                 // its text.
@@ -555,16 +673,16 @@ class _TierRowInfo extends StatelessWidget {
                   borderRadius: BorderRadius.circular(WpRadius.full),
                 ),
                 child: Text(
-                  l10n.qualityTierRecommended,
+                  recommendationMeasured
+                      ? l10n.qualityTierRecommendedMeasured
+                      : l10n.qualityTierRecommended,
                   style: TextStyle(
-                    fontSize: WpTypography.micro,
+                    fontSize: WpTypography.caption,
                     fontWeight: FontWeight.w600,
                     color: accent,
                   ),
                 ),
               ),
-            ],
-            const SizedBox(width: WpSpacing.sm),
             Container(
               // Sub-scale pill padding: keeps the micro-type badge hugging
               // its text.
@@ -579,7 +697,7 @@ class _TierRowInfo extends StatelessWidget {
               child: Text(
                 tierSizeLabel(tier),
                 style: TextStyle(
-                  fontSize: WpTypography.micro,
+                  fontSize: WpTypography.caption,
                   fontWeight: FontWeight.w500,
                   color: textMuted,
                 ),
@@ -587,16 +705,16 @@ class _TierRowInfo extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: WpSpacing.xxxs),
         Text(
           desc,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.caption,
             color: textSecondary,
           ),
         ),
         if (isBenchmarking) ...[
-          const SizedBox(height: 3),
+          const SizedBox(height: WpSpacing.xxs),
           Row(
             children: [
               SizedBox(
@@ -607,12 +725,12 @@ class _TierRowInfo extends StatelessWidget {
                   color: infoColor,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: WpSpacing.xxs),
               Expanded(
                 child: Text(
                   l10n.qualityTierInfoBenchmarking,
                   style: TextStyle(
-                    fontSize: WpTypography.micro,
+                    fontSize: WpTypography.caption,
                     color: infoColor,
                   ),
                 ),
@@ -620,7 +738,7 @@ class _TierRowInfo extends StatelessWidget {
             ],
           ),
         ] else if (infoMessage != null) ...[
-          const SizedBox(height: 3),
+          const SizedBox(height: WpSpacing.xxs),
           Row(
             children: [
               Icon(
@@ -628,12 +746,12 @@ class _TierRowInfo extends StatelessWidget {
                 size: WpIconSize.xs,
                 color: infoColor,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: WpSpacing.xxs),
               Expanded(
                 child: Text(
                   infoMessage!,
                   style: TextStyle(
-                    fontSize: WpTypography.micro,
+                    fontSize: WpTypography.caption,
                     color: infoColor,
                   ),
                 ),
@@ -718,22 +836,16 @@ class _DownloadProgressInfo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Progress bar
-        ClipRRect(
-          borderRadius: BorderRadius.circular(WpRadius.full),
-          child: LinearProgressIndicator(
-            value: isVerifying || isExtracting
-                ? null // indeterminate for verification/extraction
-                : downloadState.progressPercent / 100,
-            minHeight: 3,
-            backgroundColor: WpColors.borderSubtle,
-            valueColor: AlwaysStoppedAnimation(accent),
-          ),
+        WpProgressBar(
+          value: isVerifying || isExtracting
+              ? null // indeterminate for verification/extraction
+              : downloadState.progressPercent / 100,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: WpSpacing.xxs),
         // Status text row
         Text(
           _statusText(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.caption,
             color: WpColors.textMuted,
           ),
@@ -768,14 +880,14 @@ class _DownloadProgressInfo extends StatelessWidget {
 
     // Size progress: "156 MB / 350 MB"
     if (total > 0) {
-      parts.add('${_formatBytes(dl)} / ${_formatBytes(total)}');
+      parts.add('${formatByteSize(dl)} / ${formatByteSize(total)}');
     } else if (dl > 0) {
-      parts.add(_formatBytes(dl));
+      parts.add(formatByteSize(dl));
     }
 
     // Speed: "12.3 MB/s"
     if (speed > 100) {
-      parts.add('${_formatBytes(speed.round())}/s');
+      parts.add('${formatByteSize(speed.round())}/s');
     }
 
     // ETA: "~2:30"
@@ -792,15 +904,6 @@ class _DownloadProgressInfo extends StatelessWidget {
           : '${l10n.modelDownloadingEngine} $info';
     }
     return info.isEmpty ? l10n.modelDownloading : info;
-  }
-
-  static String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   static String _formatDuration(int seconds) {
@@ -876,44 +979,49 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const errorColor = WpColors.error;
+    final errorColor = WpColors.error;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-      padding: const EdgeInsets.all(WpSpacing.sm),
-      decoration: BoxDecoration(
-        color: WpColors.errorButtonFill,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: WpColors.errorBorder20),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            LucideIcons.triangleAlert,
-            size: WpIconSize.xs,
-            color: errorColor,
-          ),
-          const SizedBox(width: WpSpacing.xs),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                fontSize: WpTypography.small,
-                color: errorColor,
+    return Semantics(
+      container: true,
+      identifier: 'settings-stt-download-error',
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+        padding: const EdgeInsets.all(WpSpacing.sm),
+        decoration: BoxDecoration(
+          color: WpColors.errorButtonFill,
+          borderRadius: BorderRadius.circular(WpRadius.sm),
+          border: Border.all(color: WpColors.errorBorder20),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              LucideIcons.triangleAlert,
+              size: WpIconSize.xs,
+              color: errorColor,
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: errorColor,
+                ),
               ),
             ),
-          ),
-          if (onRetry != null) ...[
-            const SizedBox(width: WpSpacing.xs),
-            WpButton(
-              label: l10n.actionRetry,
-              variant: WpButtonVariant.ghost,
-              tone: WpButtonTone.danger,
-              size: WpButtonSize.dense,
-              onPressed: onRetry,
-            ),
+            if (onRetry != null) ...[
+              const SizedBox(width: WpSpacing.xs),
+              WpButton(
+                label: l10n.actionRetry,
+                variant: WpButtonVariant.ghost,
+                tone: WpButtonTone.danger,
+                size: WpButtonSize.dense,
+                testId: 'settings-stt-download-retry',
+                onPressed: onRetry,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

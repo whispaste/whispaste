@@ -42,6 +42,17 @@ Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
         timestamp: DateTime(2025, 1, 1).add(Duration(minutes: i)),
       ),
     );
+    // Steady use long ago: the day and in-use gates hold, so these tests
+    // drive the count, the cooldowns and the version rules.
+    await db.recordDailyStat(
+      timestamp: DateTime(2025, 1, 1).add(Duration(days: i % 5)),
+      model: 'm',
+      isLocal: true,
+      durationSec: 3,
+      processingDurationSec: 1,
+      wordCount: 5,
+      costUsd: 0,
+    );
   }
   final container = ProviderContainer(
     overrides: [
@@ -76,20 +87,47 @@ const _lastSnoozeKey = 'review_prompt_last_snooze';
 const _lastShownVersionKey = 'review_prompt_last_shown_version';
 
 void main() {
+  group('usage before a rating ask', () {
+    final now = DateTime(2026, 10, 30);
+    bool met({int n = 20, int days = 3, DateTime? first}) =>
+        reviewPromptUsageMet(
+          recordings: n,
+          dictationDays: days,
+          firstDictationDay: first ?? DateTime(2026, 10, 20),
+          now: now,
+        );
+
+    test('needs 20 dictations on 3 days, a week after the first', () {
+      expect(met(), isTrue);
+      expect(met(n: 19), isFalse);
+      expect(met(days: 2), isFalse);
+      expect(met(first: DateTime(2026, 10, 25)), isFalse);
+      expect(
+        reviewPromptUsageMet(
+          recordings: 50,
+          dictationDays: 5,
+          firstDictationDay: null,
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // AC1 — threshold
   // ---------------------------------------------------------------------------
 
   group('threshold', () {
     test('does not prompt below the threshold of active entries', () async {
-      final harness = await _bootstrap(prefs: const {}, activeEntries: 11);
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 19);
       addTearDown(harness.container.dispose);
 
       expect(await _shouldShow(harness.container), isFalse);
     });
 
     test('prompts once active entries reach the threshold', () async {
-      final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
       addTearDown(harness.container.dispose);
 
       expect(await _shouldShow(harness.container), isTrue);
@@ -102,9 +140,9 @@ void main() {
 
   group('version upgrade', () {
     test(
-      're-prompts a snoozed "not now" user after a version upgrade',
+      'a version upgrade does not override a fresh "not now" snooze (R-03)',
       () async {
-        final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
         addTearDown(harness.container.dispose);
         final notifier = harness.container.read(reviewPromptProvider.notifier);
 
@@ -121,7 +159,74 @@ void main() {
           isFalse,
         );
 
-        // Upgrade to v2.0.0 → prompt re-activates once.
+        // Upgrade to v2.0.0 while the snooze is fresh → still blocked.
+        expect(
+          await _shouldShow(harness.container, appVersion: '2.0.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test('a version upgrade re-prompts once the "not now" snooze has run out '
+        '(R-03)', () async {
+      final ninetyOneDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 91))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {
+          _lastShownVersionKey: '1.0.0',
+          _lastSnoozeKey: ninetyOneDaysAgo,
+        },
+        activeEntries: 20,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(await _shouldShow(harness.container, appVersion: '2.0.0'), isTrue);
+    });
+
+    test(
+      'a version re-prompt happens at most once per 365 days (R-03)',
+      () async {
+        final hundredDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 100))
+            .millisecondsSinceEpoch;
+        final tenDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 10))
+            .millisecondsSinceEpoch;
+        final harness = await _bootstrap(
+          prefs: {
+            _lastShownVersionKey: '1.0.0',
+            'review_prompt_last_version_reprompt': hundredDaysAgo,
+            // A recent completed review action keeps the regular cooldown
+            // active, so only the 365-day rule could allow a prompt here.
+            _lastShownKey: tenDaysAgo,
+          },
+          activeEntries: 20,
+        );
+        addTearDown(harness.container.dispose);
+
+        expect(
+          await _shouldShow(harness.container, appVersion: '2.0.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a version re-prompt is allowed again after 365 days (R-03)',
+      () async {
+        final yearAgo = DateTime.now()
+            .subtract(const Duration(days: 366))
+            .millisecondsSinceEpoch;
+        final harness = await _bootstrap(
+          prefs: {
+            _lastShownVersionKey: '1.0.0',
+            'review_prompt_last_version_reprompt': yearAgo,
+          },
+          activeEntries: 20,
+        );
+        addTearDown(harness.container.dispose);
+
         expect(
           await _shouldShow(harness.container, appVersion: '2.0.0'),
           isTrue,
@@ -129,10 +234,27 @@ void main() {
       },
     );
 
+    test('a version upgrade after a completed review action waits for the '
+        '60-day cooldown (R-03)', () async {
+      final tenDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 10))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_lastShownVersionKey: '1.0.0', _lastShownKey: tenDaysAgo},
+        activeEntries: 20,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await _shouldShow(harness.container, appVersion: '2.0.0'),
+        isFalse,
+      );
+    });
+
     test(
       'never re-prompts a "never again" user, even after an upgrade',
       () async {
-        final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
         addTearDown(harness.container.dispose);
         final notifier = harness.container.read(reviewPromptProvider.notifier);
 
@@ -151,7 +273,7 @@ void main() {
 
     test('does not re-prompt when the version has not changed (AC4: version '
         'remembered across the snooze and used to block)', () async {
-      final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(reviewPromptProvider.notifier);
 
@@ -172,32 +294,32 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('differential cooldown', () {
-    test('after a completed review action, re-prompts once the 30-day cooldown '
+    test('after a completed review action, re-prompts once the 60-day cooldown '
         'elapses', () async {
       final backdated = DateTime.now()
-          .subtract(const Duration(days: 31))
+          .subtract(const Duration(days: 61))
           .millisecondsSinceEpoch;
       final harness = await _bootstrap(
         prefs: {_lastShownKey: backdated, _lastShownVersionKey: '1.0.0'},
-        activeEntries: 12,
+        activeEntries: 20,
       );
       addTearDown(harness.container.dispose);
 
       expect(await _shouldShow(harness.container, appVersion: '1.0.0'), isTrue);
     });
 
-    test('after a "not now" snooze, still suppresses at 31 days — materially '
+    test('after a "not now" snooze, still suppresses at 61 days — materially '
         'longer than the post-action cooldown', () async {
       final backdated = DateTime.now()
-          .subtract(const Duration(days: 31))
+          .subtract(const Duration(days: 61))
           .millisecondsSinceEpoch;
       final harness = await _bootstrap(
         prefs: {_lastSnoozeKey: backdated, _lastShownVersionKey: '1.0.0'},
-        activeEntries: 12,
+        activeEntries: 20,
       );
       addTearDown(harness.container.dispose);
 
-      // 31 days elapsed: enough for the action cooldown, NOT enough for the
+      // 61 days elapsed: enough for the action cooldown, NOT enough for the
       // longer "not now" snooze.
       expect(
         await _shouldShow(harness.container, appVersion: '1.0.0'),
@@ -206,14 +328,14 @@ void main() {
     });
 
     test(
-      'after a "not now" snooze, re-prompts once 60 days have elapsed',
+      'after a "not now" snooze, re-prompts once 90 days have elapsed',
       () async {
         final backdated = DateTime.now()
-            .subtract(const Duration(days: 61))
+            .subtract(const Duration(days: 91))
             .millisecondsSinceEpoch;
         final harness = await _bootstrap(
           prefs: {_lastSnoozeKey: backdated, _lastShownVersionKey: '1.0.0'},
-          activeEntries: 12,
+          activeEntries: 20,
         );
         addTearDown(harness.container.dispose);
 
@@ -242,7 +364,7 @@ void main() {
             .millisecondsSinceEpoch;
         final harness = await _bootstrap(
           prefs: {_lastShownKey: '$recentMs', _lastShownVersionKey: '1.0.0'},
-          activeEntries: 12,
+          activeEntries: 20,
         );
         addTearDown(harness.container.dispose);
 
@@ -259,11 +381,91 @@ void main() {
         'String', () async {
       final harness = await _bootstrap(
         prefs: const {'review_prompt_permanently_dismissed': 'true'},
-        activeEntries: 12,
+        activeEntries: 20,
       );
       addTearDown(harness.container.dispose);
 
       expect(await _shouldShow(harness.container), isFalse);
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GR-012 — dictations whose paste failed do not count toward the threshold
+  // ---------------------------------------------------------------------------
+
+  group('dictations whose paste failed (GR-012)', () {
+    test(
+      'a failed-paste dictation is excluded from the 20-entry threshold',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
+        addTearDown(harness.container.dispose);
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: 'entry-0');
+
+        expect(await _shouldShow(harness.container), isFalse);
+      },
+    );
+
+    test('only the unpasted dictations are excluded, not the others', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 21);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'entry-0');
+
+      expect(await _shouldShow(harness.container), isTrue);
+    });
+
+    test(
+      'the same entry is excluded once, however often it is counted',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 21);
+        addTearDown(harness.container.dispose);
+        final notifier = harness.container.read(reviewPromptProvider.notifier);
+        await notifier.countUnpastedDictation(entryId: 'entry-0');
+        await notifier.countUnpastedDictation(entryId: 'entry-0');
+
+        expect(await _shouldShow(harness.container), isTrue);
+      },
+    );
+
+    test('a missing entry id (nothing was saved) excludes nothing', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: null);
+
+      expect(await _shouldShow(harness.container), isTrue);
+    });
+
+    test(
+      'failed entries that history trimming moved out do not lower the total',
+      () async {
+        // Regression (growth review O4): the old lifetime counter kept
+        // subtracting trimmed failures, so the threshold became unreachable
+        // once the history limit had removed them.
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
+        addTearDown(harness.container.dispose);
+        final notifier = harness.container.read(reviewPromptProvider.notifier);
+        for (var i = 0; i < 5; i++) {
+          await harness.db.upsertEntry(
+            HistoryEntriesCompanion.insert(
+              id: 'failed-$i',
+              timestamp: DateTime(2024, 1, 1).add(Duration(minutes: i)),
+            ),
+          );
+          await notifier.countUnpastedDictation(entryId: 'failed-$i');
+          await harness.db.customStatement(
+            'UPDATE history_entries SET deleted_at = ? WHERE id = ?',
+            [DateTime(2025, 6, 1).millisecondsSinceEpoch, 'failed-$i'],
+          );
+        }
+
+        expect(await harness.db.countActive(), 20);
+        expect(await _shouldShow(harness.container), isTrue);
+      },
+    );
   });
 }

@@ -13,12 +13,16 @@
 /// from the orchestrator (issues 17–19).
 library;
 
+// test_bundles: own run (two containers share one in-memory database and
+// each closes it on dispose; inside a bundle that ordering breaks).
+
 import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -31,6 +35,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/recording/safety_guard.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes (re-defined; test files are not exported)
@@ -41,8 +46,9 @@ class _FakeAudioService extends AudioServiceNotifier {
   bool errorOnStart = false;
   bool throwOnStop = false;
 
-  /// Simulates a slow microphone start (e.g. a loaded CI/land host).
-  Duration startDelay = Duration.zero;
+  /// Simulates a slow microphone start (e.g. a loaded CI/lab host): while
+  /// set, the start holds until the test completes the gate.
+  Completer<void>? startGate;
   StreamController<double>? _ampCtrl;
   int startCallCount = 0;
   int stopCallCount = 0;
@@ -53,12 +59,19 @@ class _FakeAudioService extends AudioServiceNotifier {
   @override
   Stream<double>? get amplitudeStream => _ampCtrl?.stream;
 
+  /// The guard reads raw dBFS (#984): a level of 0 stands for no signal.
+  @override
+  Stream<GuardSample>? get guardSampleStream => _ampCtrl?.stream.map(
+    (l) => l == 0
+        ? const GuardSample(dbFs: double.negativeInfinity, level: 0)
+        : GuardSample(dbFs: -30, level: l),
+  );
+
   @override
   Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) return;
-    if (startDelay > Duration.zero) {
-      await Future<void>.delayed(startDelay);
-    }
+    final gate = startGate;
+    if (gate != null) await gate.future;
     if (errorOnStart) {
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
@@ -67,7 +80,13 @@ class _FakeAudioService extends AudioServiceNotifier {
       return;
     }
     startCallCount++;
-    _ampCtrl = StreamController<double>.broadcast();
+    _listened = Completer<void>();
+    _ampCtrl = StreamController<double>.broadcast(
+      onListen: () {
+        final c = _listened;
+        if (c != null && !c.isCompleted) c.complete();
+      },
+    );
     state = AudioStatus(
       captureState: AudioCaptureState.recording,
       filePath: wavPathToReturn,
@@ -75,7 +94,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   }
 
   @override
-  Future<String?> stopRecording() async {
+  Future<String?> stopRecording({bool keepTail = true}) async {
     stopCallCount++;
     if (throwOnStop) throw Exception('stop_failed');
     _ampCtrl?.close();
@@ -89,6 +108,15 @@ class _FakeAudioService extends AudioServiceNotifier {
 
   /// Emits amplitude samples via the active stream controller.
   void emitLevel(double level) => _ampCtrl?.add(level);
+
+  Completer<void>? _listened;
+
+  /// Completes once the orchestrator subscribed to the amplitude stream.
+  /// The broadcast controller drops samples emitted before that, and the
+  /// subscription is wired after `startRecording` already reports recording.
+  Future<void> untilAmplitudeListened() => hasAmplitudeListeners
+      ? Future<void>.value()
+      : (_listened ??= Completer<void>()).future;
 
   /// Whether anything (level metering, safety guard) listens to the
   /// amplitude stream right now.
@@ -105,13 +133,18 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     if (ensureRunningThrows) throw Exception('STT server failed to start');
     state = state.copyWith(serverState: SttServerState.ready);
   }
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+    String? wavPath,
+  }) async {
     if (transcribeThrows) throw Exception('Transcription failed');
     return transcriptToReturn;
   }
@@ -270,16 +303,43 @@ List<File> createFakeStubFiles() {
 // Tests
 // ---------------------------------------------------------------------------
 
-/// Waits until a fire-and-forget `toggleRecording()` reached the recording
-/// phase (audio capture subscribed). Fixed 50–100 ms yields were flaky: a
-/// cold start took over 100 ms on CI (run on 88d77dab).
-Future<void> _untilRecording(ProviderContainer c) async {
-  final waited = Stopwatch()..start();
-  while (c.read(recordingProvider).phase != RecordingPhase.recording &&
-      waited.elapsed < const Duration(seconds: 5)) {
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+/// Completes as soon as [provider] holds a state that satisfies [done]. No
+/// polling and no wall-clock budget: the test resumes on the state change
+/// itself. A condition that never holds fails the test by its own timeout.
+Future<void> _untilState<T>(
+  ProviderContainer c,
+  ProviderListenable<T> provider,
+  bool Function(T state) done,
+) {
+  if (done(c.read(provider))) return Future.value();
+  final reached = Completer<void>();
+  final sub = c.listen<T>(provider, (_, next) {
+    if (!reached.isCompleted && done(next)) reached.complete();
+  });
+  return reached.future.whenComplete(sub.close);
+}
+
+/// Lets every emitted sample reach the safety guard. The fake's broadcast
+/// stream and the guard deliver through microtasks, and a zero timer only
+/// runs once all pending microtasks drained: no wall-clock wait involved.
+Future<void> _drainSamples() async {
+  for (var i = 0; i < 3; i++) {
+    await Future<void>.delayed(Duration.zero);
   }
 }
+
+/// Waits until a fire-and-forget `toggleRecording()` reached the recording
+/// phase (audio capture subscribed).
+Future<void> _untilRecording(ProviderContainer c) => _untilState(
+  c,
+  recordingProvider,
+  (s) => s.phase == RecordingPhase.recording,
+);
+
+/// Waits until a stopped recording has left the pipeline, so a test never
+/// disposes the container while it still transcribes.
+Future<void> _untilPipelineDone(ProviderContainer c) =>
+    _untilState(c, recordingProvider, (s) => !isDictationBusy(s.phase));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -415,6 +475,25 @@ void main() {
       return c;
     }
 
+    /// Emits speech-level samples back to back (one microtask yield each, so
+    /// the guard sees them in order) until the recording leaves the recording
+    /// phase, then gives the stop pipeline a short, bounded settle.
+    Future<void> emitSpeechUntilStopped(ProviderContainer c) async {
+      for (var i = 0; i < 140; i++) {
+        fakeAudio.emitLevel(0.5); // speech — avoids the dead-mic path
+        await Future<void>.delayed(Duration.zero);
+        if (c.read(recordingProvider).phase != RecordingPhase.recording) {
+          return;
+        }
+      }
+      // The guard has fired; the stop runs through real async steps.
+      await _untilState(
+        c,
+        recordingProvider,
+        (s) => s.phase != RecordingPhase.recording,
+      );
+    }
+
     setUp(() {
       // Create fake stub files so orchestrator preflight passes.
       stubFiles = createFakeStubFiles();
@@ -450,11 +529,16 @@ void main() {
         // Verify recording started.
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // 25 silent samples (level 0.0 < threshold 0.02) → dead-mic fires.
+        // 25 silent samples (level 0.0 < silence threshold) → dead-mic fires.
+        await fakeAudio.untilAmplitudeListened();
         for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await _untilState(
+          c,
+          recordingProvider,
+          (s) => s.phase == RecordingPhase.error,
+        );
 
         expect(
           c.read(recordingProvider).phase,
@@ -488,10 +572,18 @@ void main() {
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // 24 samples — one below the 25-sample threshold.
+        await fakeAudio.untilAmplitudeListened();
         for (var i = 0; i < 24; i++) {
           fakeAudio.emitLevel(0.0);
         }
-        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await _drainSamples();
+
+        // A fired guard cancels the amplitude subscription synchronously.
+        expect(
+          fakeAudio.hasAmplitudeListeners,
+          isTrue,
+          reason: 'the guard saw all 24 samples and stayed quiet',
+        );
 
         expect(
           c.read(recordingProvider).phase,
@@ -522,16 +614,23 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Emit one speech sample (≥ threshold 0.02) to arm _speechDetected.
-        fakeAudio.emitLevel(0.5);
-        await Future<void>.delayed(const Duration(milliseconds: 30));
+        // 300 ms of level (8 samples @ 25 Hz) arms _speechDetected.
+        await fakeAudio.untilAmplitudeListened();
+        for (var i = 0; i < 8; i++) {
+          fakeAudio.emitLevel(0.5);
+        }
+        await _drainSamples();
 
         // Then 25 silent samples → auto-stop → stopRecording() pipeline.
         for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
-        // Allow time for auto-stop and async pipeline (transcription).
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        // Wait for the auto-stop to leave the recording phase.
+        await _untilState(
+          c,
+          recordingProvider,
+          (s) => s.phase != RecordingPhase.recording,
+        );
 
         expect(
           c.read(recordingProvider).phase,
@@ -568,15 +667,27 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Interleave speech + silence — counter resets on each speech sample.
-        // Each round: 1 speech + 10 silence. Max consecutive silence = 10 < 25.
+        // Speech, then interleave — once speech is established the counter
+        // resets on each loud sample. Each round: 1 loud + 10 silence. Max
+        // consecutive silence = 10 < 25.
+        await fakeAudio.untilAmplitudeListened();
+        for (var i = 0; i < 8; i++) {
+          fakeAudio.emitLevel(0.5);
+        }
         for (var i = 0; i < 5; i++) {
           fakeAudio.emitLevel(0.5); // speech
           for (var s = 0; s < 10; s++) {
             fakeAudio.emitLevel(0.0); // silence (10 — below 25 threshold)
           }
         }
-        await Future<void>.delayed(const Duration(milliseconds: 150));
+        await _drainSamples();
+
+        // A fired auto-stop cancels the amplitude subscription synchronously.
+        expect(
+          fakeAudio.hasAmplitudeListeners,
+          isTrue,
+          reason: 'the guard saw every sample and did not auto-stop',
+        );
 
         expect(
           c.read(recordingProvider).phase,
@@ -607,29 +718,31 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Guard fires at maxRecordDuration × samplesPerSecond = 2 × 25 = 50
-        // samples. Emit a few extras for safety and yield between samples so
-        // the orchestrator's stop pipeline can run.
+        // The guard counts samples, not wall time: the limit is
+        // maxRecordDuration × samplesPerSecond = 2 × 25 = 50 samples. It
+        // stops durationLimitGraceSeconds (3 s = 75 samples) later so the
+        // notice card's extend click at the limit still counts (#858).
         for (var i = 0; i < 60; i++) {
-          fakeAudio.emitLevel(0.5); // speech — avoids dead-mic path
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          if (c.read(recordingProvider).phase != RecordingPhase.recording) {
-            break;
-          }
+          fakeAudio.emitLevel(0.5);
+          await Future<void>.delayed(Duration.zero);
         }
+        expect(
+          c.read(recordingProvider).phase,
+          RecordingPhase.recording,
+          reason: 'past the limit but inside the grace the recording runs on',
+        );
+        await emitSpeechUntilStopped(c);
+        // The stop pipeline runs on after the guard fires; disposing the
+        // container while it transcribed left it reading a disposed Ref.
+        await _untilPipelineDone(c);
 
         expect(
           c.read(recordingProvider).phase,
-          anyOf(
-            RecordingPhase.transcribing,
-            RecordingPhase.done,
-            RecordingPhase.error,
-          ),
+          anyOf(RecordingPhase.done, RecordingPhase.error, RecordingPhase.idle),
           reason:
               'duration-limit guard must stop recording after maxRecordDuration',
         );
       },
-      timeout: const Timeout(Duration(seconds: 10)),
     );
 
     test(
@@ -660,28 +773,20 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Drive past 2 s of guard time (50+ samples @ 25 Hz).
-        for (var i = 0; i < 60; i++) {
-          fakeAudio.emitLevel(0.5);
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-          if (c.read(recordingProvider).phase != RecordingPhase.recording) {
-            break;
-          }
-        }
+        // Drive past the limit plus grace (50 + 75 samples @ 25 Hz).
+        await emitSpeechUntilStopped(c);
+        // The stop pipeline runs on after the guard fires; disposing the
+        // container while it transcribed left it reading a disposed Ref.
+        await _untilPipelineDone(c);
 
         expect(
           c.read(recordingProvider).phase,
-          anyOf(
-            RecordingPhase.transcribing,
-            RecordingPhase.done,
-            RecordingPhase.error,
-          ),
+          anyOf(RecordingPhase.done, RecordingPhase.error, RecordingPhase.idle),
           reason:
               'guard must have fired at or after duration limit '
               '(90% warning precedes 100% stop)',
         );
       },
-      timeout: const Timeout(Duration(seconds: 10)),
     );
   });
 
@@ -755,13 +860,20 @@ void main() {
         reason: 'must reach recording phase before emitting samples',
       );
 
-      // Arm speech-detected flag, then silence → auto-stop.
-      fakeAudio.emitLevel(0.5);
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+      // Arm speech-detected flag (300 ms of level), then silence → auto-stop.
+      await fakeAudio.untilAmplitudeListened();
+      for (var i = 0; i < 8; i++) {
+        fakeAudio.emitLevel(0.5);
+      }
+      await _drainSamples();
       for (var i = 0; i < 25; i++) {
         fakeAudio.emitLevel(0.0);
       }
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await _untilState(
+        guardContainer,
+        recordingProvider,
+        (s) => s.phase != RecordingPhase.recording,
+      );
 
       final phase = guardContainer.read(recordingProvider).phase;
       expect(
@@ -1157,12 +1269,17 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         // A loaded host starts the mic slowly; the phase is already
         // `recording` long before the safety guard gets wired.
-        fakeAudio.startDelay = const Duration(milliseconds: 200);
+        final micStarted = fakeAudio.startGate = Completer<void>();
 
         // Start via full orchestrator path to wire _guardSub. Awaited, not
         // a fixed sleep: toggleRecording returns once the start (mic +
         // guard wiring) is complete, however slow the host is.
-        await c.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        final start = c
+            .read(recordingOrchestratorProvider.notifier)
+            .toggleRecording();
+        await _untilRecording(c);
+        micStarted.complete();
+        await start;
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Advance the state machine to transcribing directly (not via
@@ -1181,7 +1298,15 @@ void main() {
         for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await _drainSamples();
+
+        // A dead-mic handler that did not skip cancels the subscription
+        // synchronously, before any await.
+        expect(
+          fakeAudio.hasAmplitudeListeners,
+          isTrue,
+          reason: 'the dead-mic handler skipped in the transcribing phase',
+        );
 
         // The dead-mic handler must see phase == transcribing and skip.
         // Phase must remain transcribing — not jump to error via abort.
@@ -1259,16 +1384,24 @@ void main() {
         final orch = c.read(recordingOrchestratorProvider.notifier);
         // Slow mic start as on a loaded host; awaiting the start (not a
         // fixed sleep) guarantees the dead-mic guard is wired below.
-        fakeAudio.startDelay = const Duration(milliseconds: 200);
-        await orch.toggleRecording();
+        final micStarted = fakeAudio.startGate = Completer<void>();
+        final start = orch.toggleRecording();
+        await _untilRecording(c);
+        micStarted.complete();
+        await start;
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Make the audio-layer stop throw, then let the dead-mic guard fire.
         fakeAudio.throwOnStop = true;
+        await fakeAudio.untilAmplitudeListened();
         for (var i = 0; i < 25; i++) {
           fakeAudio.emitLevel(0.0);
         }
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await _untilState(
+          c,
+          recordingProvider,
+          (s) => s.phase == RecordingPhase.error,
+        );
 
         // The catch path must still surface the error and run the finally that
         // resets _stopInFlight.

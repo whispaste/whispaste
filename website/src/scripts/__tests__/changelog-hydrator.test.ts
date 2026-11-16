@@ -2,8 +2,8 @@
 /**
  * Tests for {@link hydrate} — the browser-side changelog hydrator.
  *
- * One test per acceptance criterion in
- * `internal-notes`. Each test
+ * One test per acceptance criterion of the
+ * changelog hydrator. Each test
  * documents the observable behaviour it locks in. `fetch` and `localStorage`
  * are mocked via `vi.fn()` and `vi.spyOn(...)` so we never hit the real
  * network and never persist test state across runs.

@@ -20,7 +20,7 @@ class _FakeRenderChannel implements RenderChannel {
 }
 
 class _TestRenderWidget extends StatefulWidget {
-  const _TestRenderWidget({required this.channel});
+  const _TestRenderWidget({super.key, required this.channel});
   final _FakeRenderChannel channel;
 
   @override
@@ -99,4 +99,47 @@ void main() {
       expect(FlutterError.onError, same(FlutterError.presentError));
     },
   );
+
+  // #375: an empty scene reaches the macOS embedder as a present without a
+  // surface, and every resize of the hidden panel then waits out the full 1 s
+  // synchronizer timeout on the main thread.
+  group('HiddenSurfaceFill', () {
+    Widget surface({required bool hidden, Widget? child}) => Directionality(
+      textDirection: TextDirection.ltr,
+      child: HiddenSurfaceFill(
+        hidden: hidden,
+        child: child ?? const SizedBox.expand(),
+      ),
+    );
+
+    RenderObject root(WidgetTester tester) =>
+        tester.renderObject(find.byType(ColoredBox));
+
+    testWidgets('a hidden surface presents content', (tester) async {
+      await tester.pumpWidget(surface(hidden: true));
+
+      expect(root(tester), paints..rect(color: HiddenSurfaceFill.fill));
+    });
+
+    testWidgets('a visible surface keeps its transparent edges', (
+      tester,
+    ) async {
+      await tester.pumpWidget(surface(hidden: false));
+
+      expect(root(tester), isNot(paints..rect(color: HiddenSurfaceFill.fill)));
+    });
+
+    testWidgets('the child keeps its state across show and hide', (
+      tester,
+    ) async {
+      final key = GlobalKey<_TestRenderWidgetState>();
+      final child = _TestRenderWidget(key: key, channel: _FakeRenderChannel());
+
+      await tester.pumpWidget(surface(hidden: true, child: child));
+      final state = key.currentState;
+      await tester.pumpWidget(surface(hidden: false, child: child));
+
+      expect(key.currentState, same(state));
+    });
+  });
 }

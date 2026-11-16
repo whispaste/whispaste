@@ -25,12 +25,17 @@
 //   snapshot (mirrors macOS order in handleRenderCall("ready")).
 
 #include "floating_overlay_host.h"
+#include "native_context_menu.h"
 
 #include <flutter/encodable_value.h>
 
 #include <algorithm>
 #include <cmath>
 #include <string>
+
+#include <windows.h>
+
+#pragma comment(lib, "advapi32.lib")
 
 using flutter::EncodableList;
 using flutter::EncodableMap;
@@ -51,18 +56,27 @@ constexpr int kCompactW = 236;
 constexpr int kCompactH = 56;
 constexpr int kMiniW = 166;
 constexpr int kMiniH = 50;
+constexpr int kNanoW = 104;
+constexpr int kNanoH = 40;
+// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
+constexpr int kNoticeW = 346;
+constexpr int kNoticeH = 164;
 
-// Logical shell size for a size class ("normal" | "compact" | "mini",
+// Logical shell size for a size class ("normal" | "compact" | "mini" | "nano",
 // mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
 int OverlayLogicalW(const std::string& size_class) {
   if (size_class == "compact") return kCompactW;
   if (size_class == "mini") return kMiniW;
+  if (size_class == "nano") return kNanoW;
+  if (size_class == "notice") return kNoticeW;
   return kNormalW;
 }
 
 int OverlayLogicalH(const std::string& size_class) {
   if (size_class == "compact") return kCompactH;
   if (size_class == "mini") return kMiniH;
+  if (size_class == "nano") return kNanoH;
+  if (size_class == "notice") return kNoticeH;
   return kNormalH;
 }
 
@@ -254,6 +268,11 @@ bool FloatingOverlayHost::EnsureEngineAndShell(const std::string& size_class) {
   render_controller_ = std::move(controller);
   render_channel_ = std::move(render_ch);
   window_ = std::move(shell);
+  // A rebuilt shell starts with the full-width region; restore the last
+  // reported pill width instead of waiting for the next width change.
+  if (last_pill_w_ > 0.0) {
+    window_->SetPillWidth(last_pill_w_, last_corner_radius_);
+  }
 
   OutputDebugStringW(
       L"[FloatingOverlay] Render engine booted, shell created\n");
@@ -263,6 +282,23 @@ bool FloatingOverlayHost::EnsureEngineAndShell(const std::string& size_class) {
 // ══════════════════════════════════════════════════════════════════════
 // Public MethodChannel handler (Dart main engine → C++)
 // ══════════════════════════════════════════════════════════════════════
+
+namespace {
+// The system "Show transparency effects" switch (Settings > Personalisation >
+// Colours). Off means the user asked for less transparency.
+bool ReduceTransparencyEnabled() {
+  DWORD value = 1;
+  DWORD size = sizeof(value);
+  if (RegGetValueW(HKEY_CURRENT_USER,
+                   L"Software\\Microsoft\\Windows\\CurrentVersion\\"
+                   L"Themes\\Personalize",
+                   L"EnableTransparency", RRF_RT_REG_DWORD, nullptr, &value,
+                   &size) == ERROR_SUCCESS) {
+    return value == 0;
+  }
+  return false;
+}
+}  // namespace
 
 void FloatingOverlayHost::HandleMethodCall(
     const MethodCall<EncodableValue>& call,
@@ -292,6 +328,13 @@ void FloatingOverlayHost::HandleMethodCall(
       }
     }
     bool size_changed = (size_class != size_class_);
+    // Content and window must never disagree (#1193): a shrinking shell
+    // relays the new snapshot first and resizes after it, a growing shell
+    // resizes first (same order as macOS handleUpdateSnapshot).
+    const bool shrinking =
+        OverlayLogicalW(size_class) < OverlayLogicalW(size_class_) ||
+        OverlayLogicalH(size_class) < OverlayLogicalH(size_class_);
+    bool resize_existing = false;
 
     // Update size state BEFORE EnsureEngineAndShell so the first creation
     // sizes the shell correctly (mirrors macOS: set sizeClass before
@@ -305,14 +348,36 @@ void FloatingOverlayHost::HandleMethodCall(
         return;
       }
     } else if (size_changed && window_) {
-      ResizeShell(size_class);
+      resize_existing = true;
+      if (!shrinking) ResizeShell(size_class);
     }
 
+    // Glass look on Windows falls back to the opaque glass body (#518). The
+    // system acrylic backdrop (DWMSBT_TRANSIENTWINDOW) only blurs while its
+    // window is active; this overlay never takes focus (WS_EX_NOACTIVATE), so
+    // DWM painted its flat grey fallback colour over the whole client area,
+    // window region and shadow padding included (seen on real Windows 11
+    // hardware). The opaque body is the same one "reduce transparency" uses,
+    // so the Flutter view paints it via the relayed reduceTransparency flag.
+    const std::string background =
+        map ? GetString(*map, "background", "marine") : "marine";
+    const bool reduce_transparency =
+        ReduceTransparencyEnabled() || background == "glass";
+    const bool native_backdrop = false;
+    if (window_) window_->SetGlassBackdrop(native_backdrop);
+
     // Cache for boot-race handshake (flushed in HandleRenderCall("ready")).
-    if (args) latest_snapshot_args_ = *args;
+    if (args) {
+      EncodableMap relayed = map ? *map : EncodableMap{};
+      relayed[EncodableValue("reduceTransparency")] =
+          EncodableValue(reduce_transparency);
+      relayed[EncodableValue("nativeBackdrop")] = EncodableValue(native_backdrop);
+      latest_snapshot_args_ = EncodableValue(relayed);
+    }
 
     // Relay to render engine (no-op if not ready yet).
     if (render_ready_) RelaySnapshot();
+    if (resize_existing && shrinking) ResizeShell(size_class);
 
     // Show or hide the shell.
     if (window_) {
@@ -356,39 +421,9 @@ void FloatingOverlayHost::HandleMethodCall(
   }
 
   // ── setContextMenuItems ─────────────────────────────────────────────
-  // BUG FIX vs Phase 1: Dart sends {items:[{id,label},...]} — an EncodableMap
-  // with key "items". Phase 1 mistakenly read the bare args as an EncodableList.
-  // Fixed here: unwrap args["items"] first (mirrors FloatingButtonHost).
+  // {items:[...tree...], appearance} (#393, see native_context_menu.h).
   if (method == "setContextMenuItems") {
-    auto* args_map = args ? std::get_if<EncodableMap>(args) : nullptr;
-    if (args_map) {
-      auto it = args_map->find(EncodableValue("items"));
-      if (it != args_map->end()) {
-        auto* list = std::get_if<EncodableList>(&it->second);
-        if (list) {
-          std::vector<std::pair<std::string, std::wstring>> items;
-          for (const auto& item_val : *list) {
-            auto* item_map = std::get_if<EncodableMap>(&item_val);
-            if (!item_map) continue;
-            auto id_it    = item_map->find(EncodableValue("id"));
-            auto label_it = item_map->find(EncodableValue("label"));
-            if (id_it == item_map->end() || label_it == item_map->end())
-              continue;
-            auto* id_str    = std::get_if<std::string>(&id_it->second);
-            auto* label_str = std::get_if<std::string>(&label_it->second);
-            if (!id_str || !label_str) continue;
-            // Convert UTF-8 label to wstring for TrackPopupMenu.
-            int len = MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(),
-                                          -1, nullptr, 0);
-            std::wstring wlabel(len > 1 ? len - 1 : 0, L'\0');
-            MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(), -1,
-                                wlabel.data(), len);
-            items.emplace_back(*id_str, std::move(wlabel));
-          }
-          context_menu_items_ = std::move(items);
-        }
-      }
-    }
+    context_menu_ = ParseNativeMenu(args);
     result->Success();
     return;
   }
@@ -397,6 +432,39 @@ void FloatingOverlayHost::HandleMethodCall(
   // Opacity was removed in issue 11. Accept as a no-op so the Dart controller
   // does not receive a MethodChannel error.
   if (method == "setOpacity") {
+    result->Success();
+    return;
+  }
+
+  // ── rebootRenderEngine ──────────────────────────────────────────────
+  // Dart's frame heartbeat found no painted frame after a show (see
+  // OverlayRenderRecovery). Re-boots only the render engine, like
+  // FloatingOverlayHost.swift: the cached snapshot and bars stay, a fresh
+  // shell takes the anchor and visibility, and the new engine's `ready`
+  // flushes the cached state.
+  if (method == "rebootRenderEngine") {
+    if (!render_controller_ || !window_) {
+      result->Success();
+      return;
+    }
+    OutputDebugStringW(
+        L"[FloatingOverlay] rebootRenderEngine: re-booting on request\n");
+    const bool was_visible = window_->IsVisible();
+    const auto [x, y] = window_->GetPosition();
+    render_channel_->SetMethodCallHandler(nullptr);
+    render_channel_.reset();
+    window_->Destroy();
+    window_.reset();
+    render_controller_.reset();
+    render_project_.reset();
+    render_ready_ = false;
+    // EnsureEngineAndShell can report success without a shell (its
+    // already-booted shortcut), so the shell is checked, not assumed.
+    if (EnsureEngineAndShell(size_class_) && window_) {
+      // Keep a position the user dragged to, whatever the anchor says.
+      window_->SetPosition(x, y);
+      if (was_visible) window_->Show();
+    }
     result->Success();
     return;
   }
@@ -418,6 +486,8 @@ void FloatingOverlayHost::HandleMethodCall(
     render_ready_ = false;
     latest_snapshot_args_.reset();
     latest_bars_args_.reset();
+    last_pill_w_ = 0.0;
+    last_corner_radius_ = 0.0;
     result->Success();
     return;
   }
@@ -464,9 +534,72 @@ void FloatingOverlayHost::HandleRenderCall(
     return;
   }
 
+  // ── closeClicked ─────────────────────────────────────────────────────
+  // Click on the pill's X: relay to the main engine (discard the dictation).
+  if (method == "closeClicked") {
+    SendEvent("onCloseClicked");
+    result->Success();
+    return;
+  }
+
+  // ── noticeAction ─────────────────────────────────────────────────────
+  // A notice-card button (overlay F2): relay {id} to the main engine.
+  if (method == "noticeAction") {
+    const auto* args = call.arguments();
+    SendEvent("onNoticeAction", args ? *args : EncodableValue());
+    result->Success();
+    return;
+  }
+
   // ── showContextMenu ──────────────────────────────────────────────────
   if (method == "showContextMenu") {
     ShowNativeContextMenu();
+    result->Success();
+    return;
+  }
+
+  // ── setPillWidth ─────────────────────────────────────────────────────
+  // The acrylic backdrop follows the animated pill width (#476).
+  if (method == "setPillWidth") {
+    const auto* args = call.arguments();
+    const auto* pill_map =
+        args ? std::get_if<EncodableMap>(args) : nullptr;
+    if (pill_map && window_) {
+      last_pill_w_ = GetDouble(*pill_map, "width", 0.0);
+      last_corner_radius_ = GetDouble(*pill_map, "radius", 0.0);
+      window_->SetPillWidth(last_pill_w_, last_corner_radius_);
+    }
+    result->Success();
+    return;
+  }
+
+  // ── frameRendered ────────────────────────────────────────────────────
+  if (method == "frameRendered") {
+    // Frame heartbeat, relayed like the macOS host. The Dart service runs
+    // its stall recovery only for controllers that can re-boot the engine
+    // (macOS so far); elsewhere the event only ends a pending deadline.
+    SendEvent("onRenderFrame");
+    result->Success();
+    return;
+  }
+
+  // ── reportError ──────────────────────────────────────────────────────
+  if (method == "reportError") {
+    // Uncaught Dart error inside the render engine: relay it to the main
+    // engine's log, as the macOS host and the snippet picker do.
+    const auto* args_map = std::get_if<EncodableMap>(call.arguments());
+    if (args_map) {
+      auto it = args_map->find(EncodableValue("message"));
+      if (it != args_map->end()) {
+        if (const auto* s = std::get_if<std::string>(&it->second)) {
+          EncodableMap m;
+          m[EncodableValue("message")] = EncodableValue(*s);
+          m[EncodableValue("isError")] = EncodableValue(true);
+          SendEvent("onRenderEngineDiagnostic", EncodableValue(m));
+        }
+      }
+    }
+    OutputDebugStringW(L"[FloatingOverlay] Render engine reported an error\n");
     result->Success();
     return;
   }
@@ -522,38 +655,12 @@ void FloatingOverlayHost::BeginDrag() {
 // ══════════════════════════════════════════════════════════════════════
 
 void FloatingOverlayHost::ShowNativeContextMenu() {
-  if (context_menu_items_.empty()) return;
-
-  HMENU menu = CreatePopupMenu();
-  for (size_t i = 0; i < context_menu_items_.size(); ++i) {
-    const auto& wlabel = context_menu_items_[i].second;
-    if (wlabel == L"---") {
-      // "---" is the separator convention (matches macOS / FloatingButtonHost).
-      AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    } else {
-      AppendMenuW(menu, MF_STRING, static_cast<UINT_PTR>(1000 + i),
-                  wlabel.c_str());
-    }
-  }
-
-  POINT pt;
-  GetCursorPos(&pt);
-
-  // TPM_RETURNCMD returns the selected item ID instead of posting WM_COMMAND.
-  int cmd = TrackPopupMenu(
-      menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN,
-      pt.x, pt.y, 0,
-      window_ ? window_->GetHandle() : owner_,
-      nullptr);
-  DestroyMenu(menu);
-
-  if (cmd >= 1000 &&
-      cmd < 1000 + static_cast<int>(context_menu_items_.size())) {
-    const auto& selected_id = context_menu_items_[cmd - 1000].first;
-    EncodableMap m;
-    m[EncodableValue("action")] = EncodableValue(selected_id);
-    SendEvent("onContextMenu", EncodableValue(m));
-  }
+  auto chosen =
+      ShowNativeMenu(window_ ? window_->GetHandle() : owner_, context_menu_);
+  if (!chosen) return;
+  EncodableMap m;
+  m[EncodableValue("action")] = EncodableValue(*chosen);
+  SendEvent("onContextMenu", EncodableValue(m));
 }
 
 // ══════════════════════════════════════════════════════════════════════

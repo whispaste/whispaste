@@ -9,7 +9,7 @@
 - [ ] `dart format --output=none --set-exit-if-changed lib test`
 - [ ] `flutter analyze --fatal-infos --fatal-warnings`
 - [ ] `flutter test test/<path>`
-- [ ] Website changes: `npx tsc --noEmit && npx eslint .` (in `website/`)
+- [ ] Website changes: `npm run typecheck && npx eslint .` (in `website/`)
 
 ## Checklist
 

@@ -90,14 +90,56 @@ void main() {
     });
   });
 
-  group('resolveKey — function keys F1–F12', () {
-    for (var n = 1; n <= 12; n++) {
-      final label = 'F$n';
-      final expected = LogicalKeyboardKey(0x00100000070 + n - 1);
-      test('$label resolves correctly', () {
-        expect(resolveKey(label), expected);
-      });
-    }
+  group('resolveKey — function keys', () {
+    const keys = [
+      LogicalKeyboardKey.f1,
+      LogicalKeyboardKey.f2,
+      LogicalKeyboardKey.f3,
+      LogicalKeyboardKey.f4,
+      LogicalKeyboardKey.f5,
+      LogicalKeyboardKey.f6,
+      LogicalKeyboardKey.f7,
+      LogicalKeyboardKey.f8,
+      LogicalKeyboardKey.f9,
+      LogicalKeyboardKey.f10,
+      LogicalKeyboardKey.f11,
+      LogicalKeyboardKey.f12,
+      LogicalKeyboardKey.f13,
+      LogicalKeyboardKey.f14,
+      LogicalKeyboardKey.f15,
+      LogicalKeyboardKey.f16,
+      LogicalKeyboardKey.f17,
+      LogicalKeyboardKey.f18,
+      LogicalKeyboardKey.f19,
+      LogicalKeyboardKey.f20,
+      LogicalKeyboardKey.f21,
+      LogicalKeyboardKey.f22,
+      LogicalKeyboardKey.f23,
+      LogicalKeyboardKey.f24,
+    ];
+
+    test('F1–F24 resolve to the real keys and read back', () {
+      for (final (i, key) in keys.indexed) {
+        final label = 'F${i + 1}';
+        expect(resolveKey(label), key, reason: label);
+        expect(labelForKey(key), label);
+        expect(isRecordableKey(key), isTrue, reason: label);
+      }
+    });
+
+    test('F25 is outside the supported range', () {
+      expect(() => resolveKey('F25'), throwsArgumentError);
+    });
+
+    // The registrar converts through HotKey.physicalKey, which throws on a key
+    // the plugin table lacks; that read as "taken by another app".
+    test('every resolvable key reaches the registrar', () {
+      const labels = ['A', '7', 'Space', 'Esc', 'PageUp', '←', ';', '\\'];
+      for (final label in [...labels, for (var n = 1; n <= 24; n++) 'F$n']) {
+        final hotKey = HotKey(key: resolveKey(label));
+        expect(hotKey.physicalKey, isNotNull, reason: label);
+      }
+    });
   });
 
   group('resolveKey — named keys', () {
@@ -198,13 +240,6 @@ void main() {
 
     test('digit9 → true', () {
       expect(isRecordableKey(LogicalKeyboardKey.digit9), isTrue);
-    });
-
-    test('all F1–F12 → true', () {
-      for (var n = 1; n <= 12; n++) {
-        final key = LogicalKeyboardKey(0x00100000070 + n - 1);
-        expect(isRecordableKey(key), isTrue, reason: 'F$n must be recordable');
-      }
     });
 
     test('arrow keys → true', () {

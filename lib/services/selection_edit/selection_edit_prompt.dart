@@ -1,5 +1,4 @@
-/// Prompt building for "edit selection by voice"
-/// (`internal-notes`).
+/// Prompt building for "edit selection by voice".
 ///
 /// The overlay is not clickable per element, so the quick actions
 /// (shorten / improve / translate) are triggered by speaking exactly one

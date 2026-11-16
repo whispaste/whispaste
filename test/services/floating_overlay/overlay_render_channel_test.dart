@@ -48,6 +48,28 @@ void main() {
       expect(received!.elapsed, '0:03');
     });
 
+    test(
+      'setWaveformBars decodes the one-byte-per-bar macOS payload',
+      () async {
+        List<double>? bars;
+        final channel = OverlayRenderChannel(
+          name: name,
+          onSnapshot: (_) {},
+          onWaveformBars: (b) => bars = b,
+        );
+        addTearDown(channel.dispose);
+
+        await sendFromNative('setWaveformBars', {
+          'bars': Uint8List.fromList([0, 128, 255]),
+        });
+
+        expect(bars, hasLength(3));
+        expect(bars![0], 0.0);
+        expect(bars![1], closeTo(128 / 255, 1e-9));
+        expect(bars![2], 1.0);
+      },
+    );
+
     test('setWaveformBars forwards a normalised double list', () async {
       List<double>? bars;
       final channel = OverlayRenderChannel(
@@ -66,11 +88,51 @@ void main() {
   });
 
   group('OverlayRenderChannel — outbound (render engine → native)', () {
-    test('startDrag / bodyClicked / showContextMenu invoke the host', () async {
-      final calls = <String>[];
+    test(
+      'startDrag / bodyClicked / closeClicked / showContextMenu invoke the host',
+      () async {
+        final calls = <String>[];
+        final args = <Object?>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call.method);
+          args.add(call.arguments);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
+
+        final channel = OverlayRenderChannel(
+          name: name,
+          onSnapshot: (_) {},
+          onWaveformBars: (_) {},
+        );
+        addTearDown(channel.dispose);
+
+        channel.startDrag();
+        channel.bodyClicked();
+        channel.closeClicked();
+        channel.showContextMenu();
+        channel.noticeAction('paste_so_far');
+        await Future<void>.delayed(Duration.zero);
+
+        expect(calls, [
+          'startDrag',
+          'bodyClicked',
+          'closeClicked',
+          'showContextMenu',
+          'noticeAction',
+        ]);
+        expect(args.last, {'id': 'paste_so_far'});
+      },
+    );
+
+    test('pillWidth hands the width to the host as setPillWidth', () async {
+      final calls = <MethodCall>[];
       const probe = MethodChannel(name);
       binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call.method);
+        calls.add(call);
         return null;
       });
       addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
@@ -82,12 +144,11 @@ void main() {
       );
       addTearDown(channel.dispose);
 
-      channel.startDrag();
-      channel.bodyClicked();
-      channel.showContextMenu();
+      channel.pillWidth(123.5);
       await Future<void>.delayed(Duration.zero);
 
-      expect(calls, ['startDrag', 'bodyClicked', 'showContextMenu']);
+      expect(calls.single.method, 'setPillWidth');
+      expect(calls.single.arguments, {'width': 123.5});
     });
 
     test('reportError invokes the host with the error message', () async {
@@ -238,5 +299,36 @@ void main() {
         reason: 'notifyReady must log on every call — no throttle',
       );
     });
+  });
+
+  group('OverlayRenderChannel — frame acknowledgement (ticket phase 2)', () {
+    test(
+      'frameRendered does not raise when the shell rejects the call (Windows)',
+      () async {
+        // Windows answers unknown render methods with NotImplemented, which the
+        // engine surfaces as MissingPluginException. The heartbeat must never
+        // turn that into an unhandled error inside the render engine.
+        binaryMessenger.setMockMethodCallHandler(
+          const MethodChannel(name),
+          (call) async => throw MissingPluginException(call.method),
+        );
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(
+            const MethodChannel(name),
+            null,
+          ),
+        );
+        final channel = OverlayRenderChannel(
+          name: name,
+          onSnapshot: (_) {},
+          onWaveformBars: (_) {},
+        );
+        addTearDown(channel.dispose);
+
+        channel.frameRendered();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
   });
 }

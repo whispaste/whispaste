@@ -13,6 +13,8 @@ library;
 
 import 'dart:typed_data' show Float32List;
 
+import '../tail_confidence.dart' show TailConfidenceSample;
+
 /// Distinguishable failure class an in-process [WhisperEngine] can signal to
 /// the notifier at transcription time.
 ///
@@ -26,13 +28,26 @@ import 'dart:typed_data' show Float32List;
 ///               from by degrading to CPU. NB: only a *catchable* fault — a
 ///               genuine native segfault has no subprocess isolation and is
 ///               validated on real hardware later (Issues 12–14), not here.
+/// - [gpuBackendLost] The GPU backend refused the compute graph because it is
+///               in a sticky error state (ggml-metal: a command buffer failed
+///               earlier, e.g. during a system-wide GPU restart). Every later
+///               decode on the same context fails the same way; only
+///               recreating the context (unload + load) recovers it, so the
+///               notifier rebuilds the engine once and then degrades to CPU.
 /// - [oom]       GPU out-of-memory. Soft-recoverable via the orchestrator's
 ///               `OomRecoveryHandler` (smaller model / cloud), not a CPU retry.
 /// - [timeout]   The transcription hung past the stuck-guard budget.
 /// - [transient] A one-off, retryable failure (generic `whisper_full` non-zero
 ///               return, transient allocation hiccup).
 /// - [other]     Anything else — surfaced, not retried.
-enum WhisperFailureKind { gpuCrash, oom, timeout, transient, other }
+enum WhisperFailureKind {
+  gpuCrash,
+  gpuBackendLost,
+  oom,
+  timeout,
+  transient,
+  other,
+}
 
 /// A distinguishable, catchable failure raised by a [WhisperEngine] during
 /// [WhisperEngine.transcribe].
@@ -80,6 +95,25 @@ WhisperBackend whisperBackendFromName(String? optimalBackend) {
   }
 }
 
+/// Applies the guard rule to a requested backend (Befund 28, Maintainer
+/// decision 10a, 2026-10-25).
+///
+/// Every GPU backend (CUDA, Vulkan, Metal) initialises vendor code inside
+/// `whisper_init_from_file_with_params`. A C++ exception from there only
+/// becomes a CPU fallback when `wp_ffi_guard` wraps the call, and that needs
+/// a guard built against the bundled `whisper.h` struct layouts. Without one
+/// ([guardUsable] false) only the CPU backend is allowed. Metal is included
+/// on purpose: the same guard is bundled on macOS, so the rule costs nothing
+/// there while the guard is intact, and it keeps one rule for all platforms.
+/// CPU is never gated, so the CPU fallback chain stays available.
+WhisperBackend backendAllowedByGuard(
+  WhisperBackend requested, {
+  required bool guardUsable,
+}) {
+  if (guardUsable || requested == WhisperBackend.cpu) return requested;
+  return WhisperBackend.cpu;
+}
+
 /// Readiness/backend snapshot for a [WhisperEngine].
 class WhisperEngineStatus {
   const WhisperEngineStatus({
@@ -93,10 +127,18 @@ class WhisperEngineStatus {
   /// Whether a model is loaded and the engine can [WhisperEngine.transcribe].
   final bool isLoaded;
 
-  /// The compute backend actually in use, confirmed against ggml's device
-  /// registry post-load where the bundled library exports it (see
-  /// `WhisperFfiEngine._confirmBackend`) — not merely the pre-load request.
+  /// The compute backend of this engine. `WhisperFfiEngine` confirms it
+  /// against ggml's device registry on load (`_confirmBackend`). The app's
+  /// `WhisperIsolateEngine` reports its configured backend here, before and
+  /// after a load: the GPU probe and the crash marker key their records on
+  /// it, and that key must not change between a load and its retry. On an
+  /// NVIDIA card without the CUDA pack that is `cuda` while the model runs on
+  /// `Vulkan0` (#1666). Reports and diagnostics use [deviceBackend].
   final WhisperBackend backend;
+
+  /// The backend of the device the model actually runs on: derived from
+  /// [gpuDevice] when there is one ([backendForDevice]), else [backend].
+  WhisperBackend get deviceBackend => backendForDevice(gpuDevice, backend);
 
   /// The last load/transcribe failure, or `null` if none.
   final String? errorMessage;
@@ -114,6 +156,19 @@ class WhisperEngineStatus {
   /// optional `ggml-cuda` module next to libwhisper wins over Vulkan.
   /// `null` on CPU or before the first load.
   final String? gpuDevice;
+}
+
+/// Backend that actually runs on the registry device [deviceName] (as chosen
+/// by `pickGpuDeviceIndex`). The requested backend is only a guess: with CUDA
+/// requested but no CUDA device registered, whisper.cpp runs on a Vulkan
+/// device, and the status, diagnostics and crash recovery must say so.
+/// Falls back to [requested] for unknown or missing names.
+WhisperBackend backendForDevice(String? deviceName, WhisperBackend requested) {
+  final name = deviceName ?? '';
+  if (name.startsWith('CUDA')) return WhisperBackend.cuda;
+  if (name.startsWith('Vulkan')) return WhisperBackend.vulkan;
+  if (name.startsWith('MTL')) return WhisperBackend.metal;
+  return requested;
 }
 
 /// Extracts the CPU backend's feature list from whisper.cpp's
@@ -285,3 +340,84 @@ abstract class PromptTokenCounter {
   /// is loaded yet.
   Future<int> countPromptTokens(String text);
 }
+
+/// Optional capability: an engine that reports the language its last
+/// [WhisperEngine.transcribe] decoded in, as a whisper code such as `de`.
+/// `null` means unknown (older library builds, a failed decode). Kept out of
+/// [WhisperEngine] for the same reason as [PartialTranscriptSource].
+abstract class DetectedLanguageSource {
+  String? get lastDetectedLanguage;
+}
+
+/// Optional capability (#573): token confidence at the end of the last
+/// transcription, for the shadow-mode protocol. Kept out of [WhisperEngine]
+/// for the same reason as [DetectedLanguageSource].
+abstract class TailConfidenceSource {
+  /// `null` when the engine could not measure (older library build, no text).
+  TailConfidenceSample? get lastTailConfidence;
+}
+
+/// Optional capability (IMP-PROG-2): an engine that reports decode progress
+/// while [transcribeWithProgress] runs. [onProgress] receives fractions in
+/// `0..1`, monotone within one call, and is never called after the returned
+/// future completes. Engines without it stay indeterminate in the UI.
+///
+/// Kept out of [WhisperEngine] like [PartialTranscriptSource]: test doubles
+/// implement [WhisperEngine] directly and must not all grow this method.
+abstract class TranscriptionProgressSource {
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  });
+}
+
+/// Optional capability (#1665): an engine that reads the recording itself
+/// from its WAV file, one decode window at a time, instead of taking all of
+/// its bytes. The isolate engine then sends only the path to its worker; a
+/// 60-minute recording (110 MB) is no longer copied into the worker. The
+/// transcript is the one [WhisperEngine.transcribe] gives for the file's
+/// bytes: both read the PCM after the 44-byte header and ignore the header's
+/// size fields.
+///
+/// The file must stay in place until the call returns. A file that cannot be
+/// read fails the call with [WhisperFailureKind.other]
+/// (`wav_file_unreadable`). Kept out of [WhisperEngine] like
+/// [TranscriptionProgressSource]: test doubles implement [WhisperEngine]
+/// directly, and a caller without this capability sends the bytes.
+abstract class WavFileDecode {
+  Future<String> transcribeFile(
+    String wavPath, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  });
+}
+
+/// Message prefix of the [WhisperEngineException] a [WavFileDecode] call ends
+/// with when the WAV file cannot be read.
+const String kWhisperWavFileUnreadable = 'wav_file_unreadable';
+
+/// Optional capability (#1639): an engine whose running final decode can be
+/// cancelled. [abortDecode] raises a native abort flag; whisper.cpp polls it
+/// after the encoder and between decoder steps, and a pause-chunked decode
+/// stops before its next chunk. The running call then fails with
+/// [WhisperFailureKind.timeout] (or returns its text if it was already past
+/// the last check). Safe to call from the isolate that owns the engine while
+/// the decode runs on another thread or isolate; a call without a running
+/// decode does nothing.
+///
+/// Kept out of [WhisperEngine] like [TranscriptionProgressSource]: test
+/// doubles implement [WhisperEngine] directly. An engine without it cannot be
+/// interrupted, and a budget overrun keeps it busy until it returns.
+abstract class AbortableDecode {
+  void abortDecode();
+}
+
+/// Message of the [WhisperEngineException] an aborted decode ends with.
+const String kWhisperDecodeAborted = 'whisper_decode_aborted';

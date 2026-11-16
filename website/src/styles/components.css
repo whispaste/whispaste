@@ -99,6 +99,52 @@
   pointer-events: none;
 }
 
+/* ---- Coffee support button (coffee yellow, navy ink; design-tokens coffee-button) ---- */
+.wp-coffee-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--wp-coffee-button-gap);
+  max-width: 100%;
+  min-height: var(--wp-coffee-button-height);
+  padding: var(--wp-space-3) var(--wp-coffee-button-pad-x);
+  border-radius: var(--wp-coffee-button-radius);
+  background: var(--wp-coffee-button-fill);
+  color: var(--wp-coffee-button-text);
+  font-size: var(--wp-font-size-md);
+  font-weight: var(--wp-coffee-button-weight);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: var(--wp-card-shadow);
+  transition: transform var(--wp-duration-base) var(--wp-easing-flow),
+    background-color var(--wp-duration-base) var(--wp-easing-flow);
+}
+.wp-coffee-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+.wp-coffee-button:hover {
+  background: var(--wp-coffee-button-fill-hover);
+  transform: translateY(-2px);
+}
+.wp-coffee-button:active {
+  transform: scale(0.98);
+}
+.wp-coffee-button:focus-visible {
+  outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+  outline-offset: var(--wp-focus-ring-offset);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-coffee-button,
+  .wp-coffee-button:hover,
+  .wp-coffee-button:active {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* ---- Chips and tags ---- */
 .wp-chip {
   display: inline-flex;

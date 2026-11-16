@@ -13,6 +13,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste/services/audio/pcm_wav_codec.dart';
 import 'package:whispaste/services/stt/whisper/whisper_bindings.dart'
     show WHISPER_SAMPLE_RATE;
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
@@ -56,86 +57,75 @@ void main() {
       File(modelPath!).existsSync() &&
       File(speechWavPath!).existsSync();
 
-  group(
-    'WhisperFfiEngine (real libwhisper)',
-    () {
-      test(
-        'transcribes the fixture WAV in-process over the seam',
-        () async {
-          final engine = WhisperFfiEngine(libraryPath: dylibPath);
-          expect(engine.status.isLoaded, isFalse);
+  group('WhisperFfiEngine (real libwhisper)', () {
+    test('transcribes the fixture WAV in-process over the seam', () async {
+      final engine = WhisperFfiEngine(libraryPath: dylibPath);
+      expect(engine.status.isLoaded, isFalse);
 
-          await engine.load(modelPath: modelPath!);
-          addTearDown(engine.unload);
-          expect(engine.status.isLoaded, isTrue);
+      await engine.load(modelPath: modelPath!);
+      addTearDown(engine.unload);
+      expect(engine.status.isLoaded, isTrue);
 
-          final wavBytes = File(speechWavPath!).readAsBytesSync();
-          final text = (await engine.transcribe(
-            wavBytes,
-            language: 'en',
-          )).toLowerCase();
+      final wavBytes = File(speechWavPath!).readAsBytesSync();
+      final text = (await engine.transcribe(
+        wavBytes,
+        language: 'en',
+      )).toLowerCase();
 
-          expect(text, contains('hello'));
-          expect(text, contains('world'));
-        },
-        timeout: const Timeout(Duration(minutes: 2)),
+      expect(text, contains('hello'));
+      expect(text, contains('world'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('throws when transcribing before load', () {
+      final engine = WhisperFfiEngine(libraryPath: dylibPath);
+      expect(
+        () => engine.transcribe(const [0, 1, 2]),
+        throwsA(isA<StateError>()),
       );
+    });
 
-      test('throws when transcribing before load', () {
-        final engine = WhisperFfiEngine(libraryPath: dylibPath);
-        expect(
-          () => engine.transcribe(const [0, 1, 2]),
-          throwsA(isA<StateError>()),
-        );
-      });
-
-      // Wires the real, committed VAD model (assets/models/vad/, see
-      // NOTICE.md — unlike the gitignored durchstich dylib/model, this file
-      // ships in every checkout) through the actual [WhisperFfiEngine]
-      // production code path. Regression coverage for the "Vielen Dank"
-      // trailing-hallucination investigation: proves `vadEnabled` doesn't
-      // crash or corrupt real speech end-to-end, not just via the manual
-      // debug harness. Deeper behavioural validation (silence/noise tails
-      // dropped, genuine trailing content preserved) was done empirically
-      // against the production large-v3-turbo model — see the commit
-      // history for `vad_debug_harness_test.dart` and this file's VAD
-      // wiring in `whisper_ffi_engine.dart`; the tiny durchstich model here
-      // is only asserted for mechanical correctness, not hallucination
-      // behaviour (too small/undertrained to reproduce that reliably).
-      test(
-        'transcribes correctly with VAD enabled',
-        () async {
-          final vadModelPath = p.join(
-            _repoRoot() ?? Directory.current.path,
-            'assets',
-            'models',
-            'vad',
-            'ggml-silero-v5.1.2.bin',
-          );
-          if (!File(vadModelPath).existsSync()) {
-            markTestSkipped('VAD model asset not found at $vadModelPath');
-            return;
-          }
-
-          final engine = WhisperFfiEngine(libraryPath: dylibPath);
-          await engine.load(modelPath: modelPath!, vadModelPath: vadModelPath);
-          addTearDown(engine.unload);
-
-          final wavBytes = File(speechWavPath!).readAsBytesSync();
-          final text = (await engine.transcribe(
-            wavBytes,
-            language: 'en',
-            vadEnabled: true,
-          )).toLowerCase();
-
-          expect(text, contains('hello'));
-          expect(text, contains('world'));
-        },
-        timeout: const Timeout(Duration(minutes: 2)),
+    // Wires the real, committed VAD model (assets/models/vad/, see
+    // NOTICE.md — unlike the gitignored durchstich dylib/model, this file
+    // ships in every checkout) through the actual [WhisperFfiEngine]
+    // production code path. Regression coverage for the "Vielen Dank"
+    // trailing-hallucination investigation: proves `vadEnabled` doesn't
+    // crash or corrupt real speech end-to-end, not just via the manual
+    // debug harness. Deeper behavioural validation (silence/noise tails
+    // dropped, genuine trailing content preserved) was done empirically
+    // against the production large-v3-turbo model — see the commit
+    // history for `benchmarks/services/stt/whisper/vad_debug_harness_test.dart`
+    // and this file's VAD
+    // wiring in `whisper_ffi_engine.dart`; the tiny durchstich model here
+    // is only asserted for mechanical correctness, not hallucination
+    // behaviour (too small/undertrained to reproduce that reliably).
+    test('transcribes correctly with VAD enabled', () async {
+      final vadModelPath = p.join(
+        _repoRoot() ?? Directory.current.path,
+        'assets',
+        'models',
+        'vad',
+        'ggml-silero-v5.1.2.bin',
       );
-    },
-    skip: available ? null : 'local libwhisper.dylib + tiny model absent',
-  );
+      if (!File(vadModelPath).existsSync()) {
+        markTestSkipped('VAD model asset not found at $vadModelPath');
+        return;
+      }
+
+      final engine = WhisperFfiEngine(libraryPath: dylibPath);
+      await engine.load(modelPath: modelPath!, vadModelPath: vadModelPath);
+      addTearDown(engine.unload);
+
+      final wavBytes = File(speechWavPath!).readAsBytesSync();
+      final text = (await engine.transcribe(
+        wavBytes,
+        language: 'en',
+        vadEnabled: true,
+      )).toLowerCase();
+
+      expect(text, contains('hello'));
+      expect(text, contains('world'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  }, skip: available ? null : 'local libwhisper.dylib + tiny model absent');
 
   // Bundled-library path resolution (Issue 11). Host-independent for the
   // active platform (macOS on this runner): asserts the resolver points at the
@@ -314,7 +304,7 @@ void main() {
 
   // ── Transcription-quality-under-load hardening (2026-08-27) ────────────
   // Host-independent unit coverage for the pure helpers backing the four
-  // measures from `internal-notes` — no
+  // transcription-quality-under-load measures — no
   // dylib/model required, so these run everywhere (including CI).
   group('computeThreadCount (audio-capture protection)', () {
     test('leaves the existing headroom when not reduced', () {
@@ -435,6 +425,108 @@ void main() {
     });
   });
 
+  group('findPauseSplits (hard-cut flags, LONG-AUDIO T5)', () {
+    Float32List seconds(double s, double value) =>
+        Float32List((s * WHISPER_SAMPLE_RATE).round())
+          ..fillRange(0, (s * WHISPER_SAMPLE_RATE).round(), value);
+
+    test('a cut at a real pause is not hard', () {
+      final samples = Float32List.fromList([
+        ...seconds(20, 0.5),
+        ...seconds(1, 0),
+        ...seconds(30, 0.5),
+      ]);
+      final splits = WhisperFfiEngine.findPauseSplits(samples);
+      expect(splits.length, 2);
+      expect(splits.first.hard, isFalse);
+      expect(splits.last.hard, isTrue);
+    });
+
+    test('a forced cut in unbroken speech is hard and overlaps', () {
+      final splits = WhisperFfiEngine.findPauseSplits(seconds(60, 0.5));
+      expect(splits, isNotEmpty);
+      expect(splits.every((split) => split.hard), isTrue);
+    });
+  });
+
+  group('findPauseSplitsInPcm (#1642, no whole float32 copy)', () {
+    /// WAV around [pcm] with the canonical 44-byte header (only its length
+    /// matters to the view).
+    Uint8List wavOf(List<int> pcm) {
+      final data = ByteData(44 + pcm.length * 2);
+      for (var i = 0; i < pcm.length; i++) {
+        data.setInt16(44 + i * 2, pcm[i], Endian.little);
+      }
+      return data.buffer.asUint8List();
+    }
+
+    List<int> seconds(double s, int Function(int i) sample) => [
+      for (var i = 0; i < (s * WHISPER_SAMPLE_RATE).round(); i++) sample(i),
+    ];
+
+    test('gives the cuts of findPauseSplits on the decoded samples', () {
+      // Pauses near the silence threshold, a long unbroken stretch (hard
+      // cuts) and a short tail: every branch of the cut rule.
+      final pcm = [
+        ...seconds(18, (i) => (i * 7919 % 8001) - 4000),
+        ...seconds(0.8, (i) => (i % 3) * 300 - 300),
+        ...seconds(61, (i) => (i * 104729 % 12001) - 6000),
+        ...seconds(1.2, (i) => i.isEven ? 480 : -480),
+        ...seconds(9.3, (i) => (i * 31 % 2001) - 1000),
+      ];
+      final wav = wavOf(pcm);
+
+      final fromPcm = WhisperFfiEngine.findPauseSplitsInPcm(Pcm16WavView(wav));
+      final fromFloat = WhisperFfiEngine.findPauseSplits(
+        pcm16WavBytesToFloat32(wav),
+      );
+
+      expect(fromPcm, isNotEmpty);
+      expect(fromPcm.any((split) => split.hard), isTrue);
+      expect(fromPcm.any((split) => !split.hard), isTrue);
+      expect(
+        [for (final split in fromPcm) (split.sample, split.hard)],
+        [for (final split in fromFloat) (split.sample, split.hard)],
+      );
+    });
+
+    test('reads the same cuts from the WAV file as from its bytes (#1665)', () {
+      final pcm = [
+        ...seconds(18, (i) => (i * 7919 % 8001) - 4000),
+        ...seconds(0.8, (i) => (i % 3) * 300 - 300),
+        ...seconds(61, (i) => (i * 104729 % 12001) - 6000),
+        ...seconds(9.3, (i) => (i * 31 % 2001) - 1000),
+      ];
+      final wav = wavOf(pcm);
+      final dir = Directory.systemTemp.createTempSync('wp1665_splits_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = p.join(dir.path, 'r.wav');
+      File(path).writeAsBytesSync(wav);
+
+      final fromFile = WhisperFfiEngine.findPauseSplitsInPcm(
+        Pcm16WavView.file(path),
+      );
+      final fromBytes = WhisperFfiEngine.findPauseSplitsInPcm(
+        Pcm16WavView(wav),
+      );
+
+      expect(fromFile, isNotEmpty);
+      expect(
+        [for (final split in fromFile) (split.sample, split.hard)],
+        [for (final split in fromBytes) (split.sample, split.hard)],
+      );
+    });
+
+    test('a recording shorter than one frame has no cut', () {
+      expect(
+        WhisperFfiEngine.findPauseSplitsInPcm(
+          Pcm16WavView(wavOf(List<int>.filled(100, 5000))),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('continuityContextFrom (long-dictation prompt continuity)', () {
     test('keeps short text unchanged', () {
       expect(
@@ -448,6 +540,16 @@ void main() {
       final result = WhisperFfiEngine.continuityContextFrom(long);
       expect(result.length, lessThanOrEqualTo(200));
       expect(long.endsWith(result), isTrue);
+    });
+
+    test('never starts on half of a surrogate pair', () {
+      // 10 + 2 (emoji) + 199 = 211 code units; the 200-unit window starts at
+      // index 11, which is the low surrogate of the emoji. A lone low
+      // surrogate would reach the next prompt as U+FFFD.
+      final text = '${'a' * 10}\u{1F600}${'b' * 199}';
+      final result = WhisperFfiEngine.continuityContextFrom(text);
+      expect(result.codeUnitAt(0), isNot(inInclusiveRange(0xDC00, 0xDFFF)));
+      expect(result, 'b' * 199);
     });
   });
 }

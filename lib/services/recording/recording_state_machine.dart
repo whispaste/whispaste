@@ -148,6 +148,10 @@ class RecordingStateMachine {
     String? errorMessage,
     String? transcript,
     bool pasteFailed = false,
+    bool copiedOnly = false,
+    bool historyOnly = false,
+    bool pasteUnconfirmed = false,
+    bool pasted = false,
   }) {
     final current = _phaseReader();
     final action = _allowed[current]?[intent];
@@ -166,11 +170,15 @@ class RecordingStateMachine {
         _notifier.completeTranscription(
           transcript ?? '',
           pasteFailed: pasteFailed,
+          copiedOnly: copiedOnly,
+          historyOnly: historyOnly,
+          pasteUnconfirmed: pasteUnconfirmed,
+          pasted: pasted,
         );
       case _TransitionAction.startRefining:
         _notifier.startRefining(transcript ?? '');
       case _TransitionAction.fail:
-        _notifier.fail(errorMessage ?? 'unknown_error');
+        _notifier.fail(errorMessage ?? 'unknown_error', transcript: transcript);
       case _TransitionAction.reset:
         _notifier.reset();
     }

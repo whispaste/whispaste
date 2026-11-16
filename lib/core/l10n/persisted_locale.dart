@@ -39,6 +39,17 @@ String? readLocaleMirror() {
   }
 }
 
+/// The mirror as the main engine's language before the database has opened,
+/// for example on the start screen that waits for the data key (#1461).
+///
+/// Unlike [readLocaleMirror] this stays silent in tests without an explicit
+/// [localeMirrorPathOverride]: the developer's own mirror must not decide the
+/// language of a widget test.
+String? readStartupLocaleMirror() {
+  if (localeMirrorPathOverride == null && _isTestEnvironment) return null;
+  return readLocaleMirror();
+}
+
 /// Mirrors [code] next to the database, so secondary engines can resolve the
 /// UI language without opening SQLite.
 ///

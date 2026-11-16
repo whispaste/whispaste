@@ -13,8 +13,6 @@
 /// `test/services/paste/paste_capability_notifier_test.dart`.
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -53,6 +51,7 @@ const _mismatchState = PasteCapabilityState(
   ),
   sentToOsGrantFlow: true,
   pollingPhase: PollingPhase.timedOut,
+  backFromOsGrantFlow: true,
 );
 
 const _plainMissingState = PasteCapabilityState(
@@ -112,7 +111,7 @@ void main() {
     // these integration cases are only meaningful on a macOS test host.
     testWidgets(
       'needsRestart surfaces the banner and hides the grant CTA',
-      skip: !Platform.isMacOS,
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
@@ -139,7 +138,7 @@ void main() {
 
     testWidgets(
       'plain permissionMissing keeps the grant flow and shows no banner',
-      skip: !Platform.isMacOS,
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
@@ -166,7 +165,7 @@ void main() {
     testWidgets(
       'restartWasIneffective swaps the first-contact copy for the honest '
       '"restart did not take" copy while keeping the grant action',
-      skip: !Platform.isMacOS,
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
       (tester) async {
         await tester.pumpWidget(
           makeTestable(

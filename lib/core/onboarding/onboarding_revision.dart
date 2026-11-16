@@ -1,4 +1,4 @@
-/// The onboarding revision registry — `internal-notes`.
+/// The onboarding revision registry.
 ///
 /// WhisPaste stamps every user with the onboarding *content* revision they
 /// last saw (`OnboardingSettings.onboardingContentVersion`, distinct from

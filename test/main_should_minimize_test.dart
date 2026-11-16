@@ -193,5 +193,21 @@ void main() {
 
       expect(result, isTrue);
     });
+
+    test('a pending single-instance check always shows the window (#1647)', () {
+      final settings = settingsWith(
+        launchAtStartup: true,
+        startMinimized: true,
+      );
+
+      final result = shouldMinimize(
+        args: const ['--autostart'],
+        settings: settings,
+        macosLoginItemSignal: true,
+        instanceCheckPending: true,
+      );
+
+      expect(result, isFalse);
+    });
   });
 }

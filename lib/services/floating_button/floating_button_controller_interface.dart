@@ -7,6 +7,7 @@
 library;
 
 import 'floating_button_events.dart';
+import '../../core/theme/overlay_customization.dart';
 
 /// Visual state of the floating button (matches C++ FloatingButtonState).
 enum FloatingButtonVisualState {
@@ -33,7 +34,13 @@ abstract class FloatingButtonController {
   /// Update the visual state (gradient, icon, animation).
   Future<void> setState(FloatingButtonVisualState state);
 
-  /// Switch between dark/light theme (affects idle/muted gradients).
+  /// Relays the overlay presets to the render engine (ticket, ADR 0024): the
+  /// persisted preset names, e.g. `marine` and `cyan`.
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  });
 
   /// Move the button to a new position (logical pixels).
   Future<void> setPosition(double x, double y);
@@ -41,12 +48,15 @@ abstract class FloatingButtonController {
   /// Resize the button (logical pixels: 48, 56, or 72).
   Future<void> setSize(int size);
 
-  /// Set context menu items shown on right-click.
-  ///
-  /// Each item is a map with `id` (String) and `label` (String).
+  /// Set the context menu shown on right-click: a tree in the wire format of
+  /// `nativeMenuItems` (submenus, checkmarks, separators, shortcuts).
+  /// [appearance] is `system`, `light` or `dark` (`nativeMenuAppearance`).
   /// Pass an empty list to disable the context menu (falls back to
   /// [FloatingButtonSecondaryClicked] event).
-  Future<void> setContextMenuItems(List<Map<String, String>> items);
+  Future<void> setContextMenuItems(
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  });
 
   /// Get the current position (logical pixels), or null if not created.
   Future<({double x, double y})?> getPosition();

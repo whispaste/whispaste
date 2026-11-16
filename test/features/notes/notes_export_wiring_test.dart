@@ -15,7 +15,6 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
-import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -23,7 +22,7 @@ late L10n l10n;
 
 /// Scoped to the editor panel so it never matches the search `TextField`.
 Finder _editorTextFields() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -97,8 +96,7 @@ void main() {
       await tester.tap(find.text('Grocery list'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(LucideIcons.download));
-      await tester.pumpAndSettle();
+      await tapNoteHeadAction(tester, 'export');
 
       expect(fake.calls, hasLength(1));
       expect(fake.calls.single.note.id, 'n1');
@@ -128,13 +126,12 @@ void main() {
       await tester.tap(find.text('Grocery list'));
       await tester.pumpAndSettle();
 
-      // Type new content but do NOT pump past the 400ms autosave debounce —
+      // Type new content but do NOT pump past the autosave quiet pause —
       // the DB-streamed `Note.content` is still the pre-edit "Grocery list".
       await tester.enterText(_editorTextFields().first, 'Grocery list\nEggs');
       await tester.pump();
 
-      await tester.tap(find.byIcon(LucideIcons.download));
-      await tester.pumpAndSettle();
+      await tapNoteHeadAction(tester, 'export');
 
       expect(fake.calls, hasLength(1));
       expect(fake.calls.single.note.content, 'Grocery list\nEggs');

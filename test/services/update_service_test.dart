@@ -17,7 +17,6 @@ final _unconfiguredTelemetry = TelemetryService(
   endpointUrl: '',
   siteId: 0,
   consentGranted: false,
-  dntActive: false,
 );
 
 void main() {
@@ -242,7 +241,6 @@ void main() {
         endpointUrl: 'https://example.matomo.cloud',
         siteId: 1,
         consentGranted: true,
-        dntActive: false,
       );
       final container = ProviderContainer(
         overrides: [telemetryProvider.overrideWithValue(telemetry)],

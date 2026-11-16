@@ -121,3 +121,24 @@ const Map<String, String> whisperLanguages = {
 /// Set view over [whisperLanguages] keys — the pre-flight whitelist for
 /// whisper-server inference requests.
 final Set<String> whisperLanguageCodes = whisperLanguages.keys.toSet();
+
+/// The distinct languages of [systemLanguages] (locale strings such as
+/// `de_DE`, `pt-BR`) Whisper writes, as codes in the system's order.
+List<String> systemDictationLanguages(Iterable<String> systemLanguages) => [
+  ...{
+    for (final raw in systemLanguages)
+      if (_languageCode(raw) case final code
+          when code != 'auto' && whisperLanguages.containsKey(code))
+        code,
+  },
+];
+
+/// The dictation language a first start sets from [systemLanguages]: the
+/// first one Whisper writes. A given language is recognised better than
+/// automatic detection, which stays the fallback when no system language is
+/// one Whisper writes (`null`).
+String? suggestedDictationLanguage(Iterable<String> systemLanguages) =>
+    systemDictationLanguages(systemLanguages).firstOrNull;
+
+String _languageCode(String raw) =>
+    raw.trim().split(RegExp('[_-]')).first.toLowerCase();

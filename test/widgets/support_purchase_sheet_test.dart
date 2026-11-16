@@ -6,10 +6,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_store_bridge.dart';
+import 'package:whispaste/services/telemetry_service.dart';
 import 'package:whispaste/widgets/support_purchase_sheet.dart';
 
 import '../fixtures/support_fakes.dart';
@@ -33,6 +36,7 @@ Future<FakeSupportStatusNotifier> _open(
   List<SupportProduct> products = _products,
   Object? productsError,
   SupportPurchaseStatus purchaseResult = SupportPurchaseStatus.succeeded,
+  TelemetryService? telemetry,
 }) async {
   final notifier = FakeSupportStatusNotifier()..purchaseResult = purchaseResult;
   await tester.pumpWidget(
@@ -53,6 +57,7 @@ Future<FakeSupportStatusNotifier> _open(
         status: notifier,
         products: products,
         productsError: productsError,
+        telemetry: telemetry,
       ),
     ),
   );
@@ -62,11 +67,45 @@ Future<FakeSupportStatusNotifier> _open(
   return notifier;
 }
 
+TelemetryService _telemetry(List<String> bodies, {required bool consent}) =>
+    TelemetryService(
+      client: MockClient((req) async {
+        bodies.add('${req.url}${req.body}');
+        return http.Response('', 204);
+      }),
+      endpointUrl: 'https://stats.example.invalid',
+      siteId: 1,
+      consentGranted: consent,
+    );
+
 void main() {
   late L10n l10n;
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  testWidgets('"Other amount" unfolds the external ways of the channel', (
+    tester,
+  ) async {
+    await _open(tester);
+
+    expect(
+      find.byKey(const ValueKey('support-purchase-other-paypal')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('support-purchase-other-amount')),
+    );
+    await tester.pumpAndSettle();
+
+    for (final way in ['githubSponsors', 'kofi', 'buyMeACoffee', 'paypal']) {
+      expect(
+        find.byKey(ValueKey('support-purchase-other-$way')),
+        findsOneWidget,
+        reason: way,
+      );
+    }
   });
 
   testWidgets('shows the catalogue with the default amount preselected', (
@@ -149,19 +188,45 @@ void main() {
     expect(find.text(l10n.supportSheetPending), findsOneWidget);
   });
 
-  testWidgets('server error offers a retry that returns to the amounts', (
+  testWidgets(
+    'server error offers a retry that repeats the purchase (UIA-FBK-07)',
+    (tester) async {
+      final notifier = await _open(
+        tester,
+        purchaseResult: SupportPurchaseStatus.serverError,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('support-purchase-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('support-purchase-retry')));
+      await tester.pumpAndSettle();
+
+      // "Retry" buys the same amount again instead of going back to the amounts.
+      expect(notifier.calls, [
+        'purchase:whispaste.support.once.2',
+        'purchase:whispaste.support.once.2',
+      ]);
+      expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
+    },
+  );
+
+  testWidgets('the purchase error is announced as a live region (UIA-FBK-07)', (
     tester,
   ) async {
     await _open(tester, purchaseResult: SupportPurchaseStatus.serverError);
 
     await tester.tap(find.byKey(const ValueKey('support-purchase-button')));
     await tester.pumpAndSettle();
-    expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('support-purchase-retry')));
-    await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('support-purchase-button')),
+      find.ancestor(
+        of: find.text(l10n.supportSheetPurchaseError),
+        matching: find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.liveRegion == true,
+        ),
+      ),
       findsOneWidget,
     );
   });
@@ -218,5 +283,34 @@ void main() {
     expect(find.text(l10n.supportSheetLoading), findsOneWidget);
     completer.complete(const []);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('counts one sheet-open event per display when telemetry is on', (
+    tester,
+  ) async {
+    final sent = <String>[];
+    final telemetry = _telemetry(sent, consent: true);
+    await _open(tester, telemetry: telemetry);
+    // Rebuilds inside the sheet (amount change) must not count again.
+    await tester.tap(
+      find.byKey(
+        const ValueKey('support-purchase-tier-whispaste.support.once.1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await telemetry.flush();
+
+    final opened = sent.where((u) => u.contains('sheet_opened')).toList();
+    expect(opened, hasLength(1));
+    expect(sent.where((u) => u.contains('page_opened')), isEmpty);
+  });
+
+  testWidgets('counts nothing when telemetry is off', (tester) async {
+    final sent = <String>[];
+    final telemetry = _telemetry(sent, consent: false);
+    await _open(tester, telemetry: telemetry);
+    await telemetry.flush();
+
+    expect(sent, isEmpty);
   });
 }

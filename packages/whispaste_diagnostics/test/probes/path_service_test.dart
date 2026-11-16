@@ -21,6 +21,27 @@ const _appData = r'C:\Users\maikg\AppData\Roaming';
 const _localAppData = r'C:\Users\maikg\AppData\Local';
 
 void main() {
+  group('userAudioRootDirFor', () {
+    test('uses LOCALAPPDATA, never the roaming folder (#265)', () {
+      expect(
+        userAudioRootDirFor(
+          localAppData: r'C:\Users\u\AppData\Local',
+          appDataDir: r'C:\Users\u\AppData\Roaming\WhisPaste',
+        ),
+        startsWith(r'C:\Users\u\AppData\Local\WhisPaste'),
+      );
+    });
+
+    test('falls back to the app-data folder without LOCALAPPDATA', () {
+      for (final local in [null, '', 'relative']) {
+        expect(
+          userAudioRootDirFor(localAppData: local, appDataDir: r'C:\a'),
+          r'C:\a',
+        );
+      }
+    });
+  });
+
   group('msixPackageFamilyFromExePath', () {
     test('derives family name (Name_PublisherId) from a WindowsApps path', () {
       expect(

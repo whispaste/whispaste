@@ -313,6 +313,34 @@ void main() {
       }
     });
   });
+
+  group('WaveformPipeline — display shaping (#394)', () {
+    /// A quiet microphone: syllables between 0.1 and 0.45 on the shared curve.
+    double peakAfterQuietSpeech(WaveformPipeline p) {
+      var peak = 0.0;
+      for (var i = 0; i < 25 * 8; i++) {
+        final at = _t0.add(Duration(milliseconds: 40 * i));
+        final syllable = (i % 10) < 5 ? 0.1 + 0.07 * (i % 10) : 0.1;
+        p.pushSample(syllable, at);
+        p.tick(at);
+        for (final v in p.snapshot()) {
+          if (i > 25 * 4 && v > peak) peak = v;
+        }
+      }
+      return peak;
+    }
+
+    test('a quiet microphone still reaches the upper wave', () {
+      expect(peakAfterQuietSpeech(WaveformPipeline()), greaterThan(0.6));
+    });
+
+    test('reset starts the next recording from the first guess', () {
+      final p = WaveformPipeline();
+      final first = peakAfterQuietSpeech(p);
+      p.reset();
+      expect(peakAfterQuietSpeech(p), closeTo(first, 1e-9));
+    });
+  });
 }
 
 /// Index of the maximum value in [xs].

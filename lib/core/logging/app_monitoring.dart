@@ -6,6 +6,8 @@
 /// 3. Zone errors (runZonedGuarded wrapper)
 ///
 /// PII sanitization, consent gate, and breadcrumb context via [CrashReporter].
+/// Independent of Sentry, framework and zone errors are written to the app
+/// log ([installErrorLogForwarding]).
 library;
 
 import 'package:flutter/foundation.dart';
@@ -19,6 +21,7 @@ import 'app_logger.dart';
 import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
 import 'crash_reporting_consent.dart';
+import 'error_log_forwarding.dart';
 
 /// Sentry DSN — public identifier, safe to embed in client code.
 /// See: https://docs.sentry.io/concepts/key-terms/dsn-explainer/
@@ -76,6 +79,20 @@ class AppMonitoring {
         consentMarker: marker,
       );
       _log.info('Error reporting opted out — Sentry not started');
+      // Errors still reach the local log (#439), only Sentry stays off.
+      installErrorLogForwarding();
+      await appRunner();
+      return;
+    }
+
+    // First run, privacy choice still open (#686, CONTEXT §6.5): native
+    // reports cannot be held from Dart, so the SDK stays off until the next
+    // start after the choice. Crashes before that are not reported, by design
+    // (they cannot be replayed either way).
+    if (marker.firstRunPending()) {
+      CrashReporter.init(deployChannel: deployChannel, consentMarker: marker);
+      _log.info('First run before the privacy choice — Sentry not started');
+      installErrorLogForwarding();
       await appRunner();
       return;
     }
@@ -83,16 +100,8 @@ class AppMonitoring {
     // 2. Initialize Sentry — wraps appRunner with error zone + handlers.
     //
     // Free-Tier budget (per organization, shared across all projects):
-    //   ~5k errors/month, ~10k performance units (spans)/month.
-    //
-    // Sampling math for whispaste's share (assuming 5 sibling apps):
-    //   tracesSampleRate=0.005 → 1 of 200 transactions sampled.
-    //   A typical sampled transaction emits ~5–15 child spans (drift + dio).
-    //   Even at 1k actions/user/day × 10 users → 50 sampled transactions/day
-    //   × ~10 spans = 500 spans/day ≈ 15k/month. That still busts the share,
-    //   so we ALSO install `beforeSendTransaction` as a hard per-session
-    //   throttle (see CrashReporter.beforeSendTransaction). For a *real*
-    //   monthly guarantee, set a Spend Cap in the Sentry dashboard.
+    //   ~5k errors/month. Only crashes and serious errors are sent, with a
+    //   per-session ceiling in CrashReporter.beforeSend; no transactions.
     await sentryInit(
       configureSentryOptions,
       appRunner: () async {
@@ -103,7 +112,10 @@ class AppMonitoring {
         // 4. Install cascade guard around Sentry's FlutterError.onError.
         _installCascadeGuard();
 
-        // 5. Run the actual app.
+        // 5. Log framework and zone errors locally, in front of both (#439).
+        installErrorLogForwarding();
+
+        // 6. Run the actual app.
         await appRunner();
       },
     );
@@ -115,6 +127,10 @@ class AppMonitoring {
   static void configureSentryOptions(SentryFlutterOptions options) {
     options.dsn = _sentryDsn;
     options.environment = kReleaseMode ? 'production' : 'development';
+    // A debug hot restart runs main() again, and re-initialising the native
+    // Cocoa SDK inside the live process segfaults in its binary-image cache
+    // (crash 2026-10-18). Debug builds keep the Dart-side capture only.
+    options.autoInitializeNativeSdk = !kDebugMode;
     options.release = sentryRelease;
     options.dist = currentArchTag();
     options.sendDefaultPii = false;
@@ -127,15 +143,26 @@ class AppMonitoring {
     // Shrink per-event payload to stay well under the 1 GB attachment
     // bucket and reduce noise in issue grouping.
     options.maxBreadcrumbs = 30;
+    // Native app-hang reports start at 5 s instead of the SDK's 2 s: in
+    // October 2026 short stalls on one to three Macs repeated into about a
+    // fifth of the shared error quota, and native events bypass beforeSend,
+    // so the per-session ceiling cannot catch them.
+    options.appHangTimeoutInterval = const Duration(seconds: 5);
     options.beforeSend = CrashReporter.beforeSend;
+    options.beforeBreadcrumb = CrashReporter.beforeBreadcrumb;
     options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
     // tracesSampler takes precedence over tracesSampleRate when both are
     // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
     // consent=false (blocks the trace entirely so no spans can leak) and
     // null otherwise (falls through to tracesSampleRate below).
     options.tracesSampler = CrashReporter.tracesSampler;
-    options.tracesSampleRate = kReleaseMode ? 0.005 : 0.05;
-    options.enableAutoPerformanceTracing = true;
+    // Crashes and serious errors only (maintainer 2026-10-27): the switch is
+    // "Send crash reports", so no performance traces and no release-health
+    // sessions ride along with it. Usage data belongs to Matomo and its own
+    // switch. The sampler stays as the consent gate should tracing return.
+    options.tracesSampleRate = 0.0;
+    options.enableAutoPerformanceTracing = false;
+    options.enableAutoSessionTracking = false;
     options.enableAutoNativeBreadcrumbs = true;
     // Distributed Tracing bewusst NICHT aktiviert: WhisPaste hat keinen
     // eigenen Backend-Service mit Sentry. Supabase wird nur für Feedback-

@@ -8,8 +8,8 @@
 // Unlike FloatingButtonWindow (deliberately non-activating / click-through,
 // WS_EX_NOACTIVATE + MA_NOACTIVATE + HTTRANSPARENT hit-testing), this shell
 // IS a normal focusable popup: the embedded Flutter search field needs real
-// keyboard focus, and losing that focus to a window outside the process
-// (click-outside) must cancel the picker — the opposite design goal. Do not
+// keyboard focus, and a click outside it must be seen (on_focus_lost, which
+// closes the picker, #1680) — the opposite design goal. Do not
 // copy those three mechanisms from the floating button.
 //
 // No native Escape/Return key interception: unlike the macOS shell (whose
@@ -99,13 +99,20 @@ class SnippetPickerWindow {
   bool visible() const { return visible_; }
   HWND hwnd() const { return hwnd_; }
 
-  // Fired when the shell's own WM_ACTIVATE reports WA_INACTIVE — i.e. some
-  // other window (outside this process) just took activation away, the
-  // click-outside case. The owner (SnippetPickerHost) treats this exactly
-  // like a cancel and is itself responsible for re-entrancy (its own
-  // is_dismissing_ guard — see SnippetPickerHost::Dismiss), so this callback
-  // may safely fire during the shell's own Hide().
-  std::function<void()> on_deactivate_cancel;
+  // Fired while shown when the shell loses activation (WM_ACTIVATE /
+  // WA_INACTIVE) or a mouse button goes down outside it (#1680).
+  // |outside_click| tells the two apart: true when a button is down with the
+  // cursor outside the shell, false for a focus change without a click (a
+  // notification, another app raising itself, Alt+Tab). The owner
+  // (SnippetPickerHost) only reports it; Dart decides, and only a click
+  // outside closes the picker. A focus change without a click is followed
+  // by the poll below, so a later click outside still arrives here.
+  std::function<void(bool outside_click)> on_focus_lost;
+
+  // Opt-in click poll (see StartClickPoll): the snippet picker turns it on,
+  // the tray panel (which reuses this shell and closes on any focus loss)
+  // leaves it off. Set before Show().
+  bool poll_outside_clicks = false;
 
   // Forwarded to the render engine's FlutterViewController::
   // HandleTopLevelWindowProc before this window's own message handling (see
@@ -134,6 +141,19 @@ class SnippetPickerWindow {
                                             DWORD_PTR ref_data);
 
   void ApplyChildSize(int pwidth, int pheight);
+
+  // Click-outside detection that does not depend on activation (#1680): a
+  // click into a window that does not take activation, or a second click
+  // after the picker already lost focus without one, never produces another
+  // WA_INACTIVE. A short timer polls the physical button state while shown;
+  // a low-level mouse hook would see every click too, but it runs on this
+  // UI thread and stalls the whole system's mouse whenever that thread is
+  // busy, so polling is the safer trade.
+  static bool AnyMouseButtonDown();
+  bool CursorOutside() const;
+  void StartClickPoll();
+  void StopClickPoll();
+  bool button_was_down_ = false;
 
   static bool class_registered_;
 

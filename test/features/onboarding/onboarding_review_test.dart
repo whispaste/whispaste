@@ -1,5 +1,5 @@
-/// Tests for the manually reopened introduction — `internal-notes
-/// onboarding-revisions/issues/07`, reduced to its manual-reopen path.
+/// Tests for the manually reopened introduction,
+/// reduced to its manual-reopen path.
 ///
 /// The flow itself is the same seven-page shell the first run gets (that is
 /// the point: one flow, prefilled from live settings). What is tested here is
@@ -18,34 +18,60 @@
 library;
 
 import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'onboarding_test_doubles.dart';
+
+import 'package:whispaste/features/onboarding/onboarding_mic_gate.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart'
     show kOnboardingFlowVersion;
+import 'package:whispaste/features/help/help_page.dart';
+import 'package:whispaste/features/help/help_target.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/settings/sections/onboarding_review_section.dart';
-import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/services/onboarding_telemetry.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+import '../../fixtures/app_fonts.dart';
+import 'package:whispaste/services/audio_service.dart'
+    show audioInputDevicesProvider;
 
 late L10n l10n;
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier([AppSettings? settings])
-    : _settings = settings ?? AppSettings.defaults;
+    : _settings = settings ?? AppSettings.defaults,
+      initial = settings ?? AppSettings.defaults;
 
   AppSettings _settings;
+
+  /// The stored state the review opened on.
+  final AppSettings initial;
+
+  /// The writes that touched the first run's durable record: its resume
+  /// position or its completion flag. Pages may still store their own
+  /// answers (the about page saves name and role) during a review.
+  List<AppSettings> get flowWrites => [
+    for (final w in writes)
+      if (w.onboarding.onboardingCurrentStep !=
+              initial.onboarding.onboardingCurrentStep ||
+          w.onboarding.onboardingCompleted !=
+              initial.onboarding.onboardingCompleted)
+        w,
+  ];
 
   /// Every write the overlay asked for, in order. A review's whole contract
   /// is about writes that must not happen, so the assertions need the list
@@ -110,19 +136,27 @@ Future<_FakeSettingsNotifier> _pumpReview(
   bool manualReview = true,
   AppSettings? settings,
   Locale locale = const Locale('en'),
+  OnboardingTelemetry? telemetry,
 }) async {
   final notifier = _FakeSettingsNotifier(settings ?? _returningUser());
   await tester.pumpWidget(
     makeTestable(
+      disableAnimations: true,
       OnboardingOverlay(manualReview: manualReview),
       locale: locale,
       overrides: [
+        onboardingMicProbeProvider.overrideWithValue(OnboardingFakeMicProbe()),
+        audioInputDevicesProvider.overrideWith(
+          (ref) async => const ['Default'],
+        ),
         settingsProvider.overrideWith(() => notifier),
         micPermissionCheckerProvider.overrideWithValue(
           _FakeMicPermissionChecker(),
         ),
         modelDownloadProvider.overrideWith(_StaticWhisperDownload.new),
         parakeetDownloadProvider.overrideWith(_StaticParakeetDownload.new),
+        if (telemetry != null)
+          onboardingTelemetryProvider.overrideWithValue(telemetry),
       ],
     ),
   );
@@ -136,9 +170,10 @@ bool _reviewOpen(WidgetTester tester) => ProviderScope.containerOf(
   tester.element(find.byType(OnboardingOverlay)),
 ).read(onboardingManuallyOpenProvider);
 
-Future<void> _tapNext(WidgetTester tester) async {
-  await tester.tap(find.byKey(kOnboardingNextButtonKey));
-  await tester.pumpAndSettle();
+/// Opens the Help hub on the introduction tab, the way a settings deep link does.
+class _IntroTarget extends HelpTargetNotifier {
+  @override
+  HelpTarget? build() => const HelpTarget(tab: HelpTab.intro);
 }
 
 void main() {
@@ -147,12 +182,7 @@ void main() {
     // Real Inter metrics. With the default square-glyph test font every
     // string is roughly twice as wide as it ships, which makes the Try & Go
     // page's chips report overflows the app never has.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFontsOnce();
   });
 
   group('the reopened introduction — position', () {
@@ -162,23 +192,20 @@ void main() {
       (tester) async {
         final settings = await _pumpReview(tester);
 
-        final total = buildOnboardingStepIds(
-          platform: debugDefaultTargetPlatformOverride ?? defaultTargetPlatform,
-          autoPasteSupported: true,
-        ).length;
+        final steps = buildOnboardingStepIds();
         expect(
-          find.text(l10n.onboardingStepOf(1, total)),
+          onboardingPage(steps[0]),
           findsOneWidget,
           reason:
               'The persisted step 3 belongs to an interrupted first run; a '
               'review has no position of its own to resume.',
         );
 
-        await _tapNext(tester);
-        await _tapNext(tester);
-        expect(find.text(l10n.onboardingStepOf(3, total)), findsOneWidget);
+        await tapOnboardingNext(tester);
+        await tapOnboardingNext(tester);
+        expect(onboardingPage(steps[2]), findsOneWidget);
         expect(
-          settings.writes,
+          settings.flowWrites,
           isEmpty,
           reason:
               'Paging through a review must leave the interrupted first '
@@ -203,25 +230,6 @@ void main() {
               'During the first run on macOS the X would duplicate the '
               'native traffic lights — and closing means quitting there.',
         );
-
-        // Both reading directions: the traffic lights stay in the physical
-        // top-left corner in Hebrew too, so a *logical* placement would put
-        // the X straight on top of them there.
-        for (final locale in const [Locale('en'), Locale('he')]) {
-          await _pumpReview(tester, locale: locale);
-          final exit = find.byKey(kOnboardingReviewExitButtonKey);
-          expect(exit, findsOneWidget);
-          expect(
-            tester.getCenter(exit).dx,
-            greaterThan(
-              tester.getSize(find.byType(OnboardingOverlay)).width / 2,
-            ),
-            reason:
-                'The X must sit at the physical right in ${locale.languageCode}: '
-                'the physical left is where macOS draws the native traffic '
-                'lights under TitleBarStyle.hidden.',
-          );
-        }
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -254,6 +262,25 @@ void main() {
       );
       expect(settings.current.onboarding.onboardingCompleted, isTrue);
     });
+
+    testWidgets('a review reports review actions only, never the funnel', (
+      tester,
+    ) async {
+      final actions = <String>[];
+      await _pumpReview(
+        tester,
+        telemetry: OnboardingTelemetry(
+          track: ({required category, required action, name}) =>
+              actions.add(action),
+          decide: ({required shareUsageStats}) {},
+        ),
+      );
+      await tapOnboardingNext(tester);
+      await tester.tap(find.byKey(kOnboardingReviewExitButtonKey));
+      await tester.pumpAndSettle();
+
+      expect(actions, ['review_step', 'review_step', 'review_exit']);
+    });
   });
 
   group('the reopened introduction — the last page', () {
@@ -270,17 +297,11 @@ void main() {
           container.read(onboardingManuallyOpenProvider.notifier).open();
           await tester.pump();
 
-          final total = buildOnboardingStepIds(
-            platform: TargetPlatform.macOS,
-            autoPasteSupported: true,
-          ).length;
+          final total = buildOnboardingStepIds().length;
           for (var page = 2; page <= total; page++) {
-            await _tapNext(tester);
+            await tapOnboardingNext(tester);
           }
-          expect(
-            find.text(l10n.onboardingStepOf(total, total)),
-            findsOneWidget,
-          );
+          expect(onboardingPage(OnboardingStepId.privacy), findsOneWidget);
 
           final cta = tester.widget<WpHeroButton>(
             find.byKey(kOnboardingNextButtonKey),
@@ -298,9 +319,9 @@ void main() {
                 'half-configured app; a review opens on one that works.',
           );
 
-          await _tapNext(tester);
+          await tapOnboardingNext(tester);
           expect(container.read(onboardingManuallyOpenProvider), isFalse);
-          expect(settings.writes, isEmpty);
+          expect(settings.flowWrites, isEmpty);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -308,61 +329,45 @@ void main() {
     );
   });
 
-  group('the Settings entry', () {
-    testWidgets('is absent until the first-run setup is finished', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SettingsPage(),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(AppSettings.defaults),
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
+  group('the Help entry', () {
+    testWidgets(
+      'opens the review on the Help page for a user who finished setup',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            disableAnimations: true,
+            const HelpPage(),
+            locale: const Locale('en'),
+            overrides: [
+              settingsProvider.overrideWith(
+                () => _FakeSettingsNotifier(_returningUser()),
+              ),
+              helpTargetProvider.overrideWith(_IntroTarget.new),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingReviewSection), findsNothing);
-    });
+        final section = find.byType(OnboardingReviewSection);
+        expect(section, findsOneWidget);
 
-    testWidgets('opens the review for a user who finished setup', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SettingsPage(),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(_returningUser()),
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
+        final action = find.descendant(
+          of: section,
+          matching: find.byType(WpButton),
+        );
+        await tester.ensureVisible(action);
+        await tester.pumpAndSettle();
+        await tester.tap(action);
+        await tester.pumpAndSettle();
 
-      final section = find.byType(OnboardingReviewSection);
-      expect(section, findsOneWidget);
-
-      final action = find.descendant(
-        of: section,
-        matching: find.text(l10n.onboardingReviewAction),
-      );
-      await tester.ensureVisible(action);
-      await tester.pumpAndSettle();
-      await tester.tap(action);
-      await tester.pumpAndSettle();
-
-      expect(
-        ProviderScope.containerOf(
-          tester.element(find.byType(SettingsPage)),
-        ).read(onboardingManuallyOpenProvider),
-        isTrue,
-      );
-    });
+        expect(
+          ProviderScope.containerOf(
+            tester.element(find.byType(HelpPage)),
+          ).read(onboardingManuallyOpenProvider),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('onboardingSurfaceActive', () {

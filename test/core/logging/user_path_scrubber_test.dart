@@ -47,6 +47,16 @@ void main() {
       );
     });
 
+    test('a home directory is not matched inside a longer account name', () {
+      expect(
+        scrubUserPaths(
+          r'Adreno GPU C:\Users\me\drv',
+          home: r'C:\Users\silvi',
+        ),
+        r'Adreno GPU C:\Users\<user>\drv',
+      );
+    });
+
     test('the bare account name is replaced as a whole word', () {
       expect(
         scrubUserPaths('host erin-mbp user erin', userName: 'erin'),
@@ -58,6 +68,62 @@ void main() {
 
     test('very short account names are left alone (too many false hits)', () {
       expect(scrubUserPaths('a b c', userName: 'a'), 'a b c');
+    });
+
+    test('an account name with a space is replaced whole', () {
+      final out = scrubUserPaths(
+        '/Users/Max Mustermann/x.wav',
+        home: '/nowhere',
+        userName: 'nobody',
+      );
+      expect(out, '/Users/<user>/x.wav');
+    });
+
+    test('brackets and separators in the account name are replaced whole', () {
+      expect(
+        scrubUserPaths('/Users/Max (Büro)/x.wav', home: '/nowhere'),
+        '/Users/<user>/x.wav',
+      );
+      expect(scrubUserPaths('/home/a;b/x', home: '/nowhere'), '/home/<user>/x');
+    });
+
+    test('error text after the path on the same line stays', () {
+      expect(
+        scrubUserPaths(
+          'Cannot open /Users/anna: permission denied',
+          home: '/nowhere',
+        ),
+        'Cannot open /Users/<user>: permission denied',
+      );
+      expect(
+        scrubUserPaths(
+          "path = '/Users/anna' (OS Error: denied, errno = 13)",
+          home: '/nowhere',
+        ),
+        "path = '/Users/<user>' (OS Error: denied, errno = 13)",
+      );
+    });
+
+    test('when in doubt, the account segment is redacted to the separator', () {
+      expect(
+        scrubUserPaths(
+          'Cannot open /Users/anna permission denied',
+          home: '/nowhere',
+        ),
+        'Cannot open /Users/<user>',
+      );
+      expect(
+        scrubUserPaths(r'C:\Users\Muster, Max\x.wav', home: '/nowhere'),
+        r'C:\Users\<user>\x.wav',
+      );
+      expect(
+        scrubUserPaths('/Users/Muster, Max/x.wav', home: '/nowhere'),
+        '/Users/<user>/x.wav',
+      );
+      expect(
+        scrubUserPaths('/home/anna, errno = 2', home: '/nowhere'),
+        '/home/<user>',
+      );
     });
 
     test('text without paths is unchanged', () {
@@ -131,7 +197,125 @@ void main() {
         '${out.breadcrumbs!.single.data}',
       ].join('\n');
       expect(serialized.toLowerCase(), isNot(contains('alice')));
+      expect(out.message!.formatted, 'Preflight OK: model=<file>.bin');
+      expect(out.exceptions!.single.value, 'Cannot open <file>.db');
+      expect(out.breadcrumbs!.single.message, 'loaded <file>.bin');
+      expect(out.breadcrumbs!.single.data!['path'], '<path>');
       expect(out.breadcrumbs!.single.data!['count'], 3);
+    });
+
+    test('transaction name and stack frame paths', () {
+      final event = SentryEvent(
+        transaction: '/Users/alice/x.wav',
+        exceptions: [
+          SentryException(
+            type: 'StateError',
+            value: 'boom',
+            stackTrace: SentryStackTrace(
+              frames: [
+                SentryStackFrame(
+                  absPath: 'file:///Users/alice/proj/lib/a.dart',
+                  fileName: '/Users/alice/proj/lib/a.dart',
+                ),
+                SentryStackFrame(absPath: 'package:whispaste/app.dart'),
+              ],
+            ),
+          ),
+        ],
+      );
+
+      final out = CrashReporter.beforeSend(event, Hint())!;
+
+      expect(out.transaction, '<file>.wav');
+      final frames = out.exceptions!.single.stackTrace!.frames;
+      expect(frames[0].absPath, 'file:<file>.dart');
+      expect(frames[0].fileName, '<file>.dart');
+      expect(frames[1].absPath, 'package:whispaste/app.dart');
+    });
+
+    test('culprit and request parts', () {
+      final event = SentryEvent(
+        culprit: 'open /Users/alice/x.wav',
+        request: SentryRequest(
+          url: 'file:///Users/alice/a.wav',
+          queryString: 'file=%2FUsers%2Falice%2Fb.wav',
+          cookies: 'session=secret; last=/home/alice/c.txt',
+          headers: {
+            'X-File': r'C:\Users\alice\d.wav',
+            'Authorization': 'Bearer secret',
+            'proxy-authorization': 'Basic secret',
+            'Cookie': 'session=secret',
+            'Set-Cookie': 'session=secret',
+          },
+        ),
+      );
+
+      final out = CrashReporter.beforeSend(event, Hint())!;
+
+      expect(out.culprit, 'open <file>.wav');
+      final request = out.request!;
+      expect(request.url, 'file:<file>.wav');
+      expect(request.queryString, 'file=<file>.wav');
+      expect(request.cookies, isNull);
+      expect(request.headers, {'X-File': '<file>.wav'});
+      final json = request.toJson().toString();
+      expect(json, isNot(contains('alice')));
+      expect(json, isNot(contains('secret')));
+    });
+  });
+
+  group('CrashReporter.beforeBreadcrumb scrubs user paths', () {
+    test('message and nested data (maps and lists) carry no account name', () {
+      final crumb = Breadcrumb(
+        message: r'loaded C:\Users\Alice\AppData\x.bin',
+        data: {
+          'paths': [r'C:\Users\Alice\a.wav', '/home/alice/b.wav'],
+          'nested': {'file': '/Users/alice/c.db', 'count': 2},
+        },
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out, isNotNull);
+      final serialized = '${out!.message} ${out.data}';
+      expect(serialized.toLowerCase(), isNot(contains('alice')));
+      final nested = out.data!['nested']! as Map<String, dynamic>;
+      expect(nested['count'], 2, reason: 'non-string leaves are kept');
+    });
+
+    test('a percent-encoded Windows file URL is scrubbed as well', () {
+      final crumb = Breadcrumb(
+        message: 'open file:///C%3A%5CUsers%5CAlice%5Cx.wav',
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message!.toLowerCase(), isNot(contains('alice')));
+    });
+
+    test('a native log line from the ring carries no account name', () {
+      // Shape of a line drained from the native log ring (drainNativeLog),
+      // logged through AppLogger and turned into a breadcrumb.
+      final crumb = Breadcrumb(
+        message:
+            r'WhisperFfiEngine: ggml: model C:\Users\Alice\m.bin, '
+            '/Users/alice/Library/Containers/x/y.so',
+        category: 'native',
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message!.toLowerCase(), isNot(contains('alice')));
+      expect(out.category, 'native');
+    });
+
+    test('a breadcrumb without user paths passes through unchanged', () {
+      final crumb = Breadcrumb(message: 'stt: idle', category: 'stt');
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message, 'stt: idle');
+      expect(out.category, 'stt');
     });
   });
 }

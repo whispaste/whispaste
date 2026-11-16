@@ -2,18 +2,19 @@
 /// [RecordingTriggerHandler] survives parent rebuilds so Push-to-Talk
 /// keyDown/keyUp pairs are wired to the SAME handler instance.
 ///
-/// This is the regression net for the bug described in
-/// `internal-notes`.
+/// This is the regression net for the trigger-handler persistent-state bug (hotkey modifier storage fix).
 library;
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/logging/ui_thread_watchdog.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/autostart_service.dart';
@@ -64,6 +65,7 @@ class _FakeHotkeyService extends HotkeyService {
 
   @override
   Future<void> registerCancelDictationKey({
+    LogicalKeyboardKey key = LogicalKeyboardKey.escape,
     required VoidCallback onCancel,
   }) async {
     registerCancelDictationCalls++;
@@ -100,13 +102,18 @@ class _CounterOrchestrator extends RecordingOrchestrator {
     SmartModePreset? forcedSmartModePreset,
     String? languageOverride,
     double? silenceTimeoutOverride,
+    Duration startToneNotBefore = Duration.zero,
   }) async {
     startCalls++;
+    // The trigger handler owns a press only while a recording really runs,
+    // so the fake reports one like the real orchestrator does.
+    ref.read(recordingProvider.notifier).startRecording();
   }
 
   @override
   Future<void> stopRecording() async {
     stopCalls++;
+    ref.read(recordingProvider.notifier).reset();
   }
 
   @override
@@ -117,6 +124,12 @@ class _CounterOrchestrator extends RecordingOrchestrator {
     double? silenceTimeoutOverride,
   }) async {
     toggleCalls++;
+    final recording = ref.read(recordingProvider.notifier);
+    if (ref.read(recordingProvider).isRecording) {
+      recording.reset();
+    } else {
+      recording.startRecording();
+    }
   }
 }
 
@@ -124,6 +137,14 @@ class _CounterOrchestrator extends RecordingOrchestrator {
 class _FakeTrayService extends TrayService {
   @override
   void build() {}
+
+  /// The bootstrap pushes the side-panel entry state on every build (UIA-SHL-09).
+  /// The real method rebuilds the native tray menu, which has no plugin here.
+  @override
+  void setSidePanelAvailable(bool available) => sidePanelAvailable = available;
+
+  /// The last state the bootstrap pushed; null until the first build.
+  bool? sidePanelAvailable;
 }
 
 /// Capability notifier that only counts the recovery call — the recovery
@@ -136,7 +157,9 @@ class _RecoveryCountingCapabilityNotifier extends PasteCapabilityNotifier {
   PasteCapabilityState build() => const PasteCapabilityState();
 
   @override
-  Future<void> runMissingPermissionRecovery() async {
+  Future<void> runMissingPermissionRecovery({
+    Future<bool> Function()? confirmReset,
+  }) async {
     recoveryCalls++;
   }
 }
@@ -180,22 +203,33 @@ class _FakeClipboardHistoryMonitorService
 /// from [AsyncLoading] to [AsyncData] within the same microtask, before
 /// any caller in the bootstrap reads it.
 class _FakeSettingsNotifier extends SettingsNotifier {
-  _FakeSettingsNotifier({required this._pushToTalk});
+  _FakeSettingsNotifier({
+    required this._pushToTalk,
+    this._onboardingCompleted = true,
+    this._sidePanelEnabled = false,
+  });
 
   bool _pushToTalk;
+  bool _onboardingCompleted;
+  final bool _sidePanelEnabled;
+
+  AppSettings get _settings => AppSettings(
+    audioInput: AudioInputSettings(pushToTalk: _pushToTalk),
+    onboarding: OnboardingSettings(onboardingCompleted: _onboardingCompleted),
+    interface_: InterfaceSettings(sidePanelEnabled: _sidePanelEnabled),
+  );
 
   @override
-  Future<AppSettings> build() {
-    return Future.value(
-      AppSettings(audioInput: AudioInputSettings(pushToTalk: _pushToTalk)),
-    );
-  }
+  Future<AppSettings> build() => Future.value(_settings);
 
   void setPushToTalk(bool value) {
     _pushToTalk = value;
-    state = AsyncData(
-      AppSettings(audioInput: AudioInputSettings(pushToTalk: value)),
-    );
+    state = AsyncData(_settings);
+  }
+
+  void completeOnboarding() {
+    _onboardingCompleted = true;
+    state = AsyncData(_settings);
   }
 }
 
@@ -216,13 +250,23 @@ class _RebuildHarness extends StatefulWidget {
 
 class _RebuildHarnessState extends State<_RebuildHarness> {
   int _rebuildTick = 0;
+  int _generation = 0;
+  bool _shown = true;
 
   void forceRebuild() => setState(() => _rebuildTick++);
 
+  /// Replaces the bootstrap with a fresh one, like the app shell does when
+  /// its colour-set key changes (a settings import, #439).
+  void remount() => setState(() => _generation++);
+
+  /// Removes the bootstrap from the tree.
+  void hide() => setState(() => _shown = false);
+
   @override
   Widget build(BuildContext context) {
+    if (!_shown) return const SizedBox.shrink();
     return WpServiceBootstrap(
-      key: const ValueKey('bootstrap'),
+      key: ValueKey('bootstrap-$_generation'),
       // Use the tick in the subtree so Flutter does not optimize the rebuild
       // away — ensures the bootstrap widget's element rebuilds too.
       child: Text('tick=$_rebuildTick'),
@@ -272,6 +316,81 @@ Widget _makeApp({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('WpServiceBootstrap — teardown (#439)', () {
+    Future<GlobalKey<_RebuildHarnessState>> pumpBootstrap(
+      WidgetTester tester,
+      _FakeHotkeyService hotkeySvc,
+      _CounterOrchestrator orchestrator,
+    ) async {
+      final harnessKey = GlobalKey<_RebuildHarnessState>();
+      await tester.pumpWidget(
+        _makeApp(
+          hotkeySvc: hotkeySvc,
+          orchestrator: orchestrator,
+          settings: _FakeSettingsNotifier(pushToTalk: false),
+          harnessKey: harnessKey,
+        ),
+      );
+      await tester.pumpAndSettle();
+      return harnessKey;
+    }
+
+    testWidgets('a remounted bootstrap keeps the hotkey and the stall heal '
+        'wired to the new state', (tester) async {
+      final hotkeySvc = _FakeHotkeyService();
+      final orchestrator = _CounterOrchestrator();
+      final harnessKey = await pumpBootstrap(tester, hotkeySvc, orchestrator);
+      final oldPress = hotkeySvc.onHotkeyPressed;
+
+      harnessKey.currentState!.remount();
+      await tester.pumpAndSettle();
+
+      expect(hotkeySvc.onHotkeyPressed, isNotNull);
+      expect(identical(hotkeySvc.onHotkeyPressed, oldPress), isFalse);
+      // The old state's dispose ran after the new initState; it must not
+      // have taken the watchdog's heal hook from the new one.
+      expect(UiThreadWatchdog.instance.onSevereStall, isNotNull);
+
+      hotkeySvc.onHotkeyPressed!();
+      await tester.pumpAndSettle();
+      expect(orchestrator.toggleCalls, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a bootstrap remounted mid-dictation takes over the Escape '
+        'cancel key', (tester) async {
+      final hotkeySvc = _FakeHotkeyService();
+      final orchestrator = _CounterOrchestrator();
+      final harnessKey = await pumpBootstrap(tester, hotkeySvc, orchestrator);
+      hotkeySvc.onHotkeyPressed!();
+      await tester.pumpAndSettle();
+      expect(hotkeySvc.registerCancelDictationCalls, 1);
+      final oldCancel = hotkeySvc.capturedOnCancel;
+
+      harnessKey.currentState!.remount();
+      await tester.pumpAndSettle();
+
+      expect(hotkeySvc.registerCancelDictationCalls, 2);
+      expect(identical(hotkeySvc.capturedOnCancel, oldCancel), isFalse);
+    });
+
+    testWidgets('a removed bootstrap leaves no hotkey callback behind', (
+      tester,
+    ) async {
+      final hotkeySvc = _FakeHotkeyService();
+      final orchestrator = _CounterOrchestrator();
+      final harnessKey = await pumpBootstrap(tester, hotkeySvc, orchestrator);
+
+      harnessKey.currentState!.hide();
+      await tester.pumpAndSettle();
+
+      expect(hotkeySvc.onHotkeyPressed, isNull);
+      expect(hotkeySvc.onHotkeyReleased, isNull);
+      expect(hotkeySvc.onSmartModeHotkeyPressed, isNull);
+      expect(UiThreadWatchdog.instance.onSevereStall, isNull);
+    });
+  });
+
   group('WpServiceBootstrap — trigger handler survives rebuilds', () {
     testWidgets(
       'Test 1: PTT keyDown → rebuild → keyUp still calls stopRecording',
@@ -315,14 +434,10 @@ void main() {
         harnessKey.currentState!.forceRebuild();
         await tester.pump();
 
-        // 3. Wait > 100 ms of real wall-clock time so the anti-glitch
-        //    threshold (which uses [DateTime.now], not fake-async clock)
-        //    permits stopRecording. Must use [tester.runAsync] so the delay
-        //    escapes flutter_test's fake-async zone.
-        await tester.runAsync(
-          () async => Future<void>.delayed(const Duration(milliseconds: 120)),
-        );
-        await tester.pump();
+        // 3. Hold for > 100 ms so the anti-glitch threshold permits
+        //    stopRecording. The handler reads the time through
+        //    `package:clock`, so the test's fake clock serves (#1491).
+        await tester.pump(const Duration(milliseconds: 120));
 
         // 4. keyUp must call stopRecording on the SAME handler that observed
         //    the keyDown — if the handler was re-instantiated on rebuild, its
@@ -409,6 +524,11 @@ void main() {
         hotkeySvc.onHotkeyPressed!.call();
         await tester.pump();
         expect(orchestrator.toggleCalls, equals(1));
+
+        // A real tap releases the key before the next press; a second
+        // key-down without a release is auto-repeat and stays ignored.
+        hotkeySvc.onHotkeyReleased!.call();
+        await tester.pump();
 
         // Rebuild the bootstrap mid-stream.
         harnessKey.currentState!.forceRebuild();
@@ -531,7 +651,7 @@ void main() {
       expect(container.read(activePageProvider), 'settings');
       expect(
         container.read(settingsScrollTargetProvider),
-        'afterTranscription',
+        'text-after-dictation-action',
       );
       expect(
         capability.recoveryCalls,
@@ -541,6 +661,42 @@ void main() {
             'problem — running the TCC recovery there would prompt for '
             'nothing.',
       );
+    });
+  });
+
+  group('WpServiceBootstrap — edge side panel', () {
+    testWidgets('stays off during onboarding and comes up once it is done', (
+      tester,
+    ) async {
+      // The user has the panel on. A new install defaults to off since
+      // 8d22544da (side_panel_default_migration_test.dart covers that).
+      final settings = _FakeSettingsNotifier(
+        pushToTalk: false,
+        onboardingCompleted: false,
+        sidePanelEnabled: true,
+      );
+      await tester.pumpWidget(
+        _makeApp(
+          hotkeySvc: _FakeHotkeyService(),
+          orchestrator: _CounterOrchestrator(),
+          settings: settings,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+      final tray =
+          container.read(trayServiceProvider.notifier) as _FakeTrayService;
+
+      expect(tray.sidePanelAvailable, isFalse);
+      expect(container.exists(sidePanelServiceProvider), isFalse);
+
+      settings.completeOnboarding();
+      await tester.pumpAndSettle();
+
+      expect(tray.sidePanelAvailable, isTrue);
+      expect(container.exists(sidePanelServiceProvider), isTrue);
     });
   });
 

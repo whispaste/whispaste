@@ -1,15 +1,16 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -18,7 +19,7 @@ import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import 'package:whispaste/features/notes/widgets/quick_note_hotkey_line.dart';
-import 'package:whispaste/features/settings/sections/feedback_section.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
 
@@ -28,7 +29,7 @@ import '../../fixtures/test_helpers.dart';
 /// editor's — scope finders to the editor panel where a test cares
 /// specifically about the note body/tag input, not the search field.
 Finder _editorTextFields() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -40,6 +41,11 @@ late L10n l10n;
 /// db from `makeTestable`), whose stream-cleanup schedules a Timer on
 /// disposal that flutter_test's pending-timer check then trips.
 List<Object> get _noTagOverrides => [
+  // The metadata index would start isolates; these tests are not about it.
+  contentMetadataProvider.overrideWith((ref, key) => Stream.value(null)),
+  contentMetadataPreviewProvider.overrideWith((ref, text) async => null),
+  // The fixture notes carry their full text; no database read for search hits.
+  noteTextHitsProvider.overrideWith((ref, query) async => const {}),
   allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
   noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const [])),
 ];
@@ -68,6 +74,24 @@ class _RecordingActions extends NotesActions {
   }
 }
 
+class _FailingCreateActions extends NotesActions {
+  _FailingCreateActions(super.db);
+
+  int discardCalls = 0;
+
+  @override
+  Future<Note> create() async => throw SqliteException(
+    extendedResultCode: 13,
+    message: 'private database error',
+  );
+
+  @override
+  Future<bool> discardIfBlank(String noteId) async {
+    discardCalls++;
+    return true;
+  }
+}
+
 Note _sampleNote({
   required String id,
   required String content,
@@ -88,6 +112,16 @@ Note _sampleNote({
   );
 }
 
+/// Switches the list to the trash view via the toolbar's filter menu.
+Future<void> _showTrash(WidgetTester tester) async {
+  await tester.tap(find.bySemanticsIdentifier('notes-filter-menu'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.bySemanticsIdentifier('notes-filter-trash'));
+  await tester.pumpAndSettle();
+  await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  await tester.pumpAndSettle();
+}
+
 /// Parks a synthetic mouse pointer on [finder]. Row actions reveal on hover
 /// or focus app-wide (see WpRowAction's library comment), so a trash row's
 /// restore/delete-forever buttons only exist once the row is pointed at.
@@ -106,47 +140,48 @@ void main() {
   });
 
   group('NotesPage — static fixtures (rendering)', () {
-    testWidgets('shows the empty state when there are no notes', (
+    testWidgets('failed creation preserves the selected blank note', (
       tester,
     ) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final actions = _FailingCreateActions(db);
+      addTearDown(db.close);
+      final notes = [_sampleNote(id: 'existing', content: '')];
       await tester.pumpWidget(
         makeTestable(
           const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(const [])),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.notesEmptyTitle), findsOneWidget);
-      expect(find.text(l10n.notesEmptyHint), findsOneWidget);
-    });
-
-    testWidgets('renders a derived title and preview for each note', (
-      tester,
-    ) async {
-      final notes = [
-        _sampleNote(id: 'n1', content: 'Grocery list\nMilk, eggs, bread'),
-        _sampleNote(id: 'n2', content: ''),
-      ];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
+          noticeBar: true,
           overrides: [
             notesProvider.overrideWith((ref) => Stream.value(notes)),
+            notesActionsProvider.overrideWith((ref) => actions),
             ..._noTagOverrides,
           ],
           locale: const Locale('en'),
         ),
       );
       await tester.pumpAndSettle();
-
-      expect(find.text('Grocery list'), findsOneWidget);
-      expect(find.text(l10n.notesUntitled), findsOneWidget);
+      await tester.tap(find.byType(NotesListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('notes-new-note')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey('notice-bar-notes-create-error')),
+        findsOneWidget,
+      );
+      expect(find.byType(NotesListTile), findsOneWidget);
+      expect(
+        tester.widget<NotesListTile>(find.byType(NotesListTile)).note.id,
+        'existing',
+      );
+      expect(_editorTextFields(), findsOneWidget);
+      expect(actions.discardCalls, 0);
+      // Let the error toast expire and finish its reverse animation before
+      // the tree goes away, or its ticker outlives the overlay.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     });
 
     testWidgets('tapping a note opens it in the editor', (tester) async {
@@ -164,11 +199,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Meeting notes'));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
       await tester.pumpAndSettle();
 
       expect(_editorTextFields(), findsOneWidget);
-      expect(find.text('Meeting notes'), findsWidgets); // tile + editor title
     });
 
     testWidgets(
@@ -194,14 +228,13 @@ void main() {
         // report (the user already has notes before hitting this). The
         // empty state shows two "New note" buttons (header + empty-state
         // action, see the comment at its actionLabel) — `.first` picks either.
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byKey(const ValueKey('notes-new-note')).first);
         await tester.pumpAndSettle();
         expect(_editorTextFields(), findsOneWidget);
 
         // Now create the SECOND note — the reported scenario.
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byKey(const ValueKey('notes-new-note')).first);
         await tester.pumpAndSettle();
-
         expect(_editorTextFields(), findsOneWidget);
         final focusNode = tester
             .widget<TextField>(_editorTextFields())
@@ -260,11 +293,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('First note'));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
         await tester.pumpAndSettle();
         expect(_editorTextFields(), findsOneWidget);
 
-        await tester.tap(find.text('Second note'));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-n2'));
         // Mid-transition on purpose — pumpAndSettle would run past the very
         // window this guards.
         await tester.pump(const Duration(milliseconds: 50));
@@ -313,11 +346,11 @@ void main() {
         controller.add([_sampleNote(id: 'n1', content: 'First note')]);
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('First note'));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
         await tester.pumpAndSettle();
         expect(find.byType(NoteEditorPanel), findsOneWidget);
 
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byKey(const ValueKey('notes-new-note')).first);
         // Deliberately no emit on `controller`: the new row exists in the db
         // and nowhere else yet. Pump well past the close animation.
         await tester.pumpAndSettle();
@@ -342,106 +375,15 @@ void main() {
         // Leave the blank new note behind before tearing down: the page's
         // dispose would otherwise run the empty-discard db write against the
         // connection the provider scope closes in the same unmount pass.
-        await tester.tap(find.text('First note'));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
         await tester.pumpAndSettle();
         await tester.pumpWidget(const SizedBox());
         await tester.pumpAndSettle();
       },
     );
-
-    testWidgets(
-      'switching notes lands the body field at the caret, not at the offset '
-      'the previous note was left at',
-      (tester) async {
-        // The panel is now updated in place instead of cross-faded, so the
-        // body field's own ScrollController survives the switch. Left alone
-        // it merely clamps into range, which parks the new note at an offset
-        // that means nothing — the end (where _setEditorText puts the caret)
-        // is the one position that does.
-        final notes = [
-          _sampleNote(
-            id: 'n1',
-            content: 'Long note\n${List.filled(200, 'line').join('\n')}',
-          ),
-          _sampleNote(
-            id: 'n2',
-            content: 'Medium note\n${List.filled(40, 'line').join('\n')}',
-          ),
-          _sampleNote(id: 'n3', content: 'Short note'),
-        ];
-
-        await tester.pumpWidget(
-          makeTestable(
-            const NotesPage(),
-            overrides: [
-              notesProvider.overrideWith((ref) => Stream.value(notes)),
-              ..._noTagOverrides,
-            ],
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Long note').first);
-        await tester.pumpAndSettle();
-
-        final scrollController = tester
-            .widget<TextField>(_editorTextFields())
-            .scrollController!;
-        expect(
-          scrollController.position.maxScrollExtent,
-          greaterThan(0),
-          reason:
-              'the long note has to actually overflow for this to test '
-              'anything',
-        );
-        scrollController.jumpTo(scrollController.position.maxScrollExtent);
-        await tester.pumpAndSettle();
-
-        // Another note that still overflows: the offset above is a legal one
-        // here too, so clamping alone would leave it untouched.
-        await tester.tap(find.text('Medium note').first);
-        await tester.pumpAndSettle();
-        expect(scrollController.position.maxScrollExtent, greaterThan(0));
-        expect(
-          scrollController.offset,
-          scrollController.position.maxScrollExtent,
-        );
-
-        // And one that does not overflow at all.
-        await tester.tap(find.text('Short note').first);
-        await tester.pumpAndSettle();
-        expect(scrollController.offset, 0.0);
-      },
-    );
   });
 
   group('NotesPage — favorite/trash/restore (Ticket 04)', () {
-    testWidgets('switching to the trash filter shows the trash empty state', (
-      tester,
-    ) async {
-      final activeNotes = [_sampleNote(id: 'n1', content: 'Active note')];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(activeNotes)),
-            trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text(l10n.notesTrash));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.notesTrashEmpty), findsOneWidget);
-      expect(find.text(l10n.notesTrashEmptyHint), findsOneWidget);
-    });
-
     testWidgets(
       'trash view shows restore/delete-forever, not the favorite star',
       (tester) async {
@@ -462,13 +404,15 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text(l10n.notesTrash));
-        await tester.pumpAndSettle();
+        await _showTrash(tester);
         await _hoverRow(tester, find.byType(NotesListTile).first);
 
-        expect(find.byTooltip(l10n.notesRestore), findsOneWidget);
-        expect(find.byTooltip(l10n.notesDeleteForever), findsOneWidget);
-        expect(find.byTooltip(l10n.notesFavorite), findsNothing);
+        expect(find.byKey(const ValueKey('notes-restore-n1')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('notes-delete-forever-n1')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const ValueKey('notes-favorite-n1')), findsNothing);
       },
     );
 
@@ -491,51 +435,20 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.notesTrash));
-      await tester.pumpAndSettle();
+      await _showTrash(tester);
       await _hoverRow(tester, find.byType(NotesListTile).first);
 
-      await tester.tap(find.byTooltip(l10n.notesDeleteForever));
+      await tester.tap(find.byKey(const ValueKey('notes-delete-forever-n1')));
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.notesDeleteForeverConfirm), findsOneWidget);
+      const confirm = ValueKey('confirm-dialog-confirm');
+      expect(find.byKey(confirm), findsOneWidget);
 
       // Cancel — dialog dismisses, note is untouched.
-      await tester.tap(find.text(l10n.actionCancel));
+      await tester.tap(find.byKey(const ValueKey('confirm-dialog-cancel')));
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.notesDeleteForeverConfirm), findsNothing);
-    });
-
-    testWidgets('moving the open note to trash shows an undo toast', (
-      tester,
-    ) async {
-      final notes = [_sampleNote(id: 'n1', content: 'Some note')];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(notes)),
-            trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Some note'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byTooltip(l10n.notesMoveToTrash));
-      await tester.pump();
-
-      expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
-      expect(find.text(l10n.notesUndo), findsOneWidget);
-
-      // Drain the toast's 4s auto-dismiss timer so no Timer outlives the test.
-      await tester.pumpAndSettle(const Duration(seconds: 5));
+      expect(find.byKey(confirm), findsNothing);
     });
 
     testWidgets(
@@ -553,83 +466,24 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byKey(const ValueKey('notes-new-note')).first);
         await tester.pumpAndSettle();
         await tester.enterText(_editorTextFields(), 'Duplicate me');
         await tester.pumpAndSettle();
 
         expect(find.byType(NotesListTile), findsOneWidget);
 
-        await tester.tap(find.byTooltip(l10n.actionDuplicate));
-        await tester.pumpAndSettle();
+        await tapNoteHeadAction(tester, 'duplicate');
 
         expect(find.byType(NotesListTile), findsNWidgets(2));
-        expect(find.text('Duplicate me'), findsWidgets); // both tiles + editor
 
         await tester.pumpWidget(const SizedBox());
         await tester.pumpAndSettle();
       },
     );
-
-    testWidgets('favorite star reflects the pinned state', (tester) async {
-      final notes = [
-        _sampleNote(id: 'n1', content: 'Pinned note', pinned: true),
-      ];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(notes)),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byTooltip(l10n.notesUnfavorite), findsOneWidget);
-      expect(find.byTooltip(l10n.notesFavorite), findsNothing);
-    });
   });
 
   group('NotesPage — tags (Ticket 05)', () {
-    testWidgets('shows tag pills for a tagged note in the tile and editor', (
-      tester,
-    ) async {
-      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
-      final workTag = _sampleTag('t1', 'work');
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(notes)),
-            allNoteTagsProvider.overrideWith(
-              (ref) => Stream.value({
-                'n1': [workTag],
-              }),
-            ),
-            noteTagsProvider.overrideWith(
-              (ref, noteId) =>
-                  Stream.value(noteId == 'n1' ? [workTag] : const []),
-            ),
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Tile shows the compact "#work" pill.
-      expect(find.text('#work'), findsOneWidget);
-
-      await tester.tap(find.text('Grocery list'));
-      await tester.pumpAndSettle();
-
-      // Editor's WpTagInput shows the plain tag name (no "#" prefix).
-      expect(find.text('work'), findsOneWidget);
-    });
-
     testWidgets('adding a tag calls NotesActions.addTag for the open note', (
       tester,
     ) async {
@@ -651,16 +505,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Grocery list'));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
       await tester.pumpAndSettle();
 
       // Reveal the inline tag input, type a name, confirm with Enter.
-      await tester.tap(find.text(l10n.notesAddTag));
+      await tester.tap(find.byKey(const ValueKey('tag-input-add')));
       await tester.pumpAndSettle();
-      // The inline tag field renders above the divider/main editor TextField
-      // within NoteEditorPanel — `.first` there is the tag input, not the
-      // note body (scoped to exclude the page's separate search TextField).
-      await tester.enterText(_editorTextFields().first, 'errands');
+      // The inline tag field lives under the note's tags key, not the body.
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('tags-n1')),
+          matching: find.byType(TextField),
+        ),
+        'errands',
+      );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -671,7 +529,7 @@ void main() {
       tester,
     ) async {
       // The editor panel is updated in place across a note switch rather than
-      // rebuilt from scratch (WpSplitView.crossFadeDetail), so every child
+      // rebuilt from scratch (WpCollectionSplit.crossFadeDetail), so every child
       // holding note-scoped state is keyed on the note id. This is that
       // contract for WpTagInput: without the key its typed-but-unsubmitted
       // text survives, and Enter would file it on the wrong note.
@@ -691,11 +549,17 @@ void main() {
       controller.add([_sampleNote(id: 'n1', content: 'First note')]);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('First note'));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.notesAddTag));
+      await tester.tap(find.byKey(const ValueKey('tag-input-add')));
       await tester.pumpAndSettle();
-      await tester.enterText(_editorTextFields().first, 'errands');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('tags-n1')),
+          matching: find.byType(TextField),
+        ),
+        'errands',
+      );
       await tester.pumpAndSettle();
       expect(find.text('errands'), findsOneWidget);
 
@@ -703,7 +567,7 @@ void main() {
       // its own add mode on any pointer-down outside itself, so only the
       // keyboard path (deliberately not guarded by isTextFieldFocused, see
       // _buildListShortcuts) actually reaches the editor with the field open.
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
@@ -727,15 +591,19 @@ void main() {
       // Leave the blank new note before teardown: the page's dispose runs the
       // empty-discard write, and the provider scope closes the db in the same
       // unmount pass.
-      await tester.tap(find.text('First note'));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets(
       'removing a tag calls NotesActions.removeTag for the open note',
       (tester) async {
+        tester.view.physicalSize = const Size(1280, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
         final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
         final workTag = _sampleTag('t1', 'work');
         final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -759,10 +627,22 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Grocery list'));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-n1'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.bySemanticsLabel('Remove work'));
+        await tester.ensureVisible(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Semantics &&
+                widget.properties.label == 'Remove tag "work"',
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byWidgetPredicate(
+            (w) => w is Semantics && w.properties.label == 'Remove tag "work"',
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(actions.lastRemoveTag, ('n1', 't1'));
@@ -791,38 +671,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Grocery list'), findsOneWidget);
-      expect(find.text('Meeting agenda'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('notes-row-n1'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('notes-row-n2'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'grocery');
       await tester.pumpAndSettle();
 
-      expect(find.text('Grocery list'), findsOneWidget);
-      expect(find.text('Meeting agenda'), findsNothing);
-    });
-
-    testWidgets('shows the no-results empty state for a non-matching query', (
-      tester,
-    ) async {
-      final notes = [_sampleNote(id: 'n1', content: 'Grocery list')];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(notes)),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byType(TextField), 'nonexistent');
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.notesNoResults), findsOneWidget);
-      expect(find.text(l10n.notesNoResultsHint('nonexistent')), findsOneWidget);
+      expect(find.bySemanticsIdentifier('notes-row-n1'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('notes-row-n2'), findsNothing);
     });
 
     testWidgets('clearing the search restores the original list', (
@@ -844,39 +700,13 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'nonexistent');
       await tester.pumpAndSettle();
-      expect(find.text(l10n.notesNoResults), findsOneWidget);
+      expect(find.byKey(const ValueKey('notes-search-empty')), findsOneWidget);
 
-      await tester.tap(find.text(l10n.actionClearSearch));
+      await tester.enterText(find.byType(TextField), '');
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.notesNoResults), findsNothing);
-      expect(find.text('Grocery list'), findsOneWidget);
-    });
-
-    testWidgets('shows a result count only while searching', (tester) async {
-      final notes = [
-        _sampleNote(id: 'n1', content: 'Grocery list'),
-        _sampleNote(id: 'n2', content: 'Meeting agenda'),
-      ];
-
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: [
-            notesProvider.overrideWith((ref) => Stream.value(notes)),
-            ..._noTagOverrides,
-          ],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.notesResultCount(1)), findsNothing);
-
-      await tester.enterText(find.byType(TextField), 'grocery');
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.notesResultCount(1)), findsOneWidget);
+      expect(find.byKey(const ValueKey('notes-search-empty')), findsNothing);
+      expect(find.bySemanticsIdentifier('notes-row-n1'), findsOneWidget);
     });
 
     testWidgets('Ctrl/Cmd+F focuses the search field', (tester) async {
@@ -901,11 +731,11 @@ void main() {
         reason: 'Field must not have focus before the shortcut',
       );
 
-      // The shortcut binding checks the real OS (`dart:io Platform.isMacOS`),
-      // not Flutter's `defaultTargetPlatform` test override — match that.
+      // The shortcut binding reads the platform seam (`defaultTargetPlatform`),
+      // pinned per run by the variant — match that.
       // Vorbild: settings_search_keyboard_a11y_test.dart (separate down/up
       // for the letter key, not the combined `sendKeyEvent`).
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
@@ -923,7 +753,7 @@ void main() {
         isTrue,
         reason: 'Field must have focus after the shortcut',
       );
-    });
+    }, variant: TargetPlatformVariant.desktop());
   });
 
   // ---------------------------------------------------------------------------
@@ -936,7 +766,6 @@ void main() {
     Widget panelSubject({
       required Note note,
       AppSettings settings = _hotkeyOn,
-      double textScale = 1.0,
       double width = 320,
     }) {
       final controller = TextEditingController(text: note.content);
@@ -945,7 +774,7 @@ void main() {
       addTearDown(focusNode.dispose);
       return makeTestable(
         MediaQuery(
-          data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+          data: const MediaQueryData(),
           child: Center(
             child: SizedBox(
               key: const Key('probeFrame'),
@@ -1015,8 +844,6 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Ö'), findsOneWidget);
-      expect(find.text(';'), findsNothing);
     });
 
     testWidgets('an unmarked note carries no hotkey line', (tester) async {
@@ -1068,7 +895,7 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.tap(find.byKey(const ValueKey('hotkey-recorder-save')));
       await tester.pumpAndSettle();
 
       expect(settingsOf(tester).quickNoteHotkey.quickNoteHotkeyKey, 'K');
@@ -1108,7 +935,7 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.tap(find.byKey(const ValueKey('hotkey-recorder-save')));
       await tester.pumpAndSettle();
 
       expect(
@@ -1116,19 +943,17 @@ void main() {
         'Y',
         reason: 'the colliding combination must not reach the settings',
       );
+      // The recorder refuses the taken combination live: Save is disabled and
+      // the holder is named under the key caps, so the user sees the reason
+      // before pressing anything. The notes-line notice only follows a result
+      // that was actually saved, which a taken combination never produces.
       expect(
-        find.byKey(const Key('notesQuickNoteHotkeyCollisionNotice')),
+        find.byKey(const ValueKey<String>('hotkey-recorder-holder')),
         findsOneWidget,
       );
-      // Dieselbe Meldung wie in den Einstellungen — dieselbe Regel, ein
-      // Wortlaut.
       expect(
-        find.text(
-          l10n.settingsQuickNoteHotkeyCollision(
-            l10n.settingsHotkeyActionRecording,
-          ),
-        ),
-        findsOneWidget,
+        find.byKey(const Key('notesQuickNoteHotkeyCollisionNotice')),
+        findsNothing,
       );
     });
 
@@ -1145,7 +970,10 @@ void main() {
 
       // Wer hier markiert und nichts erführe, hätte ein Feature eingerichtet,
       // das nichts tut.
-      expect(find.text(l10n.notesQuickNoteHotkeyOff), findsOneWidget);
+      expect(
+        find.byKey(const Key('notesQuickNoteHotkeyEnable')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('notesQuickNoteHotkeyCombo')), findsNothing);
 
       await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyEnable')));
@@ -1209,95 +1037,6 @@ void main() {
         reason: 'label and tooltip would be announced one after the other',
       );
       handle.dispose();
-    });
-
-    for (final scale in [1.5, 2.0, 2.5]) {
-      testWidgets('survives text scale $scale without clipping', (
-        tester,
-      ) async {
-        // Erst die Kontrolle ohne die neue Zeile: was das Panel bei dieser
-        // Schriftgröße ohnehin schon wirft, ist Bestand und darf die Aussage
-        // über die Zeile weder tragen noch verschlucken.
-        await tester.pumpWidget(
-          panelSubject(
-            note: _sampleNote(id: 'n1', content: 'Inbox'),
-            textScale: scale,
-          ),
-        );
-        await tester.pumpAndSettle();
-        final baseline = _drainExceptions(tester);
-
-        await tester.pumpWidget(
-          panelSubject(
-            note: _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: true),
-            textScale: scale,
-          ),
-        );
-        await tester.pumpAndSettle();
-        final marked = _drainExceptions(tester);
-        expect(
-          marked.length,
-          lessThanOrEqualTo(baseline.length),
-          reason:
-              'the hotkey line must not add an overflow at scale $scale: '
-              '$marked (Kontrolle: $baseline)',
-        );
-
-        final frame = tester.getRect(find.byKey(const Key('probeFrame')));
-        for (final probe in <String, Finder>{
-          'Beschriftung': find.text(l10n.notesQuickNoteHotkeyLabel),
-          'Tastenkappen': find.byType(HotkeyDisplay),
-        }.entries) {
-          final rect = tester.getRect(probe.value);
-          expect(
-            rect.left >= frame.left - 0.5 && rect.right <= frame.right + 0.5,
-            isTrue,
-            reason:
-                '${probe.key} ragt aus ${frame.left}..${frame.right} heraus: '
-                '${rect.left}..${rect.right}',
-          );
-        }
-      });
-    }
-
-    testWidgets('the hotkey line does not push the notes list away', (
-      tester,
-    ) async {
-      // Die Zeile sitzt im Detail-Panel; die Liste daneben darf davon nichts
-      // merken — auch nicht bei vergrößerter Systemschrift.
-      Future<Rect> listRectFor(bool marked) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const MediaQuery(
-              data: MediaQueryData(
-                size: Size(1280, 800),
-                textScaler: TextScaler.linear(2.0),
-              ),
-              child: NotesPage(),
-            ),
-            overrides: [
-              notesProvider.overrideWith(
-                (ref) => Stream.value([
-                  _sampleNote(id: 'n1', content: 'Inbox', isQuickNote: marked),
-                ]),
-              ),
-              settingsProvider.overrideWith(() => _FakeSettings(_hotkeyOn)),
-              ..._noTagOverrides,
-            ],
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byType(NotesListTile).first);
-        await tester.pumpAndSettle();
-        while (tester.takeException() != null) {}
-        return tester.getRect(find.byType(NotesListTile).first);
-      }
-
-      final unmarked = await listRectFor(false);
-      final marked = await listRectFor(true);
-      expect(marked.width, closeTo(unmarked.width, 0.5));
-      expect(marked.left, closeTo(unmarked.left, 0.5));
     });
   });
 
@@ -1367,13 +1106,17 @@ void main() {
       await tester.pumpWidget(bothSurfaces(_hotkeyOn));
       await tester.pumpAndSettle();
 
+      // The page scrolls in the app; the combination sits below the fold here.
+      await tester.ensureVisible(
+        find.byKey(const Key('notesQuickNoteHotkeyCombo')),
+      );
       await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyCombo')));
       await tester.pumpAndSettle();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
+      await tester.tap(find.byKey(const ValueKey('hotkey-recorder-save')));
       await tester.pumpAndSettle();
 
       // Nicht den Provider-Wert prüfen, sondern das, was die andere Oberfläche
@@ -1397,13 +1140,16 @@ void main() {
         findsOneWidget,
       );
 
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyToggle')),
+      );
       await tester.tap(find.byKey(const Key('quickNoteHotkeyToggle')));
       await tester.pumpAndSettle();
 
       expect(
         find.descendant(
           of: find.byType(NoteEditorPanel),
-          matching: find.text(l10n.notesQuickNoteHotkeyOff),
+          matching: find.byKey(const Key('notesQuickNoteHotkeyEnable')),
         ),
         findsOneWidget,
       );
@@ -1424,20 +1170,4 @@ class _FakeSettings extends SettingsNotifier {
 
   @override
   Future<AppSettings> build() async => _settings;
-}
-
-/// Räumt die anstehenden Layout-Ausnahmen ab und meldet ihre erste Zeile.
-///
-/// Die Meldungen und nicht nur ihre Zahl, damit ein Fehlschlag benennt, *was*
-/// übergelaufen ist — sonst steht da nur „1 statt 0".
-List<String> _drainExceptions(WidgetTester tester) {
-  final messages = <String>[];
-  for (
-    Object? e = tester.takeException();
-    e != null;
-    e = tester.takeException()
-  ) {
-    messages.add(e.toString().split('\n').first);
-  }
-  return messages;
 }

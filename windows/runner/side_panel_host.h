@@ -11,7 +11,8 @@
 //                                               hoverEntered out.
 //   PRIVATE "com.whispaste.side_panel_render"  updateSnapshot to render;
 //                                               ready/rowClicked/hoverLeft/
-//                                               reportError from render.
+//                                               beginDrag/reportError from
+//                                               render.
 //
 // One SidePanelSensorWindow per connected monitor (rebuilt on
 // WM_DISPLAYCHANGE, mirrors SidePanelHost.rebuildSensors / NSScreen.screens

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:auto_updater/auto_updater.dart';
@@ -5,7 +6,6 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
-import 'package:whispaste/services/update_channel_service.dart';
 
 void main() {
   // Captured seam invocations for the current test.
@@ -41,33 +41,13 @@ void main() {
 
   group('appcastFeedUrl', () {
     test('stable → GitHub releases/latest/download/appcast.xml', () {
-      final url = appcastFeedUrl(UpdateChannel.stable);
+      final url = appcastFeedUrl();
       expect(url, startsWith('https://github.com/whispaste/'));
       expect(url, endsWith('/releases/latest/download/appcast.xml'));
     });
 
-    test('beta → raw.githubusercontent.com beta-appcast-pointer branch', () {
-      expect(
-        appcastFeedUrl(UpdateChannel.beta),
-        endsWith('/beta-appcast-pointer/appcast-beta.xml'),
-      );
-      expect(
-        appcastFeedUrl(UpdateChannel.beta),
-        startsWith('https://raw.githubusercontent.com/whispaste/'),
-      );
-    });
-
-    test('both URLs target the whispaste/whispaste repo (single-source)', () {
-      for (final channel in UpdateChannel.values) {
-        expect(appcastFeedUrl(channel), contains('whispaste/whispaste'));
-      }
-    });
-
-    test('beta feed never collides with the stable latest/download path', () {
-      expect(
-        appcastFeedUrl(UpdateChannel.beta),
-        isNot(contains('latest/download')),
-      );
+    test('targets the whispaste/whispaste repo (single-source)', () {
+      expect(appcastFeedUrl(), contains('whispaste/whispaste'));
     });
   });
 
@@ -103,7 +83,7 @@ void main() {
   group('initAutoUpdater', () {
     test('store channel → no-op (feed URL never set, no check)', () async {
       installSeams(sparklePlatform: true);
-      await initAutoUpdater(DeployChannel.store, UpdateChannel.beta);
+      await initAutoUpdater(DeployChannel.store);
       expect(feedUrl, isNull);
       expect(checkCalled, isFalse);
     });
@@ -112,7 +92,7 @@ void main() {
       'packageManaged channel → no-op (feed URL never set, no check)',
       () async {
         installSeams(sparklePlatform: true);
-        await initAutoUpdater(DeployChannel.packageManaged, UpdateChannel.beta);
+        await initAutoUpdater(DeployChannel.packageManaged);
         expect(feedUrl, isNull);
         expect(checkCalled, isFalse);
       },
@@ -120,7 +100,7 @@ void main() {
 
     test('non-Sparkle platform → no-op for any non-store channel', () async {
       installSeams(sparklePlatform: false);
-      await initAutoUpdater(DeployChannel.installer, UpdateChannel.stable);
+      await initAutoUpdater(DeployChannel.installer);
       expect(feedUrl, isNull);
       expect(checkCalled, isFalse);
     });
@@ -129,43 +109,20 @@ void main() {
       'installer + stable → sets the stable appcast feed and checks',
       () async {
         installSeams(sparklePlatform: true);
-        await initAutoUpdater(DeployChannel.installer, UpdateChannel.stable);
-        expect(feedUrl, appcastFeedUrl(UpdateChannel.stable));
+        await initAutoUpdater(DeployChannel.installer);
+        expect(feedUrl, appcastFeedUrl());
         expect(feedUrl, contains('/releases/latest/download/appcast.xml'));
         expect(checkCalled, isTrue);
         expect(checkInBackground, isTrue);
       },
     );
 
-    test(
-      'AC-1: installer + beta → setFeedURL is called with the BETA feed URL',
-      () async {
-        installSeams(sparklePlatform: true);
-        await initAutoUpdater(DeployChannel.installer, UpdateChannel.beta);
-        expect(feedUrl, appcastFeedUrl(UpdateChannel.beta));
-        expect(feedUrl, contains('beta-appcast-pointer'));
-        expect(feedUrl, contains('appcast-beta.xml'));
-        expect(feedUrl, isNot(contains('latest/download')));
-        expect(checkCalled, isTrue);
-      },
-    );
-
     test('portable + stable → also initializes the self-updater', () async {
       installSeams(sparklePlatform: true);
-      await initAutoUpdater(DeployChannel.portable, UpdateChannel.stable);
-      expect(feedUrl, appcastFeedUrl(UpdateChannel.stable));
+      await initAutoUpdater(DeployChannel.portable);
+      expect(feedUrl, appcastFeedUrl());
       expect(checkCalled, isTrue);
     });
-
-    test(
-      'store deploy channel stays a no-op even on the beta update channel',
-      () async {
-        installSeams(sparklePlatform: true);
-        await initAutoUpdater(DeployChannel.store, UpdateChannel.beta);
-        expect(feedUrl, isNull);
-        expect(checkCalled, isFalse);
-      },
-    );
 
     test(
       'a failing native call is swallowed — startup is never blocked',
@@ -173,19 +130,38 @@ void main() {
         installSeams(sparklePlatform: true);
         setFeedUrlFn = (_) async => throw Exception('native plugin missing');
         // Must not throw.
-        await initAutoUpdater(DeployChannel.installer, UpdateChannel.stable);
+        await initAutoUpdater(DeployChannel.installer);
         expect(checkCalled, isFalse); // aborted after the failing setFeedURL
       },
     );
 
+    test('start without a network: the failed background check is swallowed '
+        'and the schedule keeps running (#235)', () {
+      fakeAsync((async) {
+        installSeams(sparklePlatform: true);
+        checkForUpdatesFn = ({inBackground}) async {
+          checkCount++;
+          throw const SocketException('Failed host lookup: github.com');
+        };
+        // An error escaping the call would fail the fakeAsync zone.
+        var finished = false;
+        unawaited(
+          initAutoUpdater(DeployChannel.installer).then((_) => finished = true),
+        );
+        async.flushMicrotasks();
+        expect(finished, isTrue);
+        expect(checkCount, 1);
+
+        async.elapse(automaticUpdateCheckInterval);
+        expect(checkCount, 2);
+        stopAutomaticUpdateChecks();
+      });
+    });
+
     test('automatic checks off → the native updater is never touched '
         '(no feed URL, no appcast request)', () async {
       installSeams(sparklePlatform: true);
-      await initAutoUpdater(
-        DeployChannel.installer,
-        UpdateChannel.stable,
-        isEnabled: () => false,
-      );
+      await initAutoUpdater(DeployChannel.installer, isEnabled: () => false);
       expect(feedUrl, isNull);
       expect(checkCalled, isFalse);
     });
@@ -194,11 +170,7 @@ void main() {
       fakeAsync((async) {
         installSeams(sparklePlatform: true);
         var enabled = true;
-        initAutoUpdater(
-          DeployChannel.installer,
-          UpdateChannel.stable,
-          isEnabled: () => enabled,
-        );
+        initAutoUpdater(DeployChannel.installer, isEnabled: () => enabled);
         async.flushMicrotasks();
         expect(checkCount, 1);
 
@@ -236,21 +208,14 @@ void main() {
   });
 
   group('presentSparkleUpdate', () {
-    test('re-asserts the channel-derived feed URL and triggers a FOREGROUND '
+    test('re-asserts the stable feed URL and triggers a FOREGROUND '
         '(UI) check — the status-bar chip opens the native dialog, not a '
         'background probe', () async {
       installSeams(sparklePlatform: true);
-      await presentSparkleUpdate(UpdateChannel.stable);
-      expect(feedUrl, appcastFeedUrl(UpdateChannel.stable));
+      await presentSparkleUpdate();
+      expect(feedUrl, appcastFeedUrl());
       expect(checkCalled, isTrue);
       expect(checkInBackground, isFalse); // foreground → shows Sparkle UI
-    });
-
-    test('beta channel → foreground check uses the beta feed URL', () async {
-      installSeams(sparklePlatform: true);
-      await presentSparkleUpdate(UpdateChannel.beta);
-      expect(feedUrl, appcastFeedUrl(UpdateChannel.beta));
-      expect(feedUrl, contains('beta-appcast-pointer'));
     });
 
     test(
@@ -258,7 +223,7 @@ void main() {
       () async {
         installSeams(sparklePlatform: true);
         setFeedUrlFn = (_) async => throw Exception('native plugin missing');
-        await presentSparkleUpdate(UpdateChannel.stable); // must not throw
+        await presentSparkleUpdate(); // must not throw
         expect(checkCalled, isFalse);
       },
     );

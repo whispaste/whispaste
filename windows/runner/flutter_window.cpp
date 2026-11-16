@@ -57,17 +57,53 @@ bool FlutterWindow::OnCreate() {
   desktop_paste_host_ = std::make_unique<DesktopPasteHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the audio-import decoder host AFTER plugins are registered (ticket).
+  audio_file_decode_host_ = std::make_unique<AudioFileDecodeHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Read-back of the inserted text in the target field (#384).
+  inserted_span_host_ = std::make_unique<InsertedSpanHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Type of the focused field before a paste, password fields (#948).
+  field_type_host_ = std::make_unique<FieldTypeHost>(
+      flutter_controller_->engine(), GetHandle());
+
   // Create the taskbar-flash attention host AFTER plugins are registered.
   attention_host_ = std::make_unique<AttentionHost>(
       flutter_controller_->engine(), GetHandle());
+
+  // Target-app name and icon host, lazily asked by the recording rows.
+  app_identity_host_ =
+      std::make_unique<AppIdentityHost>(flutter_controller_->engine());
+
+  audio_routing_host_ =
+      std::make_unique<AudioRoutingHost>(flutter_controller_->engine());
+
+  // Preferred UI languages, asked on a first start only (whispaste/system_languages).
+  system_languages_host_ =
+      std::make_unique<SystemLanguagesHost>(flutter_controller_->engine());
 
   // Create the RawInput key-up monitor (push-to-talk on Windows, #39).
   keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the power-event host (sleep/resume, ticket 9.5) AFTER plugins are
+  // registered.
+  power_event_host_ =
+      std::make_unique<PowerEventHost>(flutter_controller_->engine());
+
+  // Hang watchdog (#338); Dart arms it once the app is up.
+  hang_watchdog_host_ =
+      std::make_unique<HangWatchdogHost>(flutter_controller_->engine());
+
   // Create the native Snippet-Picker host AFTER plugins are registered
   // (visual-refresh-2026 ticket 29).
   snippet_picker_host_ = std::make_unique<SnippetPickerHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Native shell of the tray panel (#920, ADR 0038).
+  tray_panel_host_ = std::make_unique<TrayPanelHost>(
       flutter_controller_->engine(), GetHandle());
 
   // Create the native side panel host AFTER plugins are registered (issue
@@ -81,6 +117,9 @@ bool FlutterWindow::OnCreate() {
       flutter_controller_->engine(), GetHandle());
 
   support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
+  media_pause_host_ = std::make_unique<MediaPauseHost>(
       flutter_controller_->engine()->messenger(), GetHandle());
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
@@ -123,6 +162,22 @@ void FlutterWindow::OnDestroy() {
     desktop_paste_host_->Destroy();
     desktop_paste_host_.reset();
   }
+  if (inserted_span_host_) {
+    inserted_span_host_->Destroy();
+    inserted_span_host_.reset();
+  }
+  if (field_type_host_) {
+    field_type_host_->Destroy();
+    field_type_host_.reset();
+  }
+  if (audio_file_decode_host_) {
+    audio_file_decode_host_->Destroy();
+    audio_file_decode_host_.reset();
+  }
+  if (app_identity_host_) {
+    app_identity_host_->Destroy();
+    app_identity_host_.reset();
+  }
   if (attention_host_) {
     attention_host_->Destroy();
     attention_host_.reset();
@@ -131,9 +186,21 @@ void FlutterWindow::OnDestroy() {
     keyboard_monitor_host_->Destroy();
     keyboard_monitor_host_.reset();
   }
+  if (power_event_host_) {
+    power_event_host_->Destroy();
+    power_event_host_.reset();
+  }
+  if (hang_watchdog_host_) {
+    hang_watchdog_host_->Destroy();
+    hang_watchdog_host_.reset();
+  }
   if (snippet_picker_host_) {
     snippet_picker_host_->Destroy();
     snippet_picker_host_.reset();
+  }
+  if (tray_panel_host_) {
+    tray_panel_host_->Destroy();
+    tray_panel_host_.reset();
   }
   if (side_panel_host_) {
     side_panel_host_->Destroy();
@@ -145,6 +212,11 @@ void FlutterWindow::OnDestroy() {
   }
 
   support_store_channel_.reset();
+  media_pause_host_.reset();
+  // Its destructor clears the handler on the engine's messenger, so it must
+  // go before the engine (same rule as the channel above).
+  system_languages_host_.reset();
+  audio_routing_host_.reset();
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -169,9 +241,21 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
   // never consumes the message — it falls through to DefWindowProc so RawInput
   // is cleaned up and normal key delivery is unaffected.
+  // Sleep and resume (ticket, 9.5). Never consumed: DefWindowProc still
+  // grants the suspend request.
+  if (message == WM_POWERBROADCAST && power_event_host_) {
+    power_event_host_->HandlePowerBroadcast(wparam);
+  }
+
   if (message == WM_INPUT && keyboard_monitor_host_) {
     keyboard_monitor_host_->HandleRawInput(
         reinterpret_cast<HRAWINPUT>(lparam));
+  }
+
+  // Observed only: RegisterHotKey still delivers the hotkey, this just records
+  // when its key went down so the release can be timed.
+  if (message == WM_HOTKEY && keyboard_monitor_host_) {
+    keyboard_monitor_host_->HandleHotkeyDown(lparam);
   }
 
   // Monitor/DPI topology changed — rebuild the side panel's per-monitor
@@ -200,10 +284,33 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       desktop_paste_host_->HandleClipboardOwnerMessage(message, wparam)) {
     return 0;
   }
+  // Replies of the undo activation wait (see DesktopPasteHost).
+  if (desktop_paste_host_ &&
+      desktop_paste_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
 
+  if (audio_file_decode_host_ &&
+      audio_file_decode_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+  if (inserted_span_host_ &&
+      inserted_span_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+  if (field_type_host_ &&
+      field_type_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
   // Store purchase replies are posted here (see SupportStoreChannel).
   if (support_store_channel_ &&
       support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+
+  // Media-pause replies are posted here (see MediaPauseHost).
+  if (media_pause_host_ &&
+      media_pause_host_->HandleWindowMessage(message, wparam, lparam)) {
     return 0;
   }
 

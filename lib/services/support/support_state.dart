@@ -1,6 +1,5 @@
 /// Persisted support state: verified supporters, self-declared supporters and
-/// sponsor-chip visibility (decisions S2, S4, S5 and S7 in
-/// `internal-notes`).
+/// sponsor-chip visibility (decisions S2, S4, S5 and S7).
 ///
 /// Sponsoring never unlocks a feature. A verified purchase earns the cosmetic
 /// badge and silences the automatic support prompt. A browser sponsorship
@@ -9,6 +8,7 @@ library;
 
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' show Random;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +25,7 @@ final _log = AppLogger('SupportState');
 const _keyVerifiedSupporter = 'support_verified_supporter';
 const _keySelfDeclared = 'support_self_declared';
 const _keyChipHidden = 'support_chip_hidden';
+const _keyPurchasePending = 'support_purchase_pending';
 const _keyStoreOfferDismissed = 'support_store_offer_dismissed';
 
 /// Retired modal flag of the store thank-you dialog (S5). It only recorded
@@ -93,6 +94,29 @@ final supportPlatformProvider = Provider<SupportPlatform>(
   (ref) => currentSupportPlatform(),
 );
 
+/// Whether the store can sell a coffee purchase right now. Asked once per
+/// process; any failure counts as unavailable, so the button stays hidden.
+final supportStoreTipAvailableProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await ref.watch(supportStoreBridgeProvider).isAvailable();
+  } on Exception catch (e) {
+    _log.debug('store availability check failed (non-fatal): $e');
+    return false;
+  }
+});
+
+/// Where the coffee button of this build leads. A store build without a
+/// purchase the store can sell right now shows no button.
+final coffeeSupportTargetProvider = Provider<CoffeeSupportTarget>((ref) {
+  final target = coffeeSupportTarget(
+    ref.watch(deployChannelProvider),
+    ref.watch(supportPlatformProvider),
+  );
+  if (target != CoffeeSupportTarget.storePurchase) return target;
+  final available = ref.watch(supportStoreTipAvailableProvider).value ?? false;
+  return available ? target : CoffeeSupportTarget.hidden;
+});
+
 /// Asks allowed for this build, in display order.
 final supportCapabilitiesProvider = Provider<List<SupportAsk>>(
   (ref) => supportCapabilities(
@@ -123,6 +147,12 @@ Future<SupportStatus> loadSupportStatus({
   );
 }
 
+/// Whether a store purchase is pending (started, waiting for the store's
+/// confirmation). It silences the support card like a confirmed purchase; an
+/// opened or cancelled checkout leaves nothing behind and silences nothing.
+bool readSupportPurchasePending(SharedPreferences prefs) =>
+    prefs.getBool(_keyPurchasePending) ?? false;
+
 Future<bool> _bridgeReportsSupport(SupportStoreBridge bridge) async {
   try {
     return await bridge.hasVerifiedAppPurchase() ||
@@ -144,6 +174,14 @@ class SupportStatusNotifier extends Notifier<SupportStatus> {
   @override
   SupportStatus build() {
     _loaded = _load();
+    final bridge = ref.read(supportStoreBridgeProvider);
+    if (bridge is LateConfirmingSupportStoreBridge) {
+      final sub = bridge.lateConfirmations.listen(
+        (_) => unawaited(confirmLatePurchase()),
+        onError: (Object e) => _log.debug('late confirmation error: $e'),
+      );
+      ref.onDispose(sub.cancel);
+    }
     return const SupportStatus();
   }
 
@@ -171,11 +209,10 @@ class SupportStatusNotifier extends Notifier<SupportStatus> {
     await _setBool(_keyChipHidden, true);
   }
 
-  /// Hides the sponsor chip. Allowed only with a verified or self-declared
-  /// supporter status, so a browser click alone never removes the chip.
+  /// Hides the sponsor chip for every user (growth review R-12). The choice is
+  /// persisted, and a hidden chip also silences the automatic support prompt.
   Future<void> hideChip() async {
     await _loaded;
-    if (!state.suppressesPrompts) return;
     state = state.copyWith(chipHidden: true);
     await _setBool(_keyChipHidden, true);
   }
@@ -221,8 +258,26 @@ class SupportStatusNotifier extends Notifier<SupportStatus> {
       state = state.copyWith(verifiedSupporter: true);
       await _setBool(_keyVerifiedSupporter, true);
     }
+    if (status == SupportPurchaseStatus.pending) {
+      await _setBool(_keyPurchasePending, true);
+    }
     _track(SupportTelemetryEvent.purchase, name: status.name);
     return status;
+  }
+
+  /// A purchase that was `pending` has been confirmed by the store. Reports
+  /// the success exactly once (telemetry name `succeeded_late`, no amount, no
+  /// receipt); repeated notifications and confirmations without a recorded
+  /// pending purchase are ignored. Returns whether this call reported.
+  Future<bool> confirmLatePurchase() async {
+    await _loaded;
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_keyPurchasePending) ?? false)) return false;
+    await prefs.remove(_keyPurchasePending);
+    state = state.copyWith(verifiedSupporter: true);
+    await _setBool(_keyVerifiedSupporter, true);
+    _track(SupportTelemetryEvent.purchase, name: kLatePurchaseSucceededName);
+    return true;
   }
 
   void _track(SupportTelemetryEvent event, {String? name}) {
@@ -268,8 +323,11 @@ final supportStoreThankYouLineProvider = Provider<bool>(
 /// target). Amounts, prices, texts and receipts are never sent.
 enum SupportTelemetryEvent {
   pageOpened('page_opened'),
-  promptShown('prompt_shown'),
-  promptDismissed('prompt_dismissed'),
+  sheetOpened('sheet_opened'),
+  cardShown('card_shown'),
+  cardLater('card_later'),
+  cardNever('card_never'),
+  cardOpen('card_open'),
   linkOpened('link_opened'),
   purchase('purchase'),
   share('share');
@@ -279,6 +337,9 @@ enum SupportTelemetryEvent {
   final String wireName;
 }
 
+/// `purchase` event name for a pending purchase the store confirmed later.
+const kLatePurchaseSucceededName = 'succeeded_late';
+
 /// Sends one support event through the opt-out telemetry pipeline.
 void recordSupportEvent(
   TelemetryService telemetry,
@@ -287,3 +348,52 @@ void recordSupportEvent(
 }) {
   telemetry.trackEvent(category: 'support', action: event.wireName, name: name);
 }
+
+/// Where a coffee or sponsoring link was opened (GR-022). A closed list, so the
+/// `linkOpened` name never carries free text.
+enum SupportLinkSurface {
+  about('about'),
+  supportTab('support_tab'),
+  tray('tray');
+
+  const SupportLinkSurface(this.wireName);
+
+  final String wireName;
+}
+
+/// The `linkOpened` event name: `<stelle>.<ziel>`, for example `about.kofi`.
+String linkOpenedName(SupportLinkSurface surface, String target) =>
+    '${surface.wireName}.$target';
+
+/// Sends one `linkOpened` event with its surface (GR-022).
+void recordLinkOpened(
+  TelemetryService telemetry,
+  SupportLinkSurface surface,
+  String target,
+) => recordSupportEvent(
+  telemetry,
+  SupportTelemetryEvent.linkOpened,
+  name: linkOpenedName(surface, target),
+);
+
+const _keyCoffeeBuyMeACoffeeFirst = 'support_coffee_bmc_first';
+
+/// Whether Buy Me a Coffee stands before Ko-fi (GR-025, decision 21c). Drawn
+/// once per install and then kept. The draw only decides the order: both pages
+/// stay equal in rank and in look.
+Future<bool> coffeeBuyMeACoffeeFirst(
+  SharedPreferences prefs, {
+  Random? random,
+}) async {
+  final stored = prefs.getBool(_keyCoffeeBuyMeACoffeeFirst);
+  if (stored != null) return stored;
+  final drawn = (random ?? Random()).nextBool();
+  await prefs.setBool(_keyCoffeeBuyMeACoffeeFirst, drawn);
+  return drawn;
+}
+
+/// The persisted coffee-pair order. Null while loading or on failure; callers
+/// then use the default (Ko-fi first).
+final coffeeBuyMeACoffeeFirstProvider = FutureProvider<bool>((ref) async {
+  return coffeeBuyMeACoffeeFirst(await SharedPreferences.getInstance());
+});

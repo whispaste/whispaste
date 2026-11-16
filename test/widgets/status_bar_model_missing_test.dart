@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -26,7 +26,7 @@ void main() {
       Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          WpStatusBar(
+          WpRecordingDock(
             sttModeLabel: 'On device',
             sttState: SttServerState.stopped,
             sttModelMissing: modelMissing,
@@ -52,22 +52,19 @@ void main() {
     view.resetPhysicalSize();
   });
 
-  testWidgets('shows Standby while the model is on disk', (tester) async {
+  testWidgets('shows Ready while the model is on disk', (tester) async {
     await tester.pumpWidget(buildStatusBar());
     await tester.pump();
 
-    expect(find.text('On device — ${l10n.sttStatusStandby}'), findsOneWidget);
+    expect(find.text(l10n.statusReady), findsOneWidget);
   });
 
-  testWidgets('says the model is missing instead of Standby', (tester) async {
+  testWidgets('says the model is missing instead of Ready', (tester) async {
     await tester.pumpWidget(buildStatusBar(modelMissing: true));
     await tester.pump();
 
-    expect(
-      find.text('On device — ${l10n.statusBarModelMissing}'),
-      findsOneWidget,
-    );
-    expect(find.textContaining(l10n.sttStatusStandby), findsNothing);
+    expect(find.text(l10n.statusBarModelMissing), findsOneWidget);
+    expect(find.text(l10n.statusReady), findsNothing);
   });
 
   testWidgets('a running download shows its progress', (tester) async {
@@ -76,10 +73,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(
-      find.text('On device — ${l10n.statusBarModelDownloading(42)}'),
-      findsOneWidget,
-    );
+    expect(find.text(l10n.statusBarModelDownloading(42)), findsOneWidget);
   });
 
   testWidgets('an active recording phase still takes priority', (tester) async {
@@ -88,9 +82,21 @@ void main() {
     );
     await tester.pump();
 
+    // The phase word is shown once: the status chip carries it, the inert
+    // dictate button keeps its neutral label.
+    expect(find.text(l10n.statusBarTranscribing), findsOneWidget);
+  });
+
+  testWidgets('an error names its cause and the next step in the tooltip', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildStatusBar(phase: RecordingPhase.error));
+    await tester.pump();
+
+    expect(find.text(l10n.sttStatusError), findsOneWidget);
     expect(
-      find.text('On device — ${l10n.statusBarTranscribing}'),
-      findsOneWidget,
+      find.byTooltip('${l10n.dockErrorCauseRecording} ${l10n.dockErrorAction}'),
+      findsWidgets,
     );
   });
 }

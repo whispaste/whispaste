@@ -1,7 +1,10 @@
 PODS:
   - auto_updater_macos (0.0.1):
     - FlutterMacOS
-    - Sparkle
+  - desktop_drop (0.0.1):
+    - FlutterMacOS
+  - device_info_plus (0.0.1):
+    - FlutterMacOS
   - file_selector_macos (0.0.1):
     - FlutterMacOS
   - flutter_secure_storage_darwin (10.0.0):
@@ -14,6 +17,8 @@ PODS:
   - hotkey_manager_macos (0.0.1):
     - FlutterMacOS
     - HotKey
+  - irondash_engine_context (0.0.1):
+    - FlutterMacOS
   - local_notifier (0.1.0):
     - FlutterMacOS
   - package_info_plus (0.0.1):
@@ -30,9 +35,10 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - sherpa_onnx_macos (1.13.4):
+  - sherpa_onnx_macos (2.0.1):
     - FlutterMacOS
-  - Sparkle (2.9.4)
+  - super_native_extensions (0.0.1):
+    - FlutterMacOS
   - tray_manager (0.0.1):
     - FlutterMacOS
   - url_launcher_macos (0.0.1):
@@ -42,11 +48,14 @@ PODS:
 
 DEPENDENCIES:
   - auto_updater_macos (from `Flutter/ephemeral/.symlinks/plugins/auto_updater_macos/macos`)
+  - desktop_drop (from `Flutter/ephemeral/.symlinks/plugins/desktop_drop/macos`)
+  - device_info_plus (from `Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos`)
   - file_selector_macos (from `Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos`)
   - flutter_secure_storage_darwin (from `Flutter/ephemeral/.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - flutter_soloud (from `Flutter/ephemeral/.symlinks/plugins/flutter_soloud/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - hotkey_manager_macos (from `Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos`)
+  - irondash_engine_context (from `Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos`)
   - local_notifier (from `Flutter/ephemeral/.symlinks/plugins/local_notifier/macos`)
   - package_info_plus (from `Flutter/ephemeral/.symlinks/plugins/package_info_plus/macos`)
   - record_macos (from `Flutter/ephemeral/.symlinks/plugins/record_macos/macos`)
@@ -54,6 +63,7 @@ DEPENDENCIES:
   - sentry_flutter (from `Flutter/ephemeral/.symlinks/plugins/sentry_flutter/macos`)
   - shared_preferences_foundation (from `Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sherpa_onnx_macos (from `Flutter/ephemeral/.symlinks/plugins/sherpa_onnx_macos/macos`)
+  - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
   - tray_manager (from `Flutter/ephemeral/.symlinks/plugins/tray_manager/macos`)
   - url_launcher_macos (from `Flutter/ephemeral/.symlinks/plugins/url_launcher_macos/macos`)
   - window_manager (from `Flutter/ephemeral/.symlinks/plugins/window_manager/macos`)
@@ -62,11 +72,14 @@ SPEC REPOS:
   trunk:
     - HotKey
     - Sentry
-    - Sparkle
 
 EXTERNAL SOURCES:
   auto_updater_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/auto_updater_macos/macos
+  desktop_drop:
+    :path: Flutter/ephemeral/.symlinks/plugins/desktop_drop/macos
+  device_info_plus:
+    :path: Flutter/ephemeral/.symlinks/plugins/device_info_plus/macos
   file_selector_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/file_selector_macos/macos
   flutter_secure_storage_darwin:
@@ -77,6 +90,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral
   hotkey_manager_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/hotkey_manager_macos/macos
+  irondash_engine_context:
+    :path: Flutter/ephemeral/.symlinks/plugins/irondash_engine_context/macos
   local_notifier:
     :path: Flutter/ephemeral/.symlinks/plugins/local_notifier/macos
   package_info_plus:
@@ -91,6 +106,8 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/shared_preferences_foundation/darwin
   sherpa_onnx_macos:
     :path: Flutter/ephemeral/.symlinks/plugins/sherpa_onnx_macos/macos
+  super_native_extensions:
+    :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
   tray_manager:
     :path: Flutter/ephemeral/.symlinks/plugins/tray_manager/macos
   url_launcher_macos:
@@ -99,13 +116,16 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/window_manager/macos
 
 SPEC CHECKSUMS:
-  auto_updater_macos: 3a42f1a06be6981f1a18be37e6e7bf86aa732118
+  auto_updater_macos: dfc7d39a2867d46090698cefee5560888e43f99d
+  desktop_drop: 10a3e6a7fa9dbe350541f2574092fecfa345a07b
+  device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   flutter_soloud: 7c7fe8f2067868981037aa9928c9abba59de4383
-  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
   HotKey: 400beb7caa29054ea8d864c96f5ba7e5b4852277
   hotkey_manager_macos: a4317849af96d2430fa89944d3c58977ca089fbe
+  irondash_engine_context: 893c7d96d20ce361d7e996f39d360c4c2f9869ba
   local_notifier: ebf072651e35ae5e47280ad52e2707375cb2ae4e
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   record_macos: 2e43c16b84ce188b8137754ee648322a2dcdf7fa
@@ -113,8 +133,8 @@ SPEC CHECKSUMS:
   Sentry: 5321d74bdd28d6f6f8beaa1ca06f1fdc746bff49
   sentry_flutter: d6279f3b5156b6535e2159e03437b571a24cc648
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
-  sherpa_onnx_macos: e648c8a9f1a02ec1d7e2788a2963bc86e67e2dd7
-  Sparkle: 855a03e2323e88e399729d9f8fc80b080a4946b3
+  sherpa_onnx_macos: a11706106cd9cbe9e340287fa7f41e946bd56ddd
+  super_native_extensions: c2795d6d9aedf4a79fae25cb6160b71b50549189
   tray_manager: 19c369010e59c073f13b82354d78a35f7972d609
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
   window_manager: b729e31d38fb04905235df9ea896128991cad99e

@@ -43,11 +43,12 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// Fixed panel content size — part of the cross-platform Snippet-Picker
   /// contract (visual-refresh-2026 ticket 28), not a stopgap: every native
   /// shell (this one, and the Windows/Linux shells that reuse the same Dart
-  /// panel) hosts the same 360×420 surface. The Dart panel itself
-  /// (`lib/snippet_picker_render_entrypoint.dart`) does not report a
+  /// panel) hosts the same 400×460 window: a 360×420 card plus the shadow
+  /// inset. The Dart panel itself (`lib/snippet_picker_render_entrypoint.dart`)
+  /// does not report a
   /// measured size back to its host, so each shell fixes this size rather
   /// than sizing to content.
-  private static let contentSize = NSSize(width: 360, height: 420)
+  private static let contentSize = NSSize(width: 400, height: 460)
 
   private var channel: FlutterMethodChannel
 
@@ -58,6 +59,9 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   private var renderReady = false
   private var pendingItems: [[String: String]]?
+  /// Search text pre-filled for the pending show ('' = none). Relayed with
+  /// the items so an engine that boots late still opens with the spoken name.
+  private var pendingQuery = ""
 
   /// Start of the in-flight render-engine boot, so the `ready` handler can
   /// report how long the engine actually took to come up — the number that
@@ -148,6 +152,13 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// `SnippetPickerRenderChannel.onSubmit`.
   private var returnMonitor: Any?
 
+  /// Mouse-down monitors while the panel is on screen: a click outside the
+  /// panel is the user leaving the picker (#1680). The global monitor sees
+  /// clicks that go to other apps (mouse events need no Accessibility
+  /// permission, unlike key events), the local one clicks into WhisPaste's
+  /// own other windows. Installed in [show], removed in [dismiss].
+  private var outsideClickMonitors: [Any] = []
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.snippet_picker",
@@ -200,7 +211,10 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
             event.keyCode == kVK_Return || event.keyCode == kVK_ANSI_KeypadEnter else {
         return event
       }
-      self.renderChannel?.invokeMethod("submitHighlighted", arguments: nil)
+      // ⌘+Return is "In einem Satz" for an interactive snippet; this
+      // monitor swallows it before Flutter sees the modifier.
+      let sentence = event.modifierFlags.contains(.command)
+      self.renderChannel?.invokeMethod("submitHighlighted", arguments: ["sentence": sentence])
       return nil
     }
   }
@@ -213,11 +227,18 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
         result(nil)
         return
       }
-      show(items: items)
+      show(items: items, query: (args["query"] as? String) ?? "")
       result(nil)
 
     case "hide":
-      dismiss(fireCancelled: false, restoreFrontApp: true)
+      // After a click outside, the clicked app is coming forward; handing
+      // activation back to the previous app would undo the user's click.
+      let outsideClick = (call.arguments as? [String: Any])?["outsideClick"] as? Bool ?? false
+      dismiss(fireCancelled: false, restoreFrontApp: !outsideClick)
+      result(nil)
+
+    case "focus":
+      refocus()
       result(nil)
 
     case "destroy":
@@ -277,7 +298,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// conventions happen to coincide, which is why a live test done there
   /// didn't catch it). Reading the cursor here avoids the cross-convention
   /// conversion entirely.
-  private func show(items: [[String: String]]) {
+  private func show(items: [[String: String]], query: String) {
     ensurePanel()
     guard let p = panel else { return }
 
@@ -295,9 +316,11 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     p.setFrameOrigin(origin)
 
     if renderReady {
-      renderChannel?.invokeMethod("setItems", arguments: ["items": items])
+      let payload: [String: Any] = ["items": items, "query": query]
+      renderChannel?.invokeMethod("setItems", arguments: payload)
     } else {
       pendingItems = items
+      pendingQuery = query
     }
 
     // Remember the outgoing frontmost app before anything below can change
@@ -367,8 +390,68 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     // 4. Activate last.
     activateForKeyboard()
 
+    installOutsideClickMonitors()
+
     logPanelState("show/sync", extra: "makeFirstResponder=\(focused)")
     DispatchQueue.main.async { [weak self] in self?.reassertKeyFocus() }
+  }
+
+  /// Gives the open panel keyboard focus again, in place (the Snippet hotkey
+  /// pressed while the picker is open but another window took focus, #1680).
+  /// The same key-then-activate order as [show], without repositioning or
+  /// relaying items, so the search text stays.
+  private func refocus() {
+    guard let p = panel, p.isVisible, !isDismissing else { return }
+    keyReclaimDeadline = DispatchTime.now() + Self.keyReclaimWindow
+    didReclaimKeyThisShow = false
+    p.makeKey()
+    activateForKeyboard()
+    DispatchQueue.main.async { [weak self] in self?.reassertKeyFocus() }
+  }
+
+  // MARK: - Focus loss and clicks outside (#1680)
+
+  /// Reports a focus loss or a click outside to Dart, which decides whether
+  /// the picker closes (`snippetPickerClosesOnFocusLoss`): it stays open on
+  /// a focus change without a click ("other") and closes on a click outside
+  /// ("click"). This shell never closes on its own here.
+  private func reportFocusLost(cause: String) {
+    guard let p = panel, p.isVisible, !isDismissing else { return }
+    logPanelState("focusLost", extra: "cause=\(cause)")
+    channel.invokeMethod("onFocusLost", arguments: ["cause": cause])
+  }
+
+  /// Whether a mouse button is down right now outside the panel — read when
+  /// key status goes, which a click into another window causes on its
+  /// mouse-down.
+  private func isClickingOutsidePanel() -> Bool {
+    guard let p = panel else { return false }
+    return NSEvent.pressedMouseButtons != 0 && !p.frame.contains(NSEvent.mouseLocation)
+  }
+
+  private func installOutsideClickMonitors() {
+    guard outsideClickMonitors.isEmpty else { return }
+    let mask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+    if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] _ in
+      guard let self, let p = self.panel,
+            !p.frame.contains(NSEvent.mouseLocation) else { return }
+      self.reportFocusLost(cause: "click")
+    }) {
+      outsideClickMonitors.append(global)
+    }
+    if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+      if let self, let p = self.panel, event.window !== p {
+        self.reportFocusLost(cause: "click")
+      }
+      return event
+    }) {
+      outsideClickMonitors.append(local)
+    }
+  }
+
+  private func removeOutsideClickMonitors() {
+    for monitor in outsideClickMonitors { NSEvent.removeMonitor(monitor) }
+    outsideClickMonitors.removeAll()
   }
 
   /// Makes WhisPaste the active app so the panel can actually receive
@@ -478,21 +561,22 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// `hide`) and `false` for the two paths where something else is already
   /// deciding what comes forward: a pick — `DesktopPasteHost` activates the
   /// paste target itself moments later, and racing it would be worse than
-  /// doing nothing — and `windowDidResignKey`, where the user just clicked
+  /// doing nothing — and a click outside (`hide` with `outsideClick`), where the user just clicked
   /// some other app, which macOS is in the middle of activating.
   private func dismiss(fireCancelled: Bool, restoreFrontApp: Bool = false) {
     guard !isDismissing, let p = panel, p.isVisible else { return }
     isDismissing = true
     defer { isDismissing = false }
     keyReclaimDeadline = nil
+    removeOutsideClickMonitors()
     p.orderOut(nil)
     // Tell the render engine the panel left the screen so it can stop its
-    // glass animations. Needed since the engine was detached from the
+    // entrance animation. Needed since the engine was detached from the
     // embedder's app lifecycle (the arrow-key frame-starvation fix, see
     // `detachFromEmbedderAppLifecycle` in
     // snippet_picker_render_entrypoint.dart): frames are never
     // lifecycle-disabled in that engine any more, so without this signal an
-    // un-gated drift animation would keep repainting the ordered-out panel
+    // un-gated animation would keep repainting the ordered-out panel
     // for the rest of the app session. `setItems` (sent by every `show`) is
     // the matching "panel shown" signal.
     renderChannel?.invokeMethod("panelHidden", arguments: nil)
@@ -639,7 +723,8 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       )
       renderReady = true
       if let items = pendingItems {
-        renderChannel?.invokeMethod("setItems", arguments: ["items": items])
+        let payload: [String: Any] = ["items": items, "query": pendingQuery]
+        renderChannel?.invokeMethod("setItems", arguments: payload)
         pendingItems = nil
       }
       result(nil)
@@ -672,10 +757,14 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
 
   // MARK: - NSWindowDelegate
 
-  /// Clicking outside the panel resigns its key status — treat that the same
-  /// as pressing Esc: close and report a cancellation.
+  /// Losing key status no longer closes the panel by itself (#1680): it is
+  /// reported to Dart with its cause, a click outside ("click") or anything
+  /// else ("other"), and only a click outside closes it. A notification or
+  /// another app raising itself keeps the picker open while the user is
+  /// still choosing. The click monitors ([installOutsideClickMonitors]) also
+  /// report clicks that arrive after key status has already gone.
   ///
-  /// Except for the one resign that isn't a user action at all: when
+  /// Not reported at all: the one resign that isn't a user action, for the one resign that isn't a user action at all: when
   /// [activateForKeyboard]'s request lands, AppKit re-picks a key window for
   /// the now-active app and can hand key status to the main window — the
   /// app's remembered key window, and the only one of ours that may become
@@ -696,14 +785,19 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
       logPanelState("windowDidResignKey/reclaimed")
       return
     }
-    dismiss(fireCancelled: true)
+    reportFocusLost(cause: isClickingOutsidePanel() ? "click" : "other")
   }
 
-  /// Instrumentation only — pairs with the `show/sync` and
-  /// `show/next-runloop` snapshots to show whether the panel ever really won
-  /// key status, and when.
+  /// Pairs with the `show/sync` and `show/next-runloop` snapshots to show
+  /// whether the panel ever really won key status, and when.
+  ///
+  /// Also: a click back into the open panel after another app took focus
+  /// makes this non-activating panel key without activating WhisPaste, and
+  /// macOS only routes keystrokes to the active app, so typing would go
+  /// nowhere. Activating here gives the search field the keyboard again.
   func windowDidBecomeKey(_ notification: Notification) {
     logPanelState("windowDidBecomeKey")
+    if let p = panel, p.isVisible, !isDismissing { activateForKeyboard() }
   }
 
   /// Instrumentation only — the live check for the "the reused view is
@@ -717,6 +811,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   // MARK: - Teardown
 
   private func teardown() {
+    removeOutsideClickMonitors()
     if let monitor = escapeMonitor {
       NSEvent.removeMonitor(monitor)
       escapeMonitor = nil

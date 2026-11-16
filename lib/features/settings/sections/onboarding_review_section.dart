@@ -13,24 +13,22 @@
 /// which is prefilled from live settings, always starts at step 1, carries a
 /// visible exit, and cannot write `onboardingCompleted`.
 ///
-/// Shown only to users who have finished the first-run setup; the section is
-/// filtered out of [SettingsPage] entirely otherwise (an unfinished first run
-/// has the flow on screen already).
+/// Shown only to users who have finished the first-run setup; otherwise the
+/// widget renders nothing (an unfinished first run has the flow on screen
+/// already).
+///
+/// Lives on the Help page (Hilfe), not in Settings: the introduction is help,
+/// and the settings search opens Help for it.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/feature_spotlight/feature_spotlight.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/onboarding/onboarding_revision.dart'
-    show currentOnboardingPlatform;
-import '../../../core/onboarding/onboarding_surface.dart';
-import '../../../widgets/feature_spotlight_notice.dart';
-import '../../../widgets/section.dart';
+import '../../../core/config/settings_provider.dart';
+import '../../onboarding/onboarding_overlay.dart' show openOnboardingReview;
 import '../../../widgets/wp_button.dart';
-import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
 
 class OnboardingReviewSection extends ConsumerWidget {
   const OnboardingReviewSection({super.key});
@@ -38,45 +36,25 @@ class OnboardingReviewSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
-    // Every registered feature spotlight for this platform, seen or not —
-    // unlike the automatic once-per-update showing, this manual re-view (see
-    // [showFeatureSpotlightPreview]) exists precisely so someone who already
-    // dismissed it can pull it back up, so filtering by seen state would
-    // defeat the point.
-    final platform = currentOnboardingPlatform();
-    final spotlightEntries = ref
-        .watch(featureSpotlightRegistryProvider)
-        .where((entry) => entry.appliesTo(platform))
-        .toList();
-    return WpSection(
-      title: l10n.onboardingReviewEntry,
-      subtitle: l10n.onboardingReviewSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.compass,
-            label: l10n.onboardingReviewLabel,
-            trailing: WpButton(
-              label: l10n.onboardingReviewAction,
-              variant: WpButtonVariant.secondary,
-              onPressed: () =>
-                  ref.read(onboardingManuallyOpenProvider.notifier).open(),
-            ),
-          ),
-          if (spotlightEntries.isNotEmpty)
-            SettingRow(
-              icon: LucideIcons.sparkles,
-              label: l10n.featureSpotlightReviewLabel,
-              trailing: WpButton(
-                label: l10n.featureSpotlightReviewAction,
-                variant: WpButtonVariant.secondary,
-                onPressed: () =>
-                    showFeatureSpotlightPreview(context, spotlightEntries),
-              ),
-            ),
-        ],
+    final onboardingCompleted = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.onboarding.onboardingCompleted ?? false,
       ),
+    );
+    if (!onboardingCompleted) return const SizedBox.shrink();
+    return WpSettingsGroup(
+      heading: l10n.onboardingReviewEntry,
+      children: [
+        WpSettingsRow(
+          rowId: 'advanced-onboarding-again',
+          title: l10n.onboardingReviewLabel,
+          trailing: WpButton(
+            label: l10n.onboardingReviewAction,
+            variant: WpButtonVariant.secondary,
+            onPressed: () => openOnboardingReview(ref),
+          ),
+        ),
+      ],
     );
   }
 }

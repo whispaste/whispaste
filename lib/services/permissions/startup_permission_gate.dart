@@ -211,7 +211,7 @@ class AutoPasteGateHooks {
   /// `requestGrant()` here was the reported dead end — it re-hit the stale
   /// entry, so System Settings showed an already-enabled row with nothing
   /// left for the user to do. The existing app-level restart watch takes it
-  /// from there (forced-restart modal on MAS, live flip on Developer-ID).
+  /// from there (restart dialog on MAS, live flip on Developer-ID).
   final Future<void> Function() startGrantFlow;
 
   /// Guides the user through removing the stale entry and relaunching.

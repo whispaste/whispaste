@@ -1,6 +1,5 @@
 // Runner-owned MethodChannel bridge for the clipboard-history monitor
-// (Ticket 05 Windows port -- internal-notes
-// 05-windows-native.md). Behavioral precedent: macos/Runner/
+// (Ticket 05 Windows port). Behavioral precedent: macos/Runner/
 // ClipboardMonitorHost.swift -- same channel name, same method contract, so
 // the Dart side (self_write_signal.dart / clipboard_history_monitor_
 // service.dart) needs zero platform branching.
@@ -85,7 +84,9 @@ class ClipboardMonitorHost {
   // Reads CF_BITMAP and PNG-encodes it via GDI+ (already linked/ref-counted
   // via GdiPlusHelper for the floating button/overlay windows). Empty if
   // absent or encoding fails.
-  std::vector<uint8_t> ReadClipboardImagePng() const;
+  // Encodes the clipboard bitmap as PNG into |png|. Returns false (and leaves
+  // |png| empty) when there is no bitmap or encoding fails.
+  bool ReadClipboardImagePng(std::vector<uint8_t>* png) const;
 
   // See the file doc comment's "Privacy exclusion" section.
   bool IsPrivacyExcluded() const;

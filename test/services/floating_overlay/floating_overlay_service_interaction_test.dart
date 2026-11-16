@@ -22,6 +22,7 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
+import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -29,7 +30,7 @@ import 'package:whispaste/services/floating_overlay/floating_overlay_service.dar
 // ── Fake controller ───────────────────────────────────────────────────────────
 
 class _FakeController implements FloatingOverlayController {
-  _FakeController({this.positionDelay = Duration.zero});
+  _FakeController();
 
   final _eventCtrl = StreamController<FloatingOverlayEvent>.broadcast();
 
@@ -38,15 +39,16 @@ class _FakeController implements FloatingOverlayController {
   int positionCalls = 0;
   bool disposed = false;
 
-  /// Simulates the real platform-channel round trip `setPosition` makes
-  /// (currentDisplayBounds() + native reply) — zero by default so it doesn't
-  /// slow down every other test, but a real delay is needed to reproduce the
-  /// "fast second recording" race, where `_sendSnapshot` for the new content
-  /// must win even while a genuinely slow `_setStartPosition` is still
-  /// in flight. A same-microtask fake (the previous default for every test,
-  /// unconditionally) can't tell an `await`-before vs. `unawaited`-before
-  /// ordering apart — both resolve before the next `flushMicrotasks()`.
-  final Duration positionDelay;
+  /// When set, `setPosition` answers only once this completes, like the real
+  /// platform-channel round trip (currentDisplayBounds() + native reply)
+  /// still in flight. Null by default so every other test answers at once,
+  /// but a held reply is needed to reproduce the "fast second recording"
+  /// race, where `_sendSnapshot` for the new content must win even while a
+  /// genuinely slow `_setStartPosition` is still in flight. A same-microtask
+  /// fake (the previous default for every test, unconditionally) can't tell
+  /// an `await`-before vs. `unawaited`-before ordering apart — both resolve
+  /// before the next `flushMicrotasks()`.
+  Completer<void>? holdPosition;
 
   void emit(FloatingOverlayEvent event) {
     if (!disposed) _eventCtrl.add(event);
@@ -65,17 +67,16 @@ class _FakeController implements FloatingOverlayController {
 
   @override
   Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) async {
-    if (positionDelay > Duration.zero) {
-      await Future<void>.delayed(positionDelay);
-    }
+    await holdPosition?.future;
     positionCalls++;
     lastPosition = (x: x, y: y, anchor: anchor);
   }
 
   @override
   Future<void> setContextMenuItems(
-    List<({String id, String label})> items,
-  ) async {}
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) async {}
 
   @override
   Future<void> dispose() async {
@@ -112,12 +113,13 @@ class _Harness {
   void dispose() => container.dispose();
 }
 
-_Harness _build(FakeAsync async, {Duration positionDelay = Duration.zero}) {
+_Harness _build(FakeAsync async) {
   final epoch = DateTime.utc(2026, 1, 1);
-  final fake = _FakeController(positionDelay: positionDelay);
+  final fake = _FakeController();
   final container = ProviderContainer(
     overrides: [
       settingsProvider.overrideWith(_CapturingSettingsNotifier.new),
+      audioServiceProvider.overrideWith(_MicOpenAudioNotifier.new),
       floatingOverlayServiceProvider.overrideWith(
         () => _TestableService(fake, now: () => epoch.add(async.elapsed)),
       ),
@@ -128,6 +130,18 @@ _Harness _build(FakeAsync async, {Duration positionDelay = Duration.zero}) {
   async.elapse(const Duration(milliseconds: 1));
   async.flushMicrotasks();
   return _Harness(fake, container);
+}
+
+/// Mic-open precondition for snapshot-content tests (briefing criterion 4):
+/// the recording content is only shown once the capture runs, so these tests
+/// model an opened microphone. The start-feedback rule itself is covered in
+/// `floating_overlay_service_recovery_test.dart`.
+class _MicOpenAudioNotifier extends AudioServiceNotifier {
+  @override
+  AudioStatus build() => const AudioStatus(
+    captureState: AudioCaptureState.recording,
+    hasLiveSamples: true,
+  );
 }
 
 void main() {
@@ -274,9 +288,9 @@ void main() {
     // sequence rather than the notifier's own synchronous reset()+startRecording()
     // back-to-back, which doesn't reproduce the race.
     //
-    // `positionDelay` on the fake controller stands in for
+    // `holdPosition` on the fake controller stands in for
     // _setStartPosition's real platform-channel round trip (currentDisplayBounds()
-    // + native setPosition reply) — without an artificial delay, a same-microtask
+    // + native setPosition reply) — without a held reply, a same-microtask
     // fake resolves before the next flushMicrotasks() regardless of whether the
     // real code awaits it first or fires it unawaited, so it can't actually
     // distinguish the two orderings. This reproduces the bug against the
@@ -286,15 +300,13 @@ void main() {
       'recording content is not blocked behind an in-flight position call',
       () {
         FakeAsync().run((async) {
-          final h = _build(async, positionDelay: const Duration(seconds: 1));
+          final h = _build(async);
           try {
             final rec = h.container.read(recordingProvider.notifier);
 
             // First cycle: reach "done", still within the auto-hide window.
             rec.startRecording();
-            async.elapse(
-              const Duration(milliseconds: 1050),
-            ); // clears 1s positionDelay
+            async.elapse(const Duration(milliseconds: 1050));
             rec.stopRecording();
             async.elapse(const Duration(milliseconds: 5));
             rec.completeTranscription('first recording');
@@ -307,9 +319,12 @@ void main() {
             rec.reset();
             async.elapse(const Duration(milliseconds: 50)); // preflight gap
             async.flushMicrotasks();
+            // The position call of the new recording stays in flight until
+            // the end of the test.
+            h.fake.holdPosition = Completer<void>();
             rec.startRecording();
-            // Deliberately short — well inside the 1s positionDelay still in
-            // flight, so this only passes if content isn't gated behind it.
+            // Only a short step while that call is still in flight, so this
+            // only passes if content isn't gated behind it.
             async.elapse(const Duration(milliseconds: 5));
             async.flushMicrotasks();
 
@@ -323,6 +338,8 @@ void main() {
             );
             expect(h.fake.lastSnapshot?.visible, isTrue);
           } finally {
+            h.fake.holdPosition?.complete();
+            async.flushMicrotasks();
             h.dispose();
           }
         });

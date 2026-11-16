@@ -47,7 +47,9 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
+          l10n.markdownToolbarBold(
+            WpMarkdownFormatting.boldShortcutLabel(l10n),
+          ),
         ),
         findsOneWidget,
         reason:
@@ -64,27 +66,53 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The 8 buttons: Bold, Italic, Heading, Bullet list, Numbered list,
-      // Quote, Code, and — behind a divider — Find and replace. Labels out of
-      // the ARB files (Ticket 27), no longer hard-coded English inside the
-      // widget. Whenever the toolbar grows a button, it belongs in this list:
-      // the test's name promises *all* of them.
-      for (final label in [
-        l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
-        l10n.markdownToolbarItalic(WpMarkdownFormatting.italicShortcutLabel),
-        l10n.markdownToolbarHeading,
-        l10n.markdownToolbarBulletList(
-          WpMarkdownFormatting.bulletListShortcutLabel,
+      // The 9 buttons: Bold, Italic, Heading, Bullet list, Numbered list,
+      // Checklist, Quote, Code, and — behind a divider — Find and replace.
+      // Labels out of the ARB files (Ticket 27), each with its shortcut, each
+      // with a stable identifier and a 48 dp target (#652). Whenever the
+      // toolbar grows a button, it belongs in this list: the test's name
+      // promises *all* of them.
+      final buttons = <String, String>{
+        'bold': l10n.markdownToolbarBold(
+          WpMarkdownFormatting.boldShortcutLabel(l10n),
         ),
-        l10n.markdownToolbarNumberedList,
-        l10n.markdownToolbarQuote,
-        l10n.markdownToolbarCode,
-        l10n.findReplaceToggle,
-      ]) {
+        'italic': l10n.markdownToolbarItalic(
+          WpMarkdownFormatting.italicShortcutLabel(l10n),
+        ),
+        'heading': l10n.markdownToolbarHeading(
+          WpMarkdownFormatting.headingShortcutLabel(l10n),
+        ),
+        'bullet-list': l10n.markdownToolbarBulletList(
+          WpMarkdownFormatting.bulletListShortcutLabel(l10n),
+        ),
+        'numbered-list': l10n.markdownToolbarNumberedList(
+          WpMarkdownFormatting.numberedListShortcutLabel(l10n),
+        ),
+        'checklist': l10n.markdownToolbarChecklist(
+          WpMarkdownFormatting.checklistShortcutLabel(l10n),
+        ),
+        'quote': l10n.markdownToolbarQuote(
+          WpMarkdownFormatting.quoteShortcutLabel(l10n),
+        ),
+        'code': l10n.markdownToolbarCode(
+          WpMarkdownFormatting.codeShortcutLabel(l10n),
+        ),
+        'find': l10n.findReplaceToggle,
+      };
+      expect(find.bySemanticsLabel(l10n.markdownToolbarGroup), findsOneWidget);
+      for (final MapEntry(key: id, value: label) in buttons.entries) {
+        final byId = find.bySemanticsIdentifier('editor-toolbar-$id');
+        expect(byId, findsOneWidget, reason: 'no identifier for "$id"');
         expect(
           find.bySemanticsLabel(label),
           findsOneWidget,
           reason: 'Toolbar button "$label" must expose a semantics label',
+        );
+        final size = tester.getSize(byId);
+        expect(
+          size.width >= 48 && size.height >= 48,
+          isTrue,
+          reason: '"$id" is $size, below the 48 dp target',
         );
       }
     });
@@ -122,13 +150,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(
-          WpHeroButton(
-            label: 'Continue',
-            gradient: const LinearGradient(colors: [Colors.orange, Colors.red]),
-            onPressed: () {},
-          ),
-        ),
+        makeTestable(WpHeroButton(label: 'Continue', onPressed: () {})),
       );
       await tester.pumpAndSettle();
 
@@ -154,7 +176,6 @@ void main() {
         makeTestable(
           const WpHeroButton(
             label: 'Next',
-            gradient: LinearGradient(colors: [Colors.blue, Colors.purple]),
             onPressed: null, // disabled
           ),
         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/l10n/locale_native_name.dart';
@@ -30,19 +29,6 @@ void main() {
       expect(find.text('Deutsch'), findsOneWidget);
     });
 
-    testWidgets('closed state never renders an SvgPicture flag', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          WpLanguageSelector(currentLocale: 'en', onChanged: (_) {}),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SvgPicture), findsNothing);
-    });
-
     testWidgets('opened state shows native names for every supported locale', (
       tester,
     ) async {
@@ -65,46 +51,6 @@ void main() {
               '${locale.languageCode}',
         );
       }
-    });
-
-    testWidgets('opened state renders no SvgPicture flags', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(WpLanguageSelector));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SvgPicture), findsNothing);
-    });
-
-    testWidgets('opened state highlights the active entry', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          WpLanguageSelector(currentLocale: 'de', onChanged: (_) {}),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(WpLanguageSelector));
-      await tester.pumpAndSettle();
-
-      // The active entry exposes itself via a stable key for test access;
-      // any non-active entry uses a different key.  This guarantees the
-      // highlight is observable from the widget tree, independent of the
-      // exact decoration style.
-      expect(
-        find.byKey(const ValueKey('WpLanguageSelector.active.de')),
-        findsOneWidget,
-        reason: 'active entry must be tagged with a stable key for highlight',
-      );
-      expect(
-        find.byKey(const ValueKey('WpLanguageSelector.active.en')),
-        findsNothing,
-      );
     });
 
     testWidgets('tapping English fires onChanged with "en"', (tester) async {

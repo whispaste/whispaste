@@ -3,14 +3,11 @@ name: Deploy Landing Page
 # Settings → Pages → Source: "GitHub Actions"
 
 on:
-  # Redeploy when website source changes on main.
-  push:
-    branches: [main]
-    paths:
-      - 'website/**'
-      - '.github/workflows/deploy-pages.yml'
-  # Also triggered by release.yml via workflow_dispatch after a tag release,
-  # so the new version's release notes become visible immediately.
+  # Deploys only on purpose (maintainer 2026-10-25): a merge to main must never
+  # publish the website by itself. No push trigger and no schedule; the site goes
+  # live after a tag release (release.yml dispatches this workflow) or by a
+  # manual dispatch. Changelog drift from hand-edited release notes is fixed by
+  # dispatching this workflow by hand.
   # (release: published cannot be used — Pages env protection only allows main ref)
   workflow_dispatch:
 
@@ -29,9 +26,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
       - name: Install website dependencies
@@ -46,7 +43,7 @@ jobs:
           # website build, so no OPENAI_API_KEY needed here.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build with Astro
-        uses: withastro/action@v6
+        uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3
         with:
           path: website
         env:
@@ -92,4 +89,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

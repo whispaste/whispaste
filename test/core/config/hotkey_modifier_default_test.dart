@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -9,7 +8,9 @@ import 'package:whispaste/core/config/settings_sections.dart';
 /// Ctrl+Shift — otherwise a macOS install that has other settings stored but
 /// no hotkey keys silently binds Ctrl+Shift+KEY.
 void main() {
-  final expectedDefault = Platform.isMacOS ? 'meta+shift' : 'ctrl+shift';
+  final expectedDefault = defaultTargetPlatform == TargetPlatform.macOS
+      ? 'meta+shift'
+      : 'ctrl+shift';
 
   group('hotkey modifier default when the storage key is missing', () {
     test('main hotkey', () {

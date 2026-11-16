@@ -24,6 +24,11 @@ interface Props {
    * and, as a last resort, to the project's default locale `de`.
    */
   lang?: Locale;
+  /**
+   * Pages whose address carries a secret (newsletter mail links): noindex, no
+   * outgoing referrer, no analytics, no Web Vitals.
+   */
+  isPrivate?: boolean;
 }
 
 const SITE_ORIGIN = "https://whispaste.de";
@@ -34,7 +39,9 @@ const {
   title = t(lang, "meta.title.default"),
   description = t(lang, "meta.description.default"),
   ogImage = lang === "de" ? "/og-image-de.png" : "/og-image.png",
+  isPrivate = false,
 } = Astro.props;
+const analytics = import.meta.env.PROD && !isPrivate;
 
 // Every locale's URL of this page; the page's English slug decides which
 // locales it is published in (legal pages exist only in German and English).
@@ -55,7 +62,15 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    {isPrivate
+      ? <meta name="robots" content="noindex, nofollow" />
+      : <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />}
+    {/* Referrer policy (#1629): other sites only see our origin, never the
+        path or query. Pages with a secret in the address send none at all
+        (sentry.client.config.js keys its privatePage check on no-referrer). */}
+    {isPrivate
+      ? <meta name="referrer" content="no-referrer" />
+      : <meta name="referrer" content="strict-origin-when-cross-origin" />}
     <meta name="theme-color" content="#0B122A" />
     <meta name="author" content="WhisPaste" />
     {/* Preload the primary self-hosted variable fonts (latin subset) to
@@ -92,7 +107,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
         in the switcher (localStorage "wp-lang") wins over the browser setting.
         The target comes from this page's own hreflang alternates, so this
         must stay below them. */}
-    <script is:inline>
+    {!isPrivate && <script is:inline>
       (function () {
         try {
           if (navigator.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit/i.test(navigator.userAgent)) return;
@@ -119,7 +134,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
           location.replace(target.pathname + location.search + location.hash);
         } catch (e) {}
       })();
-    </script>
+    </script>}
     <title>{title}</title>
 
     <!-- Open Graph -->
@@ -179,7 +194,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
         ausgeführter Production-Build (`astro build && astro preview`) setzt PROD ebenfalls,
         feuerte damit bislang echte Hits gegen die Live-Instanz (Matomo-Analyse 2026-09-04 fand
         hunderte Visits mit Entry/Exit-Page `http://127.0.0.1:4321/…` in den echten Site-4-Daten). */}
-    {import.meta.env.PROD && (
+    {analytics && (
       <script is:inline set:html={`if (!/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname)) {
   var _paq = (window._paq = window._paq || []);
   _paq.push(["disableCookies"]);
@@ -199,24 +214,40 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
     {/* Engagement-Event „Download gestartet" → Matomo. Hört auf das bestehende
         download:triggered-CustomEvent (Store-/Apple-Button); Name = erkanntes OS
         (data-os aus dem OS-Detektor oben). Cookieless, prod-only, _paq-Muster. */}
-    {import.meta.env.PROD && (
+    {analytics && (
       <script is:inline set:html={`document.addEventListener("download:triggered", function () {
   var os = document.documentElement.dataset.os || "unbekannt";
   if (window._paq) window._paq.push(["trackEvent", "Engagement", "Download gestartet", os]);
 });`} />
     )}
     {/* Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. */}
-    {import.meta.env.PROD && <WebVitals enabled={true} />}
+    {analytics && <WebVitals enabled={true} />}
   </head>
   <body class="antialiased">
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-(--wp-accent-fill) focus:text-(--wp-accent-on-fill) focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
       {t(lang, "nav.skip")}
     </a>
     <slot />
-    <ContactWidget />
+    {!isPrivate && <ContactWidget />}
       <script>
       import { startMotionBudget } from '../scripts/motion-budget.ts';
+      import { downloadAnchor, type Os } from '../data/platforms.ts';
       startMotionBudget();
+      // Download buttons carry data-download-trigger instead of an inline
+      // onclick: the Content-Security-Policy (#1629, astro.config.mjs) only
+      // allows hashed inline <script> blocks, never inline event handlers.
+      document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('[data-download-trigger]') : null;
+        if (target) target.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));
+      });
+      // Download links marked data-download-anchor jump straight to the
+      // visitor's own card (#245); data-os comes from the head script above.
+      const anchor = downloadAnchor((document.documentElement.dataset.os as Os | undefined) ?? 'unknown');
+      if (anchor) {
+        for (const link of document.querySelectorAll<HTMLAnchorElement>('a[data-download-anchor]')) {
+          link.hash = anchor;
+        }
+      }
     </script>
   </body>
 </html>

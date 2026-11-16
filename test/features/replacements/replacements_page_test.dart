@@ -1,30 +1,27 @@
 /// Tests for [ReplacementsPage].
 ///
-/// Covers: sample data on empty DB, Add dialog, dialog validation,
-/// Edit pre-fill, search filter, no-results state, enable/disable toggle,
-/// hover → delete confirmation.
+/// Behaviour only (#1267): elements are addressed by key/testID, never by
+/// visible text. Covers: sample data on empty DB, Add dialog, dialog
+/// validation, Edit pre-fill, search filter, enable/disable toggle,
+/// delete confirmation, fuzzy mode.
 library;
 
-import 'dart:io' show Platform;
 import 'dart:ui';
 
-import 'package:drift/native.dart';
 import 'package:file/memory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
-import 'package:whispaste/core/data/database.dart';
-import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
-import 'package:whispaste/services/replacements/correction_learning_service.dart';
-import 'package:whispaste/services/replacements/correction_signal.dart';
+import 'package:whispaste/services/replacements/text_replacement_matcher.dart';
 import 'package:whispaste/services/replacements/vocabulary_import_service.dart';
-import 'package:whispaste/features/settings/settings_widgets.dart'
-    show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_segmented_selector.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -49,383 +46,240 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-late L10n l10n;
+Finder _k(String key) => find.byKey(ValueKey(key));
+
+/// The list rows only (not their `-similar` / `-origin` parts).
+Finder _rows() => find.byWidgetPredicate((w) {
+  final k = w.key;
+  if (k is! ValueKey<String>) return false;
+  final v = k.value;
+  return v.startsWith('replacements-row-') &&
+      !v.endsWith('-similar') &&
+      !v.endsWith('-origin');
+});
+
+Finder _search() => find.byType(TextField).first;
+
+Future<void> _pump(
+  WidgetTester tester, {
+  List<Override> overrides = const [],
+}) async {
+  await tester.pumpWidget(
+    makeTestable(
+      const ReplacementsPage(),
+      overrides: overrides,
+      locale: const Locale('en'),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openAdd(WidgetTester tester) async {
+  await tester.tap(find.byIcon(LucideIcons.plus));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _chooseMode(
+  WidgetTester tester,
+  TextReplacementMatchMode mode,
+) async {
+  tester
+      .widget<WpSegmentedChoice<TextReplacementMatchMode>>(
+        _k('replacements-match-mode-choice'),
+      )
+      .onChanged(mode);
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  setUpAll(() async {
-    l10n = await L10n.delegate.load(const Locale('en'));
-  });
-
   group('ReplacementsPage', () {
-    // -------------------------------------------------------------------------
-    // 1. Sample data
-    // -------------------------------------------------------------------------
-
     testWidgets('renders sample entries on first load (empty DB)', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      // ReplacementsNotifier auto-inserts three sample replacements when DB
-      // is empty. Trigger phrases are rendered as chips (no surrounding
-      // quotes).
-      expect(find.text('mfg'), findsOneWidget);
-      expect(find.text('lg'), findsOneWidget);
-      expect(find.text('tel'), findsOneWidget);
-
-      // Arrow icon present once per row
-      expect(find.byIcon(LucideIcons.arrowRightLeft), findsNWidgets(3));
+      await _pump(tester);
+      expect(_rows(), findsNWidgets(3));
     });
 
-    // -------------------------------------------------------------------------
-    // 2. Add dialog
-    // -------------------------------------------------------------------------
-
-    testWidgets('Add button opens dialog with correct labels', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      // Tap the toolbar Add button (contains the plus icon)
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
-
-      // Dialog title
-      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
-      // Field labels
-      expect(find.text(l10n.replacementsTriggerLabel), findsOneWidget);
-      expect(find.text(l10n.replacementsReplacementLabel), findsOneWidget);
-      // Hint text in dialog body — now supplied by WpFormDialogShell
-      expect(find.text(l10n.replacementsDialogHint), findsOneWidget);
-    });
-
-    testWidgets('the dialog stays whole at a 2x system text size', (
+    testWidgets('Add opens the dialog; save stays disabled while empty', (
       tester,
     ) async {
-      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(tester);
+      expect(_k('replacements-trigger-field-0'), findsNothing);
 
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _openAdd(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
+      expect(_k('replacements-trigger-field-0'), findsOneWidget);
       expect(
-        tester.takeException(),
+        tester
+            .widget<WpButton>(
+              find.ancestor(
+                of: _k('replacements-save'),
+                matching: find.byType(WpButton),
+              ),
+            )
+            .onPressed,
         isNull,
-        reason: 'the dialog body scrolls instead of overflowing',
       );
-    });
 
-    testWidgets('save button is disabled while both fields are empty', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
+      await tester.enterText(find.byType(TextField).at(1), 'omw');
+      await tester.enterText(find.byType(TextField).at(2), 'on my way');
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
-
-      // When _isValid == false the dialog's save button has onPressed == null,
-      // while the toolbar Add button always has one — so a single disabled
-      // button in the tree can only be the dialog's.
-      final buttons = tester.widgetList<WpButton>(find.byType(WpButton));
       expect(
-        buttons.any((b) => b.onPressed == null),
-        isTrue,
-        reason: 'Dialog save button should be disabled with empty fields',
+        tester
+            .widget<WpButton>(
+              find.ancestor(
+                of: _k('replacements-save'),
+                matching: find.byType(WpButton),
+              ),
+            )
+            .onPressed,
+        isNotNull,
       );
     });
 
     testWidgets('adding a second trigger phrase saves both triggers', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _pump(tester);
+      await _openAdd(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
-
-      // TextFields in tree order: [0] page search, [1] trigger, [2] replacement
       await tester.enterText(find.byType(TextField).at(1), 'omw');
-
-      // Add a second trigger row
-      await tester.tap(find.text(l10n.replacementsAddTrigger));
+      await tester.tap(_k('replacements-trigger-add'));
+      await tester.pumpAndSettle();
+      await tester.enterText(_k('replacements-trigger-field-1'), 'otw');
+      await tester.enterText(_k('replacements-replacement-field'), 'on my way');
       await tester.pumpAndSettle();
 
-      // Now: [1] trigger 1, [2] trigger 2, [3] replacement
-      await tester.enterText(find.byType(TextField).at(2), 'otw');
-      await tester.enterText(find.byType(TextField).at(3), 'on my way');
+      await tester.tap(_k('replacements-save'));
       await tester.pumpAndSettle();
 
-      // Save via the dialog button (the toolbar Add button shares the same
-      // label but is rendered earlier in the tree).
-      await tester.tap(find.text(l10n.replacementsAdd).last);
+      expect(_rows(), findsNWidgets(4));
+      await tester.enterText(_search(), 'otw');
       await tester.pumpAndSettle();
-
-      // The new entry is appended after the three sample rows and may be
-      // scrolled out of the test viewport now that the header grew a
-      // correction-learning toggle card — filter down to it.
-      await tester.enterText(find.byType(TextField).first, 'omw');
-      await tester.pumpAndSettle();
-
-      expect(find.text('omw'), findsNWidgets(2));
-      expect(find.text('otw'), findsOneWidget);
-      expect(find.byIcon(LucideIcons.arrowRightLeft), findsOneWidget);
+      expect(_rows(), findsOneWidget);
     });
 
     testWidgets('the last remaining trigger cannot be removed', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _pump(tester);
+      await _openAdd(tester);
 
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
+      expect(_k('replacements-trigger-remove-0'), findsNothing);
 
-      // A single trigger row shows no remove button at all
-      expect(find.byIcon(LucideIcons.x), findsNothing);
-
-      // With two rows, both get a remove button
-      await tester.tap(find.text(l10n.replacementsAddTrigger));
+      await tester.tap(_k('replacements-trigger-add'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(LucideIcons.x), findsNWidgets(2));
+      expect(_k('replacements-trigger-remove-0'), findsOneWidget);
+      expect(_k('replacements-trigger-remove-1'), findsOneWidget);
 
-      // Removing one row hides the remove button on the survivor again
-      await tester.tap(find.byIcon(LucideIcons.x).first);
+      await tester.tap(_k('replacements-trigger-remove-0'));
       await tester.pumpAndSettle();
-      expect(find.byIcon(LucideIcons.x), findsNothing);
+      expect(_k('replacements-trigger-remove-0'), findsNothing);
+      expect(_k('replacements-trigger-field-1'), findsNothing);
     });
 
-    // -------------------------------------------------------------------------
-    // 3. Edit (click tile)
-    // -------------------------------------------------------------------------
-
-    testWidgets('tapping a tile opens edit dialog with pre-filled trigger', (
+    testWidgets('tapping a row opens the edit dialog with its trigger', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
+      await _pump(tester);
+
+      await tester.tap(_rows().first);
       await tester.pumpAndSettle();
 
-      // Tap the mfg tile (via its trigger chip)
-      await tester.tap(find.text('mfg'));
-      await tester.pumpAndSettle();
-
-      // Edit dialog title
-      expect(find.text(l10n.replacementsEditShortcut), findsOneWidget);
-      // Pre-filled trigger value visible inside the dialog text field
-      expect(find.text('mfg'), findsWidgets);
-    });
-
-    // -------------------------------------------------------------------------
-    // 4. Search filter
-    // -------------------------------------------------------------------------
-
-    testWidgets('search field filters visible replacements', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      // All three visible initially
-      expect(find.text('mfg'), findsOneWidget);
-      expect(find.text('lg'), findsOneWidget);
-      expect(find.text('tel'), findsOneWidget);
-
-      // Search for "mfg" — only the mfg row should remain. The search field
-      // itself also contains the text 'mfg', so expect two matches.
-      await tester.enterText(find.byType(TextField).first, 'mfg');
-      await tester.pumpAndSettle();
-
-      expect(find.text('mfg'), findsNWidgets(2));
-      expect(find.text('lg'), findsNothing);
-      expect(find.text('tel'), findsNothing);
-    });
-
-    testWidgets('search with no match shows no-results empty state', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byType(TextField).first, 'zzzznonexistent');
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.replacementsNoMatches), findsOneWidget);
-    });
-
-    testWidgets('the no-results empty state clears the search', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byType(TextField).first, 'zzzznonexistent');
-      await tester.pumpAndSettle();
-
-      // The shared no-matches state offers the same action as Verlauf and
-      // Notizen, worded through the generic l10n key.
-      expect(find.text(l10n.actionClearSearch), findsOneWidget);
-
-      // The header now carries an extra correction-learning toggle card, so
-      // the empty-state action can sit below the viewport's fold.
-      await tester.ensureVisible(find.text(l10n.actionClearSearch));
-      await tester.tap(find.text(l10n.actionClearSearch));
-      await tester.pumpAndSettle();
-
-      // Both the query and the field's text are back to empty.
-      expect(find.text(l10n.replacementsNoMatches), findsNothing);
-      expect(find.text('zzzznonexistent'), findsNothing);
-      expect(find.text('mfg'), findsOneWidget);
-    });
-
-    // -------------------------------------------------------------------------
-    // 5. Enable / disable toggle
-    // -------------------------------------------------------------------------
-
-    testWidgets('toggle switch updates textReplacementsEnabled in provider', (
-      tester,
-    ) async {
-      // BehaviorSettings defaults textReplacementsEnabled = false.
-      // Override with true so the switch starts ON, then verify toggling to OFF.
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWith(textReplacementsEnabled: true),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const ReplacementsPage(),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
+      expect(_k('replacements-trigger-field-0'), findsOneWidget);
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: _k('replacements-trigger-field-0'),
+          matching: find.byType(TextField),
         ),
       );
-      await tester.pumpAndSettle();
-
-      // Starts enabled — switch is ON and the header card says so in words.
-      // Scoped to this card's own SettingRow: the header now also carries the
-      // correction-learning toggle's switch, so a bare `find.byType(Switch)`
-      // would match two widgets.
-      final masterSwitchFinder = find.descendant(
-        of: find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
-        matching: find.byType(Switch),
-      );
-      final switchOn = tester.widget<Switch>(masterSwitchFinder);
-      expect(switchOn.value, isTrue);
-      expect(find.text(l10n.replacementsToggleLabel), findsOneWidget);
-      expect(find.text(l10n.replacementsToggleEnabled), findsOneWidget);
-
-      // Tap toggle to disable
-      await tester.tap(masterSwitchFinder);
-      await tester.pumpAndSettle();
-
-      expect(
-        notifier.state.value?.behavior.textReplacementsEnabled,
-        isFalse,
-        reason: 'Provider should reflect the new disabled state',
-      );
+      expect(field.controller!.text, isNotEmpty);
     });
 
-    testWidgets('the master switch is announced with a name and its state', (
-      tester,
-    ) async {
-      // In the toolbar this switch was an unnamed node: measured on the
-      // semantics tree it carried an empty label while its visible caption
-      // merged into the page-level focus node, so a screen reader read
-      // "switch, on" with nothing to say what it switches.
-      final handle = tester.ensureSemantics();
-      try {
-        await tester.pumpWidget(
-          makeTestable(
-            const ReplacementsPage(),
-            overrides: [
-              settingsProvider.overrideWith(
-                () => _FakeSettingsNotifier(
-                  AppSettings.defaults.copyWith(textReplacementsEnabled: true),
-                ),
-              ),
-            ],
-            locale: const Locale('en'),
-          ),
+    testWidgets('search field filters visible replacements', (tester) async {
+      await _pump(tester);
+      expect(_rows(), findsNWidgets(3));
+
+      await tester.enterText(_search(), 'mfg');
+      await tester.pumpAndSettle();
+      expect(_rows(), findsOneWidget);
+
+      await tester.enterText(_search(), 'zzzznonexistent');
+      await tester.pumpAndSettle();
+      expect(_rows(), findsNothing);
+
+      await tester.enterText(_search(), '');
+      await tester.pumpAndSettle();
+      expect(_rows(), findsNWidgets(3));
+    });
+
+    testWidgets(
+      'the master switch sits in the overflow menu and turns the list off',
+      (tester) async {
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(textReplacementsEnabled: true),
         );
+        await _pump(
+          tester,
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        );
+        expect(_k('replacements-enable'), findsNothing);
+
+        await tester.tap(_k('replacements-more'));
+        await tester.pumpAndSettle();
+        await tester.tap(_k('replacements-toggle'));
         await tester.pumpAndSettle();
 
-        expect(
-          tester.getSemantics(
-            find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
-          ),
-          isSemantics(
-            label: l10n.replacementsToggleLabel,
-            hint: l10n.replacementsToggleEnabled,
-            hasToggledState: true,
-            isToggled: true,
-          ),
-        );
-      } finally {
-        handle.dispose();
-      }
-    });
+        expect(notifier.state.value?.behavior.textReplacementsEnabled, isFalse);
+        expect(_k('replacements-enable'), findsOneWidget);
+      },
+    );
 
-    // -------------------------------------------------------------------------
-    // 6. Delete via hover
-    // -------------------------------------------------------------------------
-
-    testWidgets('hover shows delete icon; tapping it opens confirm dialog', (
+    testWidgets('toolbar controls and the disabled banner carry identifiers', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings.defaults.copyWith(textReplacementsEnabled: false),
+            ),
+          ),
+        ],
       );
-      await tester.pumpAndSettle();
 
-      // Simulate mouse hover over the "mfg" tile
-      final mfgTile = find.text('mfg');
+      expect(find.bySemanticsIdentifier('replacements-search'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('replacements-add'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('replacements-more'), findsOneWidget);
+      expect(find.bySemanticsIdentifier('replacements-enable'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('hover shows delete icon; confirming removes the row', (
+      tester,
+    ) async {
+      await _pump(tester);
+
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
-      await gesture.moveTo(tester.getCenter(mfgTile));
+      await gesture.moveTo(tester.getCenter(_rows().first));
       await tester.pumpAndSettle();
 
-      // Delete icon should appear on hover
       expect(find.byIcon(LucideIcons.trash2), findsOneWidget);
-
-      // Tap delete
       await tester.tap(find.byIcon(LucideIcons.trash2));
       await tester.pumpAndSettle();
 
-      // Confirm dialog should appear with the correct title
-      expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+      await tester.tap(_k('confirm-dialog-confirm'));
+      await tester.pumpAndSettle();
+      expect(_rows(), findsNWidgets(2));
     });
 
-    // -------------------------------------------------------------------------
-    // 7. Keyboard
-    // -------------------------------------------------------------------------
-
     testWidgets('Ctrl/Cmd+N opens the add dialog', (tester) async {
-      // Notizen bound this from the start, its two sibling list screens did
-      // not — so "create the next one without leaving the keyboard" only
-      // paid off on one of the three. Now bound once on the shared shell.
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text(l10n.replacementsNewShortcut), findsNothing);
+      await _pump(tester);
+      expect(_k('replacements-trigger-field-0'), findsNothing);
 
-      final modifier = Platform.isMacOS
+      final modifier = defaultTargetPlatform == TargetPlatform.macOS
           ? LogicalKeyboardKey.meta
           : LogicalKeyboardKey.control;
       await tester.sendKeyDownEvent(modifier);
@@ -434,385 +288,149 @@ void main() {
       await tester.sendKeyUpEvent(modifier);
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.replacementsNewShortcut), findsOneWidget);
+      expect(_k('replacements-trigger-field-0'), findsOneWidget);
     });
 
     testWidgets('Delete on the focused row opens the delete confirmation', (
       tester,
     ) async {
-      // Notizen deletes the focused row from the keyboard; its two siblings
-      // could only do it by mouse. Same keys now, different consequence by
-      // necessity: no trash exists here, so the confirmation is the undo.
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _pump(tester);
 
-      // Tab lands on the first row (the search field, Add button, master
-      // switch, and vocabulary-import button come first in traversal order,
-      // so walk past them).
+      // Walk past the toolbar controls until a row reveals its delete action.
       for (var i = 0; i < 8; i++) {
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pumpAndSettle();
         if (find.byIcon(LucideIcons.trash2).evaluate().isNotEmpty) break;
       }
-      expect(
-        find.byIcon(LucideIcons.trash2),
-        findsOneWidget,
-        reason: 'the row reveals its delete action on focus, not just hover',
-      );
+      expect(find.byIcon(LucideIcons.trash2), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.delete);
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.replacementsDeleteTitle), findsOneWidget);
+      expect(_k('confirm-dialog-confirm'), findsOneWidget);
     });
 
     testWidgets('Backspace in the search field edits text, deletes nothing', (
       tester,
     ) async {
-      // The row bindings are scoped to the row; the search field is a
-      // sibling of it, not a descendant, so typing stays typing.
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _pump(tester);
 
-      await tester.enterText(find.byType(TextField).first, 'mfgx');
+      await tester.enterText(_search(), 'mfgx');
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.replacementsDeleteTitle), findsNothing);
-      expect(
-        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
-        'mfg',
-      );
+      expect(_k('confirm-dialog-confirm'), findsNothing);
+      expect(tester.widget<TextField>(_search()).controller!.text, 'mfg');
     });
-
-    // -------------------------------------------------------------------------
-    // 8. Vocabulary-fuzzy-replacements
-    // -------------------------------------------------------------------------
 
     testWidgets('switching to Similar mode reveals the tolerance selector', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+      await _pump(tester);
+      await _openAdd(tester);
+      expect(_k('replacements-fuzzy-tolerance-choice'), findsNothing);
 
-      await tester.tap(find.byIcon(LucideIcons.plus));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsNothing);
-
-      // TextFields in tree order: [0] page search, [1] trigger, [2] replacement
       await tester.enterText(find.byType(TextField).at(1), 'get user by id');
       await tester.pumpAndSettle();
+      await _chooseMode(tester, TextReplacementMatchMode.fuzzy);
 
-      await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
-      await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsOneWidget);
-      expect(
-        find.text(l10n.replacementsFuzzyToleranceStandard),
-        findsOneWidget,
-      );
+      expect(_k('replacements-fuzzy-tolerance-choice'), findsOneWidget);
     });
 
     testWidgets(
       'Similar mode is locked for a trigger below the fuzzy minimum length',
       (tester) async {
-        await tester.pumpWidget(
-          makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(LucideIcons.plus));
-        await tester.pumpAndSettle();
+        await _pump(tester);
+        await _openAdd(tester);
 
         await tester.enterText(find.byType(TextField).at(1), 'id');
         await tester.pumpAndSettle();
 
+        final choice = tester
+            .widget<WpSegmentedChoice<TextReplacementMatchMode>>(
+              _k('replacements-match-mode-choice'),
+            );
         expect(
-          find.text(l10n.replacementsFuzzyTooShortWarning(4)),
-          findsOneWidget,
+          choice.options
+              .singleWhere((o) => o.value == TextReplacementMatchMode.fuzzy)
+              .enabled,
+          isFalse,
         );
-
-        await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
-        await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
-        await tester.pumpAndSettle();
-
-        // Disabled segment: tapping it does not reveal the tolerance
-        // selector.
-        expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsNothing);
+        expect(_k('replacements-fuzzy-tolerance-choice'), findsNothing);
       },
     );
 
     testWidgets(
       'saving in Similar mode persists the mode across a reopened edit dialog',
       (tester) async {
-        await tester.pumpWidget(
-          makeTestable(const ReplacementsPage(), locale: const Locale('en')),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byIcon(LucideIcons.plus));
-        await tester.pumpAndSettle();
+        await _pump(tester);
+        await _openAdd(tester);
 
         await tester.enterText(find.byType(TextField).at(1), 'get user by id');
-        await tester.enterText(find.byType(TextField).at(2), 'getUserById');
-        await tester.pumpAndSettle();
-
-        await tester.ensureVisible(find.text(l10n.replacementsMatchModeFuzzy));
-        await tester.tap(find.text(l10n.replacementsMatchModeFuzzy));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(
-          find.text(l10n.replacementsFuzzyToleranceTolerant),
+        await tester.enterText(
+          _k('replacements-replacement-field'),
+          'getUserById',
         );
-        await tester.tap(find.text(l10n.replacementsFuzzyToleranceTolerant));
+        await tester.pumpAndSettle();
+        await _chooseMode(tester, TextReplacementMatchMode.fuzzy);
+        tester
+            .widget<WpSegmentedChoice<double>>(
+              _k('replacements-fuzzy-tolerance-choice'),
+            )
+            .onChanged(0.75);
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.text(l10n.replacementsAdd).last);
-        await tester.tap(find.text(l10n.replacementsAdd).last);
+        await tester.ensureVisible(_k('replacements-save'));
+        await tester.tap(_k('replacements-save'));
         await tester.pumpAndSettle();
 
-        // Filter down to the new entry — it was appended after the three
-        // sample rows and may be scrolled out of the test viewport.
-        await tester.enterText(find.byType(TextField).first, 'get user by id');
+        await tester.enterText(_search(), 'get user by id');
         await tester.pumpAndSettle();
-        await tester.tap(find.text('get user by id').last);
+        await tester.tap(_rows().first);
         await tester.pumpAndSettle();
 
-        expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsOneWidget);
-        final segmented = tester.widget<SegmentedButton<double>>(
-          find.byType(SegmentedButton<double>),
+        final segmented = tester.widget<WpSegmentedChoice<double>>(
+          _k('replacements-fuzzy-tolerance-choice'),
         );
-        expect(segmented.selected, {0.75});
+        expect(segmented.selected, 0.75);
       },
     );
 
-    testWidgets('an imported entry shows the imported badge', (tester) async {
+    testWidgets('an imported entry carries the imported origin marker', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
       final fakeService = VocabularyImportService(
         fileSystem: MemoryFileSystem(),
         pickFolder: ({initialDirectory}) async => '/fake/project',
         extract: (files) async => {'ImportedClassName'},
       );
-
-      await tester.pumpWidget(
-        makeTestable(
-          const ReplacementsPage(),
-          overrides: [
-            vocabularyImportServiceProvider.overrideWithValue(fakeService),
-          ],
-          locale: const Locale('en'),
-        ),
+      await _pump(
+        tester,
+        overrides: [
+          vocabularyImportServiceProvider.overrideWithValue(fakeService),
+        ],
       );
+
+      await tester.tap(_k('replacements-more'));
+      await tester.pumpAndSettle();
+      await tester.tap(_k('replacements-import-folder'));
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.widgetWithText(WpButton, l10n.replacementsImportFromFolder),
-      );
+      // Nothing is imported until the candidate is picked and confirmed.
+      await tester.tap(_k('dictionary-import-review-row-ImportedClassName'));
+      await tester.pumpAndSettle();
+      await tester.tap(_k('vocabulary-import-confirm'));
       await tester.pumpAndSettle();
 
-      // The scan opens a review page — nothing is imported until the
-      // candidate is picked and the import is confirmed.
-      expect(find.text('ImportedClassName'), findsOneWidget);
-      await tester.tap(find.text('ImportedClassName'));
+      await tester.enterText(_search(), 'ImportedClassName');
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.widgetWithText(
-          WpButton,
-          l10n.replacementsImportReviewImportButton(1),
-        ),
-      );
-      // WpToast.show() schedules a 3-second dismissal timer; pumpAndSettle()
-      // would block waiting for it, so pump with an explicit duration.
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 4));
-
-      // The new entry is appended after the three sample rows and may be
-      // scrolled out of the test viewport — filter down to it.
-      await tester.enterText(find.byType(TextField).first, 'ImportedClassName');
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.replacementsImportedBadge), findsOneWidget);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Correction-learning (ticket 01 `internal-notes`)
-  // ---------------------------------------------------------------------------
-
-  group('ReplacementsPage correction learning', () {
-    /// Records the same normalized correction [source]→[target] twice —
-    /// enough to cross `correctionCandidateThreshold` and become a pending
-    /// candidate — directly against [db], mirroring how
-    /// `correction_learning_service_test.dart` seeds observations without a
-    /// widget tree.
-    Future<void> seedCandidate(
-      HistoryDatabase db,
-      String source,
-      String target,
-    ) async {
-      const service = CorrectionLearningService();
-      final signal = CorrectionSignal(
-        sourceText: source,
-        targetText: target,
-        timestamp: DateTime(2026, 1, 1),
-        source: CorrectionSignalSource.voiceCommand,
-      );
-      await service.recordSignal(signal, db);
-      await service.recordSignal(signal, db);
-    }
-
-    testWidgets('toggle switch updates correctionLearningEnabled in provider', (
-      tester,
-    ) async {
-      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWithSections(
-          behavior: AppSettings.defaults.behavior.copyWith(
-            correctionLearningEnabled: true,
-          ),
-        ),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const ReplacementsPage(),
-          db: db,
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final toggleSwitchFinder = find.descendant(
-        of: find.widgetWithText(SettingRow, l10n.correctionLearningToggleLabel),
-        matching: find.byType(Switch),
-      );
-      expect(tester.widget<Switch>(toggleSwitchFinder).value, isTrue);
-      expect(find.text(l10n.correctionLearningToggleEnabled), findsOneWidget);
-
-      await tester.ensureVisible(toggleSwitchFinder);
-      await tester.tap(toggleSwitchFinder);
-      await tester.pumpAndSettle();
-
       expect(
-        notifier.state.value?.behavior.correctionLearningEnabled,
-        isFalse,
-        reason: 'Provider should reflect the new disabled state',
+        find.bySemanticsIdentifier('replacements-origin-imported'),
+        findsOneWidget,
       );
+      handle.dispose();
     });
-
-    testWidgets(
-      'the candidates card is hidden when there are no pending candidates',
-      (tester) async {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        await tester.pumpWidget(
-          makeTestable(
-            const ReplacementsPage(),
-            db: db,
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text(l10n.correctionCandidatesCardTitle), findsNothing);
-      },
-    );
-
-    testWidgets('a pending candidate surfaces in the candidates card', (
-      tester,
-    ) async {
-      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-      await seedCandidate(db, 'teh meeting', 'the meeting');
-
-      await tester.pumpWidget(
-        makeTestable(
-          const ReplacementsPage(),
-          db: db,
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.correctionCandidatesCardTitle), findsOneWidget);
-      expect(find.text(l10n.correctionCandidatesCardHint(1)), findsOneWidget);
-    });
-
-    testWidgets(
-      'accepting a candidate in the review flow adds a learned replacement '
-      'and clears the card; the rejected one never resurfaces',
-      (tester) async {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        await seedCandidate(db, 'teh meeting', 'the meeting');
-        await seedCandidate(db, 'recieve', 'receive');
-
-        await tester.pumpWidget(
-          makeTestable(
-            const ReplacementsPage(),
-            db: db,
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text(l10n.correctionCandidatesCardHint(2)), findsOneWidget);
-
-        // Open the shared vocabulary-import review page, fed the two
-        // candidates' "source → target  (×count)" display strings — the
-        // occurrence count makes the review list itself explain why each
-        // candidate showed up.
-        await tester.tap(
-          find.widgetWithText(WpButton, l10n.correctionCandidatesReviewButton),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('teh meeting → the meeting  (×2)'), findsOneWidget);
-        expect(find.text('recieve → receive  (×2)'), findsOneWidget);
-
-        // Select only the first candidate — the second is shown but never
-        // picked, which is this feature's reject signal.
-        await tester.tap(find.text('teh meeting → the meeting  (×2)'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(
-            WpButton,
-            l10n.replacementsImportReviewImportButton(1),
-          ),
-        );
-        // WpToast.show() schedules a 3-second dismissal timer;
-        // pumpAndSettle() would block waiting for it.
-        await tester.pump();
-        await tester.pump(const Duration(seconds: 4));
-
-        // The candidates card is gone — nothing left pending.
-        expect(find.text(l10n.correctionCandidatesCardTitle), findsNothing);
-
-        // The accepted candidate is now a live replacement, tagged "Learned".
-        await tester.enterText(find.byType(TextField).first, 'teh meeting');
-        await tester.pumpAndSettle();
-        expect(find.text(l10n.replacementsLearnedBadge), findsOneWidget);
-        await tester.enterText(find.byType(TextField).first, '');
-        await tester.pumpAndSettle();
-
-        // The rejected candidate never became a replacement — only the
-        // accepted one is added on top of the three auto-seeded samples.
-        final replacements = await db.readAllReplacements();
-        expect(replacements, hasLength(4));
-        expect(
-          replacements.where((r) => r.row.origin == 'learned'),
-          hasLength(1),
-        );
-
-        // Observing the rejected correction again must not resurrect it.
-        await seedCandidate(db, 'recieve', 'receive');
-        const service = CorrectionLearningService();
-        expect(await service.pendingCandidates(db), isEmpty);
-      },
-    );
   });
 }

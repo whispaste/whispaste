@@ -84,6 +84,13 @@ void main() {
   // =========================================================================
 
   group('updateContent', () {
+    test('throws while the entry is not loaded, so nothing looks saved', () {
+      final notifier = container.read(
+        historyDetailProvider('not-loaded-entry').notifier,
+      );
+      expect(() => notifier.updateContent('text'), throwsStateError);
+    });
+
     test('updates content via partial update and refreshes state', () async {
       final notifier = await loadNotifier();
 
@@ -463,31 +470,6 @@ void main() {
       // Both entries exist in DB.
       final entries = await db.allEntries();
       expect(entries, hasLength(2));
-    });
-  });
-
-  // =========================================================================
-  // Refresh
-  // =========================================================================
-
-  group('refresh', () {
-    test('reloads state from DB after external mutation', () async {
-      await loadNotifier();
-
-      // External mutation using full companion (required for upsert).
-      await db.upsertEntry(
-        HistoryEntriesCompanion.insert(
-          id: entryId,
-          timestamp: DateTime(2025, 6, 1, 12, 0),
-          content: const Value('Externally updated'),
-        ),
-      );
-
-      final notifier = container.read(historyDetailProvider(entryId).notifier);
-      await notifier.refresh();
-
-      final state = container.read(historyDetailProvider(entryId));
-      expect(state.value!.entry.content, 'Externally updated');
     });
   });
 }

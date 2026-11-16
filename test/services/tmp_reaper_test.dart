@@ -6,12 +6,17 @@
 /// [sweepOrphanedTmpFiles] against a real temp directory.
 library;
 
+import 'package:clock/clock.dart';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:whispaste/services/tmp_reaper.dart';
+
+/// Fixed reference time for the fragment-age tests (the reaper reads
+/// `clock.now()`).
+final _fixedNow = DateTime(2026, 6, 1, 12);
 
 void main() {
   // ──────────────────────────────────────────────────────────────────────────
@@ -207,6 +212,64 @@ void main() {
       }
     });
 
+    test('an identified fragment survives a restart for a resume, but not '
+        'beyond kIdentifiedFragmentMaxAge', () async {
+      Future<(File, File)> fragment(String name, Duration age) async {
+        final tmp = File(p.join(tempDir.path, '$name.tmp'));
+        final id = File('${tmp.path}.json');
+        await tmp.writeAsBytes([1, 2, 3]);
+        await id.writeAsString('{}');
+        final at = _fixedNow.subtract(age);
+        await tmp.setLastModified(at);
+        await id.setLastModified(at);
+        return (tmp, id);
+      }
+
+      final (dayOld, dayOldId) = await fragment(
+        'a.bin',
+        const Duration(days: 1),
+      );
+      final (stale, staleId) = await fragment(
+        'b.bin',
+        kIdentifiedFragmentMaxAge + const Duration(hours: 1),
+      );
+
+      await withClock(
+        Clock.fixed(_fixedNow),
+        () => sweepOrphanedTmpFiles(
+          directory: tempDir.path,
+          ageThreshold: const Duration(hours: 1),
+        ),
+      );
+
+      expect(dayOld.existsSync(), isTrue);
+      expect(dayOldId.existsSync(), isTrue);
+      expect(stale.existsSync(), isFalse);
+      expect(staleId.existsSync(), isFalse, reason: 'sidecar goes with it');
+    });
+
+    test('an aged identity sidecar without its fragment is removed', () async {
+      final orphan = File(p.join(tempDir.path, 'c.bin.tmp.json'));
+      await orphan.writeAsString('{}');
+      await orphan.setLastModified(
+        _fixedNow.subtract(const Duration(hours: 2)),
+      );
+      final fresh = File(p.join(tempDir.path, 'd.bin.tmp.json'));
+      await fresh.writeAsString('{}');
+      await fresh.setLastModified(_fixedNow);
+
+      await withClock(
+        Clock.fixed(_fixedNow),
+        () => sweepOrphanedTmpFiles(
+          directory: tempDir.path,
+          ageThreshold: const Duration(hours: 1),
+        ),
+      );
+
+      expect(orphan.existsSync(), isFalse);
+      expect(fresh.existsSync(), isTrue, reason: 'download may be starting');
+    });
+
     test('deletes aged orphan .tmp files from directory', () async {
       final tmpFile = File(p.join(tempDir.path, 'ggml-small-q5_1.bin.tmp'));
       await tmpFile.writeAsBytes([1, 2, 3]);
@@ -303,5 +366,86 @@ void main() {
         );
       },
     );
+  });
+
+  group('resumable fragment registry', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('tmp_reaper_registry_');
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    Future<File> agedFragment(String name) async {
+      final file = File(p.join(tempDir.path, name));
+      await file.writeAsBytes([1, 2, 3]);
+      await file.setLastModified(
+        DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      return file;
+    }
+
+    test(
+      'a registered fragment survives an aged sweep, even when no active '
+      'path is passed (interrupted download that can still resume)',
+      () async {
+        final fragment = await agedFragment('encoder.onnx.tmp');
+        registerResumableFragment(fragment.path);
+        addTearDown(() => releaseResumableFragment(fragment.path));
+
+        await sweepOrphanedTmpFiles(
+          directory: tempDir.path,
+          ageThreshold: const Duration(hours: 1),
+        );
+
+        expect(
+          fragment.existsSync(),
+          isTrue,
+          reason: 'a resumable fragment must not be reaped by a sibling sweep',
+        );
+      },
+    );
+
+    test('a released fragment is reaped again by the next sweep', () async {
+      final fragment = await agedFragment('encoder.onnx.tmp');
+      registerResumableFragment(fragment.path);
+      releaseResumableFragment(fragment.path);
+
+      await sweepOrphanedTmpFiles(
+        directory: tempDir.path,
+        ageThreshold: const Duration(hours: 1),
+      );
+
+      expect(fragment.existsSync(), isFalse);
+    });
+
+    test('registration is per full path: the same name in another directory '
+        'is still reaped', () async {
+      final otherDir = await Directory.systemTemp.createTemp(
+        'tmp_reaper_other_',
+      );
+      addTearDown(() => otherDir.delete(recursive: true));
+      final unrelated = File(p.join(otherDir.path, 'encoder.onnx.tmp'));
+      await unrelated.writeAsBytes([1]);
+      await unrelated.setLastModified(
+        DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      final fragment = await agedFragment('encoder.onnx.tmp');
+      registerResumableFragment(fragment.path);
+      addTearDown(() => releaseResumableFragment(fragment.path));
+
+      await sweepOrphanedTmpFiles(
+        directory: otherDir.path,
+        ageThreshold: const Duration(hours: 1),
+      );
+
+      expect(unrelated.existsSync(), isFalse);
+      expect(fragment.existsSync(), isTrue);
+    });
   });
 }

@@ -2,7 +2,9 @@
 
 #include <gdk/gdk.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_engine.h"
+#include "secondary_plugin_registrant.h"
+#include "positioned_window_type.h"
 
 FloatingOverlayWindow::FloatingOverlayWindow() = default;
 
@@ -12,7 +14,7 @@ FloatingOverlayWindow::~FloatingOverlayWindow() {
 
 void FloatingOverlayWindow::Create() {
   // ── GtkWindow shell ──────────────────────────────────────────────────────
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   // Decorationless: no title bar, no border.
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
@@ -57,19 +59,14 @@ void FloatingOverlayWindow::Create() {
 
   // ── Second Flutter engine (entrypoint arg: --floating-overlay) ───────────
   // The GTK embedder provides no named-entrypoint API. We pass the arg via
-  // fl_dart_project_set_dart_entrypoint_arguments so Dart main() branches on
-  // args.contains("--floating-overlay") → runFloatingOverlayEngine().
-  //
-  // COMPILE RISK: fl_dart_project_set_dart_entrypoint_arguments expects
-  // gchar** (non-const). We cast const away — safe because the embedder
-  // copies the strings internally and does not mutate them.
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
-  const gchar* overlay_args[] = {"--floating-overlay", nullptr};
-  fl_dart_project_set_dart_entrypoint_arguments(
-      project, const_cast<gchar**>(overlay_args));
+  // fl_dart_project_set_dart_entrypoint_arguments (secondary_project_new) so
+  // Dart main() branches on args.contains("--floating-overlay") →
+  // runFloatingOverlayEngine().
+  g_autoptr(FlDartProject) project = secondary_project_new("--floating-overlay");
 
   // fl_view_new takes its own strong ref to project; g_autoptr releases ours.
   FlView* view = fl_view_new(project);
+  secondary_view_watch_first_frame(view, "Floating overlay");
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   // Transparent Flutter surface: the Dart painter composites over clear pixels.
@@ -81,9 +78,9 @@ void FloatingOverlayWindow::Create() {
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
 
   // Register plugins BEFORE showing so platform channels are ready at boot.
-  // The overlay engine uses only the render MethodChannel, but registering all
-  // plugins is harmless and mirrors the main-engine setup.
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  // The overlay engine uses only the render MethodChannel. It must not register
+  // the process-global plugins (tray_manager etc.), see secondary_plugin_registrant.h.
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
 
   gtk_widget_show(GTK_WIDGET(fl_view_));
 
@@ -124,6 +121,8 @@ void FloatingOverlayWindow::MoveTo(int x, int y) {
 
 void FloatingOverlayWindow::Show() {
   if (!window_) return;
+  // Already mapped: re-showing on every visible snapshot is redundant work.
+  if (gtk_widget_get_visible(window_)) return;
   gtk_widget_show(window_);
   // Re-assert keep_above: some WMs (and Mutter via XWayland) reset this flag
   // when a window becomes visible. Re-applying after show keeps the HUD on top.

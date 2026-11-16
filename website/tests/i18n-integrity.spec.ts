@@ -155,6 +155,18 @@ test.describe('i18n integrity', () => {
       .map(([k]) => k);
     expect(empty, `Empty FR values: ${empty.join(', ')}`).toEqual([]);
   });
+
+  // es, pt, it, ru and zh carry every EN key except the blog (DE/EN only),
+  // so a landing-page text added in EN must reach all eight languages.
+  for (const locale of ['es', 'pt', 'it', 'ru', 'zh'] as const) {
+    test(`${locale.toUpperCase()} has every non-blog EN key and no extra keys`, () => {
+      const dict = i18n[locale]!;
+      const missing = Object.keys(en).filter((key) => !key.startsWith('blog.') && !(key in dict));
+      const extra = Object.keys(dict).filter((key) => !(key in en));
+      expect(missing, `Missing ${locale} keys: ${missing.join(', ')}`).toEqual([]);
+      expect(extra, `Extra ${locale} keys: ${extra.join(', ')}`).toEqual([]);
+    });
+  }
 });
 
 test.describe('screenshot section', () => {
@@ -211,25 +223,4 @@ test.describe('gallery page', () => {
     await expect(counter).toHaveText('1 / 10');
   });
 
-  test('gallery shows all ten screenshots in dark theme', async ({ page }) => {
-    // Theme is fixed per screenshot by the storyboard (goldens 01–05 and 10
-    // plus the real Windows-box captures 06–09). All are dark since the app's
-    // light theme was removed — the page never offered a theme toggle to begin with.
-    await page.goto('/screenshots');
-
-    const images = page.locator('.gallery-image');
-    await expect(images).toHaveCount(10);
-
-    const themes = await images.evaluateAll((els) =>
-      els.map((el) => (el as HTMLImageElement).dataset.galleryTheme),
-    );
-    expect(themes).toEqual(Array(10).fill('dark'));
-
-    await expect(images.nth(0)).toHaveAttribute('src', /\/dark\/01_/);
-    await expect(images.nth(1)).toHaveAttribute('src', /\/dark\/02_/);
-    await expect(images.nth(5)).toHaveAttribute('src', /\/dark\/06_/);
-    await expect(images.nth(8)).toHaveAttribute('src', /\/dark\/09_/);
-
-    await expect(page.locator('[data-gallery-theme]:not(img)')).toHaveCount(0);
-  });
 });

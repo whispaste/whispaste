@@ -14,7 +14,14 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('no source file outside wp_button.dart constructs a raw Material '
       'button (Elevated/Outlined/Text/FilledButton)', () {
-    const allowedFiles = <String>{'lib/widgets/wp_button.dart'};
+    // wp_coffee_button.dart is the brand-coloured support CTA with its own
+    // component tokens (WpCoffeeTokens), like WpHeroButton a deliberate
+    // design-system exception rather than a feature call site.
+    const allowedFiles = <String>{
+      'lib/widgets/wp_button.dart',
+      'lib/widgets/wp_coffee_button.dart',
+      'lib/widgets/wp_provider_tile.dart',
+    };
 
     final rawButtonPattern = RegExp(
       r'\b(ElevatedButton|OutlinedButton|TextButton|FilledButton)'

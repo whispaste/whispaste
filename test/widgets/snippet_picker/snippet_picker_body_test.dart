@@ -13,7 +13,7 @@
 ///    whose text-editing shortcut map does not touch Escape, which would
 ///    make this test pass for the wrong reason. Forcing
 ///    `TargetPlatform.macOS` (try/finally around each body — the repo's
-///    established pattern, see `mic_permission_chip_test.dart`; a `setUp`/
+///    established pattern; a `setUp`/
 ///    `tearDown` pair trips `flutter_test`'s "foundation debug variable
 ///    changed" invariant check mid-test) exercises the actual map the real
 ///    app runs under.
@@ -26,8 +26,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_protocol.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_render_channel.dart';
 import 'package:whispaste/snippet_picker_render_entrypoint.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 const _items = [
@@ -241,73 +243,6 @@ void main() {
     });
   });
 
-  group('SnippetPickerBody — animation gating (frame-starvation fix)', () {
-    // Companion to test/services/snippet_picker/
-    // snippet_picker_engine_lifecycle_test.dart: with the render engine
-    // detached from the embedder's app lifecycle, frames are never
-    // lifecycle-disabled — so the panel's own `visible` flag (relayed via
-    // native show()/dismiss()) must be what starts and stops the continuous
-    // glass drift animation, or an invisible panel would repaint all
-    // session. Tickers are the observable: `transientCallbackCount` counts
-    // active animation tickers, and the drift `repeat()` holds one open.
-    testWidgets('glass animations run only while the panel is visible', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        final controller = TextEditingController();
-        addTearDown(controller.dispose);
-
-        // The autofocused search field runs finite focus animations
-        // (~hundreds of ms) that also hold tickers open; every assertion
-        // below first pumps past them, so the only ticker that can remain
-        // is the panel's own unbounded drift `repeat()`.
-        const settleFiniteAnimations = Duration(milliseconds: 500);
-
-        // Boot state: engine alive (prewarm), panel never shown.
-        await _pumpPicker(tester, controller: controller, visible: false);
-        await tester.pump(settleFiniteAnimations);
-        expect(
-          tester.binding.transientCallbackCount,
-          0,
-          reason: 'no ticker may run while the panel has never been shown',
-        );
-
-        // Native show(): setItems bumps the generation and flips visible on.
-        await _pumpPicker(
-          tester,
-          controller: controller,
-          visible: true,
-          showGeneration: 1,
-        );
-        await tester.pump(settleFiniteAnimations);
-        expect(
-          tester.binding.transientCallbackCount,
-          greaterThan(0),
-          reason: 'the glass drift cycle must animate while on screen',
-        );
-
-        // Native dismiss(): panelHidden flips visible off (generation stays).
-        await _pumpPicker(
-          tester,
-          controller: controller,
-          visible: false,
-          showGeneration: 1,
-        );
-        await tester.pump(settleFiniteAnimations);
-        expect(
-          tester.binding.transientCallbackCount,
-          0,
-          reason:
-              'an ordered-out panel must not keep repainting for the rest '
-              'of the app session',
-        );
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
-  });
-
   group('SnippetPickerBody — Enter (control, already working)', () {
     testWidgets('Enter selects the highlighted item', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -334,6 +269,113 @@ void main() {
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
+    });
+  });
+
+  group('SnippetPickerBody — "In einem Satz"', () {
+    const mixed = [
+      SnippetPickerRenderItem(id: '1', title: 'Greeting', body: 'Hello'),
+      SnippetPickerRenderItem(
+        id: '3',
+        title: 'Absage',
+        body: 'Name · Termin',
+        kind: SnippetPickerItemKind.interactive,
+      ),
+    ];
+
+    testWidgets('only an interactive row offers the sentence button, and it '
+        'selects the sentence path', (tester) async {
+      final selected = <String>[];
+      await _pumpPicker(
+        tester,
+        controller: TextEditingController(),
+        items: mixed,
+        onSelect: selected.add,
+      );
+      Finder sentenceButton(String id) => find.byWidgetPredicate(
+        (w) => w is WpIconButton && w.testId == 'snippet-picker-sentence-$id',
+      );
+
+      expect(find.text('Absage'), findsOneWidget);
+      expect(sentenceButton('1'), findsNothing);
+      expect(sentenceButton('3'), findsOneWidget);
+      await tester.tap(sentenceButton('3'));
+      expect(selected, [sentenceSelectionId('3')]);
+    });
+
+    testWidgets('Ctrl+Enter takes the sentence path, Enter the guided one', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        final selected = <String>[];
+        await _pumpPicker(
+          tester,
+          controller: TextEditingController(),
+          items: mixed,
+          onSelect: selected.add,
+        );
+        // Without a query the picker lists A–Z by title, so the interactive
+        // "Absage" is the first row and holds the cursor.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+
+        expect(selected, [sentenceSelectionId('3'), '3']);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    List<SnippetPickerRenderItem> preview(List<String> values) => [
+      for (final raw in fieldPreviewItems(
+        title: 'Absage',
+        template: 'Hallo {{Name}}, {{Termin}}',
+        fieldNames: const ['Name', 'Termin'],
+        values: values,
+        speakFieldNamesHint: false,
+      ))
+        SnippetPickerRenderItem.tryParse(raw)!,
+    ];
+
+    testWidgets('the preview sends the edited values on Enter', (tester) async {
+      final selected = <String>[];
+      await _pumpPicker(
+        tester,
+        controller: TextEditingController(),
+        items: preview(['Krüger', 'Dienstag']),
+        onSelect: selected.add,
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(EditableText).first, 'Frau Krüger');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+
+      expect(selected, [
+        fillSelectionId(['Frau Krüger', 'Dienstag']),
+      ]);
+    });
+
+    testWidgets('with an empty field the first Enter only marks it, the '
+        'second inserts', (tester) async {
+      final selected = <String>[];
+      await _pumpPicker(
+        tester,
+        controller: TextEditingController(),
+        items: preview(['Krüger', '']),
+        onSelect: selected.add,
+      );
+      await tester.pump();
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(selected, isEmpty);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      expect(selected, [
+        fillSelectionId(['Krüger', '']),
+      ]);
     });
   });
 }

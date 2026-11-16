@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import sentry from '@sentry/astro';
+import { cspMeta } from './scripts/csp-meta.mjs';
 
 // Build-Zeitstempel als Sitemap-`lastmod`. Einmal pro Build ausgewertet,
 // damit alle Einträge denselben konsistenten Wert tragen.
@@ -57,6 +58,8 @@ export default defineConfig({
       // `lastmod` auf den Build-Zeitstempel setzen — bei einer statisch
       // generierten Site ist der Build/Deploy der letzte Änderungszeitpunkt
       // jeder Seite. Hilft Crawlern, ein knappes Crawl-Budget zu priorisieren.
+      // /yt/ is a redirect-only short link for YouTube Shorts (src/pages/yt.astro).
+      filter: (page) => !page.endsWith('/yt/') && !/\/newsletter\/(confirm|unsubscribe|device)\/$/.test(page),
       serialize(item) {
         item.lastmod = BUILD_LASTMOD;
         return item;
@@ -73,10 +76,22 @@ export default defineConfig({
       authToken: process.env.SENTRY_AUTH_TOKEN,
       // Kein Telemetry-Ping vom sentry-vite-plugin an Sentry über sich selbst.
       telemetry: false,
+      // Die Seite sendet nur Fehlerberichte (#1627, sentry.client.config.js):
+      // Tracing- und Replay-Code fliegt schon beim Build aus dem Bundle.
+      bundleSizeOptimizations: {
+        excludeTracing: true,
+        excludeReplayIframe: true,
+        excludeReplayShadowDom: true,
+        excludeReplayWorker: true,
+      },
       sourceMapsUploadOptions: {
         assets: ['./dist/**'],
       },
     }),
+    // Content-Security-Policy als <meta> in jeder gebauten Seite, mit den
+    // Hashes ihrer Inline-Skripte (#1629, Hosts und Begründung in
+    // scripts/csp-meta.mjs). Nur im Build, der Dev-Server bleibt ohne CSP.
+    cspMeta(),
   ],
   vite: {
     plugins: [tailwindcss()],

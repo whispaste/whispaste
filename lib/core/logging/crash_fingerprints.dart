@@ -19,7 +19,7 @@
 /// hyphen-separated). The string is the Sentry-wire value; the Dart constant
 /// name is lowerCamelCase to satisfy `constant_identifier_names`.
 ///
-/// Source of truth: `internal-notes` — Modul 6.
+/// This file is the single source of truth for the fingerprint inventory.
 library;
 
 // ---------------------------------------------------------------------------
@@ -76,6 +76,22 @@ const String historyWriteFailed = 'history-write-failed';
 /// `SqliteException(5)` (e.g. constraint violations, encoding errors,
 /// disk-full failures).
 const String historyWriteOther = 'history-write-other';
+
+/// The Windows move of the history database from the nested folder failed
+/// and the original file stays in use. Data-relevant, so it is reported.
+const String historyNestedPathMoveFailed = 'history-nested-path-move-failed';
+
+/// The rescue copy `history.db.pre-migration` was kept because the history
+/// database next to it is missing or fails `integrity_check`. Data-relevant.
+const String historyMigrationCopyKept = 'history-migration-copy-kept';
+
+/// The one-time encryption of the plain history database (#1020) did not
+/// complete; the plain file stays in use and the next start retries.
+const String historyEncryptionFailed = 'history-encryption-failed';
+
+/// The history database is encrypted but the data key could not be read at
+/// start (#1020); the database does not open and nothing is changed.
+const String historyKeyUnavailable = 'history-key-unavailable';
 
 /// Catch-all for `WhisperServerDownloader.download` failures that are not
 /// the stall-detector path (network errors, 404s, asset-pattern misses).
@@ -221,20 +237,6 @@ const String sttGpuLoadCrashRecovered = 'stt-gpu-load-crash-recovered';
 const String sttCudaLoadCrashRecovered = 'stt-cuda-load-crash-recovered';
 
 // ---------------------------------------------------------------------------
-// Ticket 10 (GPU-vendor-distribution telemetry, 2026-09). One anonymous
-// "vendor" + "platform" info-level signal per session on Windows/Linux,
-// feeding a later data-driven CUDA-build decision (see
-// `internal-notes`). Not a
-// failure — captured as `info`, distinct from [gpuDetectionFailed].
-// ---------------------------------------------------------------------------
-
-/// Anonymous GPU-vendor-distribution signal (Ticket 10). Captured at most
-/// once per app session, Windows/Linux only, via [CrashReporter.captureError]
-/// with `severity: 'info'` — reuses the existing opt-out Sentry channel, no
-/// new consent mechanism.
-const String gpuVendorTelemetry = 'gpu-vendor-telemetry';
-
-// ---------------------------------------------------------------------------
 // Full iterable for tooling (e.g. „verify no inline fingerprint string in
 // the codebase appears outside this file"). Order is irrelevant — Sentry
 // treats fingerprints as a set of strings, not an ordered list.
@@ -252,6 +254,10 @@ const List<String> allCrashFingerprints = <String>[
   sttModelCorrupted,
   historyWriteFailed,
   historyWriteOther,
+  historyNestedPathMoveFailed,
+  historyMigrationCopyKept,
+  historyEncryptionFailed,
+  historyKeyUnavailable,
   serverDownloadFailed,
   serverDownloadStalled,
   modelDownloadFailed,
@@ -276,6 +282,4 @@ const List<String> allCrashFingerprints = <String>[
   gpuDetectionFailed,
   sttGpuLoadCrashRecovered,
   sttCudaLoadCrashRecovered,
-  // Ticket 10 (GPU-vendor-distribution telemetry, 2026-09).
-  gpuVendorTelemetry,
 ];

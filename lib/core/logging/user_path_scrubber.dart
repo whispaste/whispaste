@@ -7,8 +7,14 @@ library;
 
 import 'dart:io';
 
+/// The account segment runs to the next separator, spaces, commas and
+/// semicolons included (`Max Muster`, `Muster, Max`, `a;b`): when in doubt,
+/// more is redacted. Only a colon or a quote followed by whitespace or the
+/// end ends it early. Neither occurs in Windows account names, and they are
+/// how `FileSystemException` and most error texts follow a path.
 final _profileDir = RegExp(
-  r'(/Users/|/home/|[A-Za-z]:[\\/]+Users[\\/]+)([^\\/\s]+)',
+  r'(/Users/|/home/|[A-Za-z]:[\\/]+Users[\\/]+)'
+  r'((?:[^\\/\r\n:"\x27]|[:"\x27](?!\s|$))+)',
   caseSensitive: false,
 );
 
@@ -25,7 +31,9 @@ String scrubUserPaths(String input, {String? home, String? userName}) {
 
   var out = input;
   if (home != null && home.length > 1) {
-    out = out.replaceAll(home, '~');
+    // Match whole path segments only: a home of `C:\Users\silvi` must not
+    // rewrite the prefix of `C:\Users\me`.
+    out = out.replaceAll(RegExp('${RegExp.escape(home)}(?![A-Za-z0-9_])'), '~');
   }
   out = out.replaceAllMapped(_profileDir, (m) => '${m[1]}<user>');
   if (userName != null && userName.length >= _minBareNameLength) {

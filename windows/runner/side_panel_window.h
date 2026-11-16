@@ -135,7 +135,7 @@ class SidePanelContentWindow {
   // TME_LEAVE-based on_content_exit above only fires on real pointer motion,
   // so a focus switch that leaves the cursor resting over the panel was
   // never observed by anything, and the panel stayed open until the pointer
-  // eventually moved -- mirrors SnippetPickerWindow::on_deactivate_cancel /
+  // eventually moved -- mirrors SnippetPickerWindow::on_focus_lost /
   // SidePanelHost.swift's windowDidResignKey, both added for exactly this
   // gap. No activation-settle suppression needed here (see side_panel_host
   // .h's file comment): unlike SnippetPickerHost, nothing on this path calls

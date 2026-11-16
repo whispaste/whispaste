@@ -17,7 +17,7 @@ GNOME-Runtime geprüft (beim ersten Flatpak-Build prüfen).
 | Homebrew Cask | `homebrew/whispaste.rb` | macOS arm64 | ✅ veröffentlicht (Developer-ID-Notarization live seit v1.2.75) — `whispaste/homebrew-tap` |
 | Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
 
-> **Flatpak caveat:** whether the GNOME 50 runtime ships libopusfile and libFLAC is not verified. Until it is, voice-note import (Ogg/Opus, FLAC, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
+> **Flatpak caveat:** libFLAC ships inside the bundle (#84); whether the GNOME 50 runtime ships libopusfile is not verified. Until it is, voice-note import (Ogg/Opus, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
 | AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
 | `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
 | Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ `snapcraft upload` an den Snap Store nötig — Runbook: `snap/README.md` |
@@ -25,6 +25,8 @@ GNOME-Runtime geprüft (beim ersten Flatpak-Build prüfen).
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).
+Das erledigt die lokale Release-Pipeline; hier im Repo landen die Werte über einen
+internen PR, öffentlich erscheinen sie über den Export.
 
 ---
 
@@ -38,7 +40,7 @@ scoop install https://raw.githubusercontent.com/whispaste/whispaste/main/packagi
 ```
 
 **B) Eigener Bucket (empfohlen für `scoop install whispaste`):**
-1. Repo `whispaste/scoop-bucket` anlegen, `whispaste.json` ins Root oder `bucket/` legen.
+1. Repo `whispaste/scoop-bucket` anlegen, `whispaste.json` ins Verzeichnis `bucket/` legen (dorthin schreibt die Stufe `buckets`).
 2. Nutzer:
    ```powershell
    scoop bucket add whispaste https://github.com/whispaste/scoop-bucket
@@ -85,7 +87,7 @@ winget-Manifeste leben zentral in `microsoft/winget-pkgs`. Ablauf:
 notarisiert (Sign-, Notarize- und Staple-Schritt der Release-Pipeline); Homebrew
 kann das Bundle ohne Gatekeeper-Quarantäne-Blockade installieren.
 
-Tap-Repo: `whispaste/homebrew-tap`, Datei `Casks/whispaste.rb`. Die Release-Pipeline bumpt `packaging/homebrew/whispaste.rb` in diesem Repo pro Release automatisch; der Abgleich ins Tap-Repo ist derzeit ein manueller `git push` dorthin.
+Tap-Repo: `whispaste/homebrew-tap`, Datei `Casks/whispaste.rb`. Die Release-Pipeline bumpt `packaging/homebrew/whispaste.rb` in diesem Repo pro Release; die Stufe `buckets` (`scripts/release.sh`, freigabepflichtig, nach dem Publish) committet das erzeugte Manifest idempotent nach `Casks/whispaste.rb` im Tap-Repo. Scoop geht genauso nach `bucket/whispaste.json` im Bucket-Repo.
 
 Nutzer:
 ```bash
@@ -111,8 +113,12 @@ Onboarding-Hinweis wählt den Text nach dem erkannten Format
 | `.deb` / nativ | erst nach Zustimmung | im Onboarding bzw. in den Einstellungen „Freigeben“ und Administratorpasswort (polkit-Aktion `de.whispaste.uinput.manage`, Hilfsprogramm `/usr/libexec/whispaste/uinput-access`). „Freigabe entfernen“ nimmt sie zurück, die Deinstallation ebenfalls (`prerm`) |
 | Tarball | erst nach Zustimmung | `sudo ./install-uinput-rule.sh`, zurück mit `sudo ./uninstall-uinput-rule.sh` |
 | Flatpak | über `--device=all` | udev-Regel `71-whispaste-uinput.rules` auf dem Host, Befehl kopierbar im Onboarding (Administratorrechte, sudo). WhisPaste selbst liest keine Eingabegeräte. Mit `--device=all` sind `/dev/input/*` in der Sandbox aber sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen. Mitglieder der Gruppe `input` können außerdem Tastatureingaben lesen und virtuelle Eingaben erzeugen. Wer das nicht möchte: Auto-Paste aus lassen, Text von Hand einfügen |
-| Snap | braucht die Schnittstelle `uinput` | einmal `sudo snap connect whispaste:uinput` |
-| AppImage | braucht Zugriff auf `/dev/uinput` | udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger`. Der Befehl erscheint kopierbar im Onboarding, erst nach der Erklärung. Die Befehle brauchen **Administratorrechte** (sudo) |
+| Snap | braucht die Schnittstelle `uinput` | einmal `sudo snap connect whispaste:uinput`, zurück mit `sudo snap disconnect whispaste:uinput` (die Auto-Paste-Karte in den Einstellungen zeigt den Befehl kopierbar) |
+| AppImage | braucht Zugriff auf `/dev/uinput` | udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger`. Der Befehl erscheint kopierbar im Onboarding, erst nach der Erklärung. Die Befehle brauchen **Administratorrechte** (sudo). Zurücknehmen: Die Auto-Paste-Karte in den Einstellungen zeigt den Entfernen-Befehl kopierbar, solange die Regel liegt (ohne Helfer gibt es keinen Knopf); er löscht die Regel und entzieht die Sitzungs-ACL (`kLinuxUinputRemoveCommand`). Wer das AppImage löscht, ohne vorher zu entfernen, lässt die Regel zurück |
+
+Nach dem Entfernen endet Auto-Paste sofort, ohne Neustart: Die laufende App prüft den
+Zugriff vor jedem Einfügen und kopiert den Text danach nur noch. Wer `ydotool` mit der
+Gruppe `input` nutzt, behält den Zugriff über dessen Regel.
 
 Die Regel gibt Schreibzugriff nur der aktiven Sitzung (`TAG+="uaccess"`), keiner
 Gruppe. Solange sie liegt, kann jedes Programm dieser

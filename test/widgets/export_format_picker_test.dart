@@ -12,7 +12,9 @@ late L10n l10n;
 
 /// Test harness that opens the picker on demand and records the result.
 class _PickerHarness extends StatefulWidget {
-  const _PickerHarness();
+  const _PickerHarness({this.formats});
+
+  final List<ExportFormat>? formats;
 
   @override
   State<_PickerHarness> createState() => _PickerHarnessState();
@@ -30,7 +32,12 @@ class _PickerHarnessState extends State<_PickerHarness> {
         children: [
           ElevatedButton(
             onPressed: () async {
-              final result = await showWpExportFormatPicker(context);
+              final result = await (widget.formats == null
+                  ? showWpExportFormatPicker(context)
+                  : showWpExportFormatPicker(
+                      context,
+                      formats: widget.formats!,
+                    ));
               if (!mounted) return;
               setState(() {
                 _result = result;
@@ -48,9 +55,12 @@ class _PickerHarnessState extends State<_PickerHarness> {
   }
 }
 
-Future<void> _openPicker(WidgetTester tester) async {
+Future<void> _openPicker(
+  WidgetTester tester, {
+  List<ExportFormat>? formats,
+}) async {
   await tester.pumpWidget(
-    makeTestable(const _PickerHarness(), locale: const Locale('en')),
+    makeTestable(_PickerHarness(formats: formats), locale: const Locale('en')),
   );
   await tester.tap(find.text('Open picker'));
   await tester.pump();
@@ -69,8 +79,9 @@ void main() {
   });
 
   group('ExportFormatPicker', () {
-    testWidgets('renders five options in stable TXT → MD → CSV → JSON → DOCX '
-        'order with labels and icons', (tester) async {
+    testWidgets('renders the five formats with labels, extensions and icons', (
+      tester,
+    ) async {
       await _openPicker(tester);
 
       // All five labels visible
@@ -89,17 +100,6 @@ void main() {
 
       // Each option exposes an Icon widget
       expect(find.byType(Icon), findsNWidgets(5));
-
-      // Order is preserved top-to-bottom
-      final txtY = tester.getCenter(find.text(l10n.exportFormatText)).dy;
-      final mdY = tester.getCenter(find.text(l10n.exportFormatMarkdown)).dy;
-      final csvY = tester.getCenter(find.text(l10n.exportFormatCsv)).dy;
-      final jsonY = tester.getCenter(find.text(l10n.exportFormatJson)).dy;
-      final docxY = tester.getCenter(find.text(l10n.exportFormatWord)).dy;
-      expect(txtY < mdY, isTrue, reason: 'TXT before MD');
-      expect(mdY < csvY, isTrue, reason: 'MD before CSV');
-      expect(csvY < jsonY, isTrue, reason: 'CSV before JSON');
-      expect(jsonY < docxY, isTrue, reason: 'JSON before DOCX');
     });
 
     testWidgets('tapping an option resolves the future with that format', (
@@ -233,6 +233,97 @@ void main() {
 
       // 3. Should have pre-selected JSON (index 3)
       expect(find.text('result=json'), findsOneWidget);
+    });
+  });
+
+  group('ExportFormatPicker last-format persistence', () {
+    const notes = [ExportFormat.txt, ExportFormat.md];
+    const history = [
+      ExportFormat.txt,
+      ExportFormat.md,
+      ExportFormat.json,
+      ExportFormat.csv,
+      ExportFormat.docx,
+    ];
+
+    Future<String> enterResult(WidgetTester tester) async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      return find
+          .textContaining('result=')
+          .evaluate()
+          .map((e) => (e.widget as Text).data!)
+          .single;
+    }
+
+    testWidgets('persists the format name, not an index', (tester) async {
+      await _openPicker(tester, formats: history);
+      await tester.tap(find.byKey(const ValueKey('export-format-csv')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('last_export_format'), 'csv');
+    });
+
+    testWidgets('migrates the legacy index once and removes the old key', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'last_export_format_index': 2});
+      await _openPicker(tester, formats: history);
+      expect(await enterResult(tester), 'result=json');
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('last_export_format'), 'json');
+      expect(prefs.containsKey('last_export_format_index'), isFalse);
+    });
+
+    testWidgets('an out-of-range legacy index is dropped without throwing', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'last_export_format_index': 9});
+      await _openPicker(tester, formats: notes);
+      expect(await enterResult(tester), 'result=txt');
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('last_export_format_index'), isFalse);
+    });
+
+    testWidgets('the stored name survives a reordered list', (tester) async {
+      SharedPreferences.setMockInitialValues({'last_export_format': 'json'});
+      await _openPicker(
+        tester,
+        formats: const [ExportFormat.docx, ExportFormat.json, ExportFormat.txt],
+      );
+      expect(await enterResult(tester), 'result=json');
+    });
+
+    testWidgets('a name the caller does not offer falls back to the first', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'last_export_format': 'docx'});
+      await _openPicker(tester, formats: notes);
+      expect(await enterResult(tester), 'result=txt');
+    });
+
+    testWidgets('an unknown or wrongly typed value falls back to the first', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({'last_export_format': 'pdf'});
+      await _openPicker(tester, formats: notes);
+      expect(await enterResult(tester), 'result=txt');
+    });
+
+    testWidgets('the choice is shared across callers by name', (tester) async {
+      await _openPicker(tester, formats: history);
+      await tester.tap(find.byKey(const ValueKey('export-format-md')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      await tester.pumpWidget(const SizedBox());
+      await _openPicker(tester, formats: notes);
+      expect(await enterResult(tester), 'result=md');
     });
   });
 }

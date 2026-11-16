@@ -14,14 +14,17 @@ import 'package:whispaste/services/deploy_channel_service.dart';
 
 void main() {
   group('detectDeployChannel', () {
-    test(
-      'returns portable on a non-MAS macOS build',
-      () {
-        expect(kIsMasBuild, isFalse);
-        expect(detectDeployChannel(), DeployChannel.portable);
-      },
-      skip: Platform.isMacOS ? false : 'macOS-only branch',
-    );
+    // A Homebrew cask on the host (the dev Mac) is a real package-managed
+    // install, so the expectation follows the host instead of failing there.
+    test('a non-MAS macOS build is portable unless a Homebrew cask exists', () {
+      expect(kIsMasBuild, isFalse);
+      expect(
+        detectDeployChannel(),
+        hasHomebrewCaskEntry()
+            ? DeployChannel.packageManaged
+            : DeployChannel.portable,
+      );
+    }, skip: Platform.isMacOS ? false : 'macOS-only branch');
 
     test('deployChannelOverride short-circuits real detection', () {
       deployChannelOverride = DeployChannel.store;

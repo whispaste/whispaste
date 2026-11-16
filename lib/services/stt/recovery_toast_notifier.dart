@@ -2,7 +2,7 @@
 /// layer.
 ///
 /// Why this exists: `SttServerStateNotifier` lives in `services/` and must
-/// not depend on Flutter widgets — it cannot push a [WpToast] directly.
+/// not depend on Flutter widgets — it cannot show a message directly.
 /// Following the same pattern as `PasteFailureNotifier`, this notifier
 /// holds the most recent recovery event and the UI (currently
 /// `RecordingBehavior` in `widgets/recording_behavior.dart`) listens for
@@ -47,6 +47,20 @@ enum RecoveryToastKind {
   /// only the pack was switched off, Vulkan stays. Informational toast with
   /// the same "open settings" action.
   cudaLoadCrashDisabled,
+
+  /// The out-of-process GPU probe (`gpu_probe.dart`) failed for this GPU, so
+  /// this session runs on CPU. Same "open settings" action; the retry lives
+  /// there.
+  gpuProbeFailed,
+
+  /// A real model load failed on the GPU for a hardware reason and the CPU
+  /// took over (#561). Remembered for this GPU, driver, OS and app version;
+  /// same "open settings" action, where the retry lives.
+  gpuLoadIncompatible,
+
+  /// The model failed to load and its file failed the hash check; WhisPaste
+  /// deletes it and loads it again in the background (#561). Passive hint.
+  modelFileRepair,
 }
 
 /// One recovery event emitted by `_attemptRecovery`.
@@ -61,7 +75,6 @@ class RecoveryToastNotifier extends Notifier<RecoveryToastEvent?> {
   @override
   RecoveryToastEvent? build() => null;
 
-  // loam-ignore: unused-public-exports – orphaned by the Issue 03 engine cutover, stays for Issue 05's FFI-error resilience rewiring
   void report(RecoveryToastKind kind) {
     state = RecoveryToastEvent(kind: kind);
   }

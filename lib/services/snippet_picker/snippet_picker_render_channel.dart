@@ -2,21 +2,27 @@ import 'package:flutter/services.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
+import 'snippet_picker_protocol.dart';
 
 final _log = AppLogger('SnippetPickerRenderChannel');
 
 /// A snippet as relayed to the render engine — mirrors the `{'id', 'title',
-/// 'body'}` map shape [MacOSSnippetPickerController.show] sends natively.
+/// 'body'}` map shape [MacOSSnippetPickerController.show] sends natively,
+/// plus the optional `kind`/`hint` keys of `snippet_picker_protocol.dart`.
 class SnippetPickerRenderItem {
   const SnippetPickerRenderItem({
     required this.id,
     required this.title,
     required this.body,
+    this.kind = SnippetPickerItemKind.snippet,
+    this.hint = '',
   });
 
   final String id;
   final String title;
   final String body;
+  final SnippetPickerItemKind kind;
+  final String hint;
 
   static SnippetPickerRenderItem? tryParse(Object? raw) {
     if (raw is! Map) return null;
@@ -24,7 +30,14 @@ class SnippetPickerRenderItem {
     final title = raw['title'];
     final body = raw['body'];
     if (id is! String || title is! String || body is! String) return null;
-    return SnippetPickerRenderItem(id: id, title: title, body: body);
+    final hint = raw[kSnippetPickerHintKey];
+    return SnippetPickerRenderItem(
+      id: id,
+      title: title,
+      body: body,
+      kind: SnippetPickerItemKind.parse(raw[kSnippetPickerKindKey]),
+      hint: hint is String ? hint : '',
+    );
   }
 }
 
@@ -51,8 +64,10 @@ class SnippetPickerRenderChannel implements RenderChannel {
 
   final MethodChannel _channel;
 
-  /// Called when the native shell relays a fresh item list for this `show()`.
-  final void Function(List<SnippetPickerRenderItem> items) onItems;
+  /// Called when the native shell relays a fresh item list for this `show()`,
+  /// with the search text to pre-fill ('' = none).
+  final void Function(List<SnippetPickerRenderItem> items, String query)
+  onItems;
 
   /// Called when the native shell's own `NSEvent` monitor sees Return/Enter
   /// while the picker panel is key — a local monitor bypasses the search
@@ -63,7 +78,10 @@ class SnippetPickerRenderChannel implements RenderChannel {
   /// fragile and stopped reliably delivering `insertNewline:` (which used to
   /// reach `TextInputAction.done`/`onSubmitted`) after the panel's view
   /// controller started being detached/reattached on every `show()`.
-  final VoidCallback onSubmit;
+  ///
+  /// `sentence` is true for ⌘+Return ("In einem Satz"): the monitor
+  /// swallows that key too, so the shell passes the modifier along.
+  final void Function({required bool sentence}) onSubmit;
 
   /// Called when the native shell's `dismiss()` orders the panel off screen.
   ///
@@ -90,15 +108,17 @@ class SnippetPickerRenderChannel implements RenderChannel {
         final args = call.arguments;
         if (args is Map) {
           final raw = args['items'];
+          final query = args['query'];
           if (raw is List) {
             onItems([
               for (final entry in raw) ?SnippetPickerRenderItem.tryParse(entry),
-            ]);
+            ], query is String ? query : '');
           }
         }
         return null;
       case 'submitHighlighted':
-        onSubmit();
+        final args = call.arguments;
+        onSubmit(sentence: args is Map && args['sentence'] == true);
         return null;
       case 'panelHidden':
         onPanelHidden();
@@ -121,7 +141,7 @@ class SnippetPickerRenderChannel implements RenderChannel {
     _channel.invokeMethod('selectItem', {'id': id});
   }
 
-  /// Reports a dismissal without a selection (Esc, focus lost) — the native
+  /// Reports a dismissal without a selection (Esc) — the native
   /// shell closes the panel and relays this as `onCancelled`.
   void cancel() {
     _channel.invokeMethod('cancel');

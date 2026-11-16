@@ -8,6 +8,7 @@
 import SubpageLayout from '../../layouts/SubpageLayout.astro';
 import PageHero from '../PageHero.astro';
 import MotionSupport from '../motion/MotionSupport.astro';
+import CoffeeButton from '../CoffeeButton.astro';
 import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
 import { t, localePath, type Locale } from '../../scripts/i18n.ts';
 
@@ -33,6 +34,11 @@ const channels = [
     icon: '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
   },
   {
+    id: 'buymeacoffee',
+    href: BUY_ME_A_COFFEE_URL,
+    icon: '<path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/>',
+  },
+  {
     id: 'paypal',
     href: 'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY',
     icon: '<path fill="currentColor" stroke="none" d="M7.08 21.5H3.6a.6.6 0 0 1-.59-.7L5.9 2.7A1 1 0 0 1 6.89 2h6.6c3.63 0 5.95 1.9 5.3 5.36-.7 3.73-3.36 5.39-6.83 5.39H9.8a.8.8 0 0 0-.79.67L7.98 20.8a.8.8 0 0 1-.9.7Zm13.1-12.9c-.15-.1-.32.03-.36.2-.84 3.6-3.6 5.55-7.5 5.55h-1.4a.6.6 0 0 0-.59.5l-1.05 6.62a.6.6 0 0 0 .6.7h2.65a.8.8 0 0 0 .79-.67l.7-4.44a.8.8 0 0 1 .79-.68h.8c3 0 5.3-1.4 5.9-4.6.28-1.5.03-2.67-.33-3.18Z"/>',
@@ -41,6 +47,7 @@ const channels = [
 
 const costs = ['apple', 'microsoft', 'hosting'] as const;
 import PageSheet from "../PageSheet.astro";
+import { BUY_ME_A_COFFEE_URL } from '../../data/support-links';
 ---
 
 <SubpageLayout lang={lang} title={t(lang, 'meta.title.sponsor')} description={t(lang, 'meta.description.sponsor')}>
@@ -50,10 +57,14 @@ import PageSheet from "../PageSheet.astro";
     lead={t(lang, 'sponsor.desc')}
     leadKey="sponsor.desc"
     crumbs={breadcrumbItems}
-    artLabel="COMMUNITY"
+    artLabel={t(lang, 'art.label.community').toUpperCase()}
     testid="sponsor-hero"
   >
     <MotionSupport slot="art" />
+    <div slot="actions" class="sp-actions">
+      <CoffeeButton label="Ko-fi" href="https://ko-fi.com/silviol" testid="sponsor-coffee" />
+      <CoffeeButton label="Buy Me a Coffee" href={BUY_ME_A_COFFEE_URL} testid="sponsor-buy-me-a-coffee" />
+    </div>
   </PageHero>
 
   <PageSheet>

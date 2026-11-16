@@ -7,6 +7,11 @@
 /// ever carries both meanings, which is what keeps it from feeling like the
 /// favourite star sitting next to it.
 ///
+/// In the list row, setting the mark has no button of its own (one action
+/// set per row: Copy, Star, Delete; #1498): it lives in the row's context
+/// menu and is a screen-reader custom action. The mark glyph that clears it
+/// stays permanent on the marked note.
+///
 /// These tests pin exactly that: which control exists in which state, that the
 /// write path is reached with a flushed autosave, and that neither control
 /// appears in the trash view.
@@ -15,6 +20,7 @@ library;
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -22,7 +28,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
@@ -148,6 +153,45 @@ Future<void> _hover(WidgetTester tester, Finder finder) async {
 }
 
 Finder _setAction() => find.byIcon(LucideIcons.zap);
+
+/// The editor head's "set" action, wherever the head puts it: as its own
+/// button, or as an entry of the "more" menu when the title needs the width.
+/// Returns null when the head offers no such action.
+Future<Future<void> Function()?> _headSetAction(WidgetTester tester) async {
+  final inline = find.byKey(const ValueKey('notes-editor-quicknote-n1'));
+  if (inline.evaluate().isNotEmpty) {
+    return () => tester.tap(inline);
+  }
+  final more = find.byKey(const ValueKey('notes-editor-more-n1'));
+  if (more.evaluate().isEmpty) return null;
+  await tester.tap(more);
+  await tester.pumpAndSettle();
+  final item = find.byKey(const ValueKey('notes-editor-menu-quicknote'));
+  if (item.evaluate().isEmpty) return null;
+  return () => tester.tap(item);
+}
+
+/// The list row's context-menu item that sets the mark.
+Finder _setMenuItem() => find.byKey(const ValueKey('notes-quick-note-set-n1'));
+
+/// Opens the list row's context menu (right click on the title).
+Future<void> _openRowMenu(WidgetTester tester) async {
+  await tester.tap(
+    find.byKey(const ValueKey('notes-row-title-n1')),
+    buttons: kSecondaryButton,
+  );
+  await tester.pumpAndSettle();
+}
+
+/// The custom semantics action ids on the note row's own node.
+List<int> _rowCustomActionIds() {
+  final node = find.semantics
+      .byPredicate((node) => node.identifier == 'notes-row-n1')
+      .evaluate()
+      .single;
+  return node.getSemanticsData().customSemanticsActionIds ?? const [];
+}
+
 // `.data` because FaIcon overrides Icon.icon with the wrapped IconData —
 // find.byIcon compares against that, not against the FaIconData wrapper.
 Finder _markGlyph() => find.byIcon(FontAwesomeIcons.bolt.data);
@@ -158,19 +202,32 @@ void main() {
   });
 
   group('list tile — which control exists in which state', () {
-    testWidgets('an unmarked note offers "set" on hover, and no mark glyph', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(_tile(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-      expect(_markGlyph(), findsNothing);
-      expect(_setAction(), findsNothing);
+    testWidgets(
+      'an unmarked note offers "set" in its context menu, and no mark glyph',
+      (tester) async {
+        var setCalls = 0;
+        await tester.pumpWidget(
+          makeTestable(
+            _tile(onSet: () => setCalls++),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_markGlyph(), findsNothing);
 
-      await _hover(tester, find.byType(NotesListTile));
-      expect(_setAction(), findsOneWidget);
-    });
+        await _hover(tester, find.byType(NotesListTile));
+        expect(
+          _setAction(),
+          findsNothing,
+          reason: 'the row shows Copy, Star, Delete only (#1498)',
+        );
+
+        await _openRowMenu(tester);
+        await tester.tap(_setMenuItem());
+        await tester.pumpAndSettle();
+        expect(setCalls, 1);
+      },
+    );
 
     testWidgets('the marked note shows the mark without hovering', (
       tester,
@@ -185,13 +242,6 @@ void main() {
         findsOneWidget,
         reason: 'which note is the quick note must be readable at a glance',
       );
-      expect(
-        tester.widget<FaIcon>(_markGlyph()).color,
-        WpColors.accent,
-        reason:
-            'the mark carries the generic interaction accent, never the '
-            'favourite star amber (WpSharedColors.pinnedAccent)',
-      );
     });
 
     testWidgets('the marked note offers no way to mark it again', (
@@ -201,10 +251,10 @@ void main() {
         makeTestable(_tile(isQuickNote: true), locale: const Locale('en')),
       );
       await tester.pumpAndSettle();
-      await _hover(tester, find.byType(NotesListTile));
+      await _openRowMenu(tester);
 
       expect(
-        _setAction(),
+        _setMenuItem(),
         findsNothing,
         reason:
             'a default value does not get re-chosen — the control is absent, '
@@ -245,40 +295,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _hover(tester, find.byType(NotesListTile));
-
       expect(_markGlyph(), findsNothing);
-      expect(_setAction(), findsNothing);
-    });
-
-    testWidgets('keyboard focus alone reveals the set action', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(_tile(isFocused: true), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        _setAction(),
-        findsOneWidget,
-        reason: 'the list cursor must reach the action without a mouse',
-      );
-    });
-
-    testWidgets('revealing the set action does not change the row height', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(_tile(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
-      final atRest = tester.getSize(find.byType(NotesListTile)).height;
-
-      await _hover(tester, find.byType(NotesListTile));
-      expect(
-        tester.getSize(find.byType(NotesListTile)).height,
-        atRest,
-        reason: 'the row must not get restless when the mark action appears',
-      );
+      await _openRowMenu(tester);
+      expect(_setMenuItem(), findsNothing);
     });
   });
 
@@ -298,7 +317,16 @@ void main() {
           makeTestable(_tile(isFocused: true), locale: const Locale('en')),
         );
         await tester.pumpAndSettle();
-        expect(find.bySemanticsLabel(l10n.notesQuickNoteSet), findsOneWidget);
+        // "Set" has no button: screen readers reach it as a custom action
+        // on the row, since they cannot open a right-click menu.
+        expect(
+          _rowCustomActionIds(),
+          contains(
+            CustomSemanticsAction.getIdentifier(
+              CustomSemanticsAction(label: l10n.notesQuickNoteSet),
+            ),
+          ),
+        );
       } finally {
         handle.dispose();
       }
@@ -361,16 +389,24 @@ void main() {
   });
 
   group('editor toolbar', () {
-    testWidgets('an unmarked note offers "set" in the action cluster', (
+    testWidgets('an unmarked note offers "set" in the head actions', (
       tester,
     ) async {
+      var setCalls = 0;
       await tester.pumpWidget(
-        makeTestable(_panel(), locale: const Locale('en')),
+        makeTestable(
+          _panel(onSet: () => setCalls++),
+          locale: const Locale('en'),
+        ),
       );
       await tester.pumpAndSettle();
 
-      expect(_setAction(), findsOneWidget);
       expect(_markGlyph(), findsNothing);
+      final trigger = await _headSetAction(tester);
+      expect(trigger, isNotNull, reason: 'inline or in the "more" menu');
+      await trigger!();
+      await tester.pumpAndSettle();
+      expect(setCalls, 1);
     });
 
     testWidgets('the marked note shows the mark and drops the set button', (
@@ -386,11 +422,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_markGlyph(), findsOneWidget);
-      expect(_setAction(), findsNothing);
-
       await tester.tap(_markGlyph());
       await tester.pump();
       expect(clearCalls, 1);
+      expect(await _headSetAction(tester), isNull);
     });
 
     testWidgets('a trashed note has neither control', (tester) async {
@@ -403,7 +438,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_markGlyph(), findsNothing);
-      expect(_setAction(), findsNothing);
+      expect(await _headSetAction(tester), isNull);
     });
   });
 
@@ -444,22 +479,26 @@ void main() {
       await tester.enterText(
         find
             .descendant(
-              of: find.byType(NoteEditorPanel),
+              of: find.byKey(const ValueKey('notes-editor-body')),
               matching: find.byType(TextField),
             )
             .first,
         'Hello world',
       );
-      // Deliberately no pump past the 400ms debounce — only the mark's own
+      // Deliberately no pump past the quiet pause — only the mark's own
       // flush may fire this save.
       await tester.pump();
       expect(actions.calls, isEmpty);
 
-      // The open note offers "set" twice — once in its list row, once in the
-      // editor toolbar. This is the list row's copy.
+      // The open note offers "set" twice — once in its list row's context
+      // menu, once in the editor toolbar. This is the list row's copy.
       await tester.tap(
-        find.descendant(of: find.byType(NotesListTile), matching: _setAction()),
+        find.byKey(const ValueKey('notes-row-title-n1')),
+        buttons: kSecondaryButton,
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(_setMenuItem());
       await tester.pump();
 
       expect(
@@ -498,7 +537,7 @@ void main() {
       await tester.enterText(
         find
             .descendant(
-              of: find.byType(NoteEditorPanel),
+              of: find.byKey(const ValueKey('notes-editor-body')),
               matching: find.byType(TextField),
             )
             .first,

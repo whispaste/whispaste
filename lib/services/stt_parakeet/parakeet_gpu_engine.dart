@@ -18,9 +18,14 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
+import '../audio/pcm_wav_codec.dart' show Pcm16WavSource;
+import '../stt/native_call_guard.dart';
+import '../stt/whisper/ggml_backend_registry.dart';
+import '../transcription/transcript_seam.dart';
 import 'parakeet_audio_chunker.dart';
 import 'parakeet_bindings.dart';
 
@@ -59,9 +64,13 @@ class _InitReply {
 }
 
 class _Transcribe {
-  const _Transcribe({required this.id, required this.samples});
+  const _Transcribe({required this.id, this.samples, this.audio});
   final int id;
-  final Float32List samples;
+
+  /// Float samples (warm-up, tests), or the recording's WAV file or bytes,
+  /// which the worker turns into float32 one chunk at a time (#1665).
+  final Float32List? samples;
+  final Pcm16WavSource? audio;
 }
 
 class _TranscribeReply {
@@ -122,7 +131,14 @@ void _gpuWorkerMain(SendPort mainPort) {
         }
         try {
           flag.value = 0; // a stale abort from an earlier timeout must not leak
-          final text = _transcribeChunks(b, c, flag, req.samples, threads);
+          final audio = req.audio;
+          final text = audio != null
+              ? transcribePcmInParakeetChunks(
+                  audio.open(),
+                  sampleRate: 16000,
+                  decode: (chunk) => _decodeChunk(b, c, flag, chunk, threads),
+                )
+              : _transcribeChunks(b, c, flag, req.samples!, threads);
           mainPort.send(_TranscribeReply(id: req.id, text: text));
         } on Object catch (e) {
           mainPort.send(_TranscribeReply(id: req.id, error: '$e'));
@@ -160,7 +176,7 @@ void _gpuWorkerMain(SendPort mainPort) {
   final base = Platform.isWindows && File(basePath).existsSync()
       ? ffi.DynamicLibrary.open(basePath)
       : null;
-  final device = _gpuDeviceName([?ggml, ?base]);
+  final device = _gpuDeviceName([?ggml, ?base], _ggmlRegistryIn(backendDir));
   if (device == null) throw ParakeetGpuException('no_gpu_device');
 
   final params = bindings.contextDefaultParams();
@@ -181,15 +197,16 @@ String _transcribeChunks(
   int threads,
 ) {
   final texts = <String>[];
+  final overlaps = <bool>[];
   // Empty input never reaches the native call: parakeet_full with zero samples
   // keeps the segments of the previous run, which would repeat its text.
   if (samples.isEmpty) return '';
   for (final chunk in splitForParakeet(samples, sampleRate: 16000)) {
-    if (chunk.isEmpty) continue;
-    final text = _decodeChunk(b, ctx, abortFlag, chunk, threads).trim();
-    if (text.isNotEmpty) texts.add(text);
+    if (chunk.samples.isEmpty) continue;
+    texts.add(_decodeChunk(b, ctx, abortFlag, chunk.samples, threads).trim());
+    overlaps.add(chunk.overlapsPrevious);
   }
-  return texts.join(' ');
+  return joinSeamTexts(texts, overlaps);
 }
 
 String _decodeChunk(
@@ -237,23 +254,29 @@ ffi.DynamicLibrary? openGgmlLibrary(String dir) {
   return null;
 }
 
+/// The ggml registry calls for the libraries in [dir], through `wp_ffi_guard`.
+GgmlBackendRegistry _ggmlRegistryIn(String dir) =>
+    GgmlBackendRegistry(NativeCallGuard.nextTo(p.join(dir, 'libggml')));
+
+/// Registers the ggml backend modules in [dir] through the guard. A backend
+/// that throws is logged and leaves the GPU unregistered (CPU fallback).
 void loadGgmlBackendModules(ffi.DynamicLibrary ggml, String dir) {
-  if (ggml.providesSymbol('ggml_backend_load_all_from_path')) {
-    final loadFromPath = ggml
-        .lookupFunction<
-          ffi.Void Function(ffi.Pointer<Utf8>),
-          void Function(ffi.Pointer<Utf8>)
-        >('ggml_backend_load_all_from_path');
-    final dirC = dir.toNativeUtf8();
-    try {
-      loadFromPath(dirC);
-    } finally {
-      malloc.free(dirC);
-    }
-  } else if (ggml.providesSymbol('ggml_backend_load_all')) {
-    ggml.lookupFunction<ffi.Void Function(), void Function()>(
-      'ggml_backend_load_all',
-    )();
+  final registry = _ggmlRegistryIn(dir);
+  try {
+    if (!registry.loadAllFromPath(ggml, dir)) registry.loadAll(ggml);
+  } on NativeCallException catch (e) {
+    _log.warning('ggml backend load threw natively: ${e.message}');
+  }
+}
+
+/// Number of devices ggml has registered, or `null` when it cannot be asked
+/// (no guard, or the call threw).
+int? ggmlDeviceCount(ffi.DynamicLibrary ggml, String dir) {
+  try {
+    return _ggmlRegistryIn(dir).devCount(ggml);
+  } on NativeCallException catch (e) {
+    _log.warning('ggml device count threw natively: ${e.message}');
+    return null;
   }
 }
 
@@ -263,7 +286,10 @@ void loadGgmlBackendModules(ffi.DynamicLibrary ggml, String dir) {
 /// A split Windows bundle spreads the registry API over ggml.dll
 /// (count/get) and ggml-base.dll (type/name); each symbol comes from the
 /// first of [libs] that exports it.
-String? _gpuDeviceName(List<ffi.DynamicLibrary> libs) {
+String? _gpuDeviceName(
+  List<ffi.DynamicLibrary> libs,
+  GgmlBackendRegistry registry,
+) {
   ffi.DynamicLibrary? providing(String symbol) {
     for (final lib in libs) {
       if (lib.providesSymbol(symbol)) return lib;
@@ -281,28 +307,16 @@ String? _gpuDeviceName(List<ffi.DynamicLibrary> libs) {
       nameLib == null) {
     return null;
   }
-  final count = countLib.lookupFunction<ffi.Size Function(), int Function()>(
-    'ggml_backend_dev_count',
-  )();
-  final devGet = getLib
-      .lookupFunction<
-        ffi.Pointer<ffi.Void> Function(ffi.Size),
-        ffi.Pointer<ffi.Void> Function(int)
-      >('ggml_backend_dev_get');
-  final devType = typeLib
-      .lookupFunction<
-        ffi.Int32 Function(ffi.Pointer<ffi.Void>),
-        int Function(ffi.Pointer<ffi.Void>)
-      >('ggml_backend_dev_type');
-  final devName = nameLib
-      .lookupFunction<
-        ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
-        ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
-      >('ggml_backend_dev_name');
-  for (var i = 0; i < count; i++) {
-    final dev = devGet(i);
-    final type = devType(dev);
-    if (type == 1 || type == 2) return devName(dev).toDartString();
+  try {
+    final count = registry.devCount(countLib) ?? 0;
+    for (var i = 0; i < count; i++) {
+      final dev = registry.devGet(getLib, i);
+      if (dev == null) return null;
+      final type = registry.devType(typeLib, dev);
+      if (type == 1 || type == 2) return registry.devName(nameLib, dev);
+    }
+  } on NativeCallException catch (e) {
+    _log.warning('ggml device enumeration threw natively: ${e.message}');
   }
   return null;
 }
@@ -328,6 +342,17 @@ class ParakeetGpuEngine {
   Completer<void>? _shutdownCompleter;
   int _nextId = 0;
   bool _closed = false;
+
+  /// Test seam: an engine whose worker is the stand-in [port]. No isolate is
+  /// spawned and no library is loaded; only [transcribe] and
+  /// [hasNativeCallRunning] are meaningful on it.
+  @visibleForTesting
+  ParakeetGpuEngine.forTesting(SendPort port)
+    : _isolate = Isolate.current,
+      _replies = ReceivePort(),
+      _abortFlag = calloc<ffi.Int32>(),
+      _port = port,
+      device = 'test';
 
   /// Spawns the worker and loads the library, backend modules and model.
   /// Throws [ParakeetGpuException] on any failure, and the worker is torn down.
@@ -399,12 +424,35 @@ class ParakeetGpuEngine {
     Float32List samples, {
     required Duration timeout,
     Duration abortGrace = const Duration(seconds: 10),
+  }) => _run(
+    _Transcribe(id: _nextId++, samples: samples),
+    timeout: timeout,
+    abortGrace: abortGrace,
+  );
+
+  /// [transcribe] for a recording given as its WAV file or bytes (#1665).
+  /// The worker reads one chunk at a time, so the recording is never float32
+  /// as a whole, and a file source sends no audio to the worker at all.
+  Future<String> transcribePcm(
+    Pcm16WavSource audio, {
+    required Duration timeout,
+    Duration abortGrace = const Duration(seconds: 10),
+  }) => _run(
+    _Transcribe(id: _nextId++, audio: audio),
+    timeout: timeout,
+    abortGrace: abortGrace,
+  );
+
+  Future<String> _run(
+    _Transcribe request, {
+    required Duration timeout,
+    required Duration abortGrace,
   }) async {
     if (_closed) throw ParakeetGpuException('engine_closed');
-    final id = _nextId++;
+    final id = request.id;
     final completer = Completer<_TranscribeReply>();
     _pending[id] = completer;
-    _port.send(_Transcribe(id: id, samples: samples));
+    _port.send(request);
     final timer = Timer(timeout, () {
       _log.warning('GPU transcription exceeded $timeout — aborting');
       _abortFlag.value = 1;
@@ -417,9 +465,23 @@ class ParakeetGpuEngine {
       if (reply.error != null) throw ParakeetGpuException(reply.error!);
       return reply.text ?? '';
     } finally {
+      // The entry stays until the worker answers (see [_onMessage]): a decode
+      // that outlives its timeout is still running natively.
       timer.cancel();
-      _pending.remove(id);
     }
+  }
+
+  /// True while a native transcription is still in flight in the worker.
+  bool get hasNativeCallRunning => _pending.isNotEmpty;
+
+  /// Quit path: kills the worker now instead of waiting for its acknowledgement.
+  /// A worker inside a native call is not interrupted by the kill; the caller
+  /// must then end the process without static destructors (GS-117).
+  void abandon() {
+    if (_closed) return;
+    _closed = true;
+    _isolate.kill(priority: Isolate.immediate);
+    _replies.close();
   }
 
   /// Frees the native context and stops the worker. Idempotent. The abort
@@ -433,6 +495,8 @@ class ParakeetGpuEngine {
     _port.send(const _Shutdown());
     try {
       await ack.future.timeout(const Duration(seconds: 10));
+      // The worker acks in order, so no decode is still in flight.
+      _pending.clear();
       calloc.free(_abortFlag);
     } on TimeoutException {
       _log.warning('GPU worker did not acknowledge shutdown; killing it');

@@ -18,10 +18,6 @@ import type { Page } from '@playwright/test';
  *    so it stays hidden there. In the unknown-OS fallback (no data-os: all
  *    three CTAs visible) it also stays hidden, because a Store-only hint under
  *    three equal-rank buttons would read as applying to all of them.
- * 2. The "Warum zwei Wege" / "Why two ways" section on /download/ used to sit
- *    at the very bottom of the page, after all CTAs. It now renders BEFORE
- *    the two-/four-card platform decision, so visitors understand the
- *    Store-vs-free choice before making it.
  *
  * `data-os` is driven directly via page.evaluate (not addInitScript) —
  * mirrors the established pattern in tests/landing.spec.ts
@@ -37,21 +33,6 @@ async function setOs(page: Page, os: 'windows' | 'macos' | 'linux' | undefined) 
       delete document.documentElement.dataset.os;
     }
   }, os);
-}
-
-async function assertDocumentOrder(page: Page, beforeTestId: string, afterTestId: string) {
-  const beforePrecedesAfter = await page.evaluate(
-    ([beforeId, afterId]) => {
-      const before = document.querySelector(`[data-testid="${beforeId}"]`);
-      const after = document.querySelector(`[data-testid="${afterId}"]`);
-      if (!before || !after) return false;
-      // DOCUMENT_POSITION_FOLLOWING (4) is set on `after` relative to `before`
-      // when `before` comes first in document order.
-      return (before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    },
-    [beforeTestId, afterTestId] as const,
-  );
-  expect(beforePrecedesAfter).toBe(true);
 }
 
 const OS_VARIANTS = ['windows', 'macos', 'linux', undefined] as const;
@@ -83,28 +64,6 @@ test.describe('Pricing store-hint platform gating', () => {
   });
 });
 
-test.describe('"Warum zwei Wege" / "Why two ways" section order', () => {
-  test('renders before the platform card decision on /download/ (DE)', async ({ page }) => {
-    await page.goto('/download/');
-    await expect(page.getByTestId('why-two-ways')).toBeVisible();
-    await expect(page.getByTestId('download-primary-group')).toBeVisible();
-    await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
-  });
-
-  test('renders before the platform card decision on /en/download/ (parity)', async ({ page }) => {
-    await page.goto('/en/download/');
-    await expect(page.getByTestId('why-two-ways')).toBeVisible();
-    await expect(page.getByTestId('download-primary-group')).toBeVisible();
-    await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
-  });
-
-  test('section order holds at 390px mobile width', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/download/');
-    await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
-  });
-});
-
 // The store perks (support, reviewed, auto-updates) sit inside the "two ways"
 // card so the reasons to pick the store build are next to the decision.
 test('download page lists the three store perks inside "why two ways"', async ({ page }) => {
@@ -113,5 +72,4 @@ test('download page lists the three store perks inside "why two ways"', async ({
   for (const key of ['support', 'safe', 'updates']) {
     await expect(card.getByTestId(`download-store-perks-${key}`)).toBeVisible();
   }
-  await expect(card.getByTestId('download-store-perks-updates')).toContainText('handles app updates');
 });

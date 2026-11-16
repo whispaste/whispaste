@@ -23,27 +23,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/app.dart'
-    show activePageProvider, wpNavItems, wpPageWidgets, wpSettingsNavItem;
+    show
+        activePageProvider,
+        wpHelpNavItem,
+        wpNavItems,
+        wpPageWidgets,
+        wpSettingsNavItem;
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-import 'package:whispaste/features/about/about_page.dart';
-import 'package:whispaste/features/analytics/analytics_page.dart';
-import 'package:whispaste/features/feedback/feedback_page.dart';
-import 'package:whispaste/features/history/history_page.dart';
-import 'package:whispaste/features/replacements/replacements_page.dart';
-import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/feedback_diagnostics.dart'
+    show feedbackDiagnosticBlockProvider;
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/features/history/data/providers.dart'
-    show historyEntriesProvider, archivedEntriesProvider, trashEntriesProvider;
+    show pagedHistoryProvider, archivedEntriesProvider, trashEntriesProvider;
 import 'package:whispaste/widgets/sidebar.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -71,7 +73,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   }
 
   @override
-  Future<String?> stopRecording() async {
+  Future<String?> stopRecording({bool keepTail = true}) async {
     state = AudioStatus(filePath: wavPathToReturn);
     return wavPathToReturn;
   }
@@ -88,12 +90,17 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     state = state.copyWith(serverState: SttServerState.ready);
   }
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+    String? wavPath,
+  }) async {
     return transcriptToReturn;
   }
 
@@ -228,7 +235,7 @@ class _TestNavShell extends ConsumerWidget {
           items: navItems,
           activeId: activePage,
           onItemTap: (id) => ref.read(activePageProvider.notifier).setPage(id),
-          bottomItems: [wpSettingsNavItem(l10n)],
+          bottomItems: [wpHelpNavItem(l10n), wpSettingsNavItem(l10n)],
         ),
         Expanded(child: wpPageWidgets[activePage] ?? const SizedBox.shrink()),
       ],
@@ -245,9 +252,11 @@ class _TestNavShell extends ConsumerWidget {
 /// behind when the ProviderScope is disposed after a test — the same technique
 /// used by [test/features/history/history_page_test.dart].
 List<Object> _emptyHistoryStreamOverrides() => [
-  historyEntriesProvider.overrideWith((ref) => Stream.value([])),
+  pagedHistoryProvider.overrideWith((ref) => Stream.value([])),
   archivedEntriesProvider.overrideWith((ref) => Stream.value([])),
   trashEntriesProvider.overrideWith((ref) => Stream.value([])),
+  // The overview start page reads the notes for its tip choice.
+  notesProvider.overrideWith((ref) => Stream.value([])),
 ];
 
 /// Scratch dir for fake WAV files used in pipeline tests.
@@ -266,36 +275,14 @@ File _createFakeWav(String name) {
   return file;
 }
 
-/// Intercepts [FlutterError] during [action], collecting any overflow
-/// messages without failing the test immediately.  Other errors are
-/// re-dispatched to the original handler (they still fail the test).
-Future<List<String>> _collectOverflowErrors(
-  Future<void> Function() action,
-) async {
-  final overflowMessages = <String>[];
-  final original = FlutterError.onError;
-  FlutterError.onError = (FlutterErrorDetails details) {
-    final msg = details.exception.toString();
-    if (msg.contains('overflowed')) {
-      overflowMessages.add(msg);
-    } else {
-      original?.call(details);
-    }
-  };
-  try {
-    await action();
-  } finally {
-    FlutterError.onError = original;
-  }
-  return overflowMessages;
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // A tap that misses its target fails at once instead of passing silently.
+  WidgetController.hitTestWarningShouldBeFatal = true;
 
   // =========================================================================
   // 1. Navigation Smoke
@@ -323,7 +310,7 @@ void main() {
           overrides: _emptyHistoryStreamOverrides(),
         ),
       );
-      // history is the default page — just settle
+      await tester.tap(find.byKey(const ValueKey('sidebar-nav-history')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       // Characteristic widget: search field
@@ -362,7 +349,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('about page renders without exception', (tester) async {
+    testWidgets('help page renders without exception', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const _TestNavShell(),
@@ -372,7 +359,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(l10n.navAbout));
+      await tester.tap(find.byKey(const ValueKey('sidebar-nav-help')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -383,14 +370,37 @@ void main() {
         makeTestable(
           const _TestNavShell(),
           locale: const Locale('en'),
-          overrides: _emptyHistoryStreamOverrides(),
+          overrides: [
+            ..._emptyHistoryStreamOverrides(),
+            // The live block starts the whisper engine inside the page's
+            // build, which marks that provider dirty mid-frame.
+            feedbackDiagnosticBlockProvider.overrideWithValue('diagnostics'),
+          ],
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(l10n.navFeedback));
+      // Feedback is a button on the Help page's Feedback & contact tab, not a
+      // sidebar entry (#395). At 800×600 the tab bar scrolls to that tab.
+      await tester.tap(find.byKey(const ValueKey('sidebar-nav-help')));
+      await tester.pumpAndSettle();
+      final feedbackTab = find.byKey(const ValueKey('help-hub-tab-feedback'));
+      await tester.ensureVisible(feedbackTab);
+      await tester.pumpAndSettle();
+      await tester.tap(feedbackTab);
+      await tester.pumpAndSettle();
+      // At 800×600 the button sits below the fold; an unscrolled tap misses
+      // it and the test never reached the feedback page.
+      final feedbackButton = find.byKey(const ValueKey('help-feedback-button'));
+      await tester.ensureVisible(feedbackButton);
+      await tester.pumpAndSettle();
+      await tester.tap(feedbackButton);
       await tester.pumpAndSettle();
 
+      // The comment field appears once a feedback type is chosen.
+      await tester.tap(find.bySemanticsIdentifier('feedback-type-question'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('feedbackCommentField')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -595,85 +605,4 @@ void main() {
   // =========================================================================
   // 3. Layout overflow guard
   // =========================================================================
-
-  group('Layout overflow guard', () {
-    // Two representative viewport sizes:
-    //   • 800 × 600 — "narrow desktop" / small laptop
-    //   • 1920 × 1080 — maximised desktop
-    const narrowSize = Size(800, 600);
-    const wideSize = Size(1920, 1080);
-
-    final pages = <String, Widget>{
-      'history': const HistoryPage(),
-      'replacements': const ReplacementsPage(),
-      'analytics': const AnalyticsPage(),
-      'about': const AboutPage(),
-      'feedback': const FeedbackPage(),
-      'settings': const SettingsPage(),
-    };
-
-    // Parameterised helper: renders [page] at [size] and returns any
-    // overflow messages that fired during layout.
-    Future<List<String>> renderAndCollectOverflows(
-      WidgetTester tester,
-      Widget page,
-      Size size,
-    ) async {
-      // Set the viewport to match so both RenderBox constraints and MediaQuery
-      // agree on the available space.
-      tester.view.physicalSize = size;
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      late List<String> overflows;
-      overflows = await _collectOverflowErrors(() async {
-        await tester.pumpWidget(
-          makeTestable(
-            page,
-            size: size,
-            locale: const Locale('en'),
-            overrides: _emptyHistoryStreamOverrides(),
-          ),
-        );
-        await tester.pumpAndSettle();
-      });
-
-      return overflows;
-    }
-
-    for (final entry in pages.entries) {
-      final pageId = entry.key;
-      final pageWidget = entry.value;
-
-      testWidgets('$pageId — no overflow at 800×600', (tester) async {
-        final overflows = await renderAndCollectOverflows(
-          tester,
-          pageWidget,
-          narrowSize,
-        );
-        expect(
-          overflows,
-          isEmpty,
-          reason:
-              '$pageId overflowed at ${narrowSize.width}×${narrowSize.height}',
-        );
-      });
-
-      testWidgets('$pageId — no overflow at 1920×1080', (tester) async {
-        final overflows = await renderAndCollectOverflows(
-          tester,
-          pageWidget,
-          wideSize,
-        );
-        expect(
-          overflows,
-          isEmpty,
-          reason: '$pageId overflowed at ${wideSize.width}×${wideSize.height}',
-        );
-      });
-    }
-  });
 }

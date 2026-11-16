@@ -26,7 +26,7 @@ const lang = currentLocale(Astro.currentLocale);
 
 <a
   href={APPIMAGE_URL}
-  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+  data-download-trigger
   class:list={[
     'wp-linux-btn',
     { 'wp-linux-btn--lg': isLarge },

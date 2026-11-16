@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-libwhisper-macos.sh — reproducible build of the bundled `libwhisper`
-# shared libraries (whisper.cpp v1.9.5, Metal + CPU backends) for the macOS
+# shared libraries (whisper.cpp, scripts/whisper-cpp.pin; Metal + CPU backends) for the macOS
 # `.app`. Produces flat, relocatable dylibs (`@loader_path` rpath, no absolute
 # paths) plus a SHA-256 manifest, staged where the Xcode "[WP] Embed & Sign
 # libwhisper" build phase (macos/Runner.xcodeproj) picks them up and copies them
@@ -32,12 +32,14 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # --- Pinned source provenance (AC3: SHA-256-verified library bezug) ----------
-# whisper.cpp v1.9.5, github.com/ggml-org/whisper.cpp, tag v1.9.5.
+# whisper.cpp, github.com/ggml-org/whisper.cpp, tag and commit from
+# scripts/whisper-cpp.pin (one pin for all platforms).
 # The source tree is fetched by Issue 01 into .build/deps (gitignored); its git
 # HEAD must match this pinned commit before we build against it.
-WHISPER_TAG="v1.9.5"
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$REPO_ROOT/scripts/whisper-cpp.pin"
 WHISPER_SRC="$REPO_ROOT/.build/deps/whisper.cpp/$WHISPER_TAG"
-WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
+WHISPER_PINNED_COMMIT="$WHISPER_COMMIT"
 
 BUILD_DIR="$REPO_ROOT/.build/libwhisper/macos-build"
 STAGE_DIR="$REPO_ROOT/.build/libwhisper/macos"
@@ -48,14 +50,9 @@ echo "=== build-libwhisper-macos ($WHISPER_TAG) ==="
 # `.build/` is gitignored per-checkout state (Issue 01 originally fetched it
 # once into the main repo checkout, but a `git worktree add` checkout starts
 # with an empty `.build/` -- it doesn't inherit the main checkout's build
-# cache). Auto-clone here instead of erroring so a fresh worktree/checkout
+# cache). Fetch it here instead of erroring so a fresh worktree/checkout
 # self-heals on first build instead of silently shipping broken STT.
-if [[ ! -d "$WHISPER_SRC" ]]; then
-  echo "note: whisper.cpp source not found at $WHISPER_SRC -- cloning pinned $WHISPER_TAG."
-  mkdir -p "$(dirname "$WHISPER_SRC")"
-  git clone --depth 1 --branch "$WHISPER_TAG" \
-    https://github.com/ggml-org/whisper.cpp "$WHISPER_SRC"
-fi
+bash "$REPO_ROOT/scripts/fetch-native-deps.sh" whisper
 ACTUAL_COMMIT="$(git -C "$WHISPER_SRC" rev-parse HEAD 2>/dev/null || echo 'unknown')"
 if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then
   echo "ERROR: whisper.cpp source commit mismatch (supply-chain guard)." >&2
@@ -64,6 +61,7 @@ if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then
   exit 1
 fi
 echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
+bash "$REPO_ROOT/scripts/apply-whisper-patches.sh" "$WHISPER_SRC"
 
 # --- 2. Configure + build shared libs (Metal + CPU) -------------------------
 echo "[2/4] cmake configure + build (Metal + CPU, shared) …"
@@ -138,8 +136,9 @@ echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib *.so | tr '\n' ' ')"
 echo "[4/4] writing SHA256SUMS"
 ( cd "$STAGE_DIR" && shasum -a 256 *.dylib *.so > SHA256SUMS )
 # Pin stamp: lets the Xcode embed phase notice dylibs staged from an older
-# whisper.cpp pin and rebuild them.
-echo "$WHISPER_TAG@$WHISPER_PINNED_COMMIT" > "$STAGE_DIR/WHISPER_PIN"
+# whisper.cpp pin or older native/ffi_guard sources and rebuild them. Both
+# sides compute it with the same helper.
+bash "$REPO_ROOT/scripts/libwhisper-pin-stamp.sh" > "$STAGE_DIR/WHISPER_PIN"
 cat "$STAGE_DIR/SHA256SUMS"
 
 echo "=== done. Now run: flutter build macos ==="

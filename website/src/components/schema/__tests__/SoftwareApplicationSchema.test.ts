@@ -10,7 +10,7 @@
  * Manual one-time online verification is documented in the issue's
  * `decisions:` evidence block — paste the rendered `/` and `/en/` HTML into
  * https://validator.schema.org/ and https://search.google.com/test/rich-results
- * and archive the screenshot under `internal-notes`.
+ * and keep the screenshot as evidence on the tracking issue.
  */
 import { describe, expect, it } from "vitest";
 import {

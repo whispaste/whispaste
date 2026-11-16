@@ -22,10 +22,6 @@ export default defineConfig({
   // matches CI's tolerance instead of fighting it on every commit; a real
   // regression still fails both attempts.
   retries: 1,
-  // Cross-engine parity (issue 10): the overlay-mockup snapshot baseline is
-  // shared between the chromium and webkit projects (no {projectName} in the
-  // path), so a passing run proves both engines render the same pixels.
-  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   use: {
     baseURL: BASE_URL,
     locale: 'en-US',
@@ -46,13 +42,6 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
-    // WebKit (Safari engine) runs only the overlay-mockup parity spec; it
-    // compares against the same shared baseline as chromium to prove parity.
-    {
-      name: 'webkit',
-      testMatch: /overlay-parity\.spec\.ts/,
-      use: { ...devices['Desktop Safari'] },
     },
   ],
 });

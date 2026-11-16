@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import 'clipboard_app_exclusion.dart';
 import 'app_clipboard.dart';
 import 'clipboard_fingerprint.dart';
 import 'clipboard_history_entry.dart';
@@ -21,7 +24,8 @@ final _log = AppLogger('ClipboardHistoryMonitorService');
 /// The privacy-exclusion filter (`shouldExcludeForPrivacy`) is applied
 /// here, in the Dart core, per PRD.md -- native monitors report every entry
 /// plus its `org.nspasteboard.*` / Windows privacy flags, they never decide
-/// on their own to drop one.
+/// on their own to drop one. The same holds for the per-app exclusion list
+/// (`sourceApp`, see `clipboard_app_exclusion.dart`).
 class ClipboardHistoryMonitorService extends Notifier<void> {
   static const _channelName = 'com.whispaste.clipboard_history';
 
@@ -44,6 +48,17 @@ class ClipboardHistoryMonitorService extends Notifier<void> {
     );
     if (shouldExcludeForPrivacy(flags)) {
       _log.debug('clipEntryDetected: skipped (privacy-excluded)');
+      return;
+    }
+
+    // Per-app exclusion (issue #593): the native monitor names the app the
+    // copy came from; unknown (Linux, or nothing reported) never matches.
+    final excluded = parseClipboardExcludedApps(
+      ref.read(settingsProvider).value?.interface_.clipboardExcludedApps,
+      defaultTargetPlatform,
+    );
+    if (isClipboardSourceExcluded(args['sourceApp'] as String?, excluded)) {
+      _log.debug('clipEntryDetected: skipped (source app excluded)');
       return;
     }
 

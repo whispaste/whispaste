@@ -14,6 +14,10 @@ scales: `WpSpacing`, `WpRadius`, `WpMotion`, `WpColorsDark`).
 | `semantic.light.tokens.json` | Roles for light "glacier" bands | Same keys as the dark file. |
 | `components.tokens.json` | One group per component (`button`, `card`, `input`, `prose`, …) | Points at semantic tokens only. |
 
+Illustrations follow `illustration/STYLE.md` (paper-cut layers, #172): palette
+from `primitives.tokens.json`, three flat layers, fixed decor. Prompt template:
+`illustration/master-prompt.md`, reference images in `illustration/refs/`.
+
 The format follows the W3C Design Tokens (DTCG) shape: `$type`, `$value`,
 `$description`, aliases written as `{group.token}`. Fluid sizes carry
 `$extensions.fluid` with `min`/`max` (and optional `minVw`/`maxVw`); platforms
@@ -28,9 +32,49 @@ without viewport scaling use `$value`.
   Cool blue-grey, never cream or paper.
 - **Cyan** (`cyan.*`): action and recording. Buttons, focus, waveform, active states.
 - **Amber** (`amber.*`): the warm accent. Markers behind single words, hints,
-  callouts, FAQ icons. Never a button fill, never a large surface.
+  callouts, FAQ icons, and targeted accent surfaces: the dock's primary
+  "Diktieren" call to action, the overlay and button background option, and
+  larger landing-page areas. WCAG AA stays mandatory on amber: text and icons
+  on it use the dark ink (`navy.900`, about 10.5:1). A foreground that cannot
+  reach 3:1 on an amber surface takes the dark ink instead. For the wave the
+  overlay first tries the darker step of the same hue (cyan 600, then cyan 700
+  at about 4.1:1), so the wave stays cyan; the done check goes straight to ink.
 - **Violet** (`navy.500`): only as the last stop of the stage wash.
+- **Coffee yellow** (`coffee.*`, Kaffee-Gelb `#FFDD00`): only the "buy me a
+  coffee" support buttons (Ko-fi and Buy Me a Coffee at equal rank), in the app
+  (`WpCoffeeTokens`) and on the website (`coffee-button`). Ink is `navy.900`
+  (about 15:1). Never used for other accents, so these buttons stay the only
+  yellow things on a screen.
 - **Status**: success/warning/error match the app; each has an on-light variant.
+
+## App overlay presets
+
+`app.tokens.json` carries the `overlay.*` group (ADR 0024): background presets
+(`marine`, `graphit`, `gletscher`, `amber`), each a single flat fill (no
+gradient, no sheen, no specular streak), wave presets (`cyan`, `violett`,
+`amber`, `ink`, `white`, `coral`, `mint`) with a dark and a light value each
+(`ink` only on the light backgrounds, `white` only on the dark ones), plus a darker light
+step (`light-strong`) that the overlay uses when the light value falls below
+3:1 on the fill, and the signal colours per tone. The generator emits them as `WpOverlayTokens`. Users pick a background
+and a wave independently; there is no free colour picker.
+
+The default overlay of the Marine design is the amber background with the ink
+wave, in the compact size, with the static outline (no fluid outline motion);
+`components.tokens.json` → `overlay` carries exactly this look for the website,
+so the site shows the overlay a new installation shows.
+
+## App switch track
+
+`app.tokens.json` (desktop app, ADR 0017) carries `switch-track-off`: the
+track of an off switch. The white thumb must reach 3:1 on it and the track
+3:1 on the window ground (WCAG 1.4.11). Journal (light, and the navy set)
+uses `glacier.600` (6.34:1 thumb, 5.41:1 ground); stage (dark) uses
+`glacier.500` (4.33:1 thumb, 4.28:1 ground). Lighter tracks such as
+`frost.400` fail the thumb check on dark.
+
+`selection-border` (journal and stage, same value `#6B7A96`): the boundary of an
+unselected colour swatch, 3:1 or better on every surface of both sets. A
+single value is used because it passes on both, so it needs no per-theme pair.
 
 ## Modes on the website
 
@@ -72,27 +116,32 @@ The app still paints its old navy→violet/teal colours until it adopts these.
 
 ## Checks
 
-Three layers catch values that bypass the system before anyone sees them:
+Teststrategie 2026-10-30: tests cover only business logic, hand-over points and
+guard checks. Design is not tested. Contrast, spacing, sizes and overflow are
+design requirements that are judged by visual review and by the generators in
+`generators/`, not by test runs.
 
-1. **Token contrast** (`design-tokens.test.ts`): every text role on every band
-   and card surface in both modes meets WCAG AA; text on the solid accent fill
-   too. Translucent surfaces are composited onto the band before measuring.
-2. **Static lint** (also in `design-tokens.test.ts`, runnable by hand):
-   - `node scripts/color-literals.mjs [--verbose]`: hex, rgb()/hsl(), Tailwind
-     palette utilities, named white/black and SVG colour attributes outside
-     `tokens.css`. Mock-ups of the app or an OS window are fenced with
-     `mockup-colours:start` / `mockup-colours:end`; the `theme-color` meta is
-     exempt because browsers read it before CSS.
-   - `node scripts/design-lint.mjs [--verbose] [rule]`: `font-size` and
-     `border-radius` written as lengths, padding/margin/gap off the 4px grid
-     (scale values become `--wp-space-*`), transition durations written as
-     ms/s, and Tailwind arbitrary lengths such as `text-[15px]`.
-3. **Rendered contrast**: Playwright checks text against its effective
-   background on every route (planned, see the website test suite).
+What stays as guard (Schutzprüfung, token drift) is a static lint that stops
+values from bypassing the token system:
 
-The same checks transfer to the app: the JSON feeds the Dart theme, and a
-Dart lint can flag `Color(0x…)`, `EdgeInsets` and `BorderRadius` literals the
-way `design-lint.mjs` flags CSS.
+- `node scripts/color-literals.mjs [--verbose]`: hex, rgb()/hsl(), Tailwind
+  palette utilities, named white/black and SVG colour attributes outside
+  `tokens.css`. Mock-ups of the app or an OS window are fenced with
+  `mockup-colours:start` / `mockup-colours:end`; the `theme-color` meta is
+  exempt because browsers read it before CSS.
+- `node scripts/design-lint.mjs [--verbose] [rule]`: `font-size` and
+  `border-radius` written as lengths, padding/margin/gap off the 4px grid
+  (scale values become `--wp-space-*`), transition durations written as
+  ms/s, and Tailwind arbitrary lengths such as `text-[15px]`. Run by hand as a
+  review aid; it is not a test.
+
+Not checks any more: the token contrast test (`design-tokens.test.ts`) and the
+planned rendered-contrast check (Playwright). They are design tests and are to
+be removed from the test runs (Teststrategie 2026-10-30). Contrast stays a
+requirement (WCAG AA, rule 4 below).
+
+The same token JSON feeds the Dart theme. Token drift between the JSON and the
+generated Dart file remains a guard (`tool/design_tokens/generate_dart.dart`).
 
 ## Catalogue
 
@@ -108,6 +157,59 @@ route exists only in the dev server.
 German landing page (1425 px wide, header to footer) after every section was
 moved onto this system. Compare later redesigns against it.
 
+## App type, spacing and elevation
+
+The app follows ADR 0018: **Bricolage Grotesque** only for page titles
+(`WpPageHeader`, onboarding headings via `WpTextStyles.pageTitle`) and section
+headers (`WpSection`); **Hanken Grotesk** for everything else, with Inter and
+the system font as glyph fallback. Inter is no longer a design font.
+
+- Type sizes come only from `WpTypography` (`app.tokens.json`, generated into
+  `wp_tokens.g.dart`): caption 11, small 12, body 13, subheading 14, rowTitle
+  15, heading 16, title 17, headline 22, display 28. Recurring roles use the
+  named styles in `WpTextStyles`.
+- Gaps come only from `WpSpacing` (`lib/core/theme/tokens.dart`): `xxxs` 2
+  (title/subtitle hairline only), then the 4 px grid `xxs` 4 … `xxxl` 48. A
+  raw `SizedBox(height: 3)` is drift; pick the nearest step.
+- Depth: resting surfaces (cards, rows, embedded panels) carry no shadow and
+  no Material elevation; fill and edge do the work. Floating surfaces use
+  `WpShadows.elevated` / `overlay`; a Material popup panel uses
+  `WpElevation.menu`.
+- Documented exceptions: miniature illustrations that draw the app at
+  thumbnail scale (`WpAppearancePicker`) and hairline separators
+  (`OverlaySizeSelector`) keep their own geometry; the floating overlay has its
+  own spec (`OverlayDesignSpec`).
+
+## App motion and radius
+
+Decision of #1369 for the Flutter app.
+
+**Motion.** One-shot UI transitions (fade, size, slide, hover, highlight) use
+a `WpMotion` slot: `fast` 120, `normal` 200, `smooth` 300, `dramatic` 500 ms,
+plus the hover, highlight and tooltip slots. Wrap them in
+`WpMotion.durationFor(context, …)` so "Reduce motion" applies. Two kinds of
+duration stay local constants, each with a comment at the definition:
+- loop periods (waveform beat, pulse, breath, sheen), which set a rhythm,
+  not a transition length;
+- onboarding choreography (arrival sequence, sticker overshoot with
+  `easeOutBack`), which is staged across several elements and needs more
+  room than `dramatic`.
+Display times (toasts, hints), timers, debounces, polls and timeouts are not
+motion and never use `WpMotion`.
+
+**Radius.** The app scale is `WpRadius` sm 8 / md 12 / lg 16 / xl 20 / full,
+with `WpRadiusTokens.xs` 4 and `WpRadiusTokens.chip` 6 below it. Steps the
+token source also names carry its value (`sm` = `radius.control`, `xl` =
+`radius.surface`; guard test `test/core/theme/tokens_test.dart`). `xl` was 22,
+off the 4 px grid and 2 px from `surface`; it is 20 now. App cards stay at
+`lg` 16 while the website card uses `card` 14: desktop cards are larger and
+sit on a denser surface, and the website keeps its own published look.
+
+Not scale steps, and allowed as raw values with a short comment:
+- pill caps at half the element's thickness (scrollbar thumb 3, divider 1.5,
+  hairline 1, thumbnail line 2, icon path 2.5 in a 24 px viewbox);
+- radii derived from size (`size / 4`, `height / 2`).
+
 ## Rules for new code
 
 1. Read `--wp-<component>-*` tokens; add a component group before inventing a value.
@@ -118,7 +220,7 @@ moved onto this system. Compare later redesigns against it.
 3. Type sizes come from the scale only: `2xs`–`xl` for UI text, then the fluid
    `lead`, `card-title`, `h3`, `title`, `h2`, `h1`, `display`. A heading that
    fits none of them is a reason to discuss the scale, not to add a `clamp()`.
-4. Every text/surface pair must keep AA in both modes; the token test enforces
-   it for the semantic roles.
+4. Every text/surface pair must keep AA in both modes. This is a design
+   requirement, checked by visual review (not by a test since 2026-10-30).
 5. Blog and other Markdown content renders inside `.wp-prose`, which styles
    every element the renderer can emit.

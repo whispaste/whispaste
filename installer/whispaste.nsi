@@ -13,6 +13,10 @@
 !define PRODUCT_WEB_SITE "https://whispaste.de"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_AUTORUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
+; "Transcribe with WhisPaste" in the Explorer context menu of audio files
+; (#1684). A verb under SystemFileAssociations adds the entry without
+; touching the default app of the type; per user, so no admin is needed.
+!define PRODUCT_VERB "WhisPaste.Transcribe"
 
 ; Version injected via /DPRODUCT_VERSION= at build time
 !ifndef PRODUCT_VERSION
@@ -131,9 +135,29 @@ LangString FINISH_RUN ${LANG_GERMAN} "WhisPaste starten"
 LangString FINISH_LINK ${LANG_ENGLISH} "Visit whispaste.de"
 LangString FINISH_LINK ${LANG_GERMAN} "whispaste.de besuchen"
 
+; Explorer context menu of audio files (#1684)
+LangString VERB_TRANSCRIBE ${LANG_ENGLISH} "Transcribe with WhisPaste"
+LangString VERB_TRANSCRIBE ${LANG_GERMAN} "Mit WhisPaste transkribieren"
+
 ; Uninstaller
 LangString UNINST_REMOVE_DATA ${LANG_ENGLISH} "Also remove downloaded models and history?$\n(Located in: $APPDATA\${PRODUCT_NAME})$\n$\nNote: API keys stored in Windows Credential Manager are not removed."
 LangString UNINST_REMOVE_DATA ${LANG_GERMAN} "Auch heruntergeladene Modelle und den Verlauf entfernen?$\n(Pfad: $APPDATA\${PRODUCT_NAME})$\n$\nHinweis: API-Schl${U+00FC}ssel in der Windows-Anmeldeinformationsverwaltung werden nicht entfernt."
+
+; --- Context menu verb (#1684) ---
+; The audio types file transcription reads: audioImportExtensions in
+; lib/services/audio/import/audio_file_decoder.dart (guard:
+; test/parity/open_with_parity_test.dart).
+!macro WriteTranscribeVerb EXT
+  WriteRegStr HKCU "Software\Classes\SystemFileAssociations\.${EXT}\shell\${PRODUCT_VERB}" "MUIVerb" "$(VERB_TRANSCRIBE)"
+  WriteRegStr HKCU "Software\Classes\SystemFileAssociations\.${EXT}\shell\${PRODUCT_VERB}" "Icon" '"$INSTDIR\whispaste.exe",0'
+  WriteRegStr HKCU "Software\Classes\SystemFileAssociations\.${EXT}\shell\${PRODUCT_VERB}\command" "" '"$INSTDIR\whispaste.exe" "%1"'
+!macroend
+
+!macro DeleteTranscribeVerb EXT
+  DeleteRegKey HKCU "Software\Classes\SystemFileAssociations\.${EXT}\shell\${PRODUCT_VERB}"
+  DeleteRegKey /ifempty HKCU "Software\Classes\SystemFileAssociations\.${EXT}\shell"
+  DeleteRegKey /ifempty HKCU "Software\Classes\SystemFileAssociations\.${EXT}"
+!macroend
 
 ; --- Init Function (language selection dialog) ---
 Function .onInit
@@ -178,6 +202,21 @@ Section "$(SEC_CORE_NAME)" SecCore
 
   ; Write install source marker (used by app to detect deploy channel)
   WriteRegStr HKCU "Software\${PRODUCT_NAME}" "InstallSource" "installer"
+
+  ; whispaste:// URL scheme (newsletter return path). The app rewrites the
+  ; same key on start when the path differs, so a moved install heals itself.
+  WriteRegStr HKCU "Software\Classes\whispaste" "" "URL:WhisPaste"
+  WriteRegStr HKCU "Software\Classes\whispaste" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\whispaste\shell\open\command" "" '"$INSTDIR\whispaste.exe" "%1"'
+
+  ; "Transcribe with WhisPaste" for every audio type the import reads.
+  !insertmacro WriteTranscribeVerb "wav"
+  !insertmacro WriteTranscribeVerb "mp3"
+  !insertmacro WriteTranscribeVerb "flac"
+  !insertmacro WriteTranscribeVerb "m4a"
+  !insertmacro WriteTranscribeVerb "aac"
+  !insertmacro WriteTranscribeVerb "ogg"
+  !insertmacro WriteTranscribeVerb "opus"
 
   ; Compute and store installed size
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
@@ -227,6 +266,16 @@ Section "Uninstall"
   DeleteRegKey HKCU "${PRODUCT_UNINST_KEY}"
   DeleteRegValue HKCU "${PRODUCT_AUTORUN_KEY}" "${PRODUCT_NAME}"
   DeleteRegKey HKCU "Software\${PRODUCT_NAME}"
+  ; whispaste:// handler the app registers on start (url_scheme_registration.cpp)
+  DeleteRegKey HKCU "Software\Classes\whispaste"
+  ; Explorer context menu of audio files (#1684)
+  !insertmacro DeleteTranscribeVerb "wav"
+  !insertmacro DeleteTranscribeVerb "mp3"
+  !insertmacro DeleteTranscribeVerb "flac"
+  !insertmacro DeleteTranscribeVerb "m4a"
+  !insertmacro DeleteTranscribeVerb "aac"
+  !insertmacro DeleteTranscribeVerb "ogg"
+  !insertmacro DeleteTranscribeVerb "opus"
 
   ; Ask user whether to remove app data (models, history)
   ; Also kill AI subprocesses if running from app data directory

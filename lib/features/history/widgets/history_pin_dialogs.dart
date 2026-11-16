@@ -3,16 +3,18 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../data/history_lock.dart';
 import '../data/history_pin.dart';
+import '../../../widgets/wp_page_notice.dart';
+import '../../../widgets/wp_banner.dart';
 
 @visibleForTesting
 const kHistoryPinFieldKey = Key('historyPinField');
@@ -64,13 +66,25 @@ class _UnlockDialogState extends ConsumerState<_UnlockDialog> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    _pin.addListener(_onPinChanged);
+  }
+
+  @override
   void dispose() {
+    _pin.removeListener(_onPinChanged);
     _pin.dispose();
     super.dispose();
   }
 
+  void _onPinChanged() => setState(() {});
+
+  /// Enabled only for a well-formed PIN (4 to 8 digits, UX-026).
+  bool get _canSubmit => isValidHistoryPin(_pin.text.trim());
+
   Future<void> _submit() async {
-    if (_busy) return;
+    if (_busy || !_canSubmit) return;
     final l10n = L10n.of(context);
     setState(() => _busy = true);
     final result = await ref
@@ -91,17 +105,41 @@ class _UnlockDialogState extends ConsumerState<_UnlockDialog> {
   }
 
   Future<void> _forgot() async {
+    if (_busy) return;
     final l10n = L10n.of(context);
     final confirmed = await showWpConfirmDialog(
       context: context,
       title: l10n.historyPinForgotConfirmTitle,
       message: l10n.historyPinForgotConfirmMessage,
       confirmLabel: l10n.historyPinForgotConfirmAction,
+      cancelLabel: l10n.actionCancel,
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    await ref.read(historyRevealedProvider.notifier).resetForgottenPin();
-    if (mounted) Navigator.of(context).pop(true);
+    final outcome = await ref
+        .read(historyRevealedProvider.notifier)
+        .resetForgottenPin();
+    if (!mounted) return;
+    final messages = [
+      if (outcome.leftovers > 0)
+        outcome.queued
+            ? l10n.historyPinForgotLeftoverAudio
+            : l10n.historyPinForgotLeftoverUnqueued(outcome.folder),
+      if (outcome.migrationCopyLeft case final copy?)
+        l10n.historyPinForgotMigrationCopyLeft(copy),
+    ];
+    if (messages.isNotEmpty) {
+      showWpPageNotice(
+        context,
+        page: WpNoticePage.history,
+        notice: WpPageNotice(
+          id: 'pin-reset-leftovers',
+          message: messages.join(' '),
+          tone: WpBannerTone.warning,
+        ),
+      );
+    }
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -122,31 +160,42 @@ class _UnlockDialogState extends ConsumerState<_UnlockDialog> {
           autocorrect: false,
           autofocus: true,
           maxLength: 8,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onSubmitted: (_) => _submit(),
         ),
         if (_error != null) _ErrorText(_error!),
         if (widget.offerForgot) ...[
           const SizedBox(height: WpSpacing.sm),
-          WpButton(
-            key: kHistoryPinForgotKey,
-            label: l10n.historyPinForgot,
-            variant: WpButtonVariant.ghost,
-            tone: WpButtonTone.danger,
-            onPressed: _busy ? null : _forgot,
+          Text(
+            l10n.historyPinForgotHint,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
           ),
         ],
       ],
       actions: [
-        WpButton(
+        // Neutral alternative: a reset is a consequence to read about, not an
+        // error to fix, so it must not look like one (UX-027).
+        if (widget.offerForgot)
+          WpDialogAction(
+            label: l10n.historyPinForgot,
+            testId: 'historyPinForgot',
+            role: WpDialogActionRole.alternative,
+            onPressed: _forgot,
+          ),
+        WpDialogAction(
           label: l10n.actionCancel,
-          variant: WpButtonVariant.ghost,
-          onPressed: () => Navigator.of(context).pop(false),
+          testId: 'historyPinCancel',
+          role: WpDialogActionRole.cancel,
+          value: false,
         ),
-        const SizedBox(width: WpSpacing.sm),
-        WpButton(
-          key: kHistoryPinSubmitKey,
+        WpDialogAction(
           label: l10n.historyPinUnlock,
-          variant: WpButtonVariant.primary,
+          testId: 'historyPinSubmit',
+          role: WpDialogActionRole.primary,
+          enabled: _canSubmit,
           isLoading: _busy,
           onPressed: _submit,
         ),
@@ -170,13 +219,27 @@ class _SetPinDialogState extends State<_SetPinDialog> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _pin.addListener(_onPinChanged);
+  }
+
+  @override
   void dispose() {
+    _pin.removeListener(_onPinChanged);
     _pin.dispose();
     _repeat.dispose();
     super.dispose();
   }
 
+  void _onPinChanged() => setState(() {});
+
+  /// Enabled once the new PIN is 4 to 8 digits (UX-026). A mismatch with the
+  /// repeat field is still reported on submit.
+  bool get _canSubmit => isValidHistoryPin(_pin.text.trim());
+
   void _submit() {
+    if (!_canSubmit) return;
     final l10n = L10n.of(context);
     final pin = _pin.text.trim();
     final String? error;
@@ -212,6 +275,8 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           autocorrect: false,
           autofocus: true,
           maxLength: 8,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         ),
         const SizedBox(height: WpSpacing.sm),
         WpTextField(
@@ -223,21 +288,23 @@ class _SetPinDialogState extends State<_SetPinDialog> {
           obscureText: true,
           autocorrect: false,
           maxLength: 8,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onSubmitted: (_) => _submit(),
         ),
         if (_error != null) _ErrorText(_error!),
       ],
       actions: [
-        WpButton(
+        WpDialogAction(
           label: l10n.actionCancel,
-          variant: WpButtonVariant.ghost,
-          onPressed: () => Navigator.of(context).pop(),
+          testId: 'historyPinCancel',
+          role: WpDialogActionRole.cancel,
         ),
-        const SizedBox(width: WpSpacing.sm),
-        WpButton(
-          key: kHistoryPinSubmitKey,
+        WpDialogAction(
           label: l10n.historyPinSetTitle,
-          variant: WpButtonVariant.primary,
+          testId: 'historyPinSubmit',
+          role: WpDialogActionRole.primary,
+          enabled: _canSubmit,
           onPressed: _submit,
         ),
       ],

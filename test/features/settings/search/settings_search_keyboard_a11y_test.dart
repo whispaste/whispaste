@@ -8,11 +8,10 @@
 ///   AC4: All widget tests pass without flakes
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
@@ -93,7 +92,7 @@ void main() {
       );
 
       // Press the platform-appropriate shortcut.
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyF);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyF);
@@ -188,7 +187,7 @@ void main() {
 
         expect(
           container.read(settingsScrollTargetProvider),
-          equals(matches[0].sectionKey),
+          equals(matches[0].rowId),
         );
       },
     );

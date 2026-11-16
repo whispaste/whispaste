@@ -8,6 +8,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/notes_providers.dart'
+    show allNoteTagsProvider, notesProvider;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/providers.dart' show NotesFilter;
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
@@ -164,8 +166,10 @@ void main() {
     ) async {
       await tester.pumpWidget(makeTestable(_buildTile()));
       await tester.pumpAndSettle();
+      // The row reveals its actions on hover or keyboard focus (#1498).
+      await _hoverRow(tester, find.byType(NotesListTile));
 
-      expect(find.bySemanticsLabel(l10n.notesFavorite), findsOneWidget);
+      expect(find.bySemanticsLabel(l10n.historyPinToTop), findsOneWidget);
     });
 
     testWidgets(
@@ -182,20 +186,23 @@ void main() {
   });
 
   group('NoteEditorPanel — toolbar action semantics', () {
-    testWidgets(
-      'exposes copy/export/mic/favourite/trash/close as semantics labels',
-      (tester) async {
-        await tester.pumpWidget(makeTestable(_buildPanel()));
-        await tester.pumpAndSettle();
+    testWidgets('exposes copy/mic/favourite/close as semantics labels', (
+      tester,
+    ) async {
+      await tester.pumpWidget(makeTestable(_buildPanel()));
+      await tester.pumpAndSettle();
 
-        expect(find.bySemanticsLabel(l10n.notesCopy), findsOneWidget);
-        expect(find.bySemanticsLabel(l10n.notesExport), findsOneWidget);
-        expect(find.bySemanticsLabel(l10n.voiceNoteButton), findsOneWidget);
-        expect(find.bySemanticsLabel(l10n.notesFavorite), findsOneWidget);
-        expect(find.bySemanticsLabel(l10n.notesMoveToTrash), findsOneWidget);
-        expect(find.bySemanticsLabel(l10n.historyClose), findsOneWidget);
-      },
-    );
+      expect(find.bySemanticsLabel(l10n.historyCopyText), findsOneWidget);
+      // Export, trash and the other secondary actions fold into the "…"
+      // menu when the strip runs out of room, so only the controls that
+      // always stay are asserted here.
+      expect(find.bySemanticsLabel(l10n.voiceNoteButton), findsOneWidget);
+      expect(find.bySemanticsLabel(l10n.historyPinToTop), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('${l10n.actionClose} (Esc)'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets(
       'trash view exposes restore/delete-forever as semantics labels',
@@ -219,6 +226,14 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
+          // The tag chips watch the live tag stream, whose teardown leaves a
+          // pending timer behind.
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(const <Note>[])),
+            allNoteTagsProvider.overrideWith(
+              (ref) => Stream.value(const <String, List<Tag>>{}),
+            ),
+          ],
           NotesSearchBar(
             currentFilter: NotesFilter.active,
             onFilterChanged: (_) {},

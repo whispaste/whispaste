@@ -16,6 +16,21 @@ final notesProvider = StreamProvider<List<Note>>((ref) {
   return db.watchNotes();
 });
 
+/// The live note taken from recording `entryId` ("Als Notiz übernehmen"), or
+/// null. Trashed notes do not count: the link goes quiet with them.
+final noteTakenFromEntryProvider = StreamProvider.autoDispose
+    .family<Note?, String>((ref, entryId) {
+      final db = ref.watch(historyDatabaseProvider);
+      return db.watchNoteTakenFromEntry(entryId);
+    });
+
+/// Recording `entryId` while it is live (not trashed, not deleted), or null.
+final liveEntryProvider = StreamProvider.autoDispose
+    .family<HistoryEntry?, String>((ref, entryId) {
+      final db = ref.watch(historyDatabaseProvider);
+      return db.watchLiveEntry(entryId);
+    });
+
 /// Live stream of trashed notes, most recently deleted first.
 final trashNotesProvider = StreamProvider<List<Note>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
@@ -43,3 +58,13 @@ final allNoteTagsProvider = StreamProvider<Map<String, List<Tag>>>((ref) {
   final db = ref.watch(historyDatabaseProvider);
   return db.watchAllNoteTags();
 });
+
+/// Full texts of the notes whose text contains `query`, by note id. Only read
+/// while a search is running: the lists themselves carry just previews (#639).
+/// Re-read when a list changes so a save during a search shows up.
+final noteTextHitsProvider = FutureProvider.autoDispose
+    .family<Map<String, String>, String>((ref, query) {
+      ref.watch(notesProvider);
+      ref.watch(trashNotesProvider);
+      return ref.watch(historyDatabaseProvider).noteTextsMatching(query);
+    });

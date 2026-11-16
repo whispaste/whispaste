@@ -8,6 +8,8 @@ missingIncludeSystem
 missingInclude
 unusedFunction
 checkersReport
+# Entries for checks a given cppcheck version does not run
+unmatchedSuppression
 
 # Design choices — not flagged by CodeQL, intentionally kept as-is
 # Draw* methods could be static but are virtual-dispatch friendly as members
@@ -16,3 +18,8 @@ functionStatic
 virtualCallInConstructor
 # FlutterWindow destructor override is explicit by design
 missingOverride
+# A raw loop often reads clearer than the suggested std:: algorithm
+useStlAlgorithm
+# Tests of pure decisions call them with constant inputs on purpose; cppcheck
+# folds them and reports every expectation as "always true"
+knownConditionTrueFalse:windows/runner/undo_policy_test.cc

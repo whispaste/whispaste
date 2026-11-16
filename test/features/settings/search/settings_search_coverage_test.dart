@@ -12,7 +12,7 @@
 /// verbatim from `app_en.arb`), it asserts that searching for at least one
 /// significant word from that label surfaces the row's own section. Run this
 /// after adding any new settings row and add the row's arb key to
-/// [_rowLabelKeysBySection] below — a failure here means the row would be
+/// [kSettingsCoverageLabelKeys] below — a failure here means the row would be
 /// invisible to the in-app settings search.
 library;
 
@@ -22,94 +22,12 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 
+import 'settings_legacy_row_ids.dart';
+import 'settings_row_label_keys.dart';
+
 /// Maps an `app_en.arb` key (a primary row/section label, not a subtitle,
 /// hint, placeholder or enum-value string) to the `sectionKey` it must be
 /// findable under in `kSettingsSearchTable`.
-const Map<String, String> _rowLabelKeysBySection = {
-  // Interface
-  'settingsAppLanguage': 'interface',
-  'settingsCloseToTray': 'interface',
-  'settingsLaunchAtStartup': 'interface',
-  'settingsShowBackendUtilization': 'interface',
-  'settingsShowNotifications': 'interface',
-  'settingsSidePanelEdge': 'interface',
-  'settingsSidePanelEnabled': 'interface',
-  // Speech Recognition
-  'settingsCustomVocabulary': 'stt',
-  'settingsDeepgramApiKey': 'stt',
-  'settingsGpuAcceleration': 'stt',
-  'settingsNumericOnlyMode': 'stt',
-  'settingsOpenAiApiKey': 'stt',
-  'settingsPunctuationPriming': 'stt',
-  'settingsRecognitionLanguage': 'stt',
-  'settingsRemoveFillerWords': 'stt',
-  'settingsSttEngine': 'stt',
-  'settingsStripPunctuation': 'stt',
-  'settingsVadEnabled': 'stt',
-  'settingsSpeechRecognition': 'stt',
-  // Smart Mode
-  'settingsSmartMode': 'smartMode',
-  'settingsSmartModeHotkeyEnabled': 'smartMode',
-  'settingsSelectionEditHotkeyEnabled': 'smartMode',
-  // Audio
-  'settingsAudio': 'audio',
-  'settingsGain': 'audio',
-  'settingsMicrophone': 'audio',
-  'settingsClippingBanner': 'audio',
-  // After Transcription
-  'settingsAfterTranscription': 'afterTranscription',
-  // Recording Overlay
-  'settingsOverlayLiveTranscript': 'overlay',
-  'settingsOverlaySize': 'overlay',
-  'settingsOverlayStartPosition': 'overlay',
-  'settingsOverlayStyle': 'overlay',
-  // Floating Button
-  'settingsFloatingButtonSection': 'floatingButton',
-  'settingsShowFloatingButton': 'floatingButton',
-  // Keyboard Shortcut
-  'settingsKeyboardShortcut': 'hotkey',
-  'settingsHotkeyEnabled': 'hotkey',
-  'settingsHoldToRecord': 'hotkey',
-  'settingsQuickNoteHotkeyEnabled': 'hotkey',
-  'settingsSnippetPickerHotkeyEnabled': 'hotkey',
-  // Sound & Feedback
-  'settingsSoundFeedback': 'sound',
-  'settingsSoundVolume': 'sound',
-  // Recording Safety
-  'settingsAutoStopSilence': 'recordingSafety',
-  'settingsDeadMicTimeout': 'recordingSafety',
-  'settingsMaxRecordDuration': 'recordingSafety',
-  'settingsRecordingSafety': 'recordingSafety',
-  // History
-  'settingsHistory': 'history',
-  'settingsHistoryRetentionPreset': 'history',
-  'settingsHistoryHideOnOpen': 'history',
-  'settingsHistoryPin': 'history',
-  'settingsHistoryAutoLock': 'history',
-  // Backup & Transfer
-  'settingsAutosaveLabel': 'settingsPortability',
-  'settingsPortabilityExportAction': 'settingsPortability',
-  'settingsPortabilityImportAction': 'settingsPortability',
-  'settingsPortabilitySectionTitle': 'settingsPortability',
-  // Advanced
-  'settingsAdvanced': 'advanced',
-  'settingsAutoPasteBlocklist': 'advanced',
-  'settingsFactoryResetTitle': 'advanced',
-  'settingsResetToDefaults': 'advanced',
-  // Local Automation API
-  'settingsAutomationApi': 'automationApi',
-  'settingsAutomationApiToken': 'automationApi',
-  'settingsAutomationApiCustomPortLabel': 'automationApi',
-  // Updates
-  'settingsUpdates': 'updates',
-  'settingsBetaUpdates': 'updates',
-  'settingsCheckForUpdatesNow': 'updates',
-  // Privacy
-  'settingsPrivacy': 'privacy',
-  'settingsErrorReporting': 'privacy',
-  'settingsRetainRecentAudio': 'privacy',
-  'settingsShareUsageStats': 'privacy',
-};
 
 const Set<String> _stopwords = {
   'the',
@@ -150,7 +68,7 @@ void main() {
           as Map<String, dynamic>;
 
   group('SettingsSearch row-label coverage (issue #150 regression)', () {
-    for (final entry in _rowLabelKeysBySection.entries) {
+    for (final entry in kSettingsCoverageLabelKeys.entries) {
       final key = entry.key;
       final expectedSectionId = entry.value;
       final label = arb[key] as String?;
@@ -175,12 +93,12 @@ void main() {
               word,
               'en',
             );
-            matchedSections.addAll(matches.map((m) => m.id));
+            matchedSections.addAll(matches.map((m) => m.rowId));
           }
 
           expect(
             matchedSections,
-            contains(expectedSectionId),
+            containsAnyOf(legacyRowIds(expectedSectionId)),
             reason:
                 'None of $words (from "$label") match section '
                 '"$expectedSectionId" in kSettingsSearchTable — this row would '

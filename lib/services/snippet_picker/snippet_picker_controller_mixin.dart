@@ -18,6 +18,11 @@ mixin SnippetPickerControllerMixin
         return null;
       case 'onCancelled':
         return const SnippetPickerCancelled();
+      case 'onFocusLost':
+        final args = call.arguments as Map?;
+        return SnippetPickerFocusLost(
+          SnippetPickerFocusLossCause.parse(args?['cause']),
+        );
       case 'onRenderEngineDiagnostic':
         final args = call.arguments as Map?;
         final message = (args?['message'] as String?) ?? 'unknown';

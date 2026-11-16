@@ -1,5 +1,4 @@
-/// Bearer-token storage for the local automation API (ticket 03,
-/// `internal-notes`).
+/// Bearer-token storage for the local automation API.
 ///
 /// Reuses [SecureKeyStore] — the same platform-native secure storage
 /// (Keychain/Credential Manager/libsecret) already used for the OpenAI and
@@ -23,9 +22,19 @@ class AutomationApiTokenStore {
 
   final SecureKeyStore _store;
 
+  /// The token once read or written. The auth middleware asks for it on every
+  /// request; without the cache each request would touch the key store (and,
+  /// for a build signed differently, could prompt; #1161).
+  String? _cached;
+
   /// Reads the currently valid token, or `null` if none has been generated
-  /// (or it was revoked).
-  Future<String?> readToken() => _store.readKey(automationApiTokenKey);
+  /// (or it was revoked). Throws [secretNeedsConsentCode] while the entry is
+  /// held back before the data-key explanation.
+  Future<String?> readToken() async {
+    final cached = _cached;
+    if (cached != null) return cached;
+    return _cached = await _store.readKey(automationApiTokenKey);
+  }
 
   /// Generates a new cryptographically random token, persists it, and
   /// returns it. Overwrites — and thus immediately invalidates — any
@@ -34,12 +43,15 @@ class AutomationApiTokenStore {
   Future<String> regenerate() async {
     final token = _generateToken();
     await _store.writeKey(automationApiTokenKey, token);
-    return token;
+    return _cached = token;
   }
 
   /// Deletes the token. After this, [readToken] returns `null` and every
   /// request is rejected (no token can ever match `null`).
-  Future<void> revoke() => _store.deleteKey(automationApiTokenKey);
+  Future<void> revoke() async {
+    _cached = null;
+    await _store.deleteKey(automationApiTokenKey);
+  }
 }
 
 /// Generates a 32-byte (64 hex char) cryptographically random token —

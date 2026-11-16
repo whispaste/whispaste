@@ -23,10 +23,10 @@ void main() {
 
       final geometry = resolveDesktopWindowGeometry(settings);
 
-      // Pins the literal decided in the PRD triage (1100×720, three demo
+      // Pins the literal decided in the PRD triage (1100×800, three demo
       // beats side by side) — asserting against `kOnboardingWindowSize`
       // itself would just check the constant equals itself.
-      expect(geometry.size, const Size(1100, 720));
+      expect(geometry.size, const Size(1100, 800));
       expect(geometry.size, kOnboardingWindowSize);
       expect(
         geometry.position,

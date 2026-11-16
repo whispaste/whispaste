@@ -85,4 +85,10 @@ class AppClipboard {
     markSelfWrite(text);
     await Clipboard.setData(ClipboardData(text: text));
   }
+
+  /// [setText] that gives up after [limit]. True only when the write was
+  /// confirmed in time: a write that is still pending may land later or
+  /// never, so callers must not tell the user the text is on the clipboard.
+  static Future<bool> setTextWithin(String text, Duration limit) =>
+      setText(text).then((_) => true).timeout(limit, onTimeout: () => false);
 }

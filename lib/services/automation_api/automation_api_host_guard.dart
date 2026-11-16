@@ -1,5 +1,4 @@
-/// Host-header guard for the local automation API (ticket 03,
-/// `internal-notes`).
+/// Host-header guard for the local automation API.
 ///
 /// The server only listens on loopback, but a browser page on any other
 /// origin can still reach `127.0.0.1` through DNS rebinding: the request

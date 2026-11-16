@@ -2,25 +2,48 @@
 /**
  * ContactWidget — a chat-styled contact launcher (bottom right) that never
  * opens by itself. It is honest about what it is: no live chat, no agent
- * names, no AI. Ideas go to the public VotePit board; problems, questions
- * and anything else become an email to us via the contact API
- * (services/api, module Contact), and we answer by email.
+ * names, no AI. A free question is matched against the FAQ in the browser
+ * (#352, matcher `scripts/faq-match/engine.ts`, data `/faq-match/<lang>.json`)
+ * and ends in one of three ways: the answer, up to three suggestions, or the
+ * email form with the question prefilled and editable. Ideas go to the public
+ * VotePit board; problems, questions and anything else become an email to us
+ * via the contact API (services/api, module Contact), and we answer by email.
+ * Without JavaScript only the address and a mailto link are shown.
  *
  * No third-party script, no cookie; nothing is sent before "Send". The
  * honeypot field and the elapsed-time check are bot filters that the
  * server evaluates.
  */
 import { t, currentLocale, localePath, pathForSlug } from '../scripts/i18n.ts';
+import { faqMatchUrl } from '../scripts/faq-match/data.ts';
+import { MAX_QUESTION_LENGTH } from '../scripts/faq-match/engine.ts';
 
 const lang = currentLocale(Astro.currentLocale);
 const endpoint = import.meta.env.PUBLIC_CONTACT_ENDPOINT ?? 'https://api.whispaste.de/v1/contact';
 const faqHref = `${localePath(lang, '')}#faq`;
+const downloadHref = localePath(lang, 'download');
 const privacyHref = pathForSlug(lang, 'privacy');
 const ideasHref = 'https://app.votepit.com/silvio-und-maik/whispaste';
 const kinds = ['idea', 'problem', 'question', 'other'] as const;
+const faqEntryBase = `${localePath(lang, '')}#faq-`;
+const contactAddress = 'kontakt@whispaste.de';
 ---
 
-<div class="cw" data-contact-widget data-endpoint={endpoint} data-lang={lang} data-testid="contact-widget">
+<div
+  class="cw"
+  data-contact-widget
+  data-endpoint={endpoint}
+  data-lang={lang}
+  data-faq-data={faqMatchUrl(lang)}
+  data-faq-base={faqEntryBase}
+  data-testid="contact-widget"
+>
+  <noscript>
+    <p class="cw-nojs" data-testid="contact-nojs">
+      {t(lang, 'contact.nojs')}
+      <a href={`mailto:${contactAddress}`} class="cw-inline-link">{contactAddress}</a>
+    </p>
+  </noscript>
   <section
     id="cw-panel"
     class="cw-panel"
@@ -39,14 +62,62 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     <p class="cw-note">{t(lang, 'contact.note')}</p>
 
     <div class="cw-thread">
-      <!-- Step 1: what is it about? -->
+      <!-- Step 1: ask a free question, or pick what it is about. -->
       <div data-cw-step="choose">
-        <p class="cw-bubble">{t(lang, 'contact.greeting')}</p>
+        <p class="cw-bubble" tabindex="-1" data-cw-focus>{t(lang, 'contact.greeting')}</p>
+        <form class="cw-ask" data-cw-ask novalidate data-testid="contact-ask">
+          <label class="cw-sr" for="cw-question">{t(lang, 'contact.ask.label')}</label>
+          <input
+            id="cw-question"
+            name="question"
+            type="text"
+            maxlength={MAX_QUESTION_LENGTH}
+            autocomplete="off"
+            enterkeyhint="send"
+            placeholder={t(lang, 'contact.ask.placeholder')}
+            class="cw-input"
+            data-testid="contact-question"
+          />
+          <button type="submit" class="cw-primary" data-testid="contact-ask-submit">{t(lang, 'contact.ask.submit')}</button>
+        </form>
+        <p class="cw-more">{t(lang, 'contact.more')}</p>
         <ul class="cw-chips">
           {kinds.map((kind) => (
             <li><button type="button" class="cw-chip" data-cw-kind={kind} data-testid={`contact-kind-${kind}`}>{t(lang, `contact.kind.${kind}`)}</button></li>
           ))}
         </ul>
+      </div>
+
+      <!-- The FAQ knows the answer: show it right here. -->
+      <div data-cw-step="answer" hidden data-testid="contact-answer-step">
+        <p class="cw-bubble cw-bubble--me" data-cw-asked></p>
+        <div class="cw-bubble cw-answer" tabindex="-1" data-cw-focus data-cw-answer data-testid="contact-answer">
+          <p class="cw-answer-q" data-cw-answer-q></p>
+          <p data-cw-answer-a></p>
+          <a href={faqEntryBase} class="cw-inline-link" data-cw-answer-link data-testid="contact-answer-link">{t(lang, 'contact.answer.more')} →</a>
+        </div>
+        <p class="cw-bubble">{t(lang, 'contact.answer.helped')}</p>
+        <div class="cw-chips">
+          <button type="button" class="cw-chip" data-cw-yes data-testid="contact-answer-yes">{t(lang, 'contact.answer.yes')}</button>
+          <button type="button" class="cw-chip" data-cw-mail data-testid="contact-answer-no">{t(lang, 'contact.answer.no')}</button>
+        </div>
+        <button type="button" class="cw-link" data-cw-again data-testid="contact-answer-again">{t(lang, 'contact.again')}</button>
+      </div>
+
+      <!-- Several FAQ entries fit: offer up to three. -->
+      <div data-cw-step="suggest" hidden data-testid="contact-suggest-step">
+        <p class="cw-bubble cw-bubble--me" data-cw-asked></p>
+        <p class="cw-bubble" tabindex="-1" data-cw-focus>{t(lang, 'contact.choose.text')}</p>
+        <ul class="cw-suggestions" data-cw-suggestions></ul>
+        <div class="cw-chips">
+          <button type="button" class="cw-chip" data-cw-mail data-testid="contact-suggest-none">{t(lang, 'contact.choose.none')}</button>
+        </div>
+        <button type="button" class="cw-link" data-cw-again data-testid="contact-suggest-again">{t(lang, 'contact.again')}</button>
+      </div>
+
+      <div data-cw-step="thanks" hidden>
+        <p class="cw-bubble" tabindex="-1" data-cw-focus data-testid="contact-thanks">{t(lang, 'contact.thanks')}</p>
+        <button type="button" class="cw-link" data-cw-again data-testid="contact-thanks-again">{t(lang, 'contact.again')}</button>
       </div>
 
       <!-- Ideas live on the public board, not in our inbox. -->
@@ -66,8 +137,13 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
           {t(lang, 'contact.problem.text')}
           <a href={faqHref} class="cw-inline-link" data-cw-faq data-testid="contact-faq-link">{t(lang, 'contact.problem.faq')} →</a>
         </p>
-        <p class="cw-bubble" data-cw-intro="question">{t(lang, 'contact.question.text')}</p>
+        <p class="cw-bubble" data-cw-intro="question">
+          {t(lang, 'contact.question.text')}
+          <a href={downloadHref} class="cw-inline-link" data-testid="contact-download-link">{t(lang, 'contact.question.download')} →</a>
+        </p>
         <p class="cw-bubble" data-cw-intro="other">{t(lang, 'contact.other.text')}</p>
+        <p class="cw-bubble" id="cw-intro-unknown" data-cw-intro="unknown" data-testid="contact-unknown">{t(lang, 'contact.unknown.text')}</p>
+        <p class="cw-bubble" id="cw-intro-mail" data-cw-intro="mail">{t(lang, 'contact.mail.text')}</p>
 
         <label class="cw-label" for="cw-message">{t(lang, 'contact.message.label')}</label>
         <textarea id="cw-message" name="message" rows="5" minlength="10" maxlength="4000" required class="cw-input" data-testid="contact-message"></textarea>
@@ -95,9 +171,9 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     </div>
   </section>
 
-  <!-- Teaser: a short note from the two of us, shown once after a pause on
-       wide screens. It never opens the panel by itself; dismissing it (or
-       opening the panel) hides it and the badge for good on this browser. -->
+  <!-- Teaser: a short note from the two of us, shown once per browser after
+       a pause and past the hero, on every screen size. It never opens the
+       panel by itself. The badge stays until the panel was opened once. -->
   <div class="cw-teaser" hidden data-cw-teaser data-testid="contact-teaser">
     <button type="button" class="cw-teaser-body" data-cw-teaser-open aria-controls="cw-panel" data-testid="contact-teaser-open">
       <img src="/app-icon-180.png" alt="" width="36" height="36" class="cw-avatar" loading="lazy" decoding="async" />
@@ -115,6 +191,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   <button
     type="button"
     class="cw-launcher"
+    hidden
     aria-expanded="false"
     aria-controls="cw-panel"
     data-cw-launcher
@@ -130,6 +207,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     send: t(lang, 'contact.send'),
     error: t(lang, 'contact.error'),
     rateLimited: t(lang, 'contact.rateLimited'),
+    retryLater: t(lang, 'contact.retryLater'),
     invalid: t(lang, 'contact.invalid'),
     kinds: Object.fromEntries(kinds.map((k) => [k, t(lang, `contact.kind.${k}`)])),
   }).replaceAll('<', '\\u003c')} />
@@ -151,6 +229,12 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw > * {
     pointer-events: auto;
+  }
+  /* Over the download area (#245): launcher, badge and teaser step aside. */
+  .cw[data-cw-away] > :not(.cw-panel) {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
   /* Mobile: lift above the sticky download bar while it is shown. */
   :global(body:has(#mobile-cta.visible)) .cw {
@@ -277,6 +361,21 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     stroke-width: 2;
     stroke-linecap: round;
   }
+  /* Shown by the script; without JavaScript the mailto note stands in. */
+  .cw-launcher[hidden] {
+    display: none;
+  }
+  .cw-nojs {
+    max-width: min(21rem, calc(100vw - 2 * var(--cw-gap)));
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--radius-surface);
+    border: 1px solid var(--wp-border-subtle);
+    background: var(--color-brand-floating);
+    box-shadow: var(--wp-shadow-panel);
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.5;
+    color: var(--color-ink-muted);
+  }
   .cw-launcher:hover {
     border-color: var(--color-brand-cyan);
     transform: translateY(-2px);
@@ -301,7 +400,8 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     display: flex;
     flex-direction: column;
     width: min(24rem, calc(100vw - 2 * var(--cw-gap)));
-    max-height: min(40rem, calc(100dvh - 8rem));
+    /* Room for the fixed site nav above and the launcher below. */
+    max-height: min(40rem, calc(100dvh - 11.5rem));
     overflow: auto;
     overscroll-behavior: contain;
     padding: var(--wp-space-5);
@@ -398,6 +498,55 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw-bubble[hidden] {
     display: none;
+  }
+  .cw-ask {
+    display: flex;
+    gap: var(--wp-space-2);
+  }
+  .cw-ask .cw-input {
+    flex: 1;
+    min-width: 0;
+  }
+  .cw-ask .cw-primary {
+    flex: none;
+  }
+  .cw-more {
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
+    color: var(--color-ink-subtle);
+  }
+  .cw-answer {
+    display: grid;
+    gap: var(--wp-space-2);
+    outline: none;
+    white-space: pre-line;
+  }
+  .cw-answer-q {
+    font-weight: 700;
+  }
+  [data-cw-focus] {
+    outline: none;
+  }
+  .cw-suggestions {
+    display: grid;
+    gap: var(--wp-space-2);
+  }
+  /* Buttons are created by the script, so scoped styles reach them via :global. */
+  .cw-suggestions :global(.cw-suggestion) {
+    width: 100%;
+    min-height: 44px;
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border-radius: var(--wp-radius-card);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    color: var(--color-ink);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.4;
+    text-align: left;
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .cw-suggestions :global(.cw-suggestion:hover) {
+    border-color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
   }
   .cw-chips {
     display: flex;
@@ -511,6 +660,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   .cw-teaser-body:focus-visible,
   .cw-teaser-x:focus-visible,
   .cw-chip:focus-visible,
+  .cw-suggestions :global(.cw-suggestion:focus-visible),
   .cw-primary:focus-visible,
   .cw-link:focus-visible,
   .cw-icon-btn:focus-visible,
@@ -521,7 +671,9 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   @media (prefers-reduced-motion: reduce) {
     .cw,
     .cw-launcher,
-    .cw-primary {
+    .cw-primary,
+    .cw-chip,
+    .cw-suggestions :global(.cw-suggestion) {
       transition: none;
     }
     .cw-panel,
@@ -542,59 +694,112 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
 </style>
 
 <script>
-  type Strings = { sending: string; send: string; error: string; rateLimited: string; invalid: string; kinds: Record<string, string> };
+  import { closestFromTarget } from '../scripts/event-target';
+  import { contactStatusKey } from '../scripts/contact-status';
+  import { FAQ_MATCH_THRESHOLDS, match, type MatchResult } from '../scripts/faq-match/engine';
+  import type { FaqMatchData } from '../scripts/faq-match/data';
+
+  type Strings = { sending: string; send: string; error: string; rateLimited: string; retryLater: string; invalid: string; kinds: Record<string, string> };
+
+  /** localStorage flag, ignoring blocked storage (the widget works without it). */
+  const flag = {
+    get: (key: string) => {
+      try {
+        return localStorage.getItem(key) === '1';
+      } catch {
+        return false;
+      }
+    },
+    set: (key: string) => {
+      try {
+        localStorage.setItem(key, '1');
+      } catch {
+        /* private mode: remember for this page view only */
+      }
+    },
+  };
+  // Greeting (teaser) once per browser; badge until the panel was opened once.
+  // `wp-contact-seen` is the former single flag and counts as both.
+  const GREETED_KEY = 'wp-contact-greeted';
+  const OPENED_KEY = 'wp-contact-opened';
+  const LEGACY_KEY = 'wp-contact-seen';
 
   for (const root of document.querySelectorAll<HTMLElement>('[data-contact-widget]')) {
     const panel = root.querySelector<HTMLElement>('.cw-panel')!;
     const launcher = root.querySelector<HTMLButtonElement>('[data-cw-launcher]')!;
     const title = root.querySelector<HTMLElement>('#cw-title')!;
     const form = root.querySelector<HTMLFormElement>('form[data-cw-step="form"]')!;
+    const message = form.querySelector<HTMLTextAreaElement>('textarea')!;
     const status = root.querySelector<HTMLElement>('[data-cw-status]')!;
     const submit = root.querySelector<HTMLButtonElement>('[data-cw-submit]')!;
     const choice = root.querySelector<HTMLElement>('[data-cw-choice]')!;
+    const askForm = root.querySelector<HTMLFormElement>('[data-cw-ask]')!;
+    const askInput = askForm.querySelector<HTMLInputElement>('input')!;
+    const answer = root.querySelector<HTMLElement>('[data-cw-answer]')!;
+    const answerLink = root.querySelector<HTMLAnchorElement>('[data-cw-answer-link]')!;
+    const suggestions = root.querySelector<HTMLElement>('[data-cw-suggestions]')!;
     const strings = JSON.parse(root.querySelector('script[data-cw-strings]')!.textContent ?? '{}') as Strings;
     let kind = 'other';
     let openedAt = 0;
+    let question = '';
+    launcher.hidden = false;
 
     const show = (step: string) => {
       for (const el of root.querySelectorAll<HTMLElement>('[data-cw-step]')) el.hidden = el.dataset.cwStep !== step;
     };
-    // Teaser + badge: once dismissed or the panel was opened, they stay gone
-    // on this browser. Storage can be blocked; the widget works without it.
+    /** Show a step and move focus to its first bot bubble, so screen readers read it. */
+    const showAndFocus = (step: string) => {
+      show(step);
+      root.querySelector<HTMLElement>(`[data-cw-step="${step}"] [data-cw-focus]`)?.focus();
+    };
+
     const teaser = root.querySelector<HTMLElement>('[data-cw-teaser]')!;
     const badge = root.querySelector<HTMLElement>('[data-cw-badge]')!;
-    const SEEN_KEY = 'wp-contact-seen';
-    const seen = () => {
-      try {
-        return localStorage.getItem(SEEN_KEY) === '1';
-      } catch {
-        return false;
-      }
-    };
-    const markSeen = () => {
+    const opened = () => flag.get(OPENED_KEY) || flag.get(LEGACY_KEY);
+    const greeted = () => opened() || flag.get(GREETED_KEY);
+    const hideTeaser = () => {
       teaser.hidden = true;
-      badge.hidden = true;
-      try {
-        localStorage.setItem(SEEN_KEY, '1');
-      } catch {
-        /* private mode: hide for this page view only */
-      }
+      flag.set(GREETED_KEY);
     };
-    if (!seen()) {
-      badge.hidden = false;
+    // The teaser waits for real interest: the pause has to be over AND the
+    // visitor has scrolled past the hero, so it never covers the hero CTA on
+    // first load. Scroll-driven check (no IntersectionObserver).
+    const hero = document.querySelector<HTMLElement>('[data-testid="hero"]');
+    let pauseOver = false;
+    const pastHero = () => (hero ? hero.getBoundingClientRect().bottom <= 0 : window.scrollY >= window.innerHeight);
+    const maybeShowTeaser = () => {
+      if (!pauseOver || !teaser.hidden || !panel.hidden || greeted() || !pastHero()) return;
+      teaser.hidden = false;
+      // Shown once is greeted: a reload does not bring it back.
+      flag.set(GREETED_KEY);
+      window.removeEventListener('scroll', maybeShowTeaser);
+    };
+    if (!opened()) badge.hidden = false;
+    if (!greeted()) {
       const delay = Number(root.dataset.teaserDelay ?? 6000);
       setTimeout(() => {
-        if (panel.hidden && !seen() && matchMedia('(min-width: 768px)').matches) teaser.hidden = false;
+        pauseOver = true;
+        maybeShowTeaser();
       }, delay);
+      window.addEventListener('scroll', maybeShowTeaser, { passive: true });
     }
     root.querySelector('[data-cw-teaser-dismiss]')!.addEventListener('click', () => {
-      markSeen();
+      hideTeaser();
       launcher.focus();
     });
-    root.querySelector('[data-cw-teaser-open]')!.addEventListener('click', () => open());
+
+    // FAQ data loads on first need (open or first question), once per page view.
+    let faqData: Promise<FaqMatchData | null> | null = null;
+    const loadFaq = () =>
+      (faqData ??= fetch(root.dataset.faqData!)
+        .then((res) => (res.ok ? (res.json() as Promise<FaqMatchData>) : null))
+        .catch(() => null));
 
     const open = () => {
-      markSeen();
+      hideTeaser();
+      badge.hidden = true;
+      flag.set(OPENED_KEY);
+      void loadFaq();
       panel.hidden = false;
       launcher.setAttribute('aria-expanded', 'true');
       // Restart the wiggle on every open, also when the panel is already open.
@@ -603,40 +808,76 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
       panel.classList.add('is-nudged');
       title.focus();
     };
-    const close = () => {
+    const closeQuietly = () => {
       panel.hidden = true;
       launcher.setAttribute('aria-expanded', 'false');
+    };
+    const close = () => {
+      closeQuietly();
       launcher.focus();
     };
 
+    root.querySelector('[data-cw-teaser-open]')!.addEventListener('click', open);
     launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+
+    // Download area (#245): while the closed widget (launcher, badge, teaser)
+    // would sit on top of a [data-cw-avoid] region, it steps aside so it never
+    // covers a download card. Visibility only, so the layout and the measured
+    // rect stay the same. An open panel always stays. Scroll-driven check.
+    const avoid = [...document.querySelectorAll<HTMLElement>('[data-cw-avoid]')];
+    if (avoid.length) {
+      const checkAway = () => {
+        const own = root.getBoundingClientRect();
+        const covers = avoid.some((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top < own.bottom && r.bottom > own.top && r.left < own.right && r.right > own.left;
+        });
+        const away = covers && panel.hidden;
+        if (away && document.activeElement === launcher) launcher.blur();
+        root.toggleAttribute('data-cw-away', away);
+      };
+      window.addEventListener('scroll', checkAway, { passive: true });
+      window.addEventListener('resize', checkAway, { passive: true });
+      launcher.addEventListener('click', checkAway);
+      checkAway();
+    }
     // Page elements can open the widget too (e.g. the FAQ "ask" button).
     document.addEventListener('click', (e) => {
-      if ((e.target as Element | null)?.closest('[data-contact-open]')) open();
+      if (closestFromTarget(e.target, '[data-contact-open]')) open();
     });
     root.querySelector('[data-cw-close]')!.addEventListener('click', close);
     root.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !panel.hidden) close();
     });
-    // The FAQ link leaves the panel for the page section; close it so it does not cover the answer.
-    root.querySelector('[data-cw-faq]')?.addEventListener('click', () => {
-      panel.hidden = true;
-      launcher.setAttribute('aria-expanded', 'false');
-    });
+    // Links into the page FAQ leave the panel; close it so it does not cover the answer.
+    root.querySelector('[data-cw-faq]')?.addEventListener('click', closeQuietly);
+    answerLink.addEventListener('click', closeQuietly);
+
+    /** Open the email form; `intro` picks the bot bubble, `prefill` the editable message. */
+    const openForm = (nextKind: string, intro: string, prefill?: string) => {
+      kind = nextKind;
+      choice.textContent = strings.kinds[kind] ?? '';
+      choice.hidden = prefill !== undefined;
+      for (const el of root.querySelectorAll<HTMLElement>('[data-cw-intro]')) el.hidden = el.dataset.cwIntro !== intro;
+      // Intros with an id describe the message field for screen readers.
+      const introId = root.querySelector<HTMLElement>(`[data-cw-intro="${intro}"]`)?.id;
+      if (introId) message.setAttribute('aria-describedby', introId);
+      else message.removeAttribute('aria-describedby');
+      if (prefill !== undefined) message.value = prefill;
+      status.textContent = '';
+      show('form');
+      openedAt = performance.now();
+      message.focus();
+    };
 
     for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-cw-kind]')) {
       btn.addEventListener('click', () => {
-        kind = btn.dataset.cwKind ?? 'other';
-        if (kind === 'idea') {
+        const next = btn.dataset.cwKind ?? 'other';
+        if (next === 'idea') {
           show('idea');
           return;
         }
-        choice.textContent = strings.kinds[kind] ?? '';
-        for (const intro of root.querySelectorAll<HTMLElement>('[data-cw-intro]')) intro.hidden = intro.dataset.cwIntro !== kind;
-        status.textContent = '';
-        show('form');
-        openedAt = performance.now();
-        form.querySelector<HTMLTextAreaElement>('textarea')!.focus();
+        openForm(next, next);
       });
     }
     for (const back of root.querySelectorAll('[data-cw-back]')) {
@@ -646,9 +887,65 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
       });
     }
 
+    // --- Free question: answer, suggestions or email ----------------------
+    const showAnswer = (data: FaqMatchData, key: string) => {
+      const entry = data.faq[key];
+      if (!entry) {
+        openForm('question', 'unknown', question);
+        return;
+      }
+      root.querySelector('[data-cw-answer-q]')!.textContent = entry.q;
+      root.querySelector('[data-cw-answer-a]')!.textContent = entry.a;
+      answerLink.href = `${root.dataset.faqBase}${key}`;
+      answer.dataset.key = key;
+      showAndFocus('answer');
+    };
+    const showSuggestions = (data: FaqMatchData, keys: readonly string[]) => {
+      suggestions.replaceChildren(
+        ...keys.map((key) => {
+          const li = document.createElement('li');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'cw-suggestion';
+          btn.dataset.testid = `contact-suggestion-${key}`;
+          btn.textContent = data.faq[key]?.q ?? key;
+          btn.addEventListener('click', () => showAnswer(data, key));
+          li.append(btn);
+          return li;
+        }),
+      );
+      showAndFocus('suggest');
+    };
+
+    askForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      question = askInput.value.trim();
+      if (!question) {
+        askInput.focus();
+        return;
+      }
+      for (const el of root.querySelectorAll<HTMLElement>('[data-cw-asked]')) el.textContent = question;
+      void loadFaq().then((data) => {
+        const result: MatchResult = data ? match(data.index, question, FAQ_MATCH_THRESHOLDS) : { kind: 'unknown' };
+        if (data && result.kind === 'answer') showAnswer(data, result.key);
+        else if (data && result.kind === 'choose') showSuggestions(data, result.keys);
+        else openForm('question', 'unknown', question);
+      });
+    });
+    for (const btn of root.querySelectorAll('[data-cw-mail]')) {
+      btn.addEventListener('click', () => openForm('question', 'mail', question));
+    }
+    root.querySelector('[data-cw-yes]')!.addEventListener('click', () => showAndFocus('thanks'));
+    for (const btn of root.querySelectorAll('[data-cw-again]')) {
+      btn.addEventListener('click', () => {
+        askInput.value = '';
+        show('choose');
+        askInput.focus();
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const message = form.elements.namedItem('message') as HTMLTextAreaElement;
       const email = form.elements.namedItem('email') as HTMLInputElement;
       const website = form.elements.namedItem('website') as HTMLInputElement;
       const messageOk = message.value.trim().length >= 10;
@@ -680,11 +977,12 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
         });
         if (res.ok) {
           form.reset();
+          askForm.reset();
           show('sent');
           title.focus();
           return;
         }
-        status.textContent = res.status === 429 ? strings.rateLimited : res.status === 422 ? strings.invalid : strings.error;
+        status.textContent = strings[contactStatusKey(res.status)];
       } catch {
         status.textContent = strings.error;
       } finally {

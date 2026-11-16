@@ -1,11 +1,8 @@
 /// Shared SemVer parsing + precedence comparison (semver.org §11), including
 /// pre-release precedence.
 ///
-/// Extracted from `stable_revert_hint_service.dart`, which had the only
-/// correct implementation in this codebase. `update_service.dart`'s prior
-/// `isNewer`/`parseSemver` stripped the pre-release suffix entirely, so
-/// `1.2.44-beta.6` compared equal to `1.2.44-beta.5` and beta-to-beta
-/// updates were never detected as newer.
+/// Pre-release suffixes are compared too, so `1.2.44-rc.6` is newer than
+/// `1.2.44-rc.5` and older than `1.2.44`.
 library;
 
 /// A parsed `major.minor.patch[-prerelease][+build]` version. Build

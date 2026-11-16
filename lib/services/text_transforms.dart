@@ -4,6 +4,8 @@
 /// pipeline/provider setup.
 library;
 
+import 'package:intl/intl.dart' show DateFormat;
+
 /// Punctuation marks that are always sentence-level — never legitimately
 /// part of a number: terminal marks, clause separators, and the em/en dash
 /// + ellipsis some STT engines use as a clause connector.
@@ -40,11 +42,31 @@ final _ambiguousPunctuation = RegExp(r'[.,](?!\d)|(?<!\d)[.,]');
 /// engine or provider produced it. See [SttSettings.stripPunctuation].
 String stripPunctuation(String text) {
   return text
-      .replaceAll(_alwaysStrip, '')
-      .replaceAll(_ambiguousPunctuation, '')
+      .splitMapJoin(
+        _writtenFormSpan,
+        onMatch: (match) => match[0]!,
+        onNonMatch: (plain) => plain
+            .replaceAll(_alwaysStrip, '')
+            .replaceAll(_ambiguousPunctuation, ''),
+      )
       .replaceAll(RegExp(r' {2,}'), ' ')
       .trim();
 }
+
+/// Written forms whose punctuation is part of the form: a clock time (10:30),
+/// an e-mail address, a web address and a bare host name with a common
+/// top-level domain (beispiel.de). They stay intact, so stripping never turns
+/// "10:30" into "1030" or "john@gmail.com" into "john@gmailcom". A span never
+/// ends in sentence punctuation, so "beispiel.de." keeps its host and the
+/// period is still stripped.
+final _writtenFormSpan = RegExp(
+  r'\S*@\S*[^\s.,;:!?]'
+  r'|(?:https?://|www\.)\S*[^\s.,;:!?]'
+  r'|[\p{L}\p{N}-]+\.(?:com|de|org|net|eu|io|ch|at|co|info|dev|uk)(?![\p{L}\p{N}])(?:\S*[^\s.,;:!?])?'
+  r'|\d:\d(?:\S*[^\s.,;:!?])?',
+  caseSensitive: false,
+  unicode: true,
+);
 
 /// Collapses the extraneous whitespace STT engines insert into a raw
 /// transcript: line breaks become single spaces, runs of spaces collapse,
@@ -60,12 +82,44 @@ String collapseTranscriptWhitespace(String transcript) {
 
 /// Appends [addition] to a quick note's [existing] content as a new
 /// paragraph — exactly one blank line as separator, regardless of how many
-/// trailing newlines [existing] already has. No timestamp is inserted, and
-/// an empty (or whitespace-only) [existing] note gets no leading whitespace
-/// at all — [addition] becomes the entire content.
-String appendToQuickNoteContent(String existing, String addition) {
+/// trailing newlines [existing] already has. An empty (or whitespace-only)
+/// [existing] note gets no leading whitespace at all.
+///
+/// [stampLine] (the "Textzeile" timestamp style, #803) goes on its own line
+/// directly above [addition]; without it nothing but the dictation is added.
+String appendToQuickNoteContent(
+  String existing,
+  String addition, {
+  String? stampLine,
+}) {
+  final block = stampLine == null ? addition : '$stampLine\n$addition';
   final trimmed = existing.replaceAll(RegExp(r'\s+$'), '');
-  return trimmed.isEmpty ? addition : '$trimmed\n\n$addition';
+  return trimmed.isEmpty ? block : '$trimmed\n\n$block';
+}
+
+/// The date line written above a quick-note dictation, e.g. "6. Nov. 14:32"
+/// for `de` (#803). Needs the date symbols of [locale] loaded
+/// (`initializeDateFormatting`). Never throws: without usable locale data it
+/// falls back to an unambiguous `yyyy-MM-dd HH:mm`, so a dictation is never
+/// lost over its date line.
+String quickNoteStampLine(DateTime at, String locale) {
+  try {
+    return DateFormat.MMMd(locale).add_Hm().format(at);
+  } on Object {
+    return DateFormat('yyyy-MM-dd HH:mm').format(at);
+  }
+}
+
+/// Longest anchor kept for a quick-note margin mark.
+const quickNoteAnchorMaxLength = 80;
+
+/// The text a margin mark uses to find its dictation again in the note: the
+/// first line of [addition], trimmed and capped at [quickNoteAnchorMaxLength].
+String quickNoteAppendAnchor(String addition) {
+  final firstLine = addition.trimLeft().split('\n').first.trimRight();
+  return firstLine.length <= quickNoteAnchorMaxLength
+      ? firstLine
+      : firstLine.substring(0, quickNoteAnchorMaxLength);
 }
 
 /// German filler tokens: pure hesitation sounds that never carry meaning.

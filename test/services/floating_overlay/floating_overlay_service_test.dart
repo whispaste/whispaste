@@ -115,11 +115,12 @@ void main() {
 
   group('FloatingOverlaySize enum', () {
     test('has expected values', () {
-      expect(FloatingOverlaySize.values, hasLength(3));
+      expect(FloatingOverlaySize.values, hasLength(4));
       expect(FloatingOverlaySize.values.map((e) => e.name), [
         'normal',
         'compact',
         'mini',
+        'nano',
       ]);
     });
 
@@ -127,12 +128,14 @@ void main() {
       expect(FloatingOverlaySize.normal.value, 'normal');
       expect(FloatingOverlaySize.compact.value, 'compact');
       expect(FloatingOverlaySize.mini.value, 'mini');
+      expect(FloatingOverlaySize.nano.value, 'nano');
     });
 
     test('maps onto the design-spec size variant', () {
       expect(FloatingOverlaySize.normal.variant, OverlaySizeVariant.normal);
       expect(FloatingOverlaySize.compact.variant, OverlaySizeVariant.compact);
       expect(FloatingOverlaySize.mini.variant, OverlaySizeVariant.mini);
+      expect(FloatingOverlaySize.nano.variant, OverlaySizeVariant.nano);
     });
 
     test('fromValue roundtrips correctly', () {

@@ -1,0 +1,177 @@
+---
+/**
+ * One of the three newsletter link pages (confirm, unsubscribe, device) for a
+ * mail link, in the eight website languages, in the shared subpage frame
+ * (Nav, hero, footer). The address carries a secret token, so the layout runs
+ * private: no analytics, no outgoing referrer, no indexing, and the token
+ * leaves the address bar as soon as the page has read it. Nothing changes on
+ * load; only the button posts (scripts/newsletter-link.ts). Languages without
+ * a website version are routed to English by the mail sender.
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import { NEWSLETTER_PAGE_TEXTS, type NewsletterPageLocale } from '../../data/newsletter-pages-texts.ts';
+import { NEWSLETTER_API_DEFAULT, type NewsletterAction } from '../../scripts/newsletter-link.ts';
+import { localePath, isLocale } from '../../scripts/locales.ts';
+
+interface Props {
+  readonly lang: NewsletterPageLocale;
+  readonly action: NewsletterAction;
+}
+
+const { lang, action } = Astro.props;
+const texts = NEWSLETTER_PAGE_TEXTS[lang];
+// Hebrew exists only for these pages (right to left): frame and links stay
+// English, the content block carries Hebrew and its direction.
+const siteLang = isLocale(lang) ? lang : 'en';
+const rtl = lang === 'he';
+const homeHref = localePath(siteLang, '');
+const signupHref = localePath(siteLang, 'newsletter');
+const apiBase = import.meta.env.PUBLIC_NEWSLETTER_API ?? NEWSLETTER_API_DEFAULT;
+const doneKey = { confirm: 'page.confirmed', unsubscribe: 'page.unsubscribed', device: 'page.device_done' }[action];
+const title = texts[`page.${action}.title`];
+---
+
+<SubpageLayout lang={siteLang} title={`${title} · WhisPaste`} description={texts[`page.${action}.text`]} isPrivate>
+  <div lang={lang} dir={rtl ? 'rtl' : 'ltr'} data-newsletter-link data-action={action} data-api={apiBase} data-testid={`newsletter-${action}-page`}>
+    <PageHero title={title} lead={texts[`page.${action}.text`]} testid={`newsletter-${action}-hero`}>
+      <Fragment slot="actions">
+        <p class="nlp-wait" data-nlp-wait aria-live="off" hidden></p>
+        <button type="button" class="wp-btn wp-btn--primary" data-nlp-button data-testid={`newsletter-${action}-button`}>
+          {texts[`page.${action}.button`]}
+        </button>
+        <a class="wp-btn wp-btn--secondary" data-nlp-app href="whispaste://newsletter/confirmed" hidden data-testid="newsletter-return-app">{texts['page.return_app']}</a>
+        <a class="wp-btn wp-btn--secondary" data-nlp-signup href={signupHref} hidden data-testid="newsletter-link-signup">{texts['page.signup']}</a>
+        <a class="wp-btn wp-btn--secondary" data-nlp-home href={homeHref} hidden data-testid="newsletter-link-home">{texts['page.back']}</a>
+      </Fragment>
+    </PageHero>
+  </div>
+
+  <script type="application/json" data-nlp-texts set:html={JSON.stringify({
+        ask: { title, text: texts[`page.${action}.text`], button: texts[`page.${action}.button`] },
+        done: { title: texts[`${doneKey}.title`], text: texts[`${doneKey}.text`] },
+        invalid: { title: texts['page.invalid.title'], text: texts['page.invalid.text'] },
+        broken: { title: texts['page.broken.title'], text: texts['page.broken.text'] },
+        limited: { title: texts['page.limited.title'], text: texts['page.limited.text'], wait: texts['page.limited.wait'] },
+        network: { title: texts['page.network.title'], text: texts['page.network.text'], button: texts['page.retry'] },
+        unavailable: { title: texts['page.unavailable.title'], text: texts['page.unavailable.text'], button: texts['page.retry'] },
+        sending: texts['page.sending'],
+      }).replace(/</g, '\\u003c')} />
+  
+      <script>
+        import {
+          fillSeconds,
+          initialState,
+          offersAppLink,
+          parseLinkParams,
+          submitLink,
+          withoutToken,
+          type NewsletterAction,
+          type PageState,
+        } from '../../scripts/newsletter-link';
+  
+        interface StateTexts { title: string; text: string; button?: string; wait?: string }
+        interface Texts extends Record<PageState | string, unknown> {
+          ask: StateTexts; done: StateTexts; invalid: StateTexts; broken: StateTexts;
+          limited: StateTexts; network: StateTexts; unavailable: StateTexts; sending: string;
+        }
+  
+        const root = document.querySelector<HTMLElement>('[data-newsletter-link]');
+        const texts = JSON.parse(document.querySelector('[data-nlp-texts]')?.textContent ?? 'null') as Texts | null;
+        if (root && texts) start(root, texts);
+  
+        function start(page: HTMLElement, copy: Texts) {
+          const action = page.dataset.action as NewsletterAction;
+          const api = page.dataset.api;
+          const q = <T extends HTMLElement>(sel: string) => page.querySelector<T>(sel)!;
+          const title = q('.page-title');
+          const heroTitle = title.querySelector('span') ?? title;
+          const text = q('.wp-lead');
+          const wait = q('[data-nlp-wait]');
+          const button = q<HTMLButtonElement>('[data-nlp-button]');
+          const appLink = q('[data-nlp-app]');
+          const signup = q('[data-nlp-signup]');
+          const home = q('[data-nlp-home]');
+  
+          title.tabIndex = -1;
+          // The token lives only in this variable from here on.
+          const params = parseLinkParams(location.search);
+          const token = params.token;
+          history.replaceState(null, '', location.pathname + withoutToken(location.search) + location.hash);
+  
+          // aria-disabled instead of disabled: a disabled button drops focus,
+          // this one keeps it while the request runs; clicks are ignored below.
+          const setBusy = (busy: boolean) => {
+            if (busy) button.setAttribute('aria-disabled', 'true');
+            else button.removeAttribute('aria-disabled');
+          };
+
+          let first = true;
+          let countdown: number | undefined;
+          const stopCountdown = () => {
+            if (countdown !== undefined) window.clearInterval(countdown);
+            countdown = undefined;
+          };
+  
+          function show(state: PageState, extra: { waitSeconds?: number; app?: boolean } = {}) {
+            stopCountdown();
+            const shown = state === 'sending' ? 'ask' : state;
+            const c = copy[shown];
+            heroTitle.textContent = c.title;
+            text.textContent = c.text;
+            wait.hidden = true;
+            const canPost = state === 'ask' || state === 'sending' || state === 'network' || state === 'unavailable';
+            button.hidden = !canPost;
+            setBusy(state === 'sending');
+            button.textContent = state === 'sending' ? copy.sending : (c.button ?? copy.ask.button ?? '');
+            appLink.hidden = !(state === 'done' && offersAppLink(action, extra.app === true || params.app));
+            signup.hidden = !(state === 'invalid' || state === 'broken');
+            home.hidden = canPost || state === 'limited';
+            if (state === 'limited' && extra.waitSeconds) {
+              let left = extra.waitSeconds;
+              wait.hidden = false;
+              wait.textContent = fillSeconds(copy.limited.wait ?? '', left);
+              button.hidden = false;
+              setBusy(true);
+              button.textContent = copy.network.button ?? '';
+              countdown = window.setInterval(() => {
+                left -= 1;
+                if (left <= 0) {
+                  stopCountdown();
+                  wait.hidden = true;
+                  setBusy(false);
+                  return;
+                }
+                wait.textContent = fillSeconds(copy.limited.wait ?? '', left);
+              }, 1000);
+            }
+          // The outcome is announced by moving focus to the title. On load the
+          // ring stays hidden (focusVisible, where supported); after a click it
+          // follows the browser default.
+          if (state !== 'sending') title.focus({ preventScroll: true, focusVisible: !first } as FocusOptions);
+          first = false;
+          }
+  
+          button.addEventListener('click', async () => {
+            if (button.getAttribute('aria-disabled') === 'true') return;
+            if (token === null) return show('broken');
+            show('sending');
+            const outcome = await submitLink(action, token, fetch, api);
+            show(outcome.state, outcome);
+          });
+  
+          show(initialState(params));
+        }
+      </script>
+</SubpageLayout>
+
+<style>
+  .nlp-wait {
+    margin: 0;
+    flex-basis: 100%;
+    line-height: var(--wp-font-line-height-body);
+  }
+  [data-newsletter-link] [hidden] {
+    display: none !important;
+  }
+</style>

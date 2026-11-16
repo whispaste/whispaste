@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # build-cuda-pack-linux.sh — builds the optional Linux CUDA backend pack
 # WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz: libggml-cuda.so plus
-# the CUDA 12.8.1 runtime libraries it links. Runs inside WSL2 Ubuntu 24.04 on
-# SilviosPC; tool/cuda_pack_build.sh drives it from the Mac.
+# the CUDA 12.8.1 runtime libraries it links. Runs inside an ubuntu:24.04 Docker container on
+# LINUX_HOST; tool/cuda_pack_build.sh drives it from the Mac.
 #
 # Same whisper.cpp pin, CUDA redist and ggml options as
 # `build-libwhisper-linux.sh --cuda`, but this script packs instead of staging:
@@ -12,14 +12,21 @@
 # satisfies the module's NEEDED entry by soname.
 #
 # Usage:   bash build-cuda-pack-linux.sh --install-deps   (once, as root)
+#          bash build-cuda-pack-linux.sh --check-license  (checks LICENSE-NVIDIA.txt hash only)
+#          bash build-cuda-pack-linux.sh --check-stage DIR  (checks DIR/LICENSE-NVIDIA.txt)
 #          [BUILD_JOBS=N] [CUDA_ARCHS=...] [WORK_DIR=...] [OUT_DIR=...] \
 #            bash build-cuda-pack-linux.sh
 # Output:  $OUT_DIR/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz
 set -euo pipefail
 
 PACK_ID="WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64"
-WHISPER_TAG="v1.9.5"
-WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
+# whisper.cpp pin: scripts/whisper-cpp.pin, synced next to this script.
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$(cd "$(dirname "$0")" && pwd)/whisper-cpp.pin"
+WHISPER_PINNED_COMMIT="$WHISPER_COMMIT"
+# The pack id names the whisper.cpp version; a raised pin needs a new pack id.
+[[ "$PACK_ID" == *"-ggml-$WHISPER_TAG-"* ]] ||
+  { echo "ERROR: PACK_ID $PACK_ID does not match whisper-cpp.pin ($WHISPER_TAG)" >&2; exit 1; }
 CUDA_VERSION="12.8.1"
 # Turing+ only: real SASS for RTX 20/30/40/50, sm_75 PTX for JIT on anything newer.
 CUDA_ARCHS="${CUDA_ARCHS:-75;86-real;89-real;120-real}"
@@ -37,7 +44,7 @@ NUM_CPUS="$(nproc)"
 BUILD_JOBS="${BUILD_JOBS:-$(( NUM_CPUS < 8 ? NUM_CPUS : 8 ))}"
 
 if [[ "${1:-}" == "--install-deps" ]]; then
-  [[ "$EUID" -eq 0 ]] || { echo "ERROR: --install-deps needs root (wsl -u root)" >&2; exit 1; }
+  [[ "$EUID" -eq 0 ]] || { echo "ERROR: --install-deps needs root (run as root, e.g. inside the container)" >&2; exit 1; }
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential cmake make git python3 patchelf binutils ca-certificates
@@ -45,6 +52,25 @@ if [[ "${1:-}" == "--install-deps" ]]; then
 fi
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
+# The text is pinned by SHA-256: a changed file is a deliberate bump, not a silent update.
+LICENSE_FILE="$SCRIPT_DIR/LICENSE-NVIDIA.txt"
+LICENSE_SHA256="95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3"
+check_license() {
+  local file="$1" actual
+  [[ -f "$file" ]] || fail "$file missing (NVIDIA CUDA EULA text is required in every pack)"
+  grep -q '[^[:space:]]' "$file" || fail "$file is empty"
+  actual="$(sha256sum "$file" | cut -d' ' -f1)"
+  [[ "$actual" == "$LICENSE_SHA256" ]] \
+    || fail "$file text changed, bump the pinned hash deliberately (expected $LICENSE_SHA256, got $actual)"
+}
+check_license "$LICENSE_FILE"
+case "${1:-}" in
+  --check-license) echo "ok: $LICENSE_FILE matches the pinned hash"; exit 0 ;;
+  --check-stage)   check_license "${2:?--check-stage needs a directory}/LICENSE-NVIDIA.txt"
+                   echo "ok: staged LICENSE-NVIDIA.txt matches the pinned hash"; exit 0 ;;
+esac
 
 echo "=== build-cuda-pack-linux ($PACK_ID) ==="
 
@@ -56,7 +82,7 @@ echo "distro:  ${PRETTY_NAME} (glibc $(getconf GNU_LIBC_VERSION | awk '{print $2
   || echo "warning: not Ubuntu 24.04; the app's Linux release is built on 24.04 (glibc 2.39)"
 for tool in git cmake make g++ python3 patchelf readelf objdump nm strip ldd; do
   command -v "$tool" >/dev/null \
-    || fail "$tool missing (run once: wsl -d <distro> -u root -- bash <this script> --install-deps)"
+    || fail "$tool missing (run once as root: bash <this script> --install-deps)"
 done
 cmake --version | head -n1
 g++ --version | head -n1
@@ -72,8 +98,12 @@ actual_commit="$(git -C "$SRC" rev-parse HEAD)"
 echo "[1/6] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
 
 # --- 2. CUDA toolkit from NVIDIA redist archives (SHA-256 checked) ----------
-if [[ ! -x "$CUDA_HOME/bin/nvcc" ]]; then
+# bin/nvcc appears before the other components finish, so only a marker written after
+# a complete fetch counts; an interrupted fetch is simply repeated.
+if [[ ! -f "$CUDA_HOME/.fetch-complete" ]]; then
+  rm -rf "$CUDA_HOME"   # the fetch cannot merge into a half-filled tree (symlink "File exists")
   python3 "$SCRIPT_DIR/fetch-cuda-redist.py" "$CUDA_VERSION" linux-x86_64 "$CUDA_HOME"
+  touch "$CUDA_HOME/.fetch-complete"
 fi
 export CUDA_HOME
 export PATH="$CUDA_HOME/bin:$PATH"
@@ -125,9 +155,12 @@ patchelf --set-rpath '$ORIGIN' "$STAGE/libggml-cuda.so"
 awk -v license="$SRC/LICENSE" '
   $0 == "@WHISPER_LICENSE@" { while ((getline line < license) > 0) print line; close(license); next }
   { print }' "$SCRIPT_DIR/cuda-pack-NOTICE.template.txt" > "$STAGE/NOTICE.txt"
+cp "$LICENSE_FILE" "$STAGE/LICENSE-NVIDIA.txt"
+[[ -s "$STAGE/LICENSE-NVIDIA.txt" ]] || fail "LICENSE-NVIDIA.txt not staged"
 
 # --- 5. Verify --------------------------------------------------------------
 echo "[5/6] verify"
+check_license "$STAGE/LICENSE-NVIDIA.txt"
 lib="$STAGE/libggml-cuda.so"
 # Dynamic section and symbols are captured first: `grep -q` on a pipe can
 # SIGPIPE the producer, which pipefail would report as a failure.
@@ -173,6 +206,8 @@ archive="$OUT_DIR/$PACK_ID.tar.gz"
 epoch="$(git -C "$SRC" log -1 --format=%ct)"
 tar --format=gnu --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" \
   -C "$STAGE" -cf - "${names[@]}" | gzip -n -9 > "$archive"
+listing="$(tar -tzf "$archive")"
+grep -qx 'LICENSE-NVIDIA.txt' <<<"$listing" || fail "LICENSE-NVIDIA.txt missing from $archive"
 
 (cd "$STAGE" && ls -l)
 echo "unpacked: $(du -cb "$STAGE"/* | tail -n1 | cut -f1) bytes"

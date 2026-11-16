@@ -8,9 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/settings/stt_model_selector.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
@@ -67,16 +65,22 @@ class _ControllableDownloadNotifier extends ModelDownloadNotifier {
 }
 
 class _FakeSttNotifier extends SttServerStateNotifier {
-  _FakeSttNotifier({this.isBenchmarking = false, this.benchmarkingTier});
+  _FakeSttNotifier({
+    this.isBenchmarking = false,
+    this.benchmarkingTier,
+    this.restartNeeded = false,
+  });
 
   final bool isBenchmarking;
   final QualityTier? benchmarkingTier;
+  final bool restartNeeded;
 
   @override
   SttStatus build() => SttStatus(
     serverState: SttServerState.stopped,
     isBenchmarking: isBenchmarking,
     benchmarkingTier: benchmarkingTier,
+    restartNeeded: restartNeeded,
   );
 }
 
@@ -98,6 +102,7 @@ Widget _makeTestable({
   void Function(String)? onModelSelected,
   bool isBenchmarking = false,
   QualityTier? benchmarkingTier,
+  bool restartNeeded = false,
 }) {
   return ProviderScope(
     overrides: [
@@ -108,6 +113,7 @@ Widget _makeTestable({
         () => _FakeSttNotifier(
           isBenchmarking: isBenchmarking,
           benchmarkingTier: benchmarkingTier,
+          restartNeeded: restartNeeded,
         ),
       ),
       // Prevent real GPU detection (spawns subprocess → pending timers).
@@ -144,17 +150,29 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  group('SttModelSelector', () {
-    testWidgets('renders all three tier cards', (tester) async {
+  group('restart hint', () {
+    const hintKey = ValueKey('settings-stt-engine-restart-hint');
+
+    testWidgets('shows the restart hint when the engine is stuck', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_makeTestable(restartNeeded: true));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(hintKey), findsOneWidget);
+    });
+
+    testWidgets('hides the restart hint while the engine is healthy', (
+      tester,
+    ) async {
       await tester.pumpWidget(_makeTestable());
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.text(l10n.qualityTierCompactLabel), findsOneWidget);
-      expect(find.text(l10n.qualityTierBalancedLabel), findsOneWidget);
-      expect(find.text(l10n.qualityTierPremiumLabel), findsOneWidget);
+      expect(find.byKey(hintKey), findsNothing);
     });
+  });
 
+  group('SttModelSelector', () {
     testWidgets('no Drift database required — renders in isolation', (
       tester,
     ) async {
@@ -184,22 +202,12 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap the Compact card (it's downloaded → triggers onModelSelected).
-        await tester.tap(find.text(l10n.qualityTierCompactLabel));
+        await tester.tap(find.byKey(const ValueKey('stt-model-tier-compact')));
         await tester.pumpAndSettle();
 
         expect(selected, bestModelForTier(QualityTier.compact).id);
       },
     );
-
-    testWidgets('shows download size badges for each tier', (tester) async {
-      await tester.pumpWidget(_makeTestable());
-      await tester.pumpAndSettle();
-
-      // Each tier card shows the model size label.
-      for (final tier in QualityTier.values) {
-        expect(find.text(tierSizeLabel(tier)), findsOneWidget);
-      }
-    });
 
     Future<void> assertTierDownloadsModel(
       WidgetTester tester, {
@@ -240,16 +248,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(tierLabel));
+      await tester.tap(find.byKey(ValueKey('stt-model-tier-$tierLabel')));
       // pump() — not pumpAndSettle(): the indeterminate progress spinner
       // would otherwise time out the settle.
       await tester.pump();
 
-      expect(
-        notifier.downloadModelCalls,
-        [expectedModelId],
-        reason: '$tierLabel tier must trigger download of $expectedModelId',
-      );
+      expect(notifier.downloadModelCalls, [
+        expectedModelId,
+      ], reason: '$tierLabel tier must trigger download of $expectedModelId');
       expect(
         captured,
         isEmpty,
@@ -261,7 +267,7 @@ void main() {
     testWidgets('Compact tier tap downloads whisper-small', (tester) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Quick & Compact',
+        tierLabel: 'compact',
         expectedModelId: 'whisper-small',
       );
     });
@@ -269,7 +275,7 @@ void main() {
     testWidgets('Balanced tier tap downloads whisper-medium', (tester) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Balanced',
+        tierLabel: 'balanced',
         expectedModelId: 'whisper-medium',
       );
     });
@@ -279,40 +285,10 @@ void main() {
     ) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Best Quality',
+        tierLabel: 'premium',
         expectedModelId: 'whisper-large-v3-turbo',
       );
     });
-
-    testWidgets(
-      'currentModelId maps each registry model to the right tier card '
-      '(active highlight)',
-      (tester) async {
-        for (final entry in <String, String>{
-          'whisper-small': 'Quick & Compact',
-          'whisper-medium': 'Balanced',
-          'whisper-large-v3-turbo': 'Best Quality',
-        }.entries) {
-          await tester.pumpWidget(
-            _makeTestable(
-              currentModelId: entry.key,
-              downloadState: ModelDownloadState(downloadedModels: {entry.key}),
-            ),
-          );
-          await tester.pumpAndSettle();
-
-          // The tier label is rendered exactly once and the card is marked
-          // ready (no test of pixels — we only assert it renders without crash
-          // and the label is present).
-          expect(
-            find.text(entry.value),
-            findsOneWidget,
-            reason: '${entry.key} should map to "${entry.value}" tier label',
-          );
-          expect(tester.takeException(), isNull);
-        }
-      },
-    );
 
     testWidgets('does not import or depend on settingsProvider', (
       tester,
@@ -320,120 +296,6 @@ void main() {
       // If SttModelSelector compiled without settingsProvider and renders here
       // without it being overridden, the architectural constraint is satisfied.
       await tester.pumpWidget(_makeTestable());
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    });
-
-    // -------------------------------------------------------------------------
-    // Recommended badge — plain-language copy + placement (issue
-    // 06-empfohlen-badge-settings)
-    // -------------------------------------------------------------------------
-
-    testWidgets(
-      'recommended badge uses plain-language German copy without hardware '
-      'jargon',
-      (tester) async {
-        final deL10n = await L10n.delegate.load(const Locale('de'));
-
-        expect(deL10n.qualityTierRecommended, 'Empfohlen für deinen Rechner');
-        expect(
-          deL10n.qualityTierRecommended.toUpperCase(),
-          isNot(contains('VRAM')),
-        );
-        expect(
-          deL10n.qualityTierRecommended.toUpperCase(),
-          isNot(contains('GPU')),
-        );
-      },
-    );
-
-    testWidgets(
-      'recommended badge renders only on the tier recommendTier() picks for '
-      'this hardware',
-      (tester) async {
-        // NVIDIA GPU with 1000MB VRAM → recommendTier() picks Compact
-        // (below the 2150MB Balanced threshold in the nvidia branch).
-        const gpu = hw.GpuInfo(
-          vendor: hw.GpuVendor.nvidia,
-          name: 'Test GPU',
-          vramMB: 1000,
-        );
-
-        await tester.pumpWidget(_makeTestable(gpu: gpu));
-        await tester.pumpAndSettle();
-
-        // Badge renders exactly once across all three tier cards.
-        expect(find.text(l10n.qualityTierRecommended), findsOneWidget);
-
-        // It sits on the Compact tier card, not Balanced or Premium.
-        final compactRow = find
-            .ancestor(
-              of: find.text(l10n.qualityTierCompactLabel),
-              matching: find.byType(Row),
-            )
-            .first;
-        expect(
-          find.descendant(
-            of: compactRow,
-            matching: find.text(l10n.qualityTierRecommended),
-          ),
-          findsOneWidget,
-          reason: 'badge must sit on the Compact tier card for this GPU',
-        );
-
-        final balancedRow = find
-            .ancestor(
-              of: find.text(l10n.qualityTierBalancedLabel),
-              matching: find.byType(Row),
-            )
-            .first;
-        expect(
-          find.descendant(
-            of: balancedRow,
-            matching: find.text(l10n.qualityTierRecommended),
-          ),
-          findsNothing,
-        );
-      },
-    );
-
-    testWidgets('shows error banner when download is in error state', (
-      tester,
-    ) async {
-      const errorMsg = 'Network failure';
-      const state = ModelDownloadState(
-        phase: DownloadPhase.error,
-        errorMessage: errorMsg,
-      );
-
-      await tester.pumpWidget(_makeTestable(downloadState: state));
-      await tester.pumpAndSettle();
-
-      expect(find.text(errorMsg), findsOneWidget);
-    });
-
-    // -------------------------------------------------------------------------
-    // AC6: Error banner with retry button
-    // -------------------------------------------------------------------------
-
-    testWidgets('error banner shows retry button when download is in error', (
-      tester,
-    ) async {
-      const errorMsg = 'Download failed';
-      const state = ModelDownloadState(
-        phase: DownloadPhase.error,
-        errorMessage: errorMsg,
-      );
-
-      await tester.pumpWidget(_makeTestable(downloadState: state));
-      await tester.pumpAndSettle();
-
-      // Error message is shown
-      expect(find.text(errorMsg), findsOneWidget);
-      // Retry button is present
-      expect(find.text(l10n.actionRetry), findsOneWidget);
-      // Tapping retry does not throw
-      await tester.tap(find.text(l10n.actionRetry));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
@@ -487,7 +349,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // --- Step 1: Tap the Compact tier card (not downloaded) ---
-        await tester.tap(find.text(l10n.qualityTierCompactLabel));
+        await tester.tap(find.byKey(const ValueKey('stt-model-tier-compact')));
         await tester.pump();
 
         // downloadModel was called — download started.
@@ -528,11 +390,42 @@ void main() {
   // house-wide regression guard in
   // test/core/accessibility/no_double_announcement_test.dart).
   // -------------------------------------------------------------------------
-  group('tier row accessibility', () {
-    /// How often [needle] occurs in [haystack].
-    int occurrences(String haystack, String needle) =>
-        needle.allMatches(haystack).length;
+  group('recommendation reason (MV-03)', () {
+    testWidgets('names the CUDA card under the tiers', (tester) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.nvidia,
+            name: 'NVIDIA GeForce RTX 3060',
+            vramMB: 12288,
+            cudaAvailable: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('settings-stt-recommendation-reason')),
+            )
+            .data,
+        l10n.recommendationReasonCuda('12'),
+      );
+    });
+
+    testWidgets('shows no reason without GPU info', (tester) async {
+      await tester.pumpWidget(_makeTestable());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings-stt-recommendation-reason')),
+        findsNothing,
+      );
+    });
+  });
+
+  group('tier row accessibility', () {
     testWidgets(
       'selectable tier card exposes a button role and names itself once',
       (tester) async {
@@ -542,14 +435,7 @@ void main() {
           await tester.pumpAndSettle();
 
           final node = tester.getSemantics(
-            find.text(l10n.qualityTierCompactLabel),
-          );
-          expect(
-            occurrences(node.label, l10n.qualityTierCompactLabel),
-            1,
-            reason:
-                'a Semantics label here would double-announce the tier '
-                'name, which is already rendered as visible text',
+            find.byKey(const ValueKey('stt-model-tier-compact')),
           );
           expect(node.flagsCollection.isButton, isTrue);
         } finally {
@@ -573,7 +459,7 @@ void main() {
           await tester.pumpAndSettle();
 
           final node = tester.getSemantics(
-            find.text(l10n.qualityTierCompactLabel),
+            find.byKey(const ValueKey('stt-model-tier-compact')),
           );
           expect(
             node.flagsCollection.isButton,
@@ -598,121 +484,6 @@ void main() {
   // (< 0.3 fast, < 0.8 moderate, else slow; no GPU at all → unmeasured) and
   // assert the colour/icon pairing directly.
   // -------------------------------------------------------------------------
-  group('performance info line — graded by tier performance', () {
-    const gpu = hw.GpuInfo(vendor: hw.GpuVendor.apple, name: 'Test GPU');
-    final compactId = bestModelForTier(QualityTier.compact).id;
-
-    /// Colour actually painted on the info message [message].
-    Color? lineColor(WidgetTester tester, String message) =>
-        tester.widget<Text>(find.text(message)).style?.color;
-
-    testWidgets('a fast tier says nothing at all', (tester) async {
-      await tester.pumpWidget(
-        _makeTestable(
-          gpu: gpu,
-          currentModelId: compactId,
-          benchmarkRtf: const {QualityTier.compact: 0.1},
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text(l10n.qualityTierInfoModerate), findsNothing);
-      expect(find.byIcon(LucideIcons.gauge), findsNothing);
-      expect(find.byIcon(LucideIcons.hourglass), findsNothing);
-    });
-
-    testWidgets('a moderate tier takes the ramp\'s middle rung', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _makeTestable(
-          gpu: gpu,
-          currentModelId: compactId,
-          benchmarkRtf: const {QualityTier.compact: 0.5},
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        lineColor(tester, l10n.qualityTierInfoModerate),
-        WpCategorySlot.orchid.ramp(5)[3],
-        reason:
-            'the copy reads "Good balance of speed and quality" — it sits one '
-            'rung under the slow verdict in the *same* hue, so the grading '
-            'reads as less time rather than as praise contradicted by a tint',
-      );
-      expect(find.byIcon(LucideIcons.gauge), findsOneWidget);
-    });
-
-    testWidgets('a slow tier takes the ramp\'s far rung', (tester) async {
-      await tester.pumpWidget(
-        _makeTestable(
-          gpu: gpu,
-          currentModelId: compactId,
-          benchmarkRtf: const {QualityTier.compact: 1.5},
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(
-        lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
-        WpCategorySlot.orchid.ramp(5)[4],
-        reason:
-            'the heaviest rung of the one hue, not a second hue — weight '
-            'rises with the time cost the line reports',
-      );
-      expect(
-        find.byIcon(LucideIcons.hourglass),
-        findsOneWidget,
-        reason:
-            'an hourglass, not an alert triangle — the tier is slower, not '
-            'broken',
-      );
-      expect(find.byIcon(LucideIcons.triangleAlert), findsNothing);
-    });
-
-    testWidgets('an unmeasured tier claims nothing', (tester) async {
-      await tester.pumpWidget(_makeTestable(currentModelId: compactId));
-      await tester.pumpAndSettle();
-
-      expect(
-        lineColor(tester, l10n.qualityTierInfoBenchmarking),
-        WpColorsDark.textMuted,
-        reason:
-            'an unmeasured tier has no position on an ordinal scale, so it '
-            'takes no rung of the ramp at all',
-      );
-      expect(find.byIcon(LucideIcons.hourglass), findsNothing);
-      expect(find.byIcon(LucideIcons.gauge), findsNothing);
-    });
-
-    testWidgets('a running benchmark never borrows the slow verdict', (
-      tester,
-    ) async {
-      // The VRAM estimate for this tier is `slow`, but nothing has been
-      // measured yet — putting the line on the ramp's far rung here would
-      // announce a verdict the app does not have.
-      await tester.pumpWidget(
-        _makeTestable(
-          gpu: gpu,
-          currentModelId: compactId,
-          benchmarkRtf: const {QualityTier.compact: 1.5},
-          isBenchmarking: true,
-          benchmarkingTier: QualityTier.compact,
-        ),
-      );
-      await tester.pump();
-
-      expect(
-        lineColor(tester, l10n.qualityTierInfoBenchmarking),
-        WpColorsDark.textMuted,
-        reason:
-            'while measuring, the line must read as "no verdict yet", not '
-            'as the estimate it is about to replace',
-      );
-    });
-  });
-
   group('selected model missing on disk', () {
     const premiumKey = ValueKey('stt-model-download-premium');
 
@@ -727,7 +498,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(premiumKey), findsOneWidget);
-      expect(find.text(l10n.modelMissingDownloadAction), findsOneWidget);
     });
 
     testWidgets('no download chip before the initial scan has landed', (

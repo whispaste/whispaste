@@ -4,8 +4,8 @@
 /// and become lifecycle-only hosts for this widget. It takes a fully-resolved
 /// [FloatingOverlaySnapshot] (localized, themed, formatted by
 /// `FloatingOverlayService`) plus the live waveform levels, drives the calm
-/// accent-dot pulse, and feeds the shared [WpOverlayPainter] that reproduces the
-/// approved spike capsule design.
+/// liquid-glass drift, and feeds the shared [WpOverlayPainter] that reproduces
+/// the approved spike capsule design.
 ///
 /// ## Signature recording arc (issue 09 — C1a)
 ///
@@ -21,7 +21,7 @@
 /// easeOutCubic 300 ms). No scattered/decorative motion anywhere else.
 ///
 /// **Reduced-motion**: all animations gate on `MediaQuery.disableAnimations`.
-/// When true the appear is instant (Duration.zero), the dot pulse is skipped,
+/// When true the appear is instant (Duration.zero), the glass drift is skipped,
 /// and `pumpAndSettle` completes without hanging.
 ///
 /// ## Vibrancy
@@ -49,12 +49,16 @@
 library;
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
 import '../../services/floating_overlay/floating_overlay_controller_interface.dart';
+import '../../services/floating_overlay/overlay_notice.dart';
+import 'overlay_notice_card.dart';
 import 'overlay_painter.dart';
 
 /// Hosts the shared [WpOverlayPainter] and drives the recording-arc animations.
@@ -65,7 +69,22 @@ class WpFloatingOverlayView extends StatefulWidget {
     required this.snapshot,
     this.waveformBars = const [],
     this.animate = true,
+    this.glassTone,
+    this.onNoticeAction,
+    this.onPillWidth,
   });
+
+  /// Reports the animated pill width (logical px) while the native shell draws
+  /// the glass backdrop, so that backdrop can follow the pill instead of
+  /// staying as wide as the window (#476). Previews pass null.
+  ///
+  /// The second argument is the corner radius (logical px) of the shape the
+  /// backdrop must follow: the pill form's radius, or the notice card's.
+  final void Function(double width, double radius)? onPillWidth;
+
+  /// Called with the action of a pressed notice-card button (overlay F2).
+  /// The render engine relays it to the main engine; previews pass null.
+  final ValueChanged<OverlayNoticeActionId>? onNoticeAction;
 
   /// Fully-resolved render state.
   final FloatingOverlaySnapshot snapshot;
@@ -73,10 +92,20 @@ class WpFloatingOverlayView extends StatefulWidget {
   /// Live normalised waveform levels (length [WaveformSpec.barCount]).
   final List<double> waveformBars;
 
-  /// Whether to run the calm accent-dot pulse. The live overlay animates; a
+  /// Whether to run the calm liquid-glass drift. The live overlay animates; a
   /// static preview (e.g. the Settings page) passes `false` so the widget
   /// settles — a perpetual animation never lets `pumpAndSettle` complete.
   final bool animate;
+
+  /// Tone of the glass look. Null follows the system appearance (dark system,
+  /// dark glass); the gallery sets it to show both tones.
+  final OverlayDesignTheme? glassTone;
+
+  /// The glass tone the system appearance asks for.
+  static OverlayDesignTheme systemGlassTone() =>
+      ui.PlatformDispatcher.instance.platformBrightness == ui.Brightness.light
+      ? OverlayDesignTheme.light
+      : OverlayDesignTheme.dark;
 
   /// Maps the runtime visual state onto the design-spec state.
   static OverlayDesignState designStateFor(OverlayVisualState s) => switch (s) {
@@ -127,7 +156,6 @@ class WpFloatingOverlayView extends StatefulWidget {
   static WpOverlayPainter painterFor({
     required FloatingOverlaySnapshot snapshot,
     List<double> waveformBars = const [],
-    double dotPulse = 1.0,
     bool paintFill = true,
     bool paintContent = true,
     double? pillWidth,
@@ -135,21 +163,29 @@ class WpFloatingOverlayView extends StatefulWidget {
     double glassPhase = 0.0,
     double liquidMotion = 0.0,
     double liquidLevel = 0.0,
+    OverlayDesignTheme? glassTone,
   }) {
-    // The spec still declares a dark/light pair, and its two members are
-    // the same constant on purpose (`dark = light` — the spike has one
-    // design). What went with the light theme is the bridge that used to
-    // pick between them from `snapshot.isDark`; the spec's own pair is not
-    // this refactor's to collapse.
-    const theme = OverlayDesignTheme.dark;
+    final appearance = snapshot.appearance;
+    final colors = OverlayDesignSpec.colorsFor(
+      background: snapshot.background,
+      wave: snapshot.wave,
+      glassTone: glassTone ?? systemGlassTone(),
+    );
     final designState = designStateFor(snapshot.state);
     return WpOverlayPainter(
+      languageChip: snapshot.languageChip,
+      profileChip: snapshot.profileChip,
+      form: appearance.form,
+      waveStyle: appearance.waveStyle,
+      showTimer: appearance.showTimer,
+      showCancel: appearance.showCancel,
+      timerEmphasis: snapshot.countdown,
+      fillOpacity: snapshot.effectiveOpacity.alpha,
       state: designState,
-      theme: theme,
+      theme: colors.tone,
       sizeSpec: OverlayDesignSpec.sizeFor(snapshot.size),
       layout: OverlayDesignSpec.layoutFor(snapshot.size),
-      colors: OverlayDesignSpec.colors(theme),
-      style: snapshot.style,
+      colors: colors,
       waveformBars: snapshot.state == OverlayVisualState.recording
           ? waveformBars
           : const [],
@@ -157,14 +193,18 @@ class WpFloatingOverlayView extends StatefulWidget {
       statusText: statusTextFor(snapshot),
       secondaryText: secondaryTextFor(snapshot),
       progress: snapshot.progress,
-      dotPulse: dotPulse,
       paintFill: paintFill,
       paintContent: paintContent,
+      opaqueGlass: snapshot.reduceTransparency,
+      nativeBackdrop: snapshot.nativeBackdrop,
+      nativeBackdropEdge: snapshot.nativeBackdropEdge,
       pillWidth: pillWidth,
       iconRevealFraction: iconRevealFraction,
+      donePasteFailed: snapshot.donePasteFailed,
       glassPhase: glassPhase,
       liquidMotion: liquidMotion,
       liquidLevel: liquidLevel,
+      keyHints: snapshot.keyHints,
       tailFirstText:
           (snapshot.liveTranscript ?? '').trim().isNotEmpty &&
           (snapshot.state == OverlayVisualState.recording ||
@@ -178,16 +218,12 @@ class WpFloatingOverlayView extends StatefulWidget {
 
 class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     with TickerProviderStateMixin {
-  // -- Dot pulse (accent dot during recording / transcribing) ------------------
-
-  late final AnimationController _dot;
-
   // -- Liquid-glass drift (slow material light movement) -----------------------
 
-  /// Drives the liquid-glass phase: one slow 8 s loop that drifts the
-  /// specular streak (±6 px), parallax-shifts the sheen and breathes the
-  /// rim. Runs only while [WpFloatingOverlayView.animate] and not under
-  /// reduced motion; otherwise it rests at 0.0 — the exact static frame.
+  /// Drives the liquid-glass phase: one 8 s loop read by the fluid outline
+  /// and by the transcribing spinner and ripple. Runs only while one of them
+  /// is on screen ([_phaseDrawn]), [WpFloatingOverlayView.animate] holds and
+  /// motion is not reduced; otherwise it is stopped.
   late final AnimationController _glass;
 
   // -- Appear spring (standby → recording spring-in) ---------------------------
@@ -214,6 +250,43 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
   /// Target width (logical px) for the current spring.
   double _pillToWidth = 0.0;
+
+  /// Last width handed to [WpFloatingOverlayView.onPillWidth]; null = nothing
+  /// reported for the current native backdrop yet.
+  double? _reportedPillWidth;
+
+  /// Corner radius sent with [_reportedPillWidth].
+  double _reportedRadius = 0.0;
+
+  /// Hands the current pill width to the native glass backdrop. Only while the
+  /// shell draws that backdrop; sub-pixel changes are dropped so the channel
+  /// stays quiet outside the width morph.
+  void _reportPillWidth() {
+    final report = widget.onPillWidth;
+    if (report == null || !widget.snapshot.nativeBackdrop) {
+      _reportedPillWidth = null;
+      return;
+    }
+    // The notice card fills the whole window: 0 = backdrop at full width.
+    final width = widget.snapshot.notice != null ? 0.0 : _currentPillWidth;
+    final spec = OverlayDesignSpec.sizeFor(widget.snapshot.size);
+    final radius = widget.snapshot.notice != null
+        ? OverlayDesignSpec.noticeCardRadius
+        : (widget.snapshot.appearance.form == OverlayForm.roundedRect
+              ? OverlayDesignSpec.roundedRectRadiusFor(spec.height)
+              : spec.capsuleRadius);
+    // A form or size change keeps the width but changes the radius: report
+    // that too, so the native region never keeps a stale corner.
+    final last = _reportedPillWidth;
+    if (last != null &&
+        (width - last).abs() < 0.5 &&
+        (radius - _reportedRadius).abs() < 0.25) {
+      return;
+    }
+    _reportedPillWidth = width;
+    _reportedRadius = radius;
+    report(width, radius);
+  }
 
   /// Animated pill width at the current controller value.
   double get _currentPillWidth =>
@@ -242,7 +315,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   /// Set to true after the first [didChangeDependencies] call so that
   /// subsequent calls with the same [_reducedMotion] value are no-ops.
   /// Without this flag the initial call (both sides are `false`) would
-  /// short-circuit and never start the dot pulse.
+  /// short-circuit and never start the drift.
   bool _motionInitialized = false;
 
   // ---------------------------------------------------------------------------
@@ -250,12 +323,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   @override
   void initState() {
     super.initState();
-
-    _dot = AnimationController(
-      vsync: this,
-      duration: OverlayDesignSpec.motion.dotPulsePeriod,
-      value: 1.0,
-    );
 
     _glass = AnimationController(
       vsync: this,
@@ -292,18 +359,22 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     );
     _pillFromWidth = initialWidth;
     _pillToWidth = initialWidth;
-    _pillWidth = AnimationController(vsync: this, value: 1.0);
+    _pillWidth = AnimationController(vsync: this, value: 1.0)
+      ..addListener(_reportPillWidth);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reportPillWidth();
+    });
 
-    // Dot pulse is started in didChangeDependencies once we have a context
-    // and know the reduced-motion preference.
+    // Motion is started in didChangeDependencies once we have a context and
+    // know the reduced-motion preference.
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final nowDisabled = MediaQuery.of(context).disableAnimations;
-    // Always apply on the very first call so the dot pulse (or its absence)
-    // is established at mount time — the early return would skip that.
+    // Always apply on the very first call so the motion state is established
+    // at mount time — the early return would skip that.
     if (nowDisabled == _reducedMotion && _motionInitialized) return;
     _reducedMotion = nowDisabled;
     _motionInitialized = true;
@@ -313,8 +384,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   void _applyReducedMotion() {
     if (_reducedMotion) {
       // Collapse all animations to their final values immediately.
-      _dot.stop();
-      _dot.value = 1.0;
       // Liquid glass rests at phase 0 — the static baseline frame.
       _glass.stop();
       _glass.value = 0.0;
@@ -346,8 +415,16 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     _syncContinuousAnimations();
   }
 
-  /// Runs the two perpetual animations — the accent-dot pulse and the
-  /// liquid-glass drift — exactly while the overlay is on screen.
+  /// Whether anything on screen reads the glass phase: the fluid outline
+  /// (see [_liquidMotion]) or the transcribing spinner and ripple. Without
+  /// either, a running loop would repaint the panel every vsync for a frame
+  /// that does not change (north-star review #25: tempo and battery).
+  bool get _phaseDrawn =>
+      widget.snapshot.state == OverlayVisualState.transcribing ||
+      _liquidMotion > 0;
+
+  /// Runs the perpetual liquid-glass drift exactly while the overlay is on
+  /// screen and something reads its phase ([_phaseDrawn]).
   ///
   /// The visibility gate is what makes the render engine's
   /// `detachFromEmbedderAppLifecycle()` safe: with this engine no longer
@@ -358,18 +435,18 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   /// `AppLifecycleState.hidden` that wedged the overlay invisible also
   /// happened to stop these tickers.
   void _syncContinuousAnimations() {
-    if (widget.animate && !_reducedMotion && widget.snapshot.visible) {
-      if (!_dot.isAnimating) _dot.repeat(reverse: true);
+    if (widget.animate &&
+        !_reducedMotion &&
+        widget.snapshot.visible &&
+        _phaseDrawn) {
       if (!_glass.isAnimating) _glass.repeat();
       return;
     }
-    _dot.stop();
     _glass.stop();
     if (_reducedMotion || !widget.animate) {
-      // Static frame: the pulse rests at full and the glass at phase 0.
+      // Static frame: the glass rests at phase 0.
       // A merely-hidden overlay keeps its values — nothing is on screen to
       // notice, and the next appear starts from a live phase.
-      _dot.value = 1.0;
       _glass.value = 0.0;
     }
   }
@@ -400,6 +477,12 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   void didUpdateWidget(WpFloatingOverlayView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // A snap (re-show, size class) or a backdrop switch moves the pill without
+    // a controller tick: report after the frame, when the width has settled.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reportPillWidth();
+    });
+
     // Appear / dismiss when visibility changes.
     if (widget.snapshot.visible != oldWidget.snapshot.visible) {
       if (widget.snapshot.visible) {
@@ -416,7 +499,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         // the next appear starts from the correct initial value.
         _appear.value = 0.0;
       }
-      // Start/stop the perpetual pulse + drift with the panel itself.
+      // Start/stop the perpetual drift with the panel itself.
       _syncContinuousAnimations();
     } else if (widget.snapshot.visible &&
         _appear.status == AnimationStatus.dismissed) {
@@ -489,8 +572,12 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
       );
     }
 
-    // Handle changes to the animate flag (e.g. settings preview ↔ live overlay).
-    if (widget.animate != oldWidget.animate) {
+    // Handle changes to the animate flag (e.g. settings preview ↔ live
+    // overlay), and to what reads the glass phase (state, fluid outline).
+    if (widget.animate != oldWidget.animate ||
+        widget.snapshot.state != oldWidget.snapshot.state ||
+        widget.snapshot.appearance.waveFluid !=
+            oldWidget.snapshot.appearance.waveFluid) {
       _syncContinuousAnimations();
     }
   }
@@ -606,7 +693,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
   @override
   void dispose() {
-    _dot.dispose();
     _glass.dispose();
     _appear.dispose();
     _stateTransition.dispose();
@@ -627,6 +713,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   double get _liquidMotion =>
       (_reducedMotion ||
           !widget.animate ||
+          !widget.snapshot.appearance.waveFluid ||
           widget.snapshot.state == OverlayVisualState.transcribing)
       ? 0.0
       : 1.0;
@@ -648,125 +735,156 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
   @override
   Widget build(BuildContext context) {
+    final notice = widget.snapshot.notice;
+    if (notice != null) {
+      return Semantics(
+        container: true,
+        liveRegion: true,
+        identifier: 'overlay-notice-card',
+        label: notice.announcement,
+        child: WpOverlayNoticeCard(
+          key: const ValueKey('overlay-notice-card'),
+          notice: notice,
+          colors: OverlayDesignSpec.colorsFor(
+            background: widget.snapshot.background,
+            wave: widget.snapshot.wave,
+            glassTone:
+                widget.glassTone ?? WpFloatingOverlayView.systemGlassTone(),
+          ),
+          onAction: widget.onNoticeAction,
+        ),
+      );
+    }
     final window = OverlayDesignSpec.windowSizeFor(widget.snapshot.size);
     final appearScale = OverlayDesignSpec.arc.appearScale;
 
-    return RepaintBoundary(
-      child: SizedBox(
-        width: window.width,
-        height: window.height,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([
-            _dot,
-            _glass,
-            _appear,
-            _stateTransition,
-            _pillWidth,
-          ]),
-          builder: (context, child) {
-            final t = _appear.value;
-            // Scale: appearScale → 1.0; calm, sub-1.0 start, no overshoot.
-            final scale = appearScale + (1.0 - appearScale) * t;
+    // The state text is the screen-reader label. It changes only with the
+    // state (the timer is not in it), so a live region announces the state
+    // change and stays quiet while the wave moves. A pill hint the main
+    // engine has read out already is no live region, so it is heard once
+    // (#633); it carries its own stable testID.
+    final pillHintId = widget.snapshot.pillHintId;
+    return Semantics(
+      container: true,
+      liveRegion: !widget.snapshot.announced,
+      identifier: pillHintId != null ? 'overlay-pill-hint' : null,
+      label: WpFloatingOverlayView.statusTextFor(widget.snapshot),
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: window.width,
+          height: window.height,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([
+              _glass,
+              _appear,
+              _stateTransition,
+              _pillWidth,
+            ]),
+            builder: (context, child) {
+              final t = _appear.value;
+              // Scale: appearScale → 1.0; calm, sub-1.0 start, no overshoot.
+              final scale = appearScale + (1.0 - appearScale) * t;
 
-            // Animated pill width — shared across all painters in this frame so
-            // all crossfade layers morph in perfect sync.
-            final animatedPillWidth = _currentPillWidth;
+              // Animated pill width — shared across all painters in this frame so
+              // all crossfade layers morph in perfect sync.
+              final animatedPillWidth = _currentPillWidth;
 
-            final outgoing = _outgoing;
-            Widget content;
-            if (outgoing != null && _stateTransition.value < 1.0) {
-              // State-transition crossfade in flight.
-              //
-              // The fill is drawn once (background-only painter) to avoid
-              // double-compositing the semi-transparent glass gradient.
-              // Only the content layers are crossfaded at opposite opacities.
-              // All three layers use the same animatedPillWidth so the pill
-              // border and content always match during the crossfade.
-              final ct = OverlayDesignSpec.arc.stateTransitionCurve.transform(
-                _stateTransition.value,
-              );
-              content = Stack(
-                children: [
-                  // Layer 1: capsule background for the incoming state (fill only).
-                  CustomPaint(
-                    size: window,
-                    painter: WpFloatingOverlayView.painterFor(
-                      snapshot: widget.snapshot,
-                      waveformBars: widget.waveformBars,
-                      dotPulse: _dot.value,
-                      paintFill: true,
-                      paintContent: false,
-                      pillWidth: animatedPillWidth,
-                      glassPhase: _glass.value,
-                      liquidMotion: _liquidMotion,
-                      liquidLevel: _liquidLevel,
-                    ),
-                  ),
-                  // Layer 2: outgoing state content fading out.
-                  Opacity(
-                    opacity: 1.0 - ct,
-                    child: CustomPaint(
+              final outgoing = _outgoing;
+              Widget content;
+              if (outgoing != null && _stateTransition.value < 1.0) {
+                // State-transition crossfade in flight.
+                //
+                // The fill is drawn once (background-only painter) to avoid
+                // double-compositing the semi-transparent glass gradient.
+                // Only the content layers are crossfaded at opposite opacities.
+                // All three layers use the same animatedPillWidth so the pill
+                // border and content always match during the crossfade.
+                final ct = OverlayDesignSpec.arc.stateTransitionCurve.transform(
+                  _stateTransition.value,
+                );
+                content = Stack(
+                  children: [
+                    // Layer 1: capsule background for the incoming state (fill only).
+                    CustomPaint(
                       size: window,
                       painter: WpFloatingOverlayView.painterFor(
-                        snapshot: outgoing,
-                        waveformBars: widget.waveformBars,
-                        dotPulse: _dot.value,
-                        paintFill: false,
-                        paintContent: true,
-                        pillWidth: animatedPillWidth,
-                        // Content now paints the transcribing ripple too
-                        // (see WpOverlayPainter.transcribingBarLevel), so
-                        // this layer needs the live phase like Layer 1 —
-                        // previously irrelevant here since paintFill=false
-                        // meant only the (phase-independent) sheen was
-                        // skipped.
-                        glassPhase: _glass.value,
-                      ),
-                    ),
-                  ),
-                  // Layer 3: incoming state content fading in. Also drives
-                  // the done-checkmark draw-on / error-icon settle-in off the
-                  // same fraction, so the icon finishes forming exactly as
-                  // the crossfade reaches full opacity.
-                  Opacity(
-                    opacity: ct,
-                    child: CustomPaint(
-                      size: window,
-                      painter: WpFloatingOverlayView.painterFor(
+                        glassTone: widget.glassTone,
                         snapshot: widget.snapshot,
                         waveformBars: widget.waveformBars,
-                        dotPulse: _dot.value,
-                        paintFill: false,
-                        paintContent: true,
+                        paintFill: true,
+                        paintContent: false,
                         pillWidth: animatedPillWidth,
-                        iconRevealFraction: ct,
                         glassPhase: _glass.value,
+                        liquidMotion: _liquidMotion,
+                        liquidLevel: _liquidLevel,
                       ),
                     ),
+                    // Layer 2: outgoing state content fading out.
+                    Opacity(
+                      opacity: 1.0 - ct,
+                      child: CustomPaint(
+                        size: window,
+                        painter: WpFloatingOverlayView.painterFor(
+                          glassTone: widget.glassTone,
+                          snapshot: outgoing,
+                          waveformBars: widget.waveformBars,
+                          paintFill: false,
+                          paintContent: true,
+                          pillWidth: animatedPillWidth,
+                          // Content now paints the transcribing ripple too
+                          // (see WpOverlayPainter.transcribingBarLevel), so
+                          // this layer needs the live phase like Layer 1 —
+                          // previously irrelevant here since paintFill=false
+                          // meant only the (phase-independent) sheen was
+                          // skipped.
+                          glassPhase: _glass.value,
+                        ),
+                      ),
+                    ),
+                    // Layer 3: incoming state content fading in. Also drives
+                    // the done-checkmark draw-on / error-icon settle-in off the
+                    // same fraction, so the icon finishes forming exactly as
+                    // the crossfade reaches full opacity.
+                    Opacity(
+                      opacity: ct,
+                      child: CustomPaint(
+                        size: window,
+                        painter: WpFloatingOverlayView.painterFor(
+                          glassTone: widget.glassTone,
+                          snapshot: widget.snapshot,
+                          waveformBars: widget.waveformBars,
+                          paintFill: false,
+                          paintContent: true,
+                          pillWidth: animatedPillWidth,
+                          iconRevealFraction: ct,
+                          glassPhase: _glass.value,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              } else {
+                // Steady state: single painter, full fill + content.
+                content = CustomPaint(
+                  size: window,
+                  painter: WpFloatingOverlayView.painterFor(
+                    glassTone: widget.glassTone,
+                    snapshot: widget.snapshot,
+                    waveformBars: widget.waveformBars,
+                    pillWidth: animatedPillWidth,
+                    glassPhase: _glass.value,
+                    liquidMotion: _liquidMotion,
+                    liquidLevel: _liquidLevel,
                   ),
-                ],
-              );
-            } else {
-              // Steady state: single painter, full fill + content.
-              content = CustomPaint(
-                size: window,
-                painter: WpFloatingOverlayView.painterFor(
-                  snapshot: widget.snapshot,
-                  waveformBars: widget.waveformBars,
-                  dotPulse: _dot.value,
-                  pillWidth: animatedPillWidth,
-                  glassPhase: _glass.value,
-                  liquidMotion: _liquidMotion,
-                  liquidLevel: _liquidLevel,
-                ),
-              );
-            }
+                );
+              }
 
-            return Transform.scale(
-              scale: scale,
-              child: Opacity(opacity: t, child: content),
-            );
-          },
+              return Transform.scale(
+                scale: scale,
+                child: Opacity(opacity: t, child: content),
+              );
+            },
+          ),
         ),
       ),
     );

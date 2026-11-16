@@ -15,8 +15,8 @@ import FlutterMacOS
 /// - This host relays the render payloads to the overlay engine over the
 ///   private `com.whispaste.floating_overlay_render` channel, and translates
 ///   the overlay engine's coarse interactions (`startDrag` / `bodyClicked` /
-///   `showContextMenu`) back into the existing main-engine events
-///   (`onDragEnded` / `onBodyClicked` / `onContextMenu`).
+///   `closeClicked` / `showContextMenu`) back into the existing main-engine events
+///   (`onDragEnded` / `onBodyClicked` / `onCloseClicked` / `onContextMenu`).
 ///
 /// The panel is lazily created on the first `updateSnapshot` with
 /// `visible: true` — matching the Windows C++ host behavior.
@@ -29,12 +29,22 @@ class FloatingOverlayHost {
   private var renderViewController: FlutterViewController?
   private var renderChannel: FlutterMethodChannel?
 
+  // Container that hosts the Flutter view, and the native backdrop behind it
+  // for the glass look ("glass" = NSGlassEffectView on macOS 26+, "vibrancy"
+  // = NSVisualEffectView before that, "none" otherwise). See `applyBackdrop`.
+  private var renderContainerView: NSView?
+  private var backdropView: NSView?
+  private var backdropKind: String = "none"
+  /// Current pill width (points) reported by the render engine; nil = full.
+  private var backdropPillWidth: CGFloat?
+
   private var pendingPosition: NSPoint?
   private var pendingAnchorMode: String = "topCenter"
-  // Overlay size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // Overlay size class: "normal" | "compact" | "mini" | "nano" (mirrors the Dart
   // OverlaySizeVariant serialised as snapshot["size"]).
   private var sizeClass: String = "normal"
-  private var contextMenuItems: [(id: String, label: String)] = []
+  private var contextMenuEntries: [NativeMenuEntry] = []
+  private var contextMenuAppearance: NSAppearance?
   private var screenObserver: NSObjectProtocol?
 
   // The render engine boots asynchronously: its Dart MethodChannel handler is
@@ -194,20 +204,19 @@ class FloatingOverlayHost {
       result(nil)
 
     case "setContextMenuItems":
-      guard let args = call.arguments as? [String: Any],
-            let items = args["items"] as? [[String: Any]] else {
-        result(nil)
-        return
-      }
-      contextMenuItems = items.compactMap { item in
-        guard let id = item["id"] as? String,
-              let label = item["label"] as? String else { return nil }
-        return (id: id, label: label)
-      }
+      // {items:[...tree...], appearance} (#393, see NativeContextMenu).
+      (contextMenuEntries, contextMenuAppearance) = NativeContextMenu.parse(call.arguments)
       result(nil)
 
     case "destroy":
       teardown()
+      result(nil)
+
+    case "rebootRenderEngine":
+      // Dart's frame heartbeat (ticket phase 2) found no painted frame after a
+      // show. Re-boots the render engine inside the existing panel; the Dart
+      // side owns the session budget and the logging.
+      rebootRenderEngine()
       result(nil)
 
     default:
@@ -217,33 +226,57 @@ class FloatingOverlayHost {
 
   // MARK: - updateSnapshot (lazy-creates panel + engine, handles show/hide)
 
-  private func handleUpdateSnapshot(_ args: [String: Any]) {
+  private func handleUpdateSnapshot(_ argsIn: [String: Any]) {
+    var args = argsIn
     let visible = args["visible"] as? Bool ?? false
     // "size" is the canonical key; fall back to the legacy "compact" bool for
     // payloads from an older main engine.
     let size = args["size"] as? String
       ?? ((args["compact"] as? Bool ?? false) ? "compact" : "normal")
     let sizeChanged = size != sizeClass
+    let previousContent = panel?.contentView?.frame.size
     // Set the size class BEFORE lazy-creating the panel so the very first
     // (possibly compact/mini) snapshot sizes the shell correctly instead of
     // creating it at normal size and resizing a frame later.
     sizeClass = size
 
+    // Content and window must never disagree (#1193): a notice card rendered
+    // in the pill's window overflowed, and the resize waited on a frame of
+    // that stale content. A shrinking shell therefore relays the new snapshot
+    // first and resizes after it; a growing shell resizes first, so the
+    // bigger content arrives in a window that already fits it.
+    let shrinking = previousContent.map { old in
+      let new = contentSize()
+      return new.width < old.width || new.height < old.height
+    } ?? false
+    let resizeExisting = !(visible && panel == nil) && sizeChanged
+
     if visible && panel == nil {
       ensurePanel()
-    } else if sizeChanged {
-      // Re-size + re-anchor the existing shell on a size-class switch. This
-      // synchronously touches AppKit/Flutter geometry — see
-      // `panelOperationStallThreshold` doc — so it goes through the watchdog.
-      runPanelOperation("resizePanelToContent") { [weak self] in
-        self?.resizePanelToContent()
-      }
+    } else if resizeExisting && !shrinking {
+      resizeShell()
     }
+
+    // The system "Reduce transparency" setting travels with the snapshot, so
+    // the render engine can paint an opaque glass body instead.
+    let reduceTransparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+    args["reduceTransparency"] = reduceTransparency
+    applyBackdrop(
+      background: args["background"] as? String,
+      reduceTransparency: reduceTransparency
+    )
+    // The Flutter glass body paints no fill while the native backdrop is up.
+    args["nativeBackdrop"] = backdropView != nil
+    // NSGlassEffectView draws its own edge; the Flutter body adds no hairline.
+    args["nativeBackdropEdge"] = backdropKind == "glass" && backdropView != nil
 
     // Cache + relay (relay no-ops until the engine is ready; flushed on ready).
     latestSnapshotArgs = args
     if renderReady {
       renderChannel?.invokeMethod("updateSnapshot", arguments: args)
+    }
+    if resizeExisting && shrinking {
+      resizeShell()
     }
 
     // Show or hide the native shell. Re-showing a previously-hidden panel is
@@ -251,13 +284,100 @@ class FloatingOverlayHost {
     // (see `panelOperationStallThreshold`), so it also goes through the
     // watchdog. `orderOut` is not — hiding never waits on a fresh committed
     // frame, so it isn't a wedge risk.
+    // Dart re-sends `visible: true` on every elapsed tick (~1 Hz). Re-ordering
+    // an already visible panel is redundant and, on the shared main thread, can
+    // wait on a frame (ticket analysis: 90 redundant calls per debug run), so
+    // only a hidden panel is ordered front.
     if visible {
-      runPanelOperation("orderFront") { [weak self] in
-        self?.panel?.orderFront(nil)
+      if panel?.isVisible != true {
+        runPanelOperation("orderFront") { [weak self] in
+          self?.panel?.orderFront(nil)
+        }
       }
     } else {
       panel?.orderOut(nil)
     }
+  }
+
+  /// Re-sizes and re-anchors the existing shell on a size-class switch. This
+  /// synchronously touches AppKit/Flutter geometry — see
+  /// `panelOperationStallThreshold` doc — so it goes through the watchdog.
+  private func resizeShell() {
+    runPanelOperation("resizePanelToContent") { [weak self] in
+      self?.resizePanelToContent()
+    }
+  }
+
+  /// Installs or removes the native backdrop behind the Flutter view. The
+  /// backdrop covers the pill box (the window inset by the shadow padding), so
+  /// the painted shadow stays outside it. Reduced transparency removes it and
+  /// the Flutter body paints opaque instead.
+  private func applyBackdrop(background: String?, reduceTransparency: Bool) {
+    guard let root = renderContainerView, let fv = renderViewController?.view else { return }
+    let wanted: String
+    if background == "glass" && !reduceTransparency {
+      if #available(macOS 26.0, *) {
+        wanted = "glass"
+      } else {
+        wanted = "vibrancy"
+      }
+    } else {
+      wanted = "none"
+    }
+    if wanted != backdropKind {
+      backdropView?.removeFromSuperview()
+      backdropView = nil
+      backdropKind = wanted
+      if let v = makeBackdrop(kind: wanted) {
+        root.addSubview(v, positioned: .below, relativeTo: fv)
+        backdropView = v
+      }
+    }
+    guard let v = backdropView else { return }
+    let pad = Self.overlayShadowPadding
+    let b = root.bounds
+    // The backdrop follows the pill the render engine paints (#476): the pill
+    // morphs between widths inside a window sized for the widest one.
+    let fullWidth = b.width - 2 * pad
+    let width = min(max(backdropPillWidth ?? fullWidth, 1), fullWidth)
+    let pill = NSRect(
+      x: pad + (fullWidth - width) / 2, y: pad, width: width, height: b.height - 2 * pad)
+    let radius = pill.height / 2
+    // Per-tick geometry must not animate: implicit layer animations would make
+    // the backdrop trail the pill the engine paints.
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    v.frame = pill
+    if #available(macOS 26.0, *), let glass = v as? NSGlassEffectView {
+      glass.cornerRadius = radius
+    } else {
+      v.layer?.cornerRadius = radius
+    }
+    CATransaction.commit()
+  }
+
+  /// Shadow padding around the pill, in points (`OverlayDesignSpec.shadowPadding`).
+  private static let overlayShadowPadding: CGFloat = 8
+
+  private func makeBackdrop(kind: String) -> NSView? {
+    if kind == "glass" {
+      if #available(macOS 26.0, *) {
+        let glass = NSGlassEffectView()
+        glass.style = .regular
+        return glass
+      }
+      return nil
+    }
+    if kind == "vibrancy" {
+      let v = NSVisualEffectView()
+      v.material = .hudWindow
+      v.blendingMode = .behindWindow
+      v.state = .active
+      v.wantsLayer = true
+      v.layer?.masksToBounds = true
+      return v
+    }
+    return nil
   }
 
   /// Runs `op` — a synchronous panel geometry/visibility mutation that may
@@ -289,6 +409,25 @@ class FloatingOverlayHost {
     NSLog("[overlay] \(message)")
     channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": false])
     recoverStuckPanel()
+  }
+
+  /// Re-boots only the render engine, keeping the panel, its position and its
+  /// visibility. Requested by Dart when a shown overlay produced no frame
+  /// (see `OverlayRenderRecovery`). Each request starts a fresh boot-race
+  /// budget; the session-wide budget lives on the Dart side.
+  private func rebootRenderEngine() {
+    guard panel != nil else { return }
+    NSLog("[overlay] rebootRenderEngine: re-booting render engine on request")
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
+    renderChannel?.setMethodCallHandler(nil)
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderReady = false
+    bootRenderEngine()
   }
 
   /// Blackbox recovery for a suspected-wedged shell: tears down the panel
@@ -344,14 +483,19 @@ class FloatingOverlayHost {
 
   /// Full native-window size = pill box + 8pt shadow padding per side.
   /// Mirrors `OverlayDesignSpec.windowSizeFor` (Dart). Normal `346 × 80`,
-  /// compact `236 × 56`, mini `166 × 50`. The shell MUST match this so the
-  /// painted soft shadow is not clipped.
+  /// compact `236 × 56`, mini `166 × 50`, nano `104 × 40`. The shell MUST
+  /// match this so the painted soft shadow is not clipped.
   private func contentSize() -> NSSize {
     switch sizeClass {
     case "compact":
       return NSSize(width: 236, height: 56)
     case "mini":
       return NSSize(width: 166, height: 50)
+    case "nano":
+      return NSSize(width: 104, height: 40)
+    case "notice":
+      // Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
+      return NSSize(width: 346, height: 164)
     default:
       return NSSize(width: 346, height: 80)
     }
@@ -426,7 +570,25 @@ class FloatingOverlayHost {
     // "frosted glass" is the cross-platform faux-glass painted in Dart
     // (OverlayPainter, identical on macOS/Windows/Linux), so no native blur is
     // wired here. The panel stays a clear shell. See ADR 0002.
-    p.contentViewController = vc
+    // OVERLAY-BACKING-STORE: the floor must exist before AppKit adopts the
+    // render view's size. Without it a hidden panel can collapse to 0x0, and
+    // the render engine then fails to create a backing store on every frame
+    // (see `FloatingOverlayPanel.minimumFrameSize`).
+    p.minimumFrameSize = contentSize()
+    // The Flutter VC is contained by a plain container VC, so a glass or
+    // vibrancy backdrop can sit between the panel and the Flutter view.
+    let container = NSViewController()
+    let root = NSView(frame: NSRect(origin: .zero, size: contentSize()))
+    root.autoresizingMask = [.width, .height]
+    vc.view.frame = root.bounds
+    vc.view.autoresizingMask = [.width, .height]
+    root.addSubview(vc.view)
+    container.view = root
+    container.addChild(vc)
+    p.contentViewController = container
+    renderContainerView = root
+    backdropView = nil
+    backdropKind = "none"
     p.setContentSize(contentSize())
 
     renderEngine = engine
@@ -455,11 +617,12 @@ class FloatingOverlayHost {
       bootRenderEngine()
     } else {
       let message =
-        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — overlay content will stay blank until the app restarts"
+        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — the next show re-boots it (session budget applies)"
       NSLog("[overlay] \(message)")
       channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
-      // Don't keep a permanently-stuck engine's thread/GPU resources alive
-      // for the rest of the session — it will never become useful.
+      // Free the stuck engine's thread/GPU resources now. This is no longer a
+      // permanent give-up: the Dart frame heartbeat re-boots the engine on the
+      // next show, within the session budget.
       renderEngine?.shutDownEngine()
       renderEngine = nil
     }
@@ -467,7 +630,13 @@ class FloatingOverlayHost {
 
   private func resizePanelToContent() {
     guard let p = panel else { return }
+    // Resize only when needed (ticket phase 2, plan item 2): a synchronous
+    // content-size change waits on a frame at the new size.
+    guard p.contentView?.frame.size != contentSize() else { return }
     let origin = p.frame.origin
+    // Raise the floor to the new size class first, so the shell can never be
+    // left below it for the frames that follow (OVERLAY-BACKING-STORE).
+    p.minimumFrameSize = contentSize()
     p.setContentSize(contentSize())
     // Re-anchor: a top/bottom-centre overlay must stay centred after the size
     // changes; a dragged (topLeft) overlay keeps its raw origin.
@@ -486,12 +655,10 @@ class FloatingOverlayHost {
       NSLog("[overlay] render engine ready — flushing cached state")
       renderReadyTimeoutTimer?.invalidate()
       renderReadyTimeoutTimer = nil
-      renderReadyRetryCount = 0
-      // A clean ready-signal means the shell is healthy again — let future
-      // genuine stalls get the full retry budget rather than staying
-      // permanently exhausted after one bad patch of jank earlier in a long
-      // session.
-      panelRecoveryRetryCount = 0
+      // `ready` does NOT reset the recovery counters (ticket phase 2, plan
+      // item 4): a reset here let each successful boot re-arm the stall
+      // rebuild cascade. The budget is per session; `ready` only proves the
+      // handshake, not that a frame reached the screen.
       renderReady = true
       if let bars = latestBars {
         renderChannel?.invokeMethod("setWaveformBars", arguments: bars)
@@ -520,8 +687,42 @@ class FloatingOverlayHost {
       channel.invokeMethod("onBodyClicked", arguments: nil)
       result(nil)
 
+    case "closeClicked":
+      channel.invokeMethod("onCloseClicked", arguments: nil)
+      result(nil)
+
+    case "noticeAction":
+      // A notice-card button (overlay F2): relay {id} to the main engine.
+      channel.invokeMethod("onNoticeAction", arguments: call.arguments)
+      result(nil)
+
+    case "frameRendered":
+      // First painted frame of the current show (frame heartbeat, ticket
+      // phase 2). Relayed so the Dart side can stop its re-boot deadline and
+      // record the first-frame latency.
+      channel.invokeMethod("onRenderFrame", arguments: nil)
+      result(nil)
+
     case "showContextMenu":
       showContextMenu()
+      result(nil)
+
+    case "setPillWidth":
+      // The glass backdrop follows the animated pill width (#476).
+      if let args = call.arguments as? [String: Any], let w = args["width"] as? Double {
+        // <= 0 = full window width (notice card).
+        backdropPillWidth = w > 0 ? CGFloat(w) : nil
+        // Without a snapshot there is no background to derive; applying would
+        // tear the backdrop down.
+        if latestSnapshotArgs != nil {
+          applyBackdrop(
+            background: latestSnapshotArgs?["background"] as? String,
+            // The value cached with the snapshot: re-reading the live setting here
+            // could flip the backdrop type mid-animation.
+            reduceTransparency: latestSnapshotArgs?["reduceTransparency"] as? Bool ?? false
+          )
+        }
+      }
       result(nil)
 
     case "reportError":
@@ -542,18 +743,13 @@ class FloatingOverlayHost {
   }
 
   private func showContextMenu() {
-    guard !contextMenuItems.isEmpty else { return }
-    let menu = NSMenu()
-    for item in contextMenuItems {
-      let menuItem = NSMenuItem(
-        title: item.label,
-        action: #selector(contextMenuItemSelected(_:)),
-        keyEquivalent: ""
-      )
-      menuItem.target = self
-      menuItem.representedObject = item.id
-      menu.addItem(menuItem)
-    }
+    guard !contextMenuEntries.isEmpty else { return }
+    let menu = NativeContextMenu.build(
+      contextMenuEntries,
+      appearance: contextMenuAppearance,
+      target: self,
+      action: #selector(contextMenuItemSelected(_:))
+    )
     if let event = NSApp.currentEvent, let view = renderViewController?.view {
       NSMenu.popUpContextMenu(menu, with: event, for: view)
     }

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/build_config.dart';
+import '../../core/config/settings_provider.dart';
+import 'channel_desktop_paste_controller.dart';
 import 'desktop_paste_controller_interface.dart';
 import 'linux_desktop_paste_controller.dart';
 import 'macos_desktop_paste_controller.dart';
@@ -11,6 +14,10 @@ import 'windows_desktop_paste_controller.dart';
 export 'desktop_paste_controller_interface.dart';
 
 /// Shared provider for the platform desktop paste controller.
+///
+/// On container dispose only the Dart-side read deadlines end
+/// ([ChannelDesktopPasteController.cancelPendingReads]); the native peer is
+/// not told anything, see below.
 ///
 /// Deliberately does NOT call [DesktopPasteController.dispose] from
 /// `ref.onDispose`: the native peer behind this channel (`DesktopPasteHost`
@@ -27,11 +34,34 @@ export 'desktop_paste_controller_interface.dart';
 /// platform messages silently once the channel's method-call handler has
 /// been unregistered, instead of replying with "not implemented".
 final desktopPasteControllerProvider = Provider<DesktopPasteController?>((ref) {
+  final controller = _createDesktopPasteController(ref);
+  // Only the Dart-side read deadlines end with the container; the native
+  // peer stays up (see above).
+  if (controller is ChannelDesktopPasteController) {
+    ref.onDispose(controller.cancelPendingReads);
+  }
+  return controller;
+});
+
+DesktopPasteController? _createDesktopPasteController(Ref ref) {
   // Mac App Store build: keystroke-injection paste is compiled out, so no
   // native paste controller is wired up at all.
   if (!kAutoPasteSupported) return null;
   if (Platform.isWindows) return WindowsDesktopPasteController();
   if (Platform.isMacOS) return MacOSDesktopPasteController();
-  if (Platform.isLinux) return LinuxDesktopPasteController();
+  // Linux auto-paste is wired (uinput virtual keyboard). Whether it works
+  // depends on the package format; the onboarding page explains that step.
+  if (Platform.isLinux) {
+    final controller = LinuxDesktopPasteController(
+      // Read at paste time, so a changed switch applies without a rebuild
+      // of this process-lifetime controller.
+      alwaysShift: () =>
+          ref.read(settingsProvider).value?.behavior.linuxAlwaysShiftPaste ??
+          false,
+    );
+    // Reconnects the portal keyboard when the user granted it before.
+    unawaited(controller.resumePortalInput());
+    return controller;
+  }
   return null;
-});
+}

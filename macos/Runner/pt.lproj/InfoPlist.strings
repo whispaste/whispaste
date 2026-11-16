@@ -1,0 +1,3 @@
+/* Permission reasons shown by macOS (Info.plist keys), per app language. */
+"NSMicrophoneUsageDescription" = "O WhisPaste precisa de acesso ao microfone para transformar a sua voz em texto.";
+"NSAppleEventsUsageDescription" = "O WhisPaste pode usar isto para colar o texto ditado em outros apps quando o método habitual não estiver disponível.";

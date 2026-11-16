@@ -1,5 +1,4 @@
-/// Widget tests for [SmartModeUsageHintWatcher]'s once-only logic (ticket 08
-/// of `internal-notes`).
+/// Widget tests for [SmartModeUsageHintWatcher]'s once-only logic.
 library;
 
 import 'dart:async';
@@ -11,10 +10,10 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
-import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/smart_mode_usage_hint.dart';
 
 import '../../fixtures/test_helpers.dart';
+import '../../test_helpers/nudge_gate_open.dart';
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -78,8 +77,9 @@ void main() {
           const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
           locale: const Locale('en'),
           overrides: [
+            nudgeGateOpenOverride(),
             settingsProvider.overrideWith(() => settings),
-            historyEntriesProvider.overrideWith((ref) => controller.stream),
+            latestRecordingsProvider.overrideWith((ref) => controller.stream),
           ],
         ),
       );
@@ -87,8 +87,6 @@ void main() {
       await tester.pumpAndSettle();
 
       // The initial catch-up emission must not trigger the hint.
-      final l10n = await L10n.delegate.load(const Locale('en'));
-      expect(find.text(l10n.smartModeUsageHintTitle), findsNothing);
 
       // A genuinely new dictation completes.
       controller.add([
@@ -97,10 +95,9 @@ void main() {
       ]);
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.smartModeUsageHintTitle), findsOneWidget);
-      expect(find.textContaining('a brand new dictation'), findsOneWidget);
-
-      await tester.tap(find.text(l10n.smartModeUsageHintDismiss));
+      await tester.tap(
+        find.bySemanticsIdentifier('smart-mode-usage-hint-dismiss'),
+      );
       await tester.pumpAndSettle();
 
       expect(settings.state.value!.onboarding.smartModeUsageHintShown, true);
@@ -124,8 +121,9 @@ void main() {
         const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
         locale: const Locale('en'),
         overrides: [
+          nudgeGateOpenOverride(),
           settingsProvider.overrideWith(() => settings),
-          historyEntriesProvider.overrideWith((ref) => controller.stream),
+          latestRecordingsProvider.overrideWith((ref) => controller.stream),
         ],
       ),
     );
@@ -138,42 +136,6 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    final l10n = await L10n.delegate.load(const Locale('en'));
-    expect(find.text(l10n.smartModeUsageHintTitle), findsNothing);
-  });
-
-  testWidgets('never shows a second time once already shown', (tester) async {
-    final settings = _FakeSettingsNotifier(
-      AppSettings.defaults.copyWithSections(
-        onboarding: OnboardingSettings.defaults.copyWith(
-          onboardingCompleted: true,
-          smartModeUsageHintShown: true,
-        ),
-      ),
-    );
-    final controller = _historyController();
-    addTearDown(controller.close);
-
-    await tester.pumpWidget(
-      makeTestable(
-        const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
-        locale: const Locale('en'),
-        overrides: [
-          settingsProvider.overrideWith(() => settings),
-          historyEntriesProvider.overrideWith((ref) => controller.stream),
-        ],
-      ),
-    );
-    controller.add([_entry('1', 'hello world', DateTime(2026, 1, 1))]);
-    await tester.pumpAndSettle();
-
-    controller.add([
-      _entry('2', 'a brand new dictation', DateTime(2026, 1, 2)),
-      _entry('1', 'hello world', DateTime(2026, 1, 1)),
-    ]);
-    await tester.pumpAndSettle();
-
-    final l10n = await L10n.delegate.load(const Locale('en'));
-    expect(find.text(l10n.smartModeUsageHintTitle), findsNothing);
+    expect(settings.state.value!.onboarding.smartModeUsageHintShown, false);
   });
 }

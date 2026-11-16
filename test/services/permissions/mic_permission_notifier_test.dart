@@ -6,8 +6,10 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -192,6 +194,7 @@ void main() {
         'silent, dialog-free call) instead of assuming denied, and — if '
         'still denied — routes to the Settings deep-link and starts '
         'polling', () async {
+      _pin(TargetPlatform.macOS);
       final checker = _FakeMicPermissionChecker(initial: false);
       final container = _container(checker: checker);
       addTearDown(container.dispose);
@@ -218,7 +221,7 @@ void main() {
         reason: 'second denial routes straight to the Settings pane',
       );
       expect(notifier.isPolling, isTrue);
-    }, skip: !(Platform.isMacOS || Platform.isWindows));
+    });
 
     test(
       'a second request() that turns out granted (flipped outside the '
@@ -247,6 +250,7 @@ void main() {
     test(
       'openSystemSettings is a no-op on Linux — no deep-link target exists',
       () async {
+        _pin(TargetPlatform.linux);
         final checker = _FakeMicPermissionChecker(initial: false);
         final container = _container(checker: checker);
         addTearDown(container.dispose);
@@ -256,29 +260,26 @@ void main() {
 
         expect(urlLauncher.launchedUrls, isEmpty);
       },
-      skip: !Platform.isLinux,
     );
 
-    test(
-      'openSystemSettings opens the macOS microphone privacy pane',
-      () async {
-        final checker = _FakeMicPermissionChecker(initial: false);
-        final container = _container(checker: checker);
-        addTearDown(container.dispose);
+    test('openSystemSettings opens the macOS microphone privacy pane', () async {
+      _pin(TargetPlatform.macOS);
+      final checker = _FakeMicPermissionChecker(initial: false);
+      final container = _container(checker: checker);
+      addTearDown(container.dispose);
 
-        final notifier = container.read(micPermissionNotifierProvider.notifier);
-        await notifier.openSystemSettings();
+      final notifier = container.read(micPermissionNotifierProvider.notifier);
+      await notifier.openSystemSettings();
 
-        expect(urlLauncher.launchedUrls, [
-          'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
-        ]);
-      },
-      skip: !Platform.isMacOS,
-    );
+      expect(urlLauncher.launchedUrls, [
+        'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+      ]);
+    });
 
     test(
       'openSystemSettings opens the Windows microphone privacy page',
       () async {
+        _pin(TargetPlatform.windows);
         final checker = _FakeMicPermissionChecker(initial: false);
         final container = _container(checker: checker);
         addTearDown(container.dispose);
@@ -288,46 +289,50 @@ void main() {
 
         expect(urlLauncher.launchedUrls, ['ms-settings:privacy-microphone']);
       },
-      skip: !Platform.isWindows,
     );
   });
 
   group('MicPermissionNotifier — polling', () {
+    // The poll timers run on a fake clock: elapse() advances them without
+    // real waiting.
     test(
       'startPolling calls check periodically until granted, then stops itself',
-      () async {
-        final checker = _FakeMicPermissionChecker(initial: false);
-        final container = _container(checker: checker);
-        addTearDown(container.dispose);
+      () {
+        fakeAsync((async) {
+          final checker = _FakeMicPermissionChecker(initial: false);
+          final container = _container(checker: checker);
+          addTearDown(container.dispose);
 
-        final notifier = container.read(micPermissionNotifierProvider.notifier);
-        notifier.startPolling(
-          interval: const Duration(milliseconds: 20),
-          timeout: const Duration(seconds: 5),
-        );
+          final notifier = container.read(
+            micPermissionNotifierProvider.notifier,
+          );
+          notifier.startPolling(
+            interval: const Duration(milliseconds: 20),
+            timeout: const Duration(seconds: 5),
+          );
 
-        await Future<void>.delayed(const Duration(milliseconds: 70));
-        expect(checker.calls.length, greaterThanOrEqualTo(2));
-        expect(notifier.isPolling, isTrue);
+          async.elapse(const Duration(milliseconds: 70));
+          expect(checker.calls.length, greaterThanOrEqualTo(2));
+          expect(notifier.isPolling, isTrue);
 
-        checker.nextResult = true;
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+          checker.nextResult = true;
+          async.elapse(const Duration(milliseconds: 80));
 
-        expect(notifier.isPolling, isFalse);
-        expect(
-          container.read(micPermissionNotifierProvider).status,
-          MicPermissionStatus.granted,
-        );
+          expect(notifier.isPolling, isFalse);
+          expect(
+            container.read(micPermissionNotifierProvider).status,
+            MicPermissionStatus.granted,
+          );
 
-        final callsAfterStop = checker.calls.length;
-        await Future<void>.delayed(const Duration(milliseconds: 80));
-        expect(checker.calls.length, callsAfterStop);
+          final callsAfterStop = checker.calls.length;
+          async.elapse(const Duration(milliseconds: 80));
+          expect(checker.calls.length, callsAfterStop);
+        });
       },
     );
 
-    test(
-      'startPolling self-stops after timeout even if never granted',
-      () async {
+    test('startPolling self-stops after timeout even if never granted', () {
+      fakeAsync((async) {
         final checker = _FakeMicPermissionChecker(initial: false);
         final container = _container(checker: checker);
         addTearDown(container.dispose);
@@ -338,59 +343,71 @@ void main() {
           timeout: const Duration(milliseconds: 80),
         );
 
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+        async.elapse(const Duration(milliseconds: 200));
         expect(notifier.isPolling, isFalse);
 
         final callsAfterTimeout = checker.calls.length;
-        await Future<void>.delayed(const Duration(milliseconds: 80));
+        async.elapse(const Duration(milliseconds: 80));
         expect(checker.calls.length, callsAfterTimeout);
-      },
-    );
-
-    test('stopPolling is idempotent and safe to call repeatedly', () async {
-      final checker = _FakeMicPermissionChecker(initial: false);
-      final container = _container(checker: checker);
-      addTearDown(container.dispose);
-
-      final notifier = container.read(micPermissionNotifierProvider.notifier);
-
-      notifier.stopPolling();
-      notifier.stopPolling();
-      expect(notifier.isPolling, isFalse);
-
-      notifier.startPolling(
-        interval: const Duration(milliseconds: 20),
-        timeout: const Duration(seconds: 5),
-      );
-      notifier.stopPolling();
-      notifier.stopPolling();
-      expect(notifier.isPolling, isFalse);
-
-      final callsAfterStop = checker.calls.length;
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      expect(checker.calls.length, callsAfterStop);
+      });
     });
 
-    test('no timer survives provider disposal', () async {
-      final checker = _FakeMicPermissionChecker(initial: false);
-      final container = _container(checker: checker);
+    test('stopPolling is idempotent and safe to call repeatedly', () {
+      fakeAsync((async) {
+        final checker = _FakeMicPermissionChecker(initial: false);
+        final container = _container(checker: checker);
+        addTearDown(container.dispose);
 
-      final notifier = container.read(micPermissionNotifierProvider.notifier);
-      notifier.startPolling(
-        interval: const Duration(milliseconds: 20),
-        timeout: const Duration(seconds: 5),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      final callsBeforeDispose = checker.calls.length;
+        final notifier = container.read(micPermissionNotifierProvider.notifier);
 
-      container.dispose();
+        notifier.stopPolling();
+        notifier.stopPolling();
+        expect(notifier.isPolling, isFalse);
 
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(
-        checker.calls.length,
-        callsBeforeDispose,
-        reason: 'a timer that outlived disposal would keep calling check()',
-      );
+        notifier.startPolling(
+          interval: const Duration(milliseconds: 20),
+          timeout: const Duration(seconds: 5),
+        );
+        notifier.stopPolling();
+        notifier.stopPolling();
+        expect(notifier.isPolling, isFalse);
+
+        final callsAfterStop = checker.calls.length;
+        async.elapse(const Duration(milliseconds: 80));
+        expect(checker.calls.length, callsAfterStop);
+      });
+    });
+
+    test('no timer survives provider disposal', () {
+      fakeAsync((async) {
+        final checker = _FakeMicPermissionChecker(initial: false);
+        final container = _container(checker: checker);
+
+        final notifier = container.read(micPermissionNotifierProvider.notifier);
+        notifier.startPolling(
+          interval: const Duration(milliseconds: 20),
+          timeout: const Duration(seconds: 5),
+        );
+        async.elapse(const Duration(milliseconds: 30));
+        final callsBeforeDispose = checker.calls.length;
+
+        container.dispose();
+
+        async.elapse(const Duration(milliseconds: 100));
+        expect(
+          checker.calls.length,
+          callsBeforeDispose,
+          reason: 'a timer that outlived disposal would keep calling check()',
+        );
+        expect(async.pendingTimers, isEmpty);
+      });
     });
   });
+}
+
+/// Pins the platform seam for the rest of the test (#198), so each
+/// platform's Settings target is checked on every host.
+void _pin(TargetPlatform platform) {
+  debugDefaultTargetPlatformOverride = platform;
+  addTearDown(() => debugDefaultTargetPlatformOverride = null);
 }

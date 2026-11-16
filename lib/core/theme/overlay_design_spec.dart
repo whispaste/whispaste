@@ -1,8 +1,8 @@
 /// Single Source of Truth for the floating-overlay and floating-button look.
 ///
 /// One Dart representation of every dimension, colour (dark/light),
-/// typography, per-state layout, animation timing, waveform parameter and the
-/// shared interaction constants. This spec is the **only** source — the native
+/// typography, per-state layout, animation timing and waveform parameter.
+/// This spec is the **only** source — the native
 /// window shells and the shared `CustomPainter` (issues 05/07/08) consume it;
 /// no renderer and no widget defines its own constants any more.
 ///
@@ -18,9 +18,14 @@
 ///   the normal spec by [OverlayDesignSpec.compactScale].
 /// - **Mini = reduced by design.** The third size ([OverlaySizeSpec.mini]) is
 ///   the sanctioned exception: a waveform-first micro capsule with explicit
-///   hand-tuned anchors, extra-translucent chrome and minimal content. The
-///   waveform bar count stays identical across ALL sizes.
-/// - **Calm UI** — no glows, no harsh effects; soft/slow timings.
+///   hand-tuned anchors, extra-translucent chrome and minimal content.
+///   **Nano** ([OverlaySizeSpec.nano]) reduces further: a 24 px status mark
+///   with a shorter wave ([OverlaySizeSpec.waveformBarCount]) and no text.
+///   Every size takes its bars from the same live levels; only the count
+///   differs.
+/// - **Notice card footer** (#781): size, gap and ink come from the
+///   `noticeFooter*` tokens; the ink steps up until it reaches 4.5:1.
+/// - **Calm UI** — no light effects, no harsh effects; soft/slow timings.
 /// - **Accessibility:** the opacity setting affects ONLY the pill fill
 ///   ([OverlayDesignSpec.fillOpacityFactor] × opacity); text, icons and the
 ///   waveform stay fully opaque. The recommended slider floor is
@@ -29,9 +34,11 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
-import 'colors.dart' show WpColorsDark;
+import 'colors_dark.dart';
+import 'generated/wp_tokens.g.dart';
 
 /// The four real recording states the overlay and button render.
 ///
@@ -39,16 +46,19 @@ import 'colors.dart' show WpColorsDark;
 /// deliberately no `processing` state and no privacy badge.
 enum OverlayDesignState { recording, transcribing, done, error }
 
-/// The three overlay size variants.
+/// The four overlay size variants.
 ///
 /// - [normal]: the full pill (timer, waveform, close/stop, status text).
 /// - [compact]: the same content scaled down ("scaled, not reduced").
 /// - [mini]: the waveform-first variant — a small, extra-translucent capsule
 ///   whose content is deliberately REDUCED to (almost) only the waveform.
-///   Status identity stays readable through the crisp content glyphs (pulsing
-///   dot, live waveform, transcribing spinner + status label, done/error
-///   status icons); timer text, close glyph and stop square are omitted by
-///   design ([OverlaySizeSpec.minimalContent]).
+///   Status identity stays readable through the crisp content glyphs (live
+///   waveform, transcribing spinner + status label, done/error status icons);
+///   timer text, close glyph and stop square are omitted by design
+///   ([OverlaySizeSpec.minimalContent]).
+/// - [nano]: the smallest status mark. Only a short live wave and the state
+///   glyph (spinner, check, error); no status text at all
+///   ([OverlaySizeSpec.paintsStatusLabel] is false).
 enum OverlaySizeVariant {
   /// Full-size pill.
   normal,
@@ -57,7 +67,10 @@ enum OverlaySizeVariant {
   compact,
 
   /// Waveform-first micro pill (extra translucent, minimal content).
-  mini;
+  mini,
+
+  /// Waveform-only status mark: a short wave, no text.
+  nano;
 
   /// Resolves a persisted/serialised name; unknown or null → [normal].
   static OverlaySizeVariant fromName(String? name) => values.firstWhere(
@@ -71,128 +84,491 @@ enum OverlayDesignTheme { dark, light }
 
 /// The two chrome styles the overlay pill can render.
 ///
-/// [glass] is the default translucent no-blur "Dock glass" chrome. [solid] is
-/// the fully opaque alternative (Settings: "Overlay-Stil") — same geometry,
-/// same waveform, same liquid silhouette wobble, but the sheen/rim/specular
-/// glass layers are skipped and the fill is the app's own [WpColorsDark.
-/// frameGradient] instead of a near-clear tint. Applies identically to all
-/// three [OverlaySizeVariant]s.
-enum OverlayStyleVariant {
-  glass,
-  solid;
+/// Background presets of the recording overlay and the floating button
+/// (ticket, ADR 0024). Each preset is a flat token set from
+/// `design-tokens/app.tokens.json` (`overlay.*`, [WpOverlayTokens]); its
+/// [tone] decides which wave and signal values pair with it.
+///
+/// Replaces the old glass/solid chrome switch: both rendered the same opaque
+/// fill, so the switch only toggled a faint highlight.
+enum OverlayBackground {
+  marine(
+    'marine',
+    OverlayDesignTheme.dark,
+    WpOverlayTokens.overlayMarineSurface,
+    WpOverlayTokens.overlayMarineInk,
+    WpOverlayTokens.overlayMarineInkOutline,
+    WpOverlayTokens.overlayMarineEdge,
+  ),
+  graphit(
+    'graphit',
+    OverlayDesignTheme.dark,
+    WpOverlayTokens.overlayGraphitSurface,
+    WpOverlayTokens.overlayGraphitInk,
+    WpOverlayTokens.overlayGraphitInkOutline,
+    WpOverlayTokens.overlayGraphitEdge,
+  ),
+  gletscher(
+    'gletscher',
+    OverlayDesignTheme.light,
+    WpOverlayTokens.overlayGletscherSurface,
+    WpOverlayTokens.overlayGletscherInk,
+    WpOverlayTokens.overlayGletscherInkOutline,
+    WpOverlayTokens.overlayGletscherEdge,
+  ),
 
-  /// Resolves a persisted/serialised name; unknown or null → [glass].
-  static OverlayStyleVariant fromName(String? name) => values.firstWhere(
-    (v) => v.name == name,
-    orElse: () => OverlayStyleVariant.glass,
+  /// Bernstein: the warm accent as a surface. Light tone, so the dark ink and
+  /// the light wave/signal set apply; [OverlayThemeColors.resolve] keeps every
+  /// foreground at 3:1 (dark ink takes over where it cannot).
+  amber(
+    'amber',
+    OverlayDesignTheme.light,
+    WpOverlayTokens.overlayAmberSurface,
+    WpOverlayTokens.overlayAmberInk,
+    WpOverlayTokens.overlayAmberInkOutline,
+    WpOverlayTokens.overlayAmberEdge,
+  ),
+
+  /// Glass: a nearly colourless body. On macOS 26+ and Windows 11 the system
+  /// backdrop (NSGlassEffectView, acrylic) shows through and the Flutter fill
+  /// is skipped; elsewhere the fill is a faint neutral tint (see
+  /// [glassFillFor]). Its tone follows the system appearance, so the ink is
+  /// dark on a light glass and white on a dark one ([glassInkFor]). The rim
+  /// light and highlight are painted by [WpOverlayPainter].
+  glass(
+    'glass',
+    OverlayDesignTheme.dark,
+    Color(0x26000000),
+    Color(0xFFFFFFFF),
+    Color(0x66000000),
+    Color(0x33FFFFFF),
+  );
+
+  /// Body fill of the glass for [tone]: a faint dark tint (10-20 %) on dark,
+  /// a faint white tint (8-18 %) on light. Used without a native backdrop.
+  static Color glassFillFor(OverlayDesignTheme tone) => switch (tone) {
+    OverlayDesignTheme.dark => const Color(0x26000000),
+    OverlayDesignTheme.light => const Color(0x29FFFFFF),
+  };
+
+  /// Opaque, calm neutral body for [tone]: the fallback under "reduce
+  /// transparency" and on Linux without blur. Not muddy grey.
+  static Color glassOpaqueFor(OverlayDesignTheme tone) => switch (tone) {
+    OverlayDesignTheme.dark => const Color(0xFF1C1F24),
+    OverlayDesignTheme.light => const Color(0xFFF2F4F7),
+  };
+
+  /// Glyph colour for [tone]: white on dark glass, the Gletscher ink on light.
+  static Color glassInkFor(OverlayDesignTheme tone) => switch (tone) {
+    OverlayDesignTheme.dark => const Color(0xFFFFFFFF),
+    OverlayDesignTheme.light => WpOverlayTokens.overlayGletscherInk,
+  };
+
+  /// Outline behind the glyphs for [tone].
+  static Color glassInkOutlineFor(OverlayDesignTheme tone) => switch (tone) {
+    OverlayDesignTheme.dark => const Color(0x66000000),
+    OverlayDesignTheme.light => const Color(0x66FFFFFF),
+  };
+
+  const OverlayBackground(
+    this.value,
+    this.tone,
+    this.surfaceStart,
+    this.ink,
+    this.inkOutline,
+    this.edge,
+  );
+
+  /// Persisted name (`overlay_background`).
+  final String value;
+
+  /// Whether this background is dark or light; selects the wave and signal set.
+  final OverlayDesignTheme tone;
+
+  /// The flat pill and button fill (ticket flat pass: one colour, no gradient).
+  final Color surfaceStart;
+
+  /// Glyph fill (timer, status text, close glyph, stop square).
+  final Color ink;
+
+  /// Outline drawn behind the glyphs.
+  final Color inkOutline;
+
+  /// The 1 px outer edge of the pill and button (UX-048). Translucent white on
+  /// the dark presets so they read on a dark desktop; transparent on the light
+  /// presets, which need no edge.
+  final Color edge;
+
+  /// Resolves a persisted name; unknown or null falls back to [marine].
+  static OverlayBackground fromValue(String? name) => values.firstWhere(
+    (v) => v.value == name,
+    orElse: () => OverlayBackground.marine,
   );
 }
 
-/// Supported anchor positions for the overlay window.
-///
-/// Mirrors the persisted `OverlayStartPosition`: a fixed top/bottom centre
-/// anchor or the user's last dragged position.
-enum OverlayAnchor { topCenter, bottomCenter, lastPosition }
+/// Wave colour presets (ticket, ADR 0024; palette and validity ticket). A wave
+/// has one value per tone. A background × wave pairing is valid only when the
+/// wave, or its darker light step, reaches 3:1 on the fill ([effectiveOn]).
+/// Invalid pairings are disabled in the settings, never drawn in a stand-in
+/// colour.
+enum OverlayWave {
+  cyan(
+    'cyan',
+    WpOverlayTokens.overlayWaveCyanDark,
+    WpOverlayTokens.overlayWaveCyanLight,
+    WpOverlayTokens.overlayWaveCyanLightStrong,
+  ),
+  violett(
+    'violett',
+    WpOverlayTokens.overlayWaveViolettDark,
+    WpOverlayTokens.overlayWaveViolettLight,
+    WpOverlayTokens.overlayWaveViolettLightStrong,
+  ),
 
-/// A complete, theme-resolved colour set for one theme (dark or light).
-///
-/// Every field is non-null for both themes — the spec never leaves a theme
-/// half-defined.
+  /// Tinte: black, so it is valid only on the light backgrounds. (The former
+  /// Neutral preset was retired on 2026-10-29 and loads as this one.)
+  ink(
+    'ink',
+    WpOverlayTokens.overlayWaveInkDark,
+    WpOverlayTokens.overlayWaveInkLight,
+    WpOverlayTokens.overlayWaveInkLightStrong,
+  ),
+
+  /// White: the light counterpart of [ink], so it is valid only on the dark
+  /// backgrounds.
+  white(
+    'white',
+    WpOverlayTokens.overlayWaveWhiteDark,
+    WpOverlayTokens.overlayWaveWhiteLight,
+    WpOverlayTokens.overlayWaveWhiteLightStrong,
+  ),
+
+  /// Bernstein wave (ticket flat pass). Amber on dark, dark amber on light.
+  amber(
+    'amber',
+    WpOverlayTokens.overlayWaveAmberDark,
+    WpOverlayTokens.overlayWaveAmberLight,
+    WpOverlayTokens.overlayWaveAmberLightStrong,
+  ),
+
+  /// Koralle (ticket).
+  coral(
+    'coral',
+    WpOverlayTokens.overlayWaveCoralDark,
+    WpOverlayTokens.overlayWaveCoralLight,
+    WpOverlayTokens.overlayWaveCoralLightStrong,
+  ),
+
+  /// Mint (ticket).
+  mint(
+    'mint',
+    WpOverlayTokens.overlayWaveMintDark,
+    WpOverlayTokens.overlayWaveMintLight,
+    WpOverlayTokens.overlayWaveMintLightStrong,
+  );
+
+  const OverlayWave(
+    this.value,
+    this._onDark,
+    this._onLight,
+    this._onLightStrong,
+  );
+
+  /// Persisted name (`overlay_wave`).
+  final String value;
+
+  final Color _onDark;
+  final Color _onLight;
+
+  /// Darker step of the same hue on a light background. Used only when the
+  /// base light step falls below 3:1 on the fill.
+  final Color _onLightStrong;
+
+  /// The wave colour on a background of [tone].
+  Color valueOn(OverlayDesignTheme tone) =>
+      tone == OverlayDesignTheme.dark ? _onDark : _onLight;
+
+  /// The colour this wave is drawn with on [background], or null when the
+  /// pairing is invalid. Tries the base step first and, on a light tone, the
+  /// darker step of the same hue second. The pill and the settings swatch both
+  /// read this one value, so what the swatch shows is what gets drawn.
+  Color? effectiveOn(OverlayBackground background) {
+    final candidates = background.tone == OverlayDesignTheme.dark
+        ? [_onDark]
+        : [_onLight, _onLightStrong];
+    for (final color in candidates) {
+      if (contrastRatio(color, background.surfaceStart) >= 3.0) return color;
+    }
+    return null;
+  }
+
+  /// Whether this wave may be chosen on [background] (ticket).
+  bool isValidOn(OverlayBackground background) =>
+      effectiveOn(background) != null;
+
+  /// The wave to use on [background]: this wave when valid, otherwise a fixed
+  /// replacement. Every invalid wave becomes Cyan, and the first valid wave is
+  /// the last resort. Deterministic, so a stored or switched choice always
+  /// lands on the same wave.
+  OverlayWave validOn(OverlayBackground background) {
+    if (isValidOn(background)) return this;
+    if (cyan.isValidOn(background)) return cyan;
+    return OverlayWave.values.firstWhere((wave) => wave.isValidOn(background));
+  }
+
+  /// Resolves a persisted name; unknown or null falls back to [cyan].
+  static OverlayWave fromValue(String? name) =>
+      values.firstWhere((v) => v.value == name, orElse: () => OverlayWave.cyan);
+}
+
+/// WCAG 2.x contrast ratio of [a] over [b] (1:1 to 21:1). Shared with
+/// `OverlayOpacityGate` in `overlay_customization.dart`.
+double contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// A complete, resolved colour set for one background × wave pairing
+/// (ticket, ADR 0024). Build it with [OverlayThemeColors.resolve] or
+/// [OverlayDesignSpec.colorsFor]; every field is non-null for every pairing.
 @immutable
 class OverlayThemeColors {
   const OverlayThemeColors({
-    required this.capsuleFillStart,
-    required this.capsuleFillEnd,
+    required this.tone,
+    required this.capsuleFill,
+    required this.ink,
+    required this.inkOutline,
+    required this.edge,
+    required this.shadow,
     required this.capsuleBorder,
-    required this.text,
     required this.accent,
     required this.transcribingAccent,
     required this.success,
+    required this.warning,
     required this.error,
-    required this.recordingDot,
-  });
+    this.glass = false,
+    Color? opaqueFill,
+  }) : opaqueFill = opaqueFill ?? capsuleFill;
 
-  /// Top-left stop of the capsule's tint gradient fill (approved spike design:
-  /// light `#F7FAFD`). The gradient runs top-left → bottom-right and is part of
-  /// the translucent pill chrome scaled by the opacity setting.
-  final Color capsuleFillStart;
+  /// Resolves the colour set for [background] paired with [wave].
+  factory OverlayThemeColors.resolve({
+    required OverlayBackground background,
+    required OverlayWave wave,
+    OverlayDesignTheme glassTone = OverlayDesignTheme.dark,
+  }) {
+    final isGlass = background == OverlayBackground.glass;
+    if (!isGlass) {
+      assert(
+        wave.isValidOn(background),
+        '${wave.value} is not valid on ${background.value}: '
+        'replace it with OverlayWave.validOn first',
+      );
+    }
+    final tone = isGlass ? glassTone : background.tone;
+    final dark = tone == OverlayDesignTheme.dark;
+    final ink = isGlass ? OverlayBackground.glassInkFor(tone) : background.ink;
+    final inkOutline = isGlass
+        ? OverlayBackground.glassInkOutlineFor(tone)
+        : background.inkOutline;
+    final surface = isGlass
+        ? OverlayBackground.glassFillFor(tone)
+        : background.surfaceStart;
+    // Legibility is judged on the opaque body: the faint glass tint is not
+    // a stable reference, the backdrop behind it is unknown.
+    final reference = isGlass
+        ? OverlayBackground.glassOpaqueFor(tone)
+        : background.surfaceStart;
+    // Every non-text foreground (wave, signals) must reach 3:1 on the fill.
+    // The wave steps down to the darker step of its own hue before it gives
+    // way to the dark ink. Other signals fall straight back to the ink.
+    Color legible(Color color) =>
+        contrastRatio(color, reference) >= 3.0 ? color : ink;
+    // Glass is monochrome: the wave, dot, timer and chips take the glyph
+    // colour of the glass tone, so no coloured wave is lost on a coloured
+    // backdrop. The wave preset does not apply to glass.
+    final accent = isGlass
+        ? ink
+        : wave.effectiveOn(background) ?? wave.valueOn(background.tone);
+    return OverlayThemeColors(
+      tone: tone,
+      capsuleFill: surface,
+      ink: ink,
+      inkOutline: inkOutline,
+      edge: background.edge,
+      shadow: dark
+          ? WpOverlayTokens.overlayShadowDark
+          : WpOverlayTokens.overlayShadowLight,
+      capsuleBorder: accent.withValues(alpha: 0.2),
+      accent: accent,
+      transcribingAccent: isGlass
+          ? ink
+          : legible(
+              dark
+                  ? WpOverlayTokens.overlaySignalDarkTranscribing
+                  : WpOverlayTokens.overlaySignalLightTranscribing,
+            ),
+      success: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkDone
+            : WpOverlayTokens.overlaySignalLightDone,
+      ),
+      warning: legible(
+        dark ? wpStagePalette.warning : wpJournalPalette.warning,
+      ),
+      error: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkError
+            : WpOverlayTokens.overlaySignalLightError,
+      ),
+      glass: background == OverlayBackground.glass,
+      opaqueFill: isGlass ? OverlayBackground.glassOpaqueFor(tone) : null,
+    );
+  }
 
-  /// Bottom-right stop of the capsule's tint gradient fill (light `#E6EEF5`).
-  final Color capsuleFillEnd;
+  /// Dark or light: the tone of the chosen background.
+  final OverlayDesignTheme tone;
 
-  /// Accent-tinted hairline capsule border (light `#330887A8`).
+  /// The flat pill and button fill (the background surface).
+  final Color capsuleFill;
+
+  /// Glyph fill: timer, status text, close glyph, stop square.
+  final Color ink;
+
+  /// Outline behind the glyphs; keeps them legible on any desktop.
+  final Color inkOutline;
+
+  /// The 1 px outer edge (UX-048); transparent on light presets.
+  final Color edge;
+
+  /// Painted drop shadow of the pill and the button, alpha included (UX-048).
+  final Color shadow;
+
+  /// Hairline border of the pill: the wave colour at 20 percent.
   final Color capsuleBorder;
 
-  /// Content ink — since the universal-legibility scheme (2026-07-29) no
-  /// longer the glyph FILL but the dark OUTLINE around the white glyphs
-  /// ([OverlayDesignSpec.contentGlyphFill]).
-  final Color text;
-
-  /// Cyan accent — spinner, waveform active bars, unlimited-progress line.
+  /// Wave colour: live waveform bars, the recording mark (pill dot and button
+  /// mic while recording, ring) and progress timeline.
   final Color accent;
 
-  /// Amber accent owned by the transcribing state (state-distinction pass,
-  /// 2026-08-17): the processing spinner and the transcribing waveform
-  /// ripple render in this colour so "working" is tellable from "listening"
-  /// (cyan [accent]) at a glance. Deliberately the dark stop of the amber
-  /// pair [OverlayDesignSpec.stateGradients] already assigns to
-  /// [OverlayDesignState.transcribing] — the floating button tints its mic
-  /// glyph from that same pair, so overlay and button speak one colour
-  /// language. Mid-tone on purpose: `#D97706` holds ≥3:1 against both white
-  /// (≈3.2:1) and black (≈6.6:1) desktops, so it needs no glyph shadow
-  /// (same rule as the other semantic mid-tones).
+  /// Amber owned by the transcribing state (processing spinner and ripple).
+  /// Fixed per tone, not themeable, so "working" stays distinct from
+  /// "listening" by colour and motion.
   final Color transcribingAccent;
 
-  /// Success colour — done check + message.
+  /// Success colour: done check and message.
   final Color success;
 
-  /// Error colour — error icon + message.
+  /// Warning colour: a finished run whose paste failed, as in the dock.
+  final Color warning;
+
+  /// Error colour: error icon and message.
   final Color error;
 
-  /// Recording dot — fixed across themes.
-  final Color recordingDot;
+  /// Glass look: the painter adds the rim light and the top highlight.
+  final bool glass;
+
+  /// Fill used under "reduce transparency" (equals [capsuleFill] for the
+  /// solid presets; the calm neutral body for glass).
+  final Color opaqueFill;
+
+  /// Status dot of the notice card (overlay F2) for an error: one path on
+  /// every background, glass included. The tone's error signal, else the
+  /// next red step that reaches 3:1 on the card's opaque body, else the ink.
+  Color get noticeErrorDot => _firstLegible(
+    tone == OverlayDesignTheme.dark
+        ? const [WpOverlayTokens.overlaySignalDarkError, WpPalette.red400]
+        : const [WpOverlayTokens.overlaySignalLightError, WpPalette.red800],
+  );
+
+  /// Status dot of the notice card for a hint or the duration limit: amber,
+  /// resolved like [noticeErrorDot]. Unlike [transcribingAccent] it stays
+  /// amber on glass, so the dot keeps its meaning there.
+  Color get noticeHintDot => _firstLegible(
+    tone == OverlayDesignTheme.dark
+        ? const [
+            WpOverlayTokens.overlaySignalDarkTranscribing,
+            WpPalette.amber400,
+          ]
+        : const [
+            WpOverlayTokens.overlaySignalLightTranscribing,
+            WpPalette.amber800,
+          ],
+  );
+
+  /// Ink of the key footer of the notice card (#781): the quietest ink step
+  /// that still reaches 4.5:1 on the card's opaque body (small text), else the
+  /// full ink. Resolved per preset, glass and marine included.
+  Color get noticeFooterInk =>
+      _quietestLegibleInk(OverlayDesignSpec.noticeFooterInkAlphas);
+
+  /// Ink of the notice card body (#728): same contrast-checked step logic as
+  /// [noticeFooterInk], starting one step higher than the footer.
+  Color get noticeBodyInk =>
+      _quietestLegibleInk(OverlayDesignSpec.noticeBodyInkAlphas);
+
+  Color _quietestLegibleInk(List<double> alphas) {
+    for (final a in alphas) {
+      final c = ink.withValues(alpha: a);
+      if (contrastRatio(Color.alphaBlend(c, opaqueFill), opaqueFill) >=
+          OverlayDesignSpec.noticeFooterMinContrast) {
+        return c;
+      }
+    }
+    return ink;
+  }
+
+  Color _firstLegible(List<Color> steps) => steps.firstWhere(
+    (c) => contrastRatio(c, opaqueFill) >= 3.0,
+    orElse: () => ink,
+  );
+
+  /// Every colour in declaration order; equality and hashing run over this.
+  List<Object> get _values => [
+    tone,
+    capsuleFill,
+    ink,
+    inkOutline,
+    edge,
+    shadow,
+    capsuleBorder,
+    accent,
+    transcribingAccent,
+    success,
+    error,
+    glass,
+    opaqueFill,
+  ];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OverlayThemeColors && listEquals(_values, other._values);
+
+  @override
+  int get hashCode => Object.hashAll(_values);
 }
 
-/// A per-state accent gradient (2 or 3 colour stops).
-///
-/// Theme-independent: these sit on the pill surface and read in both themes.
-@immutable
-class OverlayStateGradient {
-  const OverlayStateGradient(this.stops);
-
-  /// Ordered colour stops, top-left → bottom-right.
-  final List<Color> stops;
-}
-
-/// Waveform render parameters. Bar count is **shared** across sizes — compact
-/// shows the same number of bars as normal, just shorter (PRD §D4).
+/// Waveform render parameters. Normal, compact and mini share the bar count
+/// (compact shows the same bars as normal, just shorter, PRD §D4); nano draws
+/// fewer bars from the same levels ([OverlaySizeSpec.waveformBarCount]).
 @immutable
 class WaveformSpec {
   const WaveformSpec({
     required this.barCount,
     required this.minBarHeightPx,
-    required this.activeColorThreshold,
-    required this.activeAccentOpacity,
-    required this.mutedOpacity,
     required this.attackTimeConstantMs,
     required this.releaseTimeConstantMs,
   });
 
-  /// Number of bars in the rendered snapshot — identical for both sizes.
+  /// Number of bars in the rendered snapshot. Normal, compact and mini draw
+  /// all of them; nano draws fewer ([OverlaySizeSpec.waveformBarCount]).
   final int barCount;
 
   /// Hard floor for every bar in logical pixels.
   final double minBarHeightPx;
-
-  /// A bar at or above this normalised level renders in the active accent
-  /// tint; below it renders muted.
-  final double activeColorThreshold;
-
-  /// Opacity applied to the accent colour for active bars (accent tint).
-  final double activeAccentOpacity;
-
-  /// Opacity applied to the muted colour for inactive bars.
-  final double mutedOpacity;
 
   /// Smoothing time constant (ms) for the **rising** edge of the live level —
   /// how fast a bar climbs when the speaker gets louder. Short, so loud onsets
@@ -208,7 +584,7 @@ class WaveformSpec {
 
 /// All geometry and typography for one overlay size (normal, compact or mini).
 ///
-/// `width`/`height`/`cornerRadius`/`padH` are deliberate per-size **anchors**.
+/// `width`/`height`/`cornerRadius` are deliberate per-size **anchors**.
 /// All other (content) metrics of the compact variant are **derived** from the
 /// normal variant by [OverlayDesignSpec.compactScale] — see
 /// [OverlaySizeSpec.compact]. The mini variant is the sanctioned exception to
@@ -220,21 +596,20 @@ class OverlaySizeSpec {
     required this.width,
     required this.height,
     required this.cornerRadius,
-    required this.padH,
-    required this.dotSize,
     required this.closeButtonSize,
     required this.stopButtonSize,
     required this.statusIconSize,
     required this.waveformMaxHeight,
     required this.waveformBarWidth,
     required this.waveformBarGap,
-    required this.dotTextGap,
     required this.timerWaveformGap,
     required this.pillGap,
     required this.bottomProgressHeight,
     required this.timerFontSize,
     required this.primaryFontSize,
     this.minimalContent = false,
+    this.paintsStatusLabel = true,
+    this.waveformBarCount = OverlayDesignSpec.waveformBarCount,
     this.timelineInsetBottom = OverlayDesignSpec.timelineInsetBottom,
     this.timelineStrokeWidth = OverlayDesignSpec.timelineStrokeWidth,
     this.timelineLeadDotRadius = OverlayDesignSpec.timelineLeadDotRadius,
@@ -252,13 +627,7 @@ class OverlaySizeSpec {
   /// normal pill (relative to its size), so this is an anchor, not scaled.
   final double cornerRadius;
 
-  /// Horizontal inner padding (left/right).
-  final double padH;
-
   // -- Content metrics (compact = normal × compactScale) ---------------------
-
-  /// Recording state dot diameter.
-  final double dotSize;
 
   /// Close (cancel-X) button diameter.
   final double closeButtonSize;
@@ -278,9 +647,6 @@ class OverlaySizeSpec {
   /// Minimum gap between waveform bars.
   final double waveformBarGap;
 
-  /// Gap between the dot and the following text.
-  final double dotTextGap;
-
   /// Gap between the timer and the waveform.
   final double timerWaveformGap;
 
@@ -298,10 +664,9 @@ class OverlaySizeSpec {
 
   // -- Per-size derived chrome metrics (design layout pass) ------------------
   //
-  // Glass material (fill alpha, sheen alpha) and the waveform alpha ladder
-  // are deliberately NOT per-size any more: all three sizes share ONE glass
-  // and ONE ladder ([OverlayDesignSpec.fillOpacityFactor] /
-  // [OverlayDesignSpec.glassSheenOpacity] / the waveform*Opacity constants),
+  // Fill alpha and the waveform alpha ladder are deliberately NOT per-size
+  // any more: all three sizes share ONE fill and ONE ladder
+  // ([OverlayDesignSpec.fillOpacityFactor] / the waveform*Opacity constants),
   // so the sizes read as one material — only geometry and content density
   // vary. The timeline metrics below scale per size because the shared
   // absolute values collided with the waveform inside the 28 px mini pill
@@ -315,6 +680,16 @@ class OverlaySizeSpec {
   /// one text mini does paint (the ever-moving waveform alone did not
   /// distinguish transcribing from recording there).
   final bool minimalContent;
+
+  /// Whether the transcribing state paints its status label beside the
+  /// spinner. False for nano, which shows the spinner alone. Only meaningful
+  /// with [minimalContent]; the other sizes always paint their label.
+  final bool paintsStatusLabel;
+
+  /// Number of waveform bars drawn for this size. The live levels are reduced
+  /// to this count (averaged, see `resampleWaveformLevels`), so the curve
+  /// stays the same and only the resolution changes.
+  final int waveformBarCount;
 
   /// Bottom inset of the progress timeline for this size.
   final double timelineInsetBottom;
@@ -336,15 +711,12 @@ class OverlaySizeSpec {
     width: 330,
     height: 64,
     cornerRadius: 18,
-    padH: 22,
-    dotSize: 8,
     closeButtonSize: 36,
     stopButtonSize: 36,
     statusIconSize: 16,
     waveformMaxHeight: 24,
     waveformBarWidth: 2.5,
     waveformBarGap: 1.5,
-    dotTextGap: 8,
     timerWaveformGap: 18,
     pillGap: 14,
     bottomProgressHeight: 4,
@@ -352,7 +724,7 @@ class OverlaySizeSpec {
     primaryFontSize: 13,
   );
 
-  /// The compact spec: box anchors are explicit (220×40 r20, padH 16); every
+  /// The compact spec: box anchors are explicit (220×40 r20); every
   /// content metric is [OverlayDesignSpec.compactScale] × the normal value, so
   /// compact is a true scaling of normal rather than a separate hand-tuned set.
   /// Timeline metrics overridden (quality-parity pass, 2026-07-29): with the
@@ -364,12 +736,11 @@ class OverlaySizeSpec {
     width: 220,
     height: 40,
     cornerRadius: 20,
-    padH: 16,
     timelineInsetBottom: 5.0,
     timelineLeadDotRadius: 1.8,
   );
 
-  /// The mini spec — the waveform-first third size (another app-inspired, in
+  /// The mini spec — the waveform-first third size, in
   /// WhisPaste's own design language: teal accent waveform, capsule chrome,
   /// fixed accent hairline border).
   ///
@@ -388,15 +759,12 @@ class OverlaySizeSpec {
     width: 150,
     height: 34,
     cornerRadius: 17,
-    padH: 12,
-    dotSize: 5,
     closeButtonSize: 18,
     stopButtonSize: 18,
     statusIconSize: 14,
     waveformMaxHeight: 18,
     waveformBarWidth: 2.0,
     waveformBarGap: 1.5,
-    dotTextGap: 6,
     timerWaveformGap: 8,
     pillGap: 8,
     bottomProgressHeight: 2,
@@ -408,6 +776,40 @@ class OverlaySizeSpec {
     timelineLeadDotRadius: 1.6,
   );
 
+  /// The nano spec — the smallest status mark, waveform-only.
+  ///
+  /// Scale ladder: normal 64 → compact 40 → mini 34 → nano 24 px high. The
+  /// 24 px pill is also the smallest hit area the overlay allows (the native
+  /// window adds the shadow padding around it). Width 88 px: an 8 px inset on
+  /// each side leaves a 72 px wave zone for [waveformBarCount] 12 bars, the
+  /// same bar pitch as mini (~6 px). Content: the live wave (no timer, no
+  /// close or stop glyph, no status text) and a centred state glyph for
+  /// transcribing, done and error. The progress line stays, as on mini.
+  /// The capsule collapses to the glyph width for the non-recording states,
+  /// like mini does ([OverlayDesignSpec.minimalPillWidthRatio]).
+  static const OverlaySizeSpec nano = OverlaySizeSpec(
+    width: 88,
+    height: 24,
+    cornerRadius: 12,
+    closeButtonSize: 12,
+    stopButtonSize: 12,
+    statusIconSize: 12,
+    waveformMaxHeight: 12,
+    waveformBarWidth: 1.5,
+    waveformBarGap: 1.0,
+    timerWaveformGap: 4,
+    pillGap: 4,
+    bottomProgressHeight: 1.5,
+    timerFontSize: 8,
+    primaryFontSize: 7,
+    minimalContent: true,
+    paintsStatusLabel: false,
+    waveformBarCount: 12,
+    timelineInsetBottom: 3.0,
+    timelineStrokeWidth: 1.0,
+    timelineLeadDotRadius: 1.2,
+  );
+
   /// Returns a copy with all content metrics scaled by [s] and the box anchors
   /// overridden by the given values. [timelineInsetBottom] /
   /// [timelineLeadDotRadius] may be overridden where the shared absolute
@@ -417,7 +819,6 @@ class OverlaySizeSpec {
     required double width,
     required double height,
     required double cornerRadius,
-    required double padH,
     double? timelineInsetBottom,
     double? timelineLeadDotRadius,
   }) {
@@ -425,15 +826,12 @@ class OverlaySizeSpec {
       width: width,
       height: height,
       cornerRadius: cornerRadius,
-      padH: padH,
-      dotSize: dotSize * s,
       closeButtonSize: closeButtonSize * s,
       stopButtonSize: stopButtonSize * s,
       statusIconSize: statusIconSize * s,
       waveformMaxHeight: waveformMaxHeight * s,
       waveformBarWidth: waveformBarWidth * s,
       waveformBarGap: waveformBarGap * s,
-      dotTextGap: dotTextGap * s,
       timerWaveformGap: timerWaveformGap * s,
       pillGap: pillGap * s,
       bottomProgressHeight: bottomProgressHeight * s,
@@ -481,13 +879,13 @@ class OverlayLayoutSpec {
   /// Close-glyph centre, measured from `left + padH`.
   final double closeOffset;
 
-  /// Recording-dot / status-icon centre, measured from `left + padH`.
+  /// Status-icon / spinner centre, measured from `left + padH`.
   final double dotInset;
 
-  /// Recording-dot radius.
+  /// Radius of the transcribing spinner and the done/error icons.
   final double dotRadius;
 
-  /// Gap from the dot centre to the timer/label left edge.
+  /// Gap from the status glyph (or close glyph) to the timer/label left edge.
   final double timerGap;
 
   /// Timer/label font size (semibold).
@@ -541,7 +939,7 @@ class OverlayLayoutSpec {
     lineStrokeMin: 1.5,
   );
 
-  /// Mini-size layout. The mini painter branch renders dot + waveform while
+  /// Mini-size layout. The mini painter branch renders the waveform while
   /// recording, spinner + status label while transcribing (which consumes
   /// [dotInset]/[timerGap]/[timerFontSize]) and a centred status icon for
   /// done/error; the close/stop values here are conservative fallbacks that
@@ -558,6 +956,25 @@ class OverlayLayoutSpec {
     waveStartGap: 8,
     waveEndGap: 0,
     stopSize: 8,
+    lineStrokeMin: 1.5,
+  );
+
+  /// Nano-size layout. Only the waveform (while recording) and the centred
+  /// spinner / done / error glyph are drawn; [dotRadius] sizes the spinner
+  /// (×[OverlayDesignSpec.transcribingSpinnerRadiusFactor]), the rest of the
+  /// values are fallbacks that never reach the screen.
+  static const OverlayLayoutSpec nano = OverlayLayoutSpec(
+    padH: 8,
+    closeArm: 2.5,
+    closeStroke: 1.0,
+    closeOffset: 0,
+    dotInset: 4,
+    dotRadius: 3.2,
+    timerGap: 4,
+    timerFontSize: 8,
+    waveStartGap: 4,
+    waveEndGap: 0,
+    stopSize: 6,
     lineStrokeMin: 1.5,
   );
 }
@@ -689,48 +1106,6 @@ class OverlayArcMotion {
   );
 }
 
-/// Calm animation timings. No glow, no shimmer — soft and slow by brand rule.
-@immutable
-class OverlayMotion {
-  const OverlayMotion({
-    required this.dotPulsePeriod,
-    required this.dotPulseMinAlpha,
-    required this.dotPulseMinScale,
-  });
-
-  /// Recording dot pulse period.
-  final Duration dotPulsePeriod;
-
-  /// Minimum alpha the recording dot dips to at the bottom of its pulse.
-  final double dotPulseMinAlpha;
-
-  /// Minimum scale the recording dot dips to at the bottom of its pulse
-  /// (task #polish-cross-platform-glass). Paired with [dotPulseMinAlpha] so
-  /// the pulse reads as a soft breathing motion rather than a flat opacity
-  /// flicker — still calm, no size overshoot past 1.0.
-  final double dotPulseMinScale;
-}
-
-/// Shared interaction constants for both overlay and button.
-@immutable
-class OverlayInteraction {
-  const OverlayInteraction({
-    required this.dragThresholdPx,
-    required this.anchors,
-    required this.screenEdgeMargin,
-  });
-
-  /// Pointer travel before a press becomes a drag (logical pixels). Identical
-  /// for overlay and button on every platform.
-  final double dragThresholdPx;
-
-  /// Supported anchor positions.
-  final List<OverlayAnchor> anchors;
-
-  /// Margin kept from the screen edge when snapping to a fixed anchor.
-  final double screenEdgeMargin;
-}
-
 /// Mic-glyph geometry for the floating button, expressed as **ratios of the
 /// disc diameter** so the glyph scales identically across the settings-owned
 /// button sizes (44/56/80). Every ratio is the approved spike value
@@ -805,13 +1180,13 @@ class FloatingButtonMicSpec {
 }
 
 /// Floating-button appearance — the V2 style (ADR 0002): a white disc with a
-/// dark mic glyph and a hairline border. No accent ring, no glow.
+/// dark mic glyph and a hairline border. No accent ring, no light effect.
 ///
 /// The button diameter is fixed at [buttonDiameter] (56 dp) — the approved
 /// design-token value. The former size picker (Small/Normal/Large) was removed
 /// in issue 11 because the Zielgruppe does not benefit from micro-tuning the
 /// button chrome. Per-state icon tinting reuses
-/// [OverlayDesignSpec.stateGradients] (consumed in issue 08).
+/// [OverlayDesignSpec.glyphStopsFor] (consumed in issue 08).
 @immutable
 class FloatingButtonSpec {
   /// Fixed button disc diameter in logical pixels (design-token value, ADR 0002).
@@ -823,30 +1198,30 @@ class FloatingButtonSpec {
 
   const FloatingButtonSpec({
     required this.discColor,
-    required this.discGradientEnd,
     required this.discFillOpacity,
-    required this.iconColor,
     required this.borderColor,
     required this.borderWidth,
     required this.borderInset,
     required this.iconRatio,
-    required this.hasGlow,
     required this.mic,
+    required this.edgeColor,
+    required this.shadowColor,
   });
 
-  /// Disc fill gradient start — white (top-left), spike `Colors.white`.
+  /// 1 px outer edge of the disc (UX-048); transparent on light presets.
+  final Color edgeColor;
+
+  /// Painted drop shadow of the disc, alpha included (UX-048).
+  final Color shadowColor;
+
+  /// Flat disc fill (ticket flat pass: no tint gradient). White on the default
+  /// button; the preset's surface colour for a background.
   final Color discColor;
 
-  /// Disc fill gradient end — `#EDF1F6` (bottom-right), spike value.
-  final Color discGradientEnd;
-
-  /// Base opacity of the disc fill gradient (spike `0.95`). The opacity setting
+  /// Base opacity of the flat disc fill (spike `0.95`). The opacity setting
   /// scales the disc chrome (fill + shadow) by `discFillOpacity × opacity`; the
   /// mic glyph stays fully opaque (accessibility, mirrors the overlay).
   final double discFillOpacity;
-
-  /// Idle mic glyph colour — dark `#101828`.
-  final Color iconColor;
 
   /// Hairline border `#1A101828`.
   final Color borderColor;
@@ -859,9 +1234,6 @@ class FloatingButtonSpec {
 
   /// Glyph size as a fraction of the disc diameter (24 in a 56 disc).
   final double iconRatio;
-
-  /// Always false — the V2 button has no glow/accent ring.
-  final bool hasGlow;
 
   /// Mic-glyph geometry (ratios of the disc diameter).
   final FloatingButtonMicSpec mic;
@@ -898,151 +1270,16 @@ abstract final class OverlayDesignSpec {
   /// together with the shadow knock-out under the capsule, see
   /// [WpOverlayPainter], the pill now reads as a bare glass body. The content
   /// no longer depends on the fill at all: every dark-ink glyph became a
-  /// white glyph with a dark outline — see [contentGlyphFill].)
+  /// white glyph with a dark outline — see [OverlayBackground.ink].)
+  /// Superseded for the fill by the opaque flat fill (UX-013, 2026-10-17; ticket
+  /// flat pass): no longer applied to any painted layer; kept only as a
+  /// documented value.
   static const double fillOpacityFactor = 0.14;
 
-  /// Fill gradient for [OverlayStyleVariant.solid] — reuses
-  /// [WpColorsDark.frameGradient] verbatim (the same navy→violet arc the
-  /// title bar/nav rail/status bar paint) so the "solid" overlay reads as cut
-  /// from the same brand chrome rather than inventing a nearby blue.
-  static const LinearGradient solidFillGradient = WpColorsDark.frameGradient;
-
-  /// Alpha of the white glass sheen painted over the capsule fill (task #38):
-  /// a top-down highlight that reads as light on curved glass. Lowered with
-  /// the Dock-glass fill (0.40 → 0.28): over the much clearer capsule a
-  /// strong white wash reads as milk, not glass.
-  static const double glassSheenOpacity = 0.15;
-
-  /// Fraction of [glassSheenOpacity] used for the faint counter-sheen rising
-  /// from the capsule's bottom edge (glass polish pass, macOS-Dock mood
-  /// reference): light catching the lower glass rim. Neutral white like
-  /// every sheen — never state-tinted (ADR 0002).
-  static const double glassBottomSheenFactor = 0.25;
-
-  // -- Dock-glass refinement (design layout pass, 2026-07-28) ----------------
-  //
-  // The sheen now behaves like light on CURVED glass instead of a flat
-  // vertical wash: the top highlight tapers away from the rounded end caps,
-  // the bright rim is lit from above (fading toward the bottom), and a
-  // hair-thin dark inner shade above the bottom counter-sheen gives the
-  // glass physical thickness. All neutral white/black — no state colour in
-  // the chrome, no OS blur, identical on every platform.
-
-  /// Horizontal inset of the top-sheen gradient rect, as a fraction of the
-  /// capsule radius — pulls the highlight off the rounded end caps so it
-  /// reads as light on a curved surface, not a full-width band.
-  static const double glassSheenCapInsetFactor = 0.35;
-
-  /// Colour stops of the top-down sheen (bright → soft → clear).
-  static const List<double> glassSheenStops = [0.0, 0.32, 0.55];
-
-  /// Colour stops of the bottom counter-sheen (clear → faint white).
-  static const List<double> glassBottomSheenStops = [0.78, 1.0];
-
-  /// Alpha of the hair-thin neutral dark inner shade painted just above the
-  /// bottom counter-sheen — the "mass" of the glass slab.
-  static const double glassInnerShadeOpacity = 0.04;
-
-  /// Colour stops of the inner bottom shade (clear → faint black).
-  static const List<double> glassInnerShadeStops = [0.85, 1.0];
-
-  // Fresnel edge treatment (Dock-glass research pass, 2026-07-29): glass
-  // reflects most at grazing angles, so a believable no-blur glass body is
-  // carried by its EDGES — a bright 1 px rim lit from above, a soft wider
-  // inner band just inside it (the refracting "thickness" of the slab), and
-  // one crisp specular streak along the top edge (the Dock's signature
-  // reflection). All neutral white, all static — no shimmer, no state tint.
-
-  /// Alpha of the 1 px outer rim at the TOP edge (absolute, no longer tied
-  /// to the sheen — the rim now carries the glass identity).
-  static const double glassRimTopOpacity = 0.55;
-
-  /// Alpha of the 1 px outer rim at the BOTTOM edge.
-  static const double glassRimBottomOpacity = 0.10;
-
-  /// Stroke width of the soft inner Fresnel band just inside the rim.
-  static const double glassInnerRimWidth = 2.5;
-
-  /// Inset of the inner Fresnel band from the capsule edge.
-  static const double glassInnerRimInset = 1.25;
-
-  /// Peak alpha of the inner Fresnel band (fades to clear toward the bottom).
-  static const double glassInnerRimOpacity = 0.10;
-
-  // Specular streak — debugged 2026-07-30 after two invisible rounds.
-  // Pixel measurement of rendered frames found TWO structural causes, not a
-  // value problem: (1) over light desktops the alpha chain saturated (streak
-  // row 250 vs. surroundings 250 — white on near-white, Δ0); (2) over dark
-  // desktops the 1.2 px streak sat 1 px under the static bright rim and
-  // perceptually fused with it (its drift read as nothing). Fixes: the
-  // streak moved AWAY from the edge, got wider, and carries a soft dark
-  // under-halo that guarantees local contrast on light backgrounds.
-
-  /// Alpha of the crisp specular streak.
-  static const double glassSpecularOpacity = 0.5;
-
-  /// Stroke width of the specular streak (1.2 → 2.6: one hairline row could
-  /// never read as a distinct reflection).
-  static const double glassSpecularStrokeWidth = 2.6;
-
-  /// Length of the specular streak as a fraction of the pill width.
-  static const double glassSpecularWidthFactor = 0.55;
-
-  /// Distance of the specular streak below the top edge (2.5 → 5.5: clear
-  /// of the static rim, so its drift is distinguishable from the edge).
-  static const double glassSpecularInsetTop = 5.5;
-
-  /// Alpha of the soft dark under-halo beneath the streak — the local
-  /// contrast floor that keeps the white streak visible over light desktops
-  /// (measured: without it the streak is Δ0 on white).
-  static const double glassSpecularHaloOpacity = 0.16;
-
-  /// Blur sigma of the under-halo.
-  static const double glassSpecularHaloBlurSigma = 2.0;
-
-  /// Stroke width of the under-halo (wider than the streak).
-  static const double glassSpecularHaloStrokeWidth = 5.0;
-
-  /// Vertical offset of the under-halo below the streak.
-  static const double glassSpecularHaloOffsetY = 1.5;
-
-  // -- Liquid-glass drift (Maintainer-Wunsch 2026-07-29, research pass) ------
-  //
-  // The glass material itself moves — barely. Researched guidance (Liquid-
-  // Glass web implementations, premium-shimmer practice): specular highlights
-  // may DRIFT a few pixels, slowly ("specular highlight amplitude ≤ 6 px";
-  // "a few-pixel highlight drift feels premium"), while a repeating bright
-  // SWEEP reads as a loading shimmer — which ADR 0002 forbids. So: the
-  // specular streak drifts sinusoidally ±[liquidSpecularDriftPx], the top
-  // sheen follows at half parallax (layer-depth cue), and the rim light
-  // breathes ±[liquidRimBreatheFactor]. Everything is phase-locked to one
-  // slow [liquidDriftPeriod] cycle and neutral-white only. Phase 0 renders
-  // EXACTLY the static frame — reduced-motion and the goldens live there.
+  /// One slow overlay cycle. Phase-locks the transcribing bars and the
+  /// silhouette wobble; phase 0 renders the static frame (reduced motion and
+  /// the goldens live there).
   static const Duration liquidDriftPeriod = Duration(seconds: 8);
-
-  /// Peak horizontal drift of the specular streak. Raised 6 → 12 px after
-  /// live feedback ("überhaupt nicht sichtbar") — still an anchored
-  /// highlight oscillating around its resting spot over a slow 8 s cycle,
-  /// NOT a band traversing the surface (that would be the forbidden
-  /// shimmer sweep; the boundary stays).
-  static const double liquidSpecularDriftPx = 12.0;
-
-  /// Fraction of the specular drift applied to the top sheen — the two
-  /// light layers move at different speeds (micro-parallax = depth).
-  static const double liquidSheenParallaxFactor = 0.5;
-
-  /// Peak relative length-breathing of the specular streak (raised with the
-  /// visibility pass).
-  static const double liquidSpecularBreatheFactor = 0.18;
-
-  /// Peak relative alpha-breathing of the specular streak — the drifting
-  /// light also visibly brightens/dims across the cycle (0.35 base alpha
-  /// swings ±25 %, still far from any flash).
-  static const double liquidSpecularBrightBreatheFactor = 0.25;
-
-  /// Peak relative alpha-breathing of the rim's top light (raised with the
-  /// visibility pass).
-  static const double liquidRimBreatheFactor = 0.15;
 
   // -- Liquid-glass silhouette wobble (Maintainer-Interview 2026-07-30) ------
   //
@@ -1092,12 +1329,9 @@ abstract final class OverlayDesignSpec {
   // softShadow schlug gradientScrim und hairlineOutline). The dot, waveform
   // and done/error icons keep their semantic mid-tone colours (mid-tones
   // hold ≥3:1 against both white and black extremes and need no shadow).
-
-  /// Fill colour of all neutral content glyphs (text, close ✕, stop square).
-  static const Color contentGlyphFill = Color(0xFFFFFFFF);
-
-  /// Shadow ink beneath the white glyphs.
-  static const Color glyphShadowColor = Color(0xFF14202E);
+  // Since the opaque presets (ticket) the glyphs sit on the pill's own fill,
+  // so the shadow is drawn only where the desktop shows through: glass or a
+  // fill below full opacity (north-star review #25).
 
   /// Shadow alpha.
   static const double glyphShadowOpacity = 0.85;
@@ -1117,14 +1351,16 @@ abstract final class OverlayDesignSpec {
   /// Painted-shadow opacity at full master opacity (spike `0.20`).
   static const double shadowOpacity = 0.20;
 
-  /// Painted-shadow Gaussian blur sigma. Softened from the spike's `7.0`
-  /// (cross-platform glass polish pass) so the capsule reads as hovering
-  /// rather than sitting flush — mirrors the large-blur half of
-  /// [WpShadows.card]'s two-layer ambient-depth language.
-  static const double shadowBlur = 9.0;
+  /// Painted-shadow Gaussian blur sigma, shared by the pill and the floating
+  /// button. A Gaussian stays visible up to about three sigma, and the native
+  /// windows reserve only [shadowPadding] around the shape — the former 9.0
+  /// reached about 27 px and ended in a hard edge at the window border. 2.0
+  /// plus [shadowOffset] fades out inside the padding.
+  static const double shadowBlur = 2.0;
 
-  /// Painted-shadow offset (spike `(0, 3)`, i.e. cast downward).
-  static const Offset shadowOffset = Offset(0, 3);
+  /// Painted-shadow offset (cast downward; the spike's `(0, 3)` shortened so
+  /// the shadow stays inside [shadowPadding]).
+  static const Offset shadowOffset = Offset(0, 1.25);
 
   /// Second, tight contact-shadow layer painted beneath [shadowBlur]/
   /// [shadowOpacity] (cross-platform glass polish pass) — the small-blur half
@@ -1145,20 +1381,13 @@ abstract final class OverlayDesignSpec {
   /// 8 px each side). [windowSize] adds this; the native shells must match it.
   static const double shadowPadding = 8.0;
 
-  /// Resolves the hand-tuned per-size layout (spike `_drawPill`).
-  ///
-  /// Legacy two-size convenience — new code paths that can carry a full
-  /// [OverlaySizeVariant] use [layoutFor].
-  static OverlayLayoutSpec layout({required bool compact}) => layoutFor(
-    compact ? OverlaySizeVariant.compact : OverlaySizeVariant.normal,
-  );
-
   /// Resolves the hand-tuned layout for [variant].
   static OverlayLayoutSpec layoutFor(OverlaySizeVariant variant) =>
       switch (variant) {
         OverlaySizeVariant.normal => OverlayLayoutSpec.normal,
         OverlaySizeVariant.compact => OverlayLayoutSpec.compact,
         OverlaySizeVariant.mini => OverlayLayoutSpec.mini,
+        OverlaySizeVariant.nano => OverlayLayoutSpec.nano,
       };
 
   /// Full native-window size for one pill = pill box + [shadowPadding] on every
@@ -1170,17 +1399,115 @@ abstract final class OverlayDesignSpec {
   );
 
   /// Full native-window size for [variant] = pill box + [shadowPadding] on
-  /// every side. Normal `346 × 80`, compact `236 × 56`, mini `166 × 50` —
-  /// the native shells must mirror these exactly.
+  /// every side. Normal `346 × 80`, compact `236 × 56`, mini `166 × 50`,
+  /// nano `104 × 40` — the native shells must mirror these exactly.
   static Size windowSizeFor(OverlaySizeVariant variant) {
     final s = sizeFor(variant);
     return Size(s.width + 2 * shadowPadding, s.height + 2 * shadowPadding);
   }
 
+  /// Smallest comfortable pointer target of the close glyph, per axis. The
+  /// glyph itself is only 5 to 8 px wide; a click on it must still land.
+  static const double closeHitMinExtent = 32.0;
+
+  /// Window-local hit area of the pill's close glyph (the X), or null when
+  /// the pill paints none.
+  ///
+  /// Single source for the geometry `WpOverlayPainter._drawContent` uses to
+  /// place the X: centre at `pill.left + padH + closeOffset`, vertically the
+  /// pill centre, where the pill is centred in the window at [pillWidth]
+  /// (default: the full size width). The painted X shows only when the look
+  /// has [showCancel] and the size paints full content (mini and nano do
+  /// not). The rect is widened to [closeHitMinExtent] on both axes and
+  /// extends to the pill's left edge, so a click beside the glyph still
+  /// cancels, never toggles recording.
+  static Rect? closeHitRect({
+    required OverlaySizeVariant variant,
+    required bool showCancel,
+    double? pillWidth,
+  }) {
+    final spec = sizeFor(variant);
+    if (!showCancel || spec.minimalContent) return null;
+    final layout = layoutFor(variant);
+    final width = pillWidth ?? spec.width;
+    final pillLeft = shadowPadding + (spec.width - width) / 2;
+    final centerX = pillLeft + layout.padH + layout.closeOffset;
+    final centerY = shadowPadding + spec.height / 2;
+    final halfW = math.max(closeHitMinExtent, 2 * layout.closeArm) / 2;
+    final halfH = math.max(closeHitMinExtent, spec.height) / 2;
+    return Rect.fromLTRB(
+      math.min(pillLeft, centerX - halfW),
+      centerY - halfH,
+      centerX + halfW,
+      centerY + halfH,
+    );
+  }
+
+  // -- Notice card (overlay F2) -----------------------------------------------
+
+  /// Family of all overlay text (pill and notice card); [kWpFontFallback]
+  /// follows it.
+  static const String fontFamily = 'Inter';
+
+  /// The notice card: as wide as the normal pill, tall enough for a title,
+  /// two body lines and one row of buttons, with air between body and buttons
+  /// (120 clipped the buttons when the body wrapped, e.g. in Russian). It replaces the pill of any size
+  /// while a microphone problem or the duration limit needs a decision.
+  static const Size noticeCardSize = Size(330, 148);
+
+  /// Native-window size of the notice card (`346 × 164`), sent to the shells
+  /// as the size class `notice`. The shells must mirror it exactly.
+  static Size get noticeWindowSize => Size(
+    noticeCardSize.width + 2 * shadowPadding,
+    noticeCardSize.height + 2 * shadowPadding,
+  );
+
+  /// Corner radius of the notice card.
+  static const double noticeCardRadius = 16.0;
+
+  /// Inner padding of the notice card.
+  static const double noticeCardPadding = 14.0;
+
+  /// Title and body font sizes of the notice card.
+  static const double noticeTitleFontSize = 14.0;
+  static const double noticeBodyFontSize = 12.0;
+
+  /// Height of a notice card button; at least the 32 pt hit target.
+  static const double noticeButtonHeight = 32.0;
+
+  /// Footer of the notice card (#781): font size, gap to the buttons, ink
+  /// steps tried from quiet to full (see [OverlayThemeColors.noticeFooterInk])
+  /// and the contrast the footer must reach on the card body.
+  static const double noticeFooterFontSize = noticeBodyFontSize - 1;
+  static const double noticeFooterGap = 6.0;
+  static const List<double> noticeFooterInkAlphas = [0.65, 0.82, 1.0];
+  static const double noticeFooterMinContrast = 4.5;
+
+  /// Ink steps of the notice card body (#728), tried like the footer's.
+  static const List<double> noticeBodyInkAlphas = [0.82, 1.0];
+
+  /// Largest text scale the notice card follows (system font size, #728).
+  /// The card text grows with the system font up to this factor; the window
+  /// has a fixed size, so beyond it the lines end in an ellipsis.
+  static const double noticeMaxTextScale = 1.3;
+
+  /// Height of the close cross of the notice card (width follows its label).
+  static const double noticeCloseHeight = 24.0;
+
   // -- Stop square (recording only) ------------------------------------------
 
   /// Stop-square corner radius (spike `2`).
   static const double stopSquareRadius = 2.0;
+
+  /// Corner radius of the rounded-rect form as a share of its height
+  /// (ticket). A fixed radius turned the small sizes into near-pills (12 px on
+  /// a 34 px mini is 35 %); a constant share keeps the same silhouette in
+  /// every size — 12 px at the normal 64 px. The pill uses half its height.
+  static const double roundedRectRadiusShare = 0.1875;
+
+  /// Rounded-rect corner radius for a capsule of [height].
+  static double roundedRectRadiusFor(double height) =>
+      height * roundedRectRadiusShare;
 
   /// Stop-square fill opacity over the content colour (spike `0.9`).
   static const double stopSquareOpacity = 0.9;
@@ -1203,14 +1530,10 @@ abstract final class OverlayDesignSpec {
 
   // -- Waveform line rendering (thin accent lines) ---------------------------
 
-  /// Number of trailing (most-recent) bars drawn in the bright active accent;
-  /// the rest are drawn muted (spike `i > len − 5`).
-  static const int waveformActiveCount = 5;
-
   // Mirrored-bar waveform (Maintainer decision, 2026-07-29): the bars are
   // FULLY OPAQUE filled capsules, mirrored around the centre axis
   // (Spotify/Voice-Memos register, in WhisPaste's own accent language) —
-  // no alpha wash, no glow (explicitly rejected: "macht das nur
+  // no alpha wash, no light effect (explicitly rejected: "macht das nur
   // schwammiger"), hard crisp edges. Identity lives in the "energy axis":
   // every bar carries a vertical in-bar gradient that is brightest at the
   // centre line and shades toward the tips, so quiet bars still show a
@@ -1239,14 +1562,6 @@ abstract final class OverlayDesignSpec {
   /// Slot fraction for the trailing active bars — the playhead is wider.
   static const double waveformActiveBarFillFactor = 0.74;
 
-  /// Perceptual display gamma applied to the normalised level before it maps
-  /// to bar height (`height ∝ level^gamma`). Speech spends most of its time
-  /// at low normalised levels; the sub-linear curve lifts quiet syllables so
-  /// the waveform dances instead of idling near the floor, while loud peaks
-  /// still cap at the same maximum. Display-only — the pipeline's smoothing
-  /// state stays untouched.
-  static const double waveformLevelGamma = 0.65;
-
   /// White fraction mixed into the accent at the CENTRE of the bar gradient
   /// for the muted (history) bars — the "energy axis" core.
   static const double waveformCoreMutedLightFraction = 0.10;
@@ -1261,6 +1576,24 @@ abstract final class OverlayDesignSpec {
 
   /// Fraction of the pill height the loudest bar may reach (spike `0.6`).
   static const double waveformHeightFactor = 0.60;
+
+  /// Recording chips (SW-10, ticket 13 part 3): the language and the effective
+  /// profile sit in one outlined pill badge right after the timer, e.g.
+  /// `0:07 · DE · Schnell`. Only the normal pill is tall enough
+  /// ([chipMinPillHeight]); compact and mini stay unchanged.
+  static const double chipFontSize = 11.0;
+
+  static const double chipMinPillHeight = 64.0;
+  static const double chipHeight = 16.0;
+  static const double chipPadH = 6.0;
+  static const double chipGap = 6.0;
+  static const double chipOutlineWidth = 1.0;
+  static const double chipOutlineOpacity = 0.4;
+
+  /// The waveform keeps at least this width. A chip only takes the space the
+  /// timer leaves beyond it; a long profile name is shortened with an ellipsis
+  /// first, and the chip is dropped when even the language would not fit.
+  static const double chipMinWaveWidth = 88.0;
 
   /// Flat rest level used for the faint waveform outside recording (spike
   /// `0.06`) — the baseline the transcribing ripple (below) oscillates
@@ -1370,14 +1703,8 @@ abstract final class OverlayDesignSpec {
 
   // -- Font weights (theme-wide, not scaled) ---------------------------------
 
-  /// Recording timer weight (bold).
-  static const FontWeight timerFontWeight = FontWeight.w700;
-
   /// Primary label/done/error weight (semibold).
   static const FontWeight primaryFontWeight = FontWeight.w600;
-
-  /// Secondary/elapsed weight (regular).
-  static const FontWeight secondaryFontWeight = FontWeight.w400;
 
   // -- Status-icon reveal (cross-platform glass polish pass) -----------------
 
@@ -1395,78 +1722,60 @@ abstract final class OverlayDesignSpec {
   // and the shadow is always neutral black. A per-state border re-hue
   // (formerly `borderColorFor`) was removed after live feedback: over a small
   // translucent capsule the red recording stroke read as a diffuse pink
-  // "glow" — exactly the effect ADR 0002 forbids. State identity lives ONLY
-  // in crisp content glyphs: the pulsing dot, the live waveform, the done
+  // "light effect" — exactly the effect ADR 0002 forbids. State identity lives ONLY
+  // in crisp content glyphs: the live waveform, the done
   // check (green) and the error icon/text (red).
 
   // -- Theme colours ---------------------------------------------------------
 
-  /// The approved spike (`spike/lib/main.dart` `kFinalDesign`, mirrored by the
-  /// web `web-parity-board`) defines a **single** capsule design — a light
-  /// tint-gradient teal capsule — shown identically over light AND dark
-  /// backgrounds. There is deliberately no separate dark capsule variant; the
-  /// translucent fill carries the design over any desktop. So [light] holds the
-  /// spike tokens and [dark] resolves to the exact same set (1:1 parity).
-  ///
-  /// Colours come verbatim from `kFinalDesign`: content `#14202E`,
-  /// accent `#0887A8`, fill `#F7FAFD → #E6EEF5`, border `#330887A8`.
-  static const OverlayThemeColors light = OverlayThemeColors(
-    capsuleFillStart: Color(0xFFF7FAFD),
-    capsuleFillEnd: Color(0xFFE6EEF5),
-    capsuleBorder: Color(0x330887A8),
-    text: Color(0xFF14202E),
-    accent: Color(0xFF0887A8),
-    transcribingAccent: Color(0xFFD97706),
-    success: Color(0xFF05875C),
-    error: Color(0xFFCC1C1C),
-    recordingDot: Color(0xFFFF5252),
+  /// The colour set for [background] paired with [wave] (ticket, ADR 0024).
+  static OverlayThemeColors colorsFor({
+    OverlayBackground background = OverlayBackground.marine,
+    OverlayWave wave = OverlayWave.cyan,
+    OverlayDesignTheme glassTone = OverlayDesignTheme.dark,
+  }) => OverlayThemeColors.resolve(
+    background: background,
+    wave: wave,
+    glassTone: glassTone,
   );
 
-  /// Dark theme colour set — identical to [light]: the spike has one design.
-  static const OverlayThemeColors dark = light;
+  /// Glyph colour stops of the floating button's mic for [state], taken from
+  /// the resolved [colors] of the background, so an amber background gets the
+  /// legible signal (ticket). Flat: both stops are the same colour (ADR 0024).
+  ///
+  /// While recording the mic takes the wave colour, like the dot in the pill
+  /// (ADR 0024, Nachtrag 2026-10-22). Only where the wave is not legible on the
+  /// fill (3:1) does it fall back to the ink, the same rule the signals use.
+  static List<Color> glyphStopsFor(
+    OverlayDesignState state,
+    OverlayThemeColors colors,
+  ) {
+    final color = switch (state) {
+      OverlayDesignState.recording =>
+        contrastRatio(colors.accent, colors.capsuleFill) >= 3.0
+            ? colors.accent
+            : colors.ink,
+      OverlayDesignState.transcribing => colors.transcribingAccent,
+      OverlayDesignState.done => colors.success,
+      OverlayDesignState.error => colors.error,
+    };
+    return [color, color];
+  }
 
-  /// Resolves the colour set for [theme].
-  static OverlayThemeColors colors(OverlayDesignTheme theme) =>
-      theme == OverlayDesignTheme.dark ? dark : light;
+  // -- Waveform --------  // -- Waveform --------------------------------------------------------------
 
-  /// Convenience resolver for a boolean dark flag (matches the snapshot).
-  static OverlayThemeColors colorsForDark(bool isDark) => isDark ? dark : light;
+  /// Bars of the live waveform before any size reduces them (see [waveform]).
+  static const int waveformBarCount = 22;
 
-  // -- Per-state accent gradients --------------------------------------------
-
-  /// Accent gradient per state. The done gradient's middle stop is the
-  /// canonical green `#30C065`.
-  static const Map<OverlayDesignState, OverlayStateGradient> stateGradients = {
-    OverlayDesignState.recording: OverlayStateGradient([
-      Color(0xFFEF4444),
-      Color(0xFFDC2626),
-    ]),
-    OverlayDesignState.transcribing: OverlayStateGradient([
-      Color(0xFFF59E0B),
-      Color(0xFFD97706),
-    ]),
-    OverlayDesignState.done: OverlayStateGradient([
-      Color(0xFF4ADE80),
-      Color(0xFF30C065),
-      Color(0xFF16A34A),
-    ]),
-    OverlayDesignState.error: OverlayStateGradient([
-      Color(0xFFEF4444),
-      Color(0xFFB91C1C),
-    ]),
-  };
-
-  // -- Waveform --------------------------------------------------------------
-
-  /// Waveform parameters. 22 bars, shared across both sizes.
+  /// Waveform parameters. The live levels come in at [waveformBarCount]; the
+  /// sizes that draw fewer bars reduce them ([OverlaySizeSpec.waveformBarCount]).
   static const WaveformSpec waveform = WaveformSpec(
-    barCount: 22,
+    barCount: waveformBarCount,
     minBarHeightPx: 3.0,
-    activeColorThreshold: 0.30,
-    activeAccentOpacity: 0.85,
-    mutedOpacity: 0.50,
     attackTimeConstantMs: 20,
-    releaseTimeConstantMs: 300,
+    // Short enough that the gap between syllables (~150–250 ms) shows as a
+    // dip, so speech moves the bars instead of holding them near the top.
+    releaseTimeConstantMs: 120,
   );
 
   // -- Sizes -----------------------------------------------------------------
@@ -1480,6 +1789,9 @@ abstract final class OverlayDesignSpec {
   /// Mini (waveform-first) pill spec — explicit anchors, minimal content.
   static const OverlaySizeSpec miniSize = OverlaySizeSpec.mini;
 
+  /// Nano (waveform-only status mark) pill spec — explicit anchors.
+  static const OverlaySizeSpec nanoSize = OverlaySizeSpec.nano;
+
   /// Resolves the size spec for the compact flag.
   ///
   /// Legacy two-size convenience — see [sizeFor].
@@ -1492,18 +1804,10 @@ abstract final class OverlayDesignSpec {
         OverlaySizeVariant.normal => normalSize,
         OverlaySizeVariant.compact => compactSize,
         OverlaySizeVariant.mini => miniSize,
+        OverlaySizeVariant.nano => nanoSize,
       };
 
   // -- Motion ----------------------------------------------------------------
-
-  /// Calm animation timings.
-  static const OverlayMotion motion = OverlayMotion(
-    dotPulsePeriod: Duration(milliseconds: 900),
-    // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
-    dotPulseMinAlpha: 0.6,
-    // Subtler than the alpha range — a soft breathing scale, not a resize.
-    dotPulseMinScale: 0.88,
-  );
 
   /// Signature recording-arc motion parameters (Phase-0, issue 09).
   ///
@@ -1542,19 +1846,6 @@ abstract final class OverlayDesignSpec {
     linux: OverlayVibrancyMaterial.flat,
   );
 
-  // -- Interaction -----------------------------------------------------------
-
-  /// Shared drag/anchor constants.
-  static const OverlayInteraction interaction = OverlayInteraction(
-    dragThresholdPx: 3.0,
-    anchors: [
-      OverlayAnchor.topCenter,
-      OverlayAnchor.bottomCenter,
-      OverlayAnchor.lastPosition,
-    ],
-    screenEdgeMargin: 24,
-  );
-
   // -- Dynamic pill-width (issue 10) -----------------------------------------
 
   /// Width ratio for the pill at each design state, relative to
@@ -1582,34 +1873,39 @@ abstract final class OverlayDesignSpec {
     OverlayDesignState.error => 0.758,
   };
 
-  /// Width ratio for a [OverlaySizeSpec.minimalContent] (mini) pill.
+  /// Width ratio for a [OverlaySizeSpec.minimalContent] pill (mini, nano).
   ///
-  /// While the live waveform runs (recording) AND while transcribing mini
-  /// keeps its full width: the transcribing composition is the status label
-  /// floating inside the full-width amber processing stream (waveform+text
-  /// pass, 2026-08-17 — the earlier fitted text-only pill read as "nur
-  /// reiner Text"), so the stage never narrows between the two waveform
-  /// states. For the done/error end states the capsule shrinks around the
-  /// single centred status icon (design pass) — a 150 px capsule holding
-  /// one 14 px glyph read as an empty shell, and the width-morph spring is
-  /// the overlay's most elegant motion; mini shares it there.
-  static double miniPillWidthRatio(OverlayDesignState state) => switch (state) {
+  /// While the live waveform runs (recording) the pill keeps its full width.
+  /// Transcribing keeps it too when the state paints a status label
+  /// ([labelled], mini): the label floats inside the full-width amber
+  /// processing stream (waveform+text pass, 2026-08-17 — the earlier fitted
+  /// text-only pill read as "nur reiner Text"). A label-less transcribing
+  /// (nano) has only the spinner, so it shrinks like the end states. For
+  /// done/error the capsule shrinks around the single centred status icon
+  /// (design pass) — a 150 px capsule holding one 14 px glyph read as an
+  /// empty shell, and the width-morph spring is the overlay's most elegant
+  /// motion; mini and nano share it there.
+  static double minimalPillWidthRatio(
+    OverlayDesignState state, {
+    bool labelled = true,
+  }) => switch (state) {
     OverlayDesignState.recording => 1.0,
-    OverlayDesignState.transcribing => 1.0,
+    OverlayDesignState.transcribing => labelled ? 1.0 : 0.42,
     OverlayDesignState.done => 0.42,
     OverlayDesignState.error => 0.42,
   };
 
   /// Target pill width in logical pixels for [state] at the given [sizeSpec].
   ///
-  /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)` (mini:
-  /// [miniPillWidthRatio]). Callers pass this directly as `pillWidth` to
-  /// [WpOverlayPainter].
+  /// Convenience wrapper: `sizeSpec.width × pillWidthRatio(state)` (minimal
+  /// sizes: [minimalPillWidthRatio]). Callers pass this directly as
+  /// `pillWidth` to [WpOverlayPainter].
   static double pillWidthFor(
     OverlayDesignState state,
     OverlaySizeSpec sizeSpec,
   ) => sizeSpec.minimalContent
-      ? sizeSpec.width * miniPillWidthRatio(state)
+      ? sizeSpec.width *
+            minimalPillWidthRatio(state, labelled: sizeSpec.paintsStatusLabel)
       : sizeSpec.width * pillWidthRatio(state);
 
   /// [pillWidthFor], grown just enough to fit [text] without an ellipsis —
@@ -1630,13 +1926,17 @@ abstract final class OverlayDesignSpec {
   }) {
     final baseWidth = pillWidthFor(state, sizeSpec);
     // Mini paints status text only while transcribing (state-distinction
-    // pass); its other states stay glyph-only — nothing to grow for.
+    // pass); its other states stay glyph-only, and nano paints no text at
+    // all — nothing to grow for.
     final paintsText =
-        !sizeSpec.minimalContent || state == OverlayDesignState.transcribing;
+        sizeSpec.paintsStatusLabel &&
+        (!sizeSpec.minimalContent || state == OverlayDesignState.transcribing);
     if (!paintsText) return baseWidth;
     if (text.isEmpty && secondaryText.isEmpty) return baseWidth;
-    // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry:
-    // textLeft sits at padH + dotInset + timerGap from the pill's left edge,
+    // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry.
+    // Recording has no lead dot, so its timer starts after the close glyph;
+    // the other states keep the status icon slot (dotInset). The text
+    // starts at padH + that slot + timerGap from the pill's left edge,
     // and padH is reserved again on the right — solved for the pill width
     // that gives the measured text exactly enough room. A secondary line
     // (guided-sequence frames) shares the same left edge at its smaller
@@ -1652,8 +1952,11 @@ abstract final class OverlayDesignSpec {
     final widestLine = measuredTextWidth > measuredSecondaryWidth
         ? measuredTextWidth
         : measuredSecondaryWidth;
+    final leadSlot = state == OverlayDesignState.recording
+        ? layout.closeOffset + layout.closeArm
+        : layout.dotInset;
     final requiredWidth =
-        widestLine + 2 * layout.padH + layout.dotInset + layout.timerGap;
+        widestLine + 2 * layout.padH + leadSlot + layout.timerGap;
     return requiredWidth.clamp(baseWidth, sizeSpec.width);
   }
 
@@ -1681,21 +1984,85 @@ abstract final class OverlayDesignSpec {
   /// V2 floating-button appearance.
   static const FloatingButtonSpec button = FloatingButtonSpec(
     discColor: Color(0xFFFFFFFF),
-    discGradientEnd: Color(0xFFEDF1F6),
     discFillOpacity: 0.95,
-    iconColor: Color(0xFF101828),
     borderColor: Color(0x1A101828),
     borderWidth: 1.0,
     borderInset: 0.5,
     iconRatio: 24 / 56,
-    hasGlow: false,
     mic: FloatingButtonMicSpec.spike,
+    edgeColor: Color(0x00000000),
+    shadowColor: WpOverlayTokens.overlayShadowLight,
+  );
+
+  /// Width of the recording ring (BTN-REC). The ring is painted outside the
+  /// disc edge, so the disc keeps its diameter and the footprint does not move.
+  static const double buttonRingWidth = 2.0;
+
+  /// Side of the recording stop square as a share of the disc diameter (BTN-REC,
+  /// replaces the mic while recording).
+  static const double buttonStopSquareRatio = 0.36;
+
+  /// Corner radius of the stop square as a share of its side.
+  static const double buttonStopSquareCornerRatio = 0.2;
+
+  /// The surface the button ring is checked against: the settings stage
+  /// backdrop, the nearest fixed backdrop the ring sits on (WCAG 1.4.11).
+  static const Color buttonRingBackdrop = WpColorsDark.background;
+
+  /// Colour of the recording ring for [colors]. The ring must stand out from
+  /// the disc it surrounds and, where possible, from [buttonRingBackdrop]
+  /// (3:1 each). The wave colour comes first, then the ink. A light disc
+  /// (amber, gletscher) has no colour that reaches 3:1 on both; there the ring
+  /// takes the first colour that stands out from the disc, because half the
+  /// stroke lies on the disc. It never takes the disc colour itself, which
+  /// made the ring invisible on light backgrounds (#369).
+  static Color _ringColorFor(OverlayThemeColors colors) {
+    final disc = colors.capsuleFill;
+    final candidates = [colors.accent, colors.ink];
+    for (final c in candidates) {
+      if (contrastRatio(c, disc) >= 3.0 &&
+          contrastRatio(c, buttonRingBackdrop) >= 3.0) {
+        return c;
+      }
+    }
+    for (final c in candidates) {
+      if (contrastRatio(c, disc) >= 3.0) return c;
+    }
+    return colors.ink;
+  }
+
+  /// The floating button's appearance for [colors] (ticket, ADR 0024): disc
+  /// from the background, mic glyph in its ink, and while [ringed] (recording)
+  /// a [buttonRingWidth] ring at the disc edge (see [_ringColorFor]).
+  ///
+  /// The ring uses a negative [FloatingButtonSpec.borderInset], which moves the
+  /// stroke centre outwards: half the stroke lies beyond the disc radius, half
+  /// on the disc.
+  static FloatingButtonSpec buttonSpecFor(
+    OverlayThemeColors colors, {
+    bool ringed = false,
+  }) => FloatingButtonSpec(
+    discColor: colors.capsuleFill,
+    discFillOpacity: button.discFillOpacity,
+    borderColor: ringed
+        ? _ringColorFor(colors)
+        : colors.ink.withValues(alpha: 0.1),
+    borderWidth: ringed ? buttonRingWidth : button.borderWidth,
+    borderInset: ringed ? -buttonRingWidth / 2 : button.borderInset,
+    iconRatio: button.iconRatio,
+    mic: button.mic,
+    edgeColor: colors.edge,
+    shadowColor: colors.shadow,
   );
 
   /// Full native-window size for a button disc of [diameter] = disc +
   /// [shadowPadding] on every side, so the painted soft shadow is not clipped
   /// (mirrors [windowSize] for the overlay). The disc centre is painted at
   /// `Offset(shadowPadding + diameter / 2, shadowPadding + diameter / 2)`.
+  /// Corner radius of the rounded-square button, as a share of its half
+  /// diameter (0 = square, 1 = disc). ticket button shape.
+  static const double buttonSquareCornerRatio = 0.45;
+
   static Size buttonWindowSize(double diameter) =>
       Size(diameter + 2 * shadowPadding, diameter + 2 * shadowPadding);
 }

@@ -26,12 +26,17 @@ class FloatingButtonHost {
   // Lazy-created on first show.
   private var panel: FloatingButtonPanel?
 
+  /// Frame of the capsule at rest while the pill is open (AppKit coordinates);
+  /// nil at rest. Shrinking restores it exactly.
+  private var capsuleHome: NSRect?
+
   // Secondary Flutter engine that renders the shared FloatingButtonView.
   private var renderEngine: FlutterEngine?
   private var renderViewController: FlutterViewController?
   private var renderChannel: FlutterMethodChannel?
 
-  private var contextMenuItems: [(id: String, label: String)] = []
+  private var contextMenuEntries: [NativeMenuEntry] = []
+  private var contextMenuAppearance: NSAppearance?
   private var screenObserver: NSObjectProtocol?
 
   // The render engine boots asynchronously: its Dart MethodChannel handler is
@@ -39,14 +44,137 @@ class FloatingButtonHost {
   // `ready`, relayed messages would be dropped — so we cache the latest render
   // state here and flush it the moment the engine announces itself.
   private var renderReady: Bool = false
+
+// Logical position = disc origin. The panel is larger than the disc by
+// shadowPadding on every side (OverlayDesignSpec.shadowPadding), so the panel
+// origin is the logical origin minus this value. Every reader and writer of
+// the position below must go through `panelOrigin` / `logicalOrigin`; mixing
+// the two drifts the saved position by 8 px per save/restore cycle.
+private static let shadowPadding: CGFloat = 8
+
+private static let slowPanelOpThresholdMs: Double = 50
+
+private static func timedPanelOp(_ name: String, _ operation: () -> Void) {
+    let start = CFAbsoluteTimeGetCurrent()
+    operation()
+    let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
+    if elapsedMs > slowPanelOpThresholdMs {
+        NSLog("[button] slow panel op %@ took %.1f ms", name, elapsedMs)
+    }
+}
+
+/// Resizes the panel to the requested content size and returns the pinned
+  /// edges (`pinnedRight`, `pinnedBottom`), or nil without a panel.
+  private func setWindowSize(_ args: [String: Any]?) -> [String: Bool]? {
+    guard let args = args,
+          let w = (args["width"] as? NSNumber)?.doubleValue,
+          let h = (args["height"] as? NSNumber)?.doubleValue,
+          let p = panel else { return nil }
+    let expanded = (args["expanded"] as? NSNumber)?.boolValue ?? false
+    let size = NSSize(
+      width: CGFloat(w) + 2 * Self.shadowPadding,
+      height: CGFloat(h) + 2 * Self.shadowPadding
+    )
+    var frame = NSRect(origin: p.frame.origin, size: size)
+    var pins = (right: false, bottom: true)
+    if expanded {
+      let home = capsuleHome ?? p.frame
+      capsuleHome = home
+      let screen = (p.screen ?? NSScreen.main)?.visibleFrame ?? home
+      pins = Self.capsulePins(home: home, size: size, screen: screen)
+      frame.origin = NSPoint(
+        x: pins.right ? home.maxX - size.width : home.minX,
+        y: pins.bottom ? home.minY : home.maxY - size.height
+      )
+    } else if let home = capsuleHome {
+      capsuleHome = nil
+      frame.origin = home.origin
+    }
+    // Every freshly booted render engine reports its size once. Resizing to the
+    // same frame still blocks the main thread until the new engine paints
+    // (up to 1.5 s in the field), which looked like a stall and re-booted the
+    // engine again (#369). An unchanged frame is left alone.
+    if p.frame != frame {
+      Self.timedPanelOp("setWindowSize.setFrame") { p.setFrame(frame, display: true) }
+    }
+    return ["pinnedRight": pins.right, "pinnedBottom": pins.bottom]
+  }
+
+  /// Mirrors `CapsulePins.resolve` (lib/services/floating_button/idle_capsule.dart)
+  /// in AppKit coordinates: a pinned bottom keeps minY, otherwise maxY stays.
+  private static func capsulePins(home: NSRect, size: NSSize, screen: NSRect)
+    -> (right: Bool, bottom: Bool) {
+    let leftFits = home.minX + size.width <= screen.maxX
+    let rightFits = home.maxX - size.width >= screen.minX
+    let upFits = home.minY + size.height <= screen.maxY
+    let downFits = home.maxY - size.height >= screen.minY
+    return (right: !leftFits && rightFits, bottom: !(!upFits && downFits))
+  }
+
+  private static func logicalOrigin(of panel: NSPanel) -> NSPoint {
+    NSPoint(x: panel.frame.origin.x + shadowPadding, y: panel.frame.origin.y + shadowPadding)
+}
+
+private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
+    NSPoint(x: CGFloat(x) - shadowPadding, y: CGFloat(y) - shadowPadding)
+}
   private var latestState: String?
   private var latestDiameter: Double = 56
+  // Last `setTheme` arguments ({background, wave}, ticket). Cached like the
+  // state so the first frame after the boot race already has the preset.
+  private var latestTheme: [String: Any]?
 
   // Boot-race hardening: if `ready` never arrives (same class of race as
   // FloatingOverlayHost's — see its comment), a timeout tears down the stuck
   // engine and boots a fresh one rather than leaving the button permanently
   // blank for the rest of the app session.
   private static let renderReadyTimeout: TimeInterval = 3.0
+
+  // Preset ids the render engine understands (overlay_design_spec.dart). Any
+  // other value from the method channel is replaced by the default.
+  private static let backgroundPresets: Set<String> = ["marine", "graphit", "gletscher", "amber", "glass"]
+  private static let wavePresets: Set<String> = ["cyan", "violett", "ink", "white", "amber", "coral", "mint"]
+
+  private static func sanitizedTheme(_ args: [String: Any]) -> [String: Any] {
+    let background = (args["background"] as? String).flatMap {
+      backgroundPresets.contains($0) ? $0 : nil
+    } ?? "marine"
+    let wave = (args["wave"] as? String).flatMap {
+      wavePresets.contains($0) ? $0 : nil
+    } ?? "cyan"
+    // ticket button look: shape, recording ring and resting opacity. The
+    // opacity is clamped to the presets the render engine knows (40-100 %).
+    let shape = (args["shape"] as? String) == "square" ? "square" : "round"
+    let ring = (args["ring"] as? Bool) ?? true
+    let idle = (args["idleOpacity"] as? NSNumber)?.doubleValue ?? 1.0
+    let idleOpacity = min(max(idle, 0.4), 1.0)
+    // Idle capsule (overlay_button_idle_capsule): the render engine sizes the
+    // capsule itself and asks for the window size through `setWindowSize`.
+    let idleCapsule = (args["idleCapsule"] as? Bool) ?? false
+    return [
+      "background": background,
+      "wave": wave,
+      "shape": shape,
+      "ring": ring,
+      "idleOpacity": idleOpacity,
+      "idleCapsule": idleCapsule,
+    ]
+  }
+  /// The cached render state as `--button-boot-<key>=<value>` entrypoint
+  /// arguments (Dart `FloatingButtonBootState`, #977). The theme keys are
+  /// sent only once a theme arrived, so the engine never paints default
+  /// colours before the real theme is known (#369).
+  private func bootArguments() -> [String] {
+    var args: [String] = ["--button-boot-diameter=\(latestDiameter)"]
+    if let state = latestState { args.append("--button-boot-state=\(state)") }
+    if let theme = latestTheme {
+      for key in ["background", "wave", "shape", "ring", "idleOpacity", "idleCapsule"] {
+        if let value = theme[key] { args.append("--button-boot-\(key)=\(value)") }
+      }
+    }
+    return args
+  }
+
   private static let maxRenderReadyRetries = 2
   private var renderReadyTimeoutTimer: Timer?
   private var renderReadyRetryCount = 0
@@ -96,7 +224,7 @@ class FloatingButtonHost {
 
     if origin != p.frame.origin {
       p.setFrameOrigin(origin)
-      let adjusted = p.frame.origin
+      let adjusted = Self.logicalOrigin(of: p)
       channel.invokeMethod("onDragEnded", arguments: [
         "x": Double(adjusted.x),
         "y": Double(adjusted.y),
@@ -128,9 +256,6 @@ class FloatingButtonHost {
         return
       }
       latestState = stateName
-      // [DEBUG-a1] hypothesis 3: is a setState relay ever dropped because
-      // renderReady is false (boot-race / stuck-engine window)?
-      NSLog("[button][DEBUG-a1] setState(\(stateName)) renderReady=\(renderReady) renderChannel=\(renderChannel != nil)")
       if renderReady {
         renderChannel?.invokeMethod("setState", arguments: ["state": stateName])
       }
@@ -141,9 +266,10 @@ class FloatingButtonHost {
         result(nil)
         return
       }
-      // Relay to render engine (V2 disc is theme-independent, render ignores).
+      let theme = Self.sanitizedTheme(args)
+      latestTheme = theme
       if renderReady {
-        renderChannel?.invokeMethod("setTheme", arguments: args)
+        renderChannel?.invokeMethod("setTheme", arguments: theme)
       }
       result(nil)
 
@@ -154,7 +280,7 @@ class FloatingButtonHost {
       }
       let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
       let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
-      panel?.setFrameOrigin(NSPoint(x: x, y: y))
+      panel?.setFrameOrigin(Self.panelOrigin(forLogical: x, y))
       result(nil)
 
     case "setSize":
@@ -168,7 +294,7 @@ class FloatingButtonHost {
       if let p = panel {
         var frame = p.frame
         frame.size = NSSize(width: totalSize, height: totalSize)
-        p.setFrame(frame, display: true)
+        Self.timedPanelOp("setSize.setFrame") { p.setFrame(frame, display: true) }
       }
       if renderReady {
         renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": size])
@@ -180,24 +306,23 @@ class FloatingButtonHost {
         result(nil)
         return
       }
-      let origin = p.frame.origin
+      let origin = Self.logicalOrigin(of: p)
       result(["x": Double(origin.x), "y": Double(origin.y)])
 
     case "setContextMenuItems":
-      guard let args = call.arguments as? [String: Any],
-            let items = args["items"] as? [[String: Any]] else {
-        result(nil)
-        return
-      }
-      contextMenuItems = items.compactMap { item in
-        guard let id = item["id"] as? String,
-              let label = item["label"] as? String else { return nil }
-        return (id: id, label: label)
-      }
+      // {items:[...tree...], appearance} (#393, see NativeContextMenu).
+      (contextMenuEntries, contextMenuAppearance) = NativeContextMenu.parse(call.arguments)
       result(nil)
 
     case "destroy":
       teardown()
+      result(nil)
+
+    case "rebootRenderEngine":
+      // Dart's frame heartbeat found no painted frame after its re-push.
+      // Re-boots only the render engine; the panel keeps its position and
+      // visibility, and the new engine's `ready` flushes the cached state.
+      rebootRenderEngine()
       result(nil)
 
     default:
@@ -229,9 +354,15 @@ class FloatingButtonHost {
     // library, so `floatingButtonMain` is declared in Dart's main.dart (it
     // delegates into the button render app). There is no `libraryURI:` variant
     // on macOS FlutterEngine.
-    let engine = FlutterEngine(name: "floating_button", project: nil)
+    // The last known render state rides along as entrypoint arguments
+    // (#977), so a re-booted engine paints it in its first frame instead of
+    // staying blank until the `ready` flush delivers `setTheme`.
+    let project = FlutterDartProject()
+    let bootArgs = bootArguments()
+    project.dartEntrypointArguments = bootArgs
+    let engine = FlutterEngine(name: "floating_button", project: project)
     let didRun = engine.run(withEntrypoint: "floatingButtonMain")
-    NSLog("[button] bootRenderEngine: engine.run(floatingButtonMain) -> \(didRun)")
+    NSLog("[button] bootRenderEngine: engine.run(floatingButtonMain) -> \(didRun) boot=\(bootArgs)")
 
     guard didRun else {
       // Engine failed to start outright — no point waiting out the full
@@ -245,6 +376,10 @@ class FloatingButtonHost {
     // REAL surface transparency: must be set so the engine composites onto a
     // clear surface instead of opaque black. Set before the view is shown.
     vc.backgroundColor = .clear
+    // The panel never becomes key (non-activating HUD). Flutter's default
+    // tracking only reports the pointer in the key window, so the idle capsule
+    // never saw it hover; track it whenever the panel is on screen (#475).
+    vc.mouseTrackingMode = .always
 
     let renderCh = FlutterMethodChannel(
       name: "com.whispaste.floating_button_render",
@@ -314,11 +449,11 @@ class FloatingButtonHost {
       }
     }
 
-    // Offset the panel origin so the logical position (x, y) aligns with the
-    // disc center: (totalSize - size) / 2 == shadowPadding == 8.
-    let shadowPadding = (totalSize - size) / 2
-    panel?.setFrameOrigin(NSPoint(x: x - shadowPadding, y: y - shadowPadding))
-    panel?.orderFront(nil)
+    if let p = panel {
+      let origin = Self.panelOrigin(forLogical: x, y)
+      Self.timedPanelOp("show.setFrameOrigin") { p.setFrameOrigin(origin) }
+      Self.timedPanelOp("show.orderFront") { p.orderFront(nil) }
+    }
   }
 
   // MARK: - Render-engine interactions (button engine → native → main engine)
@@ -337,14 +472,18 @@ class FloatingButtonHost {
         renderChannel?.invokeMethod("setState", arguments: ["state": state])
       }
       renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": latestDiameter])
+      // Always send a theme, like Windows and Linux: the render engine paints
+      // nothing until its first `setTheme` (#369).
+      renderChannel?.invokeMethod("setTheme", arguments: latestTheme ?? Self.sanitizedTheme([:]))
       result(nil)
 
     case "startDrag":
+      capsuleHome = nil
       if let event = NSApp.currentEvent, let p = panel {
         p.performDrag(with: event)
         // The drag loop has ended — persist the final origin via the existing
         // main-engine event.
-        let origin = p.frame.origin
+        let origin = Self.logicalOrigin(of: p)
         channel.invokeMethod("onDragEnded", arguments: [
           "x": Double(origin.x),
           "y": Double(origin.y),
@@ -360,13 +499,28 @@ class FloatingButtonHost {
       showNativeContextMenu()
       result(nil)
 
+    case "setWindowSize":
+      // The render engine asks for the content size of its current form (disc,
+      // idle capsule or pill). An open pill grows toward the interior of the
+      // screen; the edges it pins are reported back. The rest size restores the
+      // capsule's home frame exactly.
+      result(setWindowSize(call.arguments as? [String: Any]))
+
+    case "frameRendered":
+      // The render engine painted the frame for its latest state message
+      // (frame heartbeat). Relayed so the Dart side can stop its stall deadline.
+      channel.invokeMethod("onRenderFrame", arguments: nil)
+      result(nil)
+
     case "reportError":
       // Uncaught Dart error inside the render engine — relay it through the
       // existing diagnostic pipeline into the main engine's persistent
       // AppLogger, exactly like the boot-race timeout below. See
       // `shared_render_engine_helpers.dart`'s `RenderChannel.reportError`.
       if let args = call.arguments as? [String: Any], let message = args["message"] as? String {
-        NSLog("[button] render engine reported an error: \(message)")
+        // Only a fixed category goes to the unified log; the text itself is
+        // passed to Dart below, where AppLogger redacts it.
+        NSLog("[button] render engine reported an error (category: render-engine)")
         channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
       }
       result(nil)
@@ -376,28 +530,39 @@ class FloatingButtonHost {
     }
   }
 
+  /// Re-boots only the render engine inside the existing panel (frame
+  /// heartbeat, see `FloatingButtonService`). The Dart side owns the session
+  /// budget and the logging; the cached state, diameter and theme are flushed
+  /// again by the new engine's `ready`.
+  private func rebootRenderEngine() {
+    guard panel != nil else { return }
+    NSLog("[button] rebootRenderEngine: re-booting render engine on request")
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
+    renderChannel?.setMethodCallHandler(nil)
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderReady = false
+    // Same total size as `show` / `setSize`: disc + shadowPadding on each side.
+    bootRenderEngine(totalSize: latestDiameter + 16)
+  }
+
   private func showNativeContextMenu() {
-    if contextMenuItems.isEmpty {
+    if contextMenuEntries.isEmpty {
       // No items configured — mirror the old native behaviour: fall back to
       // the secondary-click event on the public channel.
       channel.invokeMethod("onSecondaryClicked", arguments: nil)
       return
     }
-    let menu = NSMenu()
-    for item in contextMenuItems {
-      if item.label == "---" {
-        menu.addItem(NSMenuItem.separator())
-        continue
-      }
-      let menuItem = NSMenuItem(
-        title: item.label,
-        action: #selector(contextMenuItemSelected(_:)),
-        keyEquivalent: ""
-      )
-      menuItem.target = self
-      menuItem.representedObject = item.id
-      menu.addItem(menuItem)
-    }
+    let menu = NativeContextMenu.build(
+      contextMenuEntries,
+      appearance: contextMenuAppearance,
+      target: self,
+      action: #selector(contextMenuItemSelected(_:))
+    )
     if let event = NSApp.currentEvent, let view = renderViewController?.view {
       NSMenu.popUpContextMenu(menu, with: event, for: view)
     }
@@ -428,5 +593,120 @@ class FloatingButtonHost {
     renderReady = false
     latestState = nil
     channel.setMethodCallHandler(nil)
+  }
+}
+
+// MARK: - Native context menu (#393)
+
+/// One entry of the right-click menu of the floating button and the floating
+/// overlay, parsed from the wire format of
+/// `lib/services/app_commands/native_menu_adapter.dart`:
+/// `{items:[{id,label,enabled,checked?,shortcut?,children?} |
+/// {type:"separator"}], appearance:"system"|"light"|"dark"}`.
+struct NativeMenuEntry {
+  var isSeparator = false
+  var id = ""
+  var label = ""
+  var shortcut = ""
+  var enabled = true
+  /// nil: plain entry; true/false: checkmark entry.
+  var checked: Bool?
+  var children: [NativeMenuEntry] = []
+}
+
+enum NativeContextMenu {
+  /// Parses the `setContextMenuItems` arguments. Malformed entries are
+  /// skipped. The appearance is nil when the menu follows the system.
+  static func parse(_ arguments: Any?) -> (entries: [NativeMenuEntry], appearance: NSAppearance?) {
+    guard let args = arguments as? [String: Any] else { return ([], nil) }
+    let entries = parseEntries(args["items"] as? [[String: Any]] ?? [])
+    var appearance: NSAppearance?
+    switch args["appearance"] as? String {
+    case "dark": appearance = NSAppearance(named: .darkAqua)
+    case "light": appearance = NSAppearance(named: .aqua)
+    default: appearance = nil
+    }
+    return (entries, appearance)
+  }
+
+  private static func parseEntries(_ items: [[String: Any]]) -> [NativeMenuEntry] {
+    items.compactMap { item in
+      if item["type"] as? String == "separator" {
+        return NativeMenuEntry(isSeparator: true)
+      }
+      guard let id = item["id"] as? String, !id.isEmpty,
+            let label = item["label"] as? String, !label.isEmpty else { return nil }
+      return NativeMenuEntry(
+        id: id,
+        label: label,
+        shortcut: item["shortcut"] as? String ?? "",
+        enabled: item["enabled"] as? Bool ?? true,
+        checked: item["checked"] as? Bool,
+        children: parseEntries(item["children"] as? [[String: Any]] ?? [])
+      )
+    }
+  }
+
+  /// Builds the menu. Every action calls [action] on [target] with the
+  /// entry's id as `representedObject`.
+  static func build(
+    _ entries: [NativeMenuEntry],
+    appearance: NSAppearance?,
+    target: AnyObject,
+    action: Selector
+  ) -> NSMenu {
+    let menu = NSMenu()
+    // Enabled state comes from the entries, not from responder validation.
+    menu.autoenablesItems = false
+    menu.appearance = appearance
+    let font = NSFont.menuFont(ofSize: 0)
+    // Shortcuts line up in one right-aligned column after the longest label.
+    let labelWidth = entries
+      .filter { !$0.isSeparator }
+      .map { ($0.label as NSString).size(withAttributes: [.font: font]).width }
+      .max() ?? 0
+    let shortcutWidth = entries
+      .map { ($0.shortcut as NSString).size(withAttributes: [.font: font]).width }
+      .max() ?? 0
+    for entry in entries {
+      if entry.isSeparator {
+        menu.addItem(NSMenuItem.separator())
+        continue
+      }
+      let item = NSMenuItem(title: entry.label, action: nil, keyEquivalent: "")
+      item.isEnabled = entry.enabled
+      if let checked = entry.checked { item.state = checked ? .on : .off }
+      if !entry.shortcut.isEmpty {
+        let style = NSMutableParagraphStyle()
+        style.tabStops = [NSTextTab(
+          textAlignment: .right,
+          location: labelWidth + 32 + shortcutWidth
+        )]
+        let title = NSMutableAttributedString(
+          string: entry.label,
+          attributes: [.font: font, .paragraphStyle: style]
+        )
+        title.append(NSAttributedString(
+          string: "\t" + entry.shortcut,
+          attributes: [
+            .font: font,
+            .paragraphStyle: style,
+            .foregroundColor: NSColor.secondaryLabelColor,
+          ]
+        ))
+        item.attributedTitle = title
+      }
+      if entry.children.isEmpty {
+        item.action = action
+        item.target = target
+        item.representedObject = entry.id
+      } else {
+        item.submenu = build(
+          entry.children, appearance: appearance, target: target, action: action
+        )
+      }
+      menu.addItem(item)
+    }
+    return menu
   }
 }

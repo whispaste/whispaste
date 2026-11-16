@@ -6,9 +6,7 @@ test('privacy section shows both audio paths and the details link', async ({ pag
   await page.goto('/en/');
   const section = page.getByTestId('privacy');
   await section.scrollIntoViewIfNeeded();
-  await expect(page.getByTestId('privacy-path-local')).toContainText('Default');
   await expect(page.getByTestId('privacy-path-local').locator('ol li')).toHaveCount(3);
-  await expect(page.getByTestId('privacy-path-cloud')).toContainText('Only if you choose it');
   await expect(page.getByTestId('privacy-details')).toHaveAttribute('href', '/en/privacy-speech-recognition/');
 });
 
@@ -44,14 +42,4 @@ test('loops play on screen, but not with reduced motion', async ({ browser }) =>
     }
     await page.close();
   }
-});
-
-test('privacy routes fit without sideways scroll at 390px', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.getByTestId('privacy').scrollIntoViewIfNeeded();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(0);
 });

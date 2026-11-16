@@ -4,7 +4,12 @@
 #include <gdk/gdk.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <vector>
+
+#include "clipboard_receipt.h"
 
 namespace {
 
@@ -22,6 +27,33 @@ uint64_t Fnv1a64(const uint8_t* bytes, size_t length) {
     hash *= kPrime;
   }
   return hash;
+}
+
+// Reads a byte list argument. Dart sends `List<int>` (an int list) unless
+// the value is a Uint8List; both are accepted.
+std::vector<uint8_t> BytesValue(FlValue* value) {
+  std::vector<uint8_t> bytes;
+  if (!value) return bytes;
+  switch (fl_value_get_type(value)) {
+    case FL_VALUE_TYPE_UINT8_LIST: {
+      const uint8_t* data = fl_value_get_uint8_list(value);
+      bytes.assign(data, data + fl_value_get_length(value));
+      break;
+    }
+    case FL_VALUE_TYPE_LIST: {
+      const size_t length = fl_value_get_length(value);
+      bytes.reserve(length);
+      for (size_t i = 0; i < length; ++i) {
+        FlValue* item = fl_value_get_list_value(value, i);
+        if (fl_value_get_type(item) != FL_VALUE_TYPE_INT) return {};
+        bytes.push_back(static_cast<uint8_t>(fl_value_get_int(item)));
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return bytes;
 }
 
 }  // namespace
@@ -52,30 +84,22 @@ SidePanelHost::SidePanelHost(FlBinaryMessenger* main_messenger) {
         display, "monitor-removed", G_CALLBACK(OnMonitorChanged), this);
   }
 
-  RebuildSensors();
+  // No sensors yet (issue #967): Dart only talks to this host while the
+  // panel is enabled and onboarding is done, so the first updateSnapshot
+  // arms them and "destroy" (setting off) removes them again.
 }
 
 SidePanelHost::~SidePanelHost() { Destroy(); }
 
-void SidePanelHost::Destroy() {
-  if (destroyed_) return;
-  destroyed_ = true;
-
+void SidePanelHost::Teardown() {
+  sensors_armed_ = false;
   CancelNativeClose();
-
-  GdkDisplay* display = gdk_display_get_default();
-  if (display) {
-    if (monitor_added_handler_id_) {
-      g_signal_handler_disconnect(display, monitor_added_handler_id_);
-      monitor_added_handler_id_ = 0;
-    }
-    if (monitor_removed_handler_id_) {
-      g_signal_handler_disconnect(display, monitor_removed_handler_id_);
-      monitor_removed_handler_id_ = 0;
-    }
+  if (rebuild_idle_id_) {
+    g_source_remove(rebuild_idle_id_);
+    rebuild_idle_id_ = 0;
   }
-
   sensors_.clear();
+  DisconnectMonitorNotifies();
 
   if (render_channel_) {
     fl_method_channel_set_method_call_handler(render_channel_, nullptr,
@@ -94,6 +118,25 @@ void SidePanelHost::Destroy() {
   current_work_area_.reset();
   pending_rect_.reset();
   pending_self_writes_.clear();
+}
+
+void SidePanelHost::Destroy() {
+  if (destroyed_) return;
+  destroyed_ = true;
+
+  Teardown();
+
+  GdkDisplay* display = gdk_display_get_default();
+  if (display) {
+    if (monitor_added_handler_id_) {
+      g_signal_handler_disconnect(display, monitor_added_handler_id_);
+      monitor_added_handler_id_ = 0;
+    }
+    if (monitor_removed_handler_id_) {
+      g_signal_handler_disconnect(display, monitor_removed_handler_id_);
+      monitor_removed_handler_id_ = 0;
+    }
+  }
 
   if (clipboard_channel_) {
     fl_method_channel_set_method_call_handler(clipboard_channel_, nullptr,
@@ -114,18 +157,28 @@ void SidePanelHost::Destroy() {
 // ══════════════════════════════════════════════════════════════════════
 
 void SidePanelHost::RebuildSensors() {
-  if (destroyed_) return;
+  if (destroyed_ || !sensors_armed_) return;
 
   sensors_.clear();
+  DisconnectMonitorNotifies();
 
   GdkDisplay* display = gdk_display_get_default();
   if (!display) return;
   int n = gdk_display_get_n_monitors(display);
+  work_area_signature_ = WorkAreaSignature();
   for (int i = 0; i < n; ++i) {
     GdkMonitor* monitor = gdk_display_get_monitor(display, i);
     if (!monitor) continue;
     GdkRectangle work_area;
     gdk_monitor_get_workarea(monitor, &work_area);
+    // Panel bars, resolution and scale changes surface as workarea /
+    // geometry changes on the monitor (issue #967).
+    monitor_notify_ids_.emplace_back(
+        monitor, g_signal_connect(monitor, "notify::workarea",
+                                  G_CALLBACK(OnMonitorGeometryChanged), this));
+    monitor_notify_ids_.emplace_back(
+        monitor, g_signal_connect(monitor, "notify::geometry",
+                                  G_CALLBACK(OnMonitorGeometryChanged), this));
 
     // Sensor strip hugs whichever edge current_edge_ selects (issue #150) --
     // mirrors the same left/right branch in ComputeTargetRect below.
@@ -153,6 +206,51 @@ void SidePanelHost::RebuildSensors() {
 
     sensors_.push_back(std::move(sensor));
   }
+}
+
+void SidePanelHost::DisconnectMonitorNotifies() {
+  for (auto& [monitor, id] : monitor_notify_ids_) {
+    if (id && G_IS_OBJECT(monitor)) g_signal_handler_disconnect(monitor, id);
+  }
+  monitor_notify_ids_.clear();
+}
+
+std::string SidePanelHost::WorkAreaSignature() const {
+  std::string sig;
+  GdkDisplay* display = gdk_display_get_default();
+  if (!display) return sig;
+  int n = gdk_display_get_n_monitors(display);
+  for (int i = 0; i < n; ++i) {
+    GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+    if (!monitor) continue;
+    GdkRectangle wa;
+    gdk_monitor_get_workarea(monitor, &wa);
+    sig += std::to_string(wa.x) + "," + std::to_string(wa.y) + "," +
+           std::to_string(wa.width) + "," + std::to_string(wa.height) + ";";
+  }
+  return sig;
+}
+
+// static
+void SidePanelHost::OnMonitorGeometryChanged(GObject* /*monitor*/,
+                                              GParamSpec* /*pspec*/,
+                                              gpointer user_data) {
+  auto* self = static_cast<SidePanelHost*>(user_data);
+  if (self->destroyed_ || !self->sensors_armed_ || self->rebuild_idle_id_) {
+    return;
+  }
+  // Coalesce the burst of notifications one change produces.
+  self->rebuild_idle_id_ = g_timeout_add(
+      150,
+      [](gpointer data) -> gboolean {
+        auto* host = static_cast<SidePanelHost*>(data);
+        host->rebuild_idle_id_ = 0;
+        if (host->WorkAreaSignature() != host->work_area_signature_) {
+          host->RebuildSensors();
+        }
+        return G_SOURCE_REMOVE;
+      },
+      self);
 }
 
 // static
@@ -373,7 +471,9 @@ void SidePanelHost::HandleMethodCall(FlMethodCall* method_call) {
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "destroy") == 0) {
-    Destroy();
+    // Setting turned off (or onboarding reopened): drop sensors and panel
+    // but stay reusable for the next toggle-on.
+    Teardown();
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else {
@@ -405,6 +505,10 @@ void SidePanelHost::HandleUpdateSnapshot(FlValue* args) {
         RebuildSensors();
       }
     }
+  }
+  if (!sensors_armed_) {
+    sensors_armed_ = true;
+    RebuildSensors();
   }
 
   if (visible && !content_window_) {
@@ -467,10 +571,25 @@ void SidePanelHost::HandleRenderMethodCall(FlMethodCall* method_call) {
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "beginDrag") == 0) {
-    // Native OS drag-out (issue 07/11) is macOS-only per the PRD ("Windows/
-    // Linux sind explizit Nicht-Ziel dieses Tickets"); acknowledge and no-op
-    // rather than NotImplemented so the render engine's fire-and-forget call
-    // doesn't log a channel error on this platform.
+    // OS drag-out of a row (issue 11), see SidePanelHost.swift's
+    // beginNativeDrag. Fire-and-forget from the render engine.
+    std::string text;
+    std::vector<uint8_t> png;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* kind_v = fl_value_lookup_string(args, "kind");
+      const bool image = kind_v &&
+                         fl_value_get_type(kind_v) == FL_VALUE_TYPE_STRING &&
+                         strcmp(fl_value_get_string(kind_v), "image") == 0;
+      FlValue* content_v = fl_value_lookup_string(args, "content");
+      if (content_v && fl_value_get_type(content_v) == FL_VALUE_TYPE_STRING) {
+        text = fl_value_get_string(content_v);
+      }
+      if (image) png = BytesValue(fl_value_lookup_string(args, "imageBytes"));
+    }
+    if (!content_window_ || !content_window_->BeginDrag(text, png)) {
+      g_message("[side-panel] beginDrag: no press to start from or nothing "
+                "to drag");
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "reportError") == 0) {
@@ -559,6 +678,18 @@ bool SidePanelHost::ShouldSuppress(const Fingerprint& fp) {
 
 void SidePanelHost::EmitClipboardSnapshot() {
   GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  // A hover during a paste must not count as the target's read (GR-015).
+  ClipboardReceipt::ScopedSelfRead self_read;
+
+  // Password managers (KeePassXC, Bitwarden, 1Password, ...) mark secrets
+  // with the "x-kde-passwordManagerHint" target on both X11 and Wayland.
+  // Such content is never read, so nothing reaches the history (issue #593).
+  // The source app itself is not detectable on Linux (no per-copy owner
+  // identity on Wayland), so only this marker applies there.
+  if (gtk_clipboard_wait_is_target_available(
+          clipboard, gdk_atom_intern_static_string("x-kde-passwordManagerHint"))) {
+    return;
+  }
 
   gchar* text = gtk_clipboard_wait_for_text(clipboard);
   if (text && text[0] != '\0') {
@@ -573,13 +704,13 @@ void SidePanelHost::EmitClipboardSnapshot() {
     fl_value_set_string_take(
         entry_args, "capturedAtMs",
         fl_value_new_int(static_cast<int64_t>(g_get_real_time() / 1000)));
-    // Linux has no org.nspasteboard.*-equivalent privacy marker GTK exposes
-    // generically -- always reported false, a documented simplification
-    // (mirrors the Windows host's transient/autoGenerated always-false).
+    // Content carrying the password-manager hint was dropped above, so the
+    // flags stay false here (mirrors the Windows host).
     fl_value_set_string_take(entry_args, "transient", fl_value_new_bool(FALSE));
     fl_value_set_string_take(entry_args, "concealed", fl_value_new_bool(FALSE));
     fl_value_set_string_take(entry_args, "autoGenerated",
                               fl_value_new_bool(FALSE));
+    // sourceApp: none (deliberately empty) -- X11/Wayland name no copy source (#616).
     fl_value_set_string_take(entry_args, "text",
                               fl_value_new_string(utf8_text.c_str()));
     InvokeMainChannel("clipEntryDetected", entry_args);
@@ -605,9 +736,10 @@ void SidePanelHost::EmitClipboardSnapshot() {
   }
   g_object_unref(pixbuf);
 
-  // WhisPaste never writes images to the clipboard itself, so there is no
-  // self-write fingerprint scheme for images to check against -- mirrors
-  // the macOS/Windows hosts.
+  // No self-write fingerprint for images: WhisPaste only puts an image back
+  // when a paste restores the user's earlier clipboard, and that image is
+  // the user's own copy. An image that is still unchanged on the next open
+  // is dropped in Dart (ClipboardHistoryRingBuffer.add), not here.
   g_autoptr(FlValue) entry_args = fl_value_new_map();
   fl_value_set_string_take(entry_args, "kind", fl_value_new_string("image"));
   fl_value_set_string_take(
@@ -622,6 +754,7 @@ void SidePanelHost::EmitClipboardSnapshot() {
       fl_value_new_uint8_list(reinterpret_cast<const uint8_t*>(png_buffer),
                                png_size));
   g_free(png_buffer);
+  // sourceApp: none (deliberately empty) -- see the text entry above (#616).
   InvokeMainChannel("clipEntryDetected", entry_args);
 }
 

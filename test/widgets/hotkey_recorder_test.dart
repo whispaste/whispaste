@@ -5,12 +5,36 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/hotkey_conflicts.dart';
+import 'package:whispaste/services/modifier_key_monitor.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
 
 void main() {
+  for (var n = 13; n <= 20; n++) {
+    testWidgets('records and submits F$n without modifiers', (tester) async {
+      final submitted = <WpHotkeyResult>[];
+      final key = LogicalKeyboardKey(0x100000800 + n);
+      await tester.pumpWidget(
+        makeTestable(
+          WpHotkeyRecorderDialog(onSubmit: submitted.add),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('hotkey-recorder-field')));
+      // F13-F20 exist only in the macOS key map; the default (android) map lacks
+      // them, and no simulator map has F21-F24.
+      await tester.sendKeyEvent(key, platform: 'macos');
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(submitted.single.key, 'F$n');
+      expect(submitted.single.modifiers, isEmpty);
+      expect(submitted.single.singleKey, isEmpty);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Unit tests — singleKeyWhitelist content
   // ---------------------------------------------------------------------------
@@ -78,38 +102,6 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('WpHotkeyRecorderDialog', () {
-    testWidgets('renders modifier hint text', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpHotkeyRecorderDialog(),
-          size: const Size(800, 600),
-        ),
-      );
-      await tester.pump();
-
-      // The l10n key settingsHotkeyRecorderModifierHint must be visible.
-      // We match a substring that is stable in both locales.
-      expect(find.textContaining('Alt'), findsWidgets);
-    });
-
-    testWidgets('modifier hint is present in the widget tree', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const WpHotkeyRecorderDialog(),
-          size: const Size(800, 600),
-        ),
-      );
-      await tester.pump();
-
-      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
-      final l10n = L10n.of(context);
-
-      expect(
-        find.text(l10n.settingsHotkeyRecorderModifierHint),
-        findsOneWidget,
-      );
-    });
-
     testWidgets('displays initial key combo from parameters', (tester) async {
       await tester.pumpWidget(
         makeTestable(
@@ -145,8 +137,41 @@ void main() {
       await tester.tap(find.text(l10n.settingsHotkeyRecorderClear));
       await tester.pump();
 
-      // After clear the placeholder '—' should appear
-      expect(find.text('—'), findsOneWidget);
+      // After clear the field waits for keys again.
+      expect(
+        find.byKey(const ValueKey('hotkey-recorder-listening')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('inline mode: Escape discards the recorded combo and restores '
+        'the initial one without submitting (UIA-ONB-08)', (tester) async {
+      final submitted = <WpHotkeyResult>[];
+      await tester.pumpWidget(
+        makeTestable(
+          WpHotkeyRecorderDialog(
+            initialKey: 'R',
+            initialModifiers: 'ctrl+shift',
+            onSubmit: submitted.add,
+          ),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.f5);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect(find.text('F5'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // "R" is back in the field and in the "current keys" row (38695f76f).
+      expect(find.text('F5'), findsNothing);
+      expect(find.text('R'), findsWidgets);
+      expect(submitted, isEmpty);
+      expect(tester.takeException(), isNull);
     });
 
     // ── Whitelist key recording ──────────────────────────────────────────
@@ -188,8 +213,11 @@ void main() {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.keyA);
       await tester.pump();
 
-      // Placeholder should still be visible — 'A' must not be recorded.
-      expect(find.text('—'), findsOneWidget);
+      // The field still waits — 'A' must not be recorded.
+      expect(
+        find.byKey(const ValueKey('hotkey-recorder-listening')),
+        findsOneWidget,
+      );
       expect(find.text('A'), findsNothing);
 
       await tester.sendKeyUpEvent(LogicalKeyboardKey.keyA);
@@ -222,30 +250,31 @@ void main() {
       },
     );
 
-    testWidgets(
-      'initial whitelisted single-key combo enables Save immediately',
-      (tester) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const WpHotkeyRecorderDialog(
-              initialKey: 'F5',
-              initialModifiers: '',
-            ),
-            size: const Size(800, 600),
-          ),
-        );
-        await tester.pump();
+    testWidgets('Save enables once a whitelisted single key is pressed', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const WpHotkeyRecorderDialog(initialKey: 'F5', initialModifiers: ''),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
 
-        final context = tester.element(find.byType(WpHotkeyRecorderDialog));
-        final l10n = L10n.of(context);
+      final context = tester.element(find.byType(WpHotkeyRecorderDialog));
+      final l10n = L10n.of(context);
+      WpButton saveButton() => tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
+      );
 
-        // Save button must be enabled (onPressed != null).
-        final saveButton = tester.widget<WpButton>(
-          find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
-        );
-        expect(saveButton.onPressed, isNotNull);
-      },
-    );
+      // The field waits for a press: nothing recorded yet, nothing to save.
+      expect(saveButton().onPressed, isNull);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.f5);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect(saveButton().onPressed, isNotNull);
+    });
 
     // ── Conflict warning ────────────────────────────────────────────────
 
@@ -287,16 +316,18 @@ void main() {
           return;
         }
 
+        // The warning is shown for a recorded combination (38695f76f): the
+        // user presses Meta+L, which the platform reserves.
         await tester.pumpWidget(
           makeTestable(
-            const WpHotkeyRecorderDialog(
-              initialKey: 'L',
-              initialModifiers: 'meta',
-            ),
+            const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
             size: const Size(800, 600),
           ),
         );
         await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyL);
+        await tester.pumpAndSettle();
 
         expect(
           find.byKey(const Key('hotkeyConflictWarning')),
@@ -319,14 +350,14 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const WpHotkeyRecorderDialog(
-            initialKey: 'L',
-            initialModifiers: 'meta',
-          ),
+          const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
           size: const Size(800, 600),
         ),
       );
       await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyL);
+      await tester.pumpAndSettle();
 
       final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
@@ -907,7 +938,7 @@ void main() {
 
     testWidgets(
       'AC-pb-3: initState with a non-resolvable initialKey ("Ö") starts '
-      'with Save disabled and no key cap',
+      'with Save disabled',
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
@@ -931,9 +962,6 @@ void main() {
           reason:
               'unresolvable persisted key must not be accepted as a valid combo',
         );
-        // No 'Ö' key cap should appear — we cleared the display when the
-        // initial key failed to resolve.
-        expect(find.text('Ö'), findsNothing);
       },
     );
 
@@ -969,14 +997,14 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const WpHotkeyRecorderDialog(
-            initialKey: 'L',
-            initialModifiers: 'meta',
-          ),
+          const WpHotkeyRecorderDialog(initialKey: '', initialModifiers: ''),
           size: const Size(800, 600),
         ),
       );
       await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyL);
+      await tester.pumpAndSettle();
 
       // Verify warning is visible first.
       expect(find.byKey(const Key('hotkeyConflictWarning')), findsOneWidget);
@@ -1005,34 +1033,287 @@ void main() {
   // conflict branch clip invisibly (`RenderFlex` overflow without a scroll
   // affordance) at 800×621.
 
-  testWidgets(
-    'getMaxIntrinsicHeight(640) matches the height the fixed-width card '
-    'actually needs, not the height a 640-px-wide box of the same content '
-    'would need',
-    (tester) async {
+  // UX-084: Enter saves a recorded free combination, like the default button.
+  // R14-2: Enter on a focused button of the card belongs to that button.
+  const enterPlatforms = <(String, TargetPlatform)>[
+    ('macOS', TargetPlatform.macOS),
+    ('Windows', TargetPlatform.windows),
+    ('Linux', TargetPlatform.linux),
+  ];
+  for (final (name, platform) in enterPlatforms) {
+    group('Enter confirms (UX-084) on $name', () {
+      testWidgets(
+        'Enter saves a valid combination in inline mode',
+        (tester) => _withPlatform(platform, () async {
+          final submitted = <WpHotkeyResult>[];
+          await tester.pumpWidget(
+            makeTestable(
+              WpHotkeyRecorderDialog(
+                initialKey: 'D',
+                initialModifiers: 'ctrl+shift',
+                onSubmit: submitted.add,
+              ),
+              size: const Size(800, 600),
+            ),
+          );
+          await tester.pump();
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+
+          expect(submitted, hasLength(1));
+          expect(submitted.single.key, 'D');
+          expect(submitted.single.modifiers, 'ctrl+shift');
+          expect(tester.takeException(), isNull);
+        }),
+      );
+
+      testWidgets(
+        'Enter does not save while another action holds the combo',
+        (tester) => _withPlatform(platform, () async {
+          final submitted = <WpHotkeyResult>[];
+          await tester.pumpWidget(
+            makeTestable(
+              WpHotkeyRecorderDialog(
+                initialKey: 'D',
+                initialModifiers: 'ctrl+shift',
+                onSubmit: submitted.add,
+                holderOf: (_, _) => 'Schnellnotiz',
+              ),
+              size: const Size(800, 600),
+            ),
+          );
+          await tester.pump();
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+
+          expect(submitted, isEmpty);
+          expect(tester.takeException(), isNull);
+        }),
+      );
+
+      testWidgets(
+        'Enter on a focused Clear button clears, never saves',
+        (tester) => _withPlatform(platform, () async {
+          final submitted = <WpHotkeyResult>[];
+          await tester.pumpWidget(
+            makeTestable(
+              WpHotkeyRecorderDialog(
+                initialKey: 'D',
+                initialModifiers: 'ctrl+shift',
+                onSubmit: submitted.add,
+              ),
+              size: const Size(800, 600),
+            ),
+          );
+          await tester.pump();
+
+          final clear = find.ancestor(
+            of: find.text(
+              lookupL10n(const Locale('en')).settingsHotkeyRecorderClear,
+            ),
+            matching: find.byType(WpButton),
+          );
+          for (var i = 0; i < 20 && !_focusWithin(tester, clear); i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pump();
+          }
+          expect(_focusWithin(tester, clear), isTrue);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+
+          expect(submitted, isEmpty, reason: 'Enter activates Clear only');
+          expect(tester.takeException(), isNull);
+        }),
+      );
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // The dictation key: one recorder for a combination or a single key
+  // ---------------------------------------------------------------------------
+
+  group('single keys (dictation trigger)', () {
+    /// Opens the recorder with [singleKeys], plays [events] (true = down,
+    /// false = up) and taps Save. Returns what the dialog delivered.
+    Future<WpHotkeyResult?> record(
+      WidgetTester tester, {
+      required Set<ModifierHotkey> singleKeys,
+      required List<(LogicalKeyboardKey, bool)> events,
+    }) async {
+      WpHotkeyResult? captured;
       await tester.pumpWidget(
         makeTestable(
-          const WpHotkeyRecorderDialog(
-            initialKey: 'L',
-            initialModifiers: 'meta',
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              key: const Key('open-recorder'),
+              onPressed: () async {
+                captured = await WpHotkeyRecorderDialog.show(
+                  ctx,
+                  singleKeys: singleKeys,
+                );
+              },
+              child: const Text('open'),
+            ),
           ),
-          size: const Size(800, 600),
+          size: const Size(1280, 800),
         ),
       );
-      await tester.pump();
+      await tester.tap(find.byKey(const Key('open-recorder')));
+      await tester.pumpAndSettle();
+      for (final (key, down) in events) {
+        if (down) {
+          await tester.sendKeyDownEvent(key);
+        } else {
+          await tester.sendKeyUpEvent(key);
+        }
+        await tester.pump();
+      }
+      final l10n = L10n.of(tester.element(find.byType(WpHotkeyRecorderDialog)));
+      await tester.tap(
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      return captured;
+    }
 
-      final box = tester.renderObject<RenderBox>(
-        find.byType(WpHotkeyRecorderDialog),
+    testWidgets('a modifier pressed and let go alone is the single key, '
+        'left and right apart', (tester) async {
+      final result = await record(
+        tester,
+        singleKeys: ModifierHotkey.values.toSet(),
+        events: [
+          (LogicalKeyboardKey.metaRight, true),
+          (LogicalKeyboardKey.metaRight, false),
+        ],
       );
+      expect(result?.singleKey, 'rightMeta');
+      expect(result?.key, isEmpty);
+      expect(result?.modifiers, isEmpty);
+    });
+
+    testWidgets('a modifier with a key is a combination, not a single key', (
+      tester,
+    ) async {
+      final result = await record(
+        tester,
+        singleKeys: ModifierHotkey.values.toSet(),
+        events: [
+          (LogicalKeyboardKey.controlLeft, true),
+          (LogicalKeyboardKey.keyK, true),
+          (LogicalKeyboardKey.keyK, false),
+          (LogicalKeyboardKey.controlLeft, false),
+        ],
+      );
+      expect(result?.singleKey, isEmpty);
+      expect(result?.modifiers, 'ctrl');
+      expect(result?.key, 'K');
+    });
+
+    testWidgets('two modifiers released without a key record nothing', (
+      tester,
+    ) async {
+      final result = await record(
+        tester,
+        singleKeys: ModifierHotkey.values.toSet(),
+        events: [
+          (LogicalKeyboardKey.shiftLeft, true),
+          (LogicalKeyboardKey.metaLeft, true),
+          (LogicalKeyboardKey.metaLeft, false),
+          (LogicalKeyboardKey.shiftLeft, false),
+        ],
+      );
+      // Save delivers the combination the dialog opened with (Shift+D
+      // default), never one of the two modifiers alone.
+      expect(result?.singleKey ?? '', isEmpty);
+    });
+
+    testWidgets('a single key this action cannot use is not saved', (
+      tester,
+    ) async {
+      final result = await record(
+        tester,
+        singleKeys: const {},
+        events: [
+          (LogicalKeyboardKey.metaRight, true),
+          (LogicalKeyboardKey.metaRight, false),
+        ],
+      );
+      expect(result?.singleKey ?? '', isEmpty);
+      // Save is disabled when nothing changed, so the dialog stays open and
+      // shows why the key cannot be used.
       expect(
-        box.getMaxIntrinsicHeight(640),
-        box.getMaxIntrinsicHeight(420),
-        reason:
-            'The card is fixed at 420 px wide, so the height it reports for '
-            'a wider offer must be identical to the height it reports at its '
-            'own width — a wider offer must never be read as more room to '
-            'lay out in.',
+        find.byKey(const ValueKey('hotkey-recorder-single-unsupported')),
+        findsOneWidget,
       );
-    },
-  );
+    });
+
+    testWidgets('without single keys a lone modifier records nothing', (
+      tester,
+    ) async {
+      WpHotkeyResult? captured;
+      await tester.pumpWidget(
+        makeTestable(
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              key: const Key('open-recorder'),
+              onPressed: () async {
+                captured = await WpHotkeyRecorderDialog.show(ctx);
+              },
+              child: const Text('open'),
+            ),
+          ),
+          size: const Size(1280, 800),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('open-recorder')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaRight);
+      await tester.pump();
+      final l10n = L10n.of(tester.element(find.byType(WpHotkeyRecorderDialog)));
+      // Nothing was recorded, so Save stays disabled and delivers nothing.
+      final save = tester.widget<WpButton>(
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
+      );
+      expect(save.onPressed, isNull);
+      await tester.tap(
+        find.widgetWithText(WpButton, l10n.settingsHotkeyRecorderSave),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(captured, isNull);
+    });
+  });
+}
+
+/// True when the primary focus sits inside the widget [target].
+bool _focusWithin(WidgetTester tester, Finder target) {
+  final focused = FocusManager.instance.primaryFocus?.context;
+  if (focused == null) return false;
+  final root = tester.element(target);
+  var found = false;
+  focused.visitAncestorElements((element) {
+    found = element == root;
+    return !found;
+  });
+  return found;
+}
+
+/// Runs [body] with [platform] as the default target platform (AltGr and
+/// platform branches read it). Reset in `finally`, inside the test body, so
+/// the framework's invariant check sees it unset.
+Future<void> _withPlatform(
+  TargetPlatform platform,
+  Future<void> Function() body,
+) async {
+  debugDefaultTargetPlatformOverride = platform;
+  try {
+    await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
 }

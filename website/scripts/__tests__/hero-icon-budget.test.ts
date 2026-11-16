@@ -1,7 +1,6 @@
 /**
  * Regression guard for the homepage LCP element (`#heroLogo` in `Hero.astro`,
- * confirmed via Lighthouse `lcp-breakdown-insight`/`image-delivery-insight`,
- * `internal-notes`).
+ * confirmed via Lighthouse `lcp-breakdown-insight`/`image-delivery-insight`).
  *
  * The icon is displayed at a maximum CSS box of 80x80 (`sm:w-20 sm:h-20`).
  * Lighthouse flagged the shipped 256x256 source as ~96% wasted bytes for

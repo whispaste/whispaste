@@ -56,6 +56,7 @@ import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as p;
@@ -66,9 +67,12 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_providers.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_queue.dart';
 import 'package:whispaste/services/path_service.dart'
     show sttDirOverride, sttModelPath, retainedAudioDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/recording_store.dart' show SavedRecording;
 import 'package:whispaste/services/stt/stt_bundle.dart';
 
 import 'hotkey_to_text_happy_path_test.dart'
@@ -109,6 +113,10 @@ class _FaultInjectingWhisperEngine implements WhisperEngine {
   String transcript = 'hello world';
   bool _loaded = false;
 
+  /// While set, `load()` throws it, like an engine whose native library is
+  /// missing (#1056).
+  Object? loadError;
+
   WhisperFailureKind? _armedKind;
   int _remainingFailures = 0;
 
@@ -134,6 +142,8 @@ class _FaultInjectingWhisperEngine implements WhisperEngine {
 
   @override
   Future<void> load({required String modelPath, String? vadModelPath}) async {
+    final error = loadError;
+    if (error != null) throw error;
     _loaded = true;
   }
 
@@ -166,6 +176,7 @@ class _FaultInjectingWhisperEngine implements WhisperEngine {
     // `recording_orchestrator.dart`'s `_handleTranscribeResult`).
     WhisperFailureKind.oom => 'stt_cuda_oom: simulated GPU out-of-memory',
     WhisperFailureKind.gpuCrash => 'simulated GPU backend crash',
+    WhisperFailureKind.gpuBackendLost => 'simulated lost GPU backend',
     WhisperFailureKind.transient => 'simulated transient inference failure',
     WhisperFailureKind.timeout => 'simulated timeout',
     WhisperFailureKind.other => 'simulated other failure',
@@ -223,7 +234,7 @@ void main() {
 
   late Directory sttScratchDir;
   late Duration savedBenchmarkIdleDelay;
-  late Duration savedStuckGuardTimeout;
+  late Duration? savedStuckGuardTimeout;
 
   setUp(() {
     // Freeze the deferred post-load benchmark far outside every test's
@@ -264,7 +275,10 @@ void main() {
       List<RecordingPhase> observedPhases,
     )
   >
-  buildHarness({required AppSettings settings}) async {
+  buildHarness({
+    required AppSettings settings,
+    List<Override> extraOverrides = const [],
+  }) async {
     sttScratchDir = await Directory.systemTemp.createTemp('wp_itest_fault_');
     addTearDown(() async {
       if (await sttScratchDir.exists()) {
@@ -308,6 +322,7 @@ void main() {
           () =>
               _FixedModelDownloadNotifier({_balancedModelId, _compactModelId}),
         ),
+        ...extraOverrides,
       ],
     );
     addTearDown(container.dispose);
@@ -499,6 +514,90 @@ void main() {
             'errorMessage=${finalState.errorMessage}',
       );
       expect((finalState.transcript ?? '').toLowerCase(), contains('hello'));
+    },
+  );
+
+  // #1056: the microphone dropped, the recording stopped normally, and the
+  // engine then could not start. The real audio must stay for a retry.
+  testWidgets(
+    'an engine that cannot start keeps the real audio for a retry; the '
+    'retry transcribes all of it and a discard deletes it',
+    (tester) async {
+      final pendingDir = await Directory.systemTemp.createTemp(
+        'wp_itest_pend_',
+      );
+      addTearDown(() async {
+        if (await pendingDir.exists()) await pendingDir.delete(recursive: true);
+      });
+      final savedTranscripts = <String>[];
+      final queue = PendingAudioQueue(
+        directory: () => pendingDir.path,
+        save: (input) async {
+          savedTranscripts.add(input.transcript);
+          return SavedRecording(
+            entryId: input.entryId ?? 'kept',
+            processedTranscript: input.transcript,
+            trimmedCount: 0,
+          );
+        },
+        entryExists: (id) async => false,
+      );
+      final (container, orchestrator, engine, _, _) = await buildHarness(
+        settings: _baseSettings(
+          modelId: _balancedModelId,
+        ).copyWith(retainRecentAudio: true),
+        extraOverrides: [pendingAudioQueueProvider.overrideWithValue(queue)],
+      );
+      final fixtureBytes = File(
+        p.join(_repoRoot(), 'test', 'fixtures', 'hotkey_happy_path_hello.wav'),
+      ).readAsBytesSync();
+
+      engine.loadError = ArgumentError('Failed to load dynamic library');
+      await runRecordingCycle(orchestrator);
+
+      expect(
+        container.read(recordingProvider).errorMessage,
+        'stt_server_failed',
+      );
+      final kept = await queue.retryEntries(retainAudio: true);
+      expect(kept, hasLength(1));
+      expect(kept.single.errorCode, 'stt_server_failed');
+      final keptWav = File(
+        p.join(pendingDir.path, '${kept.single.entryId}.wav'),
+      );
+      expect(
+        keptWav.readAsBytesSync(),
+        fixtureBytes,
+        reason: 'the kept audio is the complete recording, byte for byte',
+      );
+
+      // The engine works again: the retry transcribes the complete audio.
+      engine.loadError = null;
+      // The failed start put the placeholder model through the hash check,
+      // which deleted it; the user's real model would be intact.
+      _writePlaceholderModel(sttDirOverride!, _balancedModelId);
+      final outcome = await orchestrator.retryKeptDictation();
+      expect(outcome, PendingRetryOutcome.saved);
+      expect(savedTranscripts.single.toLowerCase(), contains('hello'));
+
+      // A deliberate discard still deletes the kept recording.
+      // The retry left the engine running; stop it so the next start fails.
+      await container.read(localSttBundleProvider.notifier).stop();
+      engine.loadError = ArgumentError('Failed to load dynamic library');
+      _writePlaceholderModel(sttDirOverride!, _balancedModelId);
+      await runRecordingCycle(orchestrator);
+      expect(
+        container.read(recordingProvider).errorMessage,
+        'stt_server_failed',
+      );
+      final again = await queue.retryEntries(retainAudio: true);
+      expect(again, hasLength(1));
+      await queue.discard(again.single.entryId);
+      expect(await queue.retryEntries(retainAudio: true), isEmpty);
+      expect(
+        pendingDir.listSync().where((f) => f.path.endsWith('.wav')),
+        isEmpty,
+      );
     },
   );
 }

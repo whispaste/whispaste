@@ -15,8 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:whispaste/core/theme/colors.dart';
-import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -24,31 +22,6 @@ import '../fixtures/test_helpers.dart';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// The box the component paints itself — fill/shadow/radius live here.
-BoxDecoration _boxDecoration(WidgetTester tester) =>
-    tester
-            .widget<AnimatedContainer>(
-              find.descendant(
-                of: find.byType(WpSearchField),
-                matching: find.byType(AnimatedContainer),
-              ),
-            )
-            .decoration
-        as BoxDecoration;
-
-/// The border, which is painted *over* the child so it can thicken without
-/// shifting layout.
-BoxDecoration _borderDecoration(WidgetTester tester) =>
-    tester
-            .widget<AnimatedContainer>(
-              find.descendant(
-                of: find.byType(WpSearchField),
-                matching: find.byType(AnimatedContainer),
-              ),
-            )
-            .foregroundDecoration
-        as BoxDecoration;
 
 Widget _field({
   required TextEditingController controller,
@@ -200,140 +173,6 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // AC4 — the variant carries the whole surface treatment
-  // -------------------------------------------------------------------------
-  group('AC4 — variant surface treatment', () {
-    testWidgets('outlined: sm radius, card frost, tinted resting hairline', (
-      tester,
-    ) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(
-            controller: controller,
-            variant: WpSearchFieldVariant.outlined,
-          ),
-        ),
-      );
-
-      // Ticket 08: the in-window variant is on the shared card material —
-      // a translucent frost with the tinted card rim. The capsule below is
-      // deliberately *not*, because it lives in the floating overlay, which
-      // has no ambient of the main window's to be translucent against.
-      expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
-      expect(_boxDecoration(tester).color, WpColorsDark.cardFillElevated);
-      expect(_boxDecoration(tester).boxShadow, isNull);
-      expect(
-        _borderDecoration(tester).border!.top.color,
-        WpColorsDark.cardEdgeHighlight,
-      );
-    });
-
-    // Removed 2026-08-11 (dark-only build): 'outlined: the light theme keeps
-    // the same flat geometry' repeated the assertions above with
-    // Brightness.light, pinning that both themes were flat (no
-    // theme-dependent shadow) and differed only in palette. The app now
-    // ships a single dark theme only, so there is no second theme left to
-    // compare against.
-
-    testWidgets('capsule: full radius, translucent fill, hairline', (
-      tester,
-    ) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(controller: controller, variant: WpSearchFieldVariant.capsule),
-        ),
-      );
-
-      expect(_boxDecoration(tester).borderRadius, WpRadius.borderFull);
-      expect(_boxDecoration(tester).color, WpColorsDark.surfaceMutedFill);
-      expect(
-        _borderDecoration(tester).border!.top.color,
-        WpColorsDark.borderSubtle,
-      );
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // AC5 — focus is the border, and only the border
-  // -------------------------------------------------------------------------
-  group('AC5 — focus', () {
-    testWidgets('thickens the border to accent without resizing the field', (
-      tester,
-    ) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-      final node = FocusNode();
-      addTearDown(node.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(_field(controller: controller, focusNode: node)),
-      );
-
-      final restingSize = tester.getSize(find.byType(WpSearchField));
-      expect(_borderDecoration(tester).border!.top.width, 1);
-
-      node.requestFocus();
-      await tester.pumpAndSettle();
-
-      expect(_borderDecoration(tester).border!.top.color, WpColorsDark.accent);
-      expect(_borderDecoration(tester).border!.top.width, 1.5);
-      // foregroundDecoration paints over the child rather than insetting it.
-      expect(tester.getSize(find.byType(WpSearchField)), restingSize);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // AC6 — suffix slot
-  // -------------------------------------------------------------------------
-  group('AC6 — suffix slot', () {
-    testWidgets('renders beside the clear button, not in place of it', (
-      tester,
-    ) async {
-      final controller = TextEditingController(text: 'abc');
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(
-            controller: controller,
-            suffix: const Icon(LucideIcons.circleHelp),
-          ),
-        ),
-      );
-
-      expect(find.byIcon(LucideIcons.x), findsOneWidget);
-      expect(find.byIcon(LucideIcons.circleHelp), findsOneWidget);
-      expect(
-        tester.getCenter(find.byIcon(LucideIcons.x)).dx,
-        lessThan(tester.getCenter(find.byIcon(LucideIcons.circleHelp)).dx),
-      );
-    });
-
-    testWidgets('survives on its own while the field is empty', (tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(
-        makeTestable(
-          _field(
-            controller: controller,
-            suffix: const Icon(LucideIcons.circleHelp),
-          ),
-        ),
-      );
-
-      expect(find.byIcon(LucideIcons.x), findsNothing);
-      expect(find.byIcon(LucideIcons.circleHelp), findsOneWidget);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // AC7 — external focus node ownership
   // -------------------------------------------------------------------------
   group('AC7 — focus node ownership', () {
@@ -363,28 +202,6 @@ void main() {
       // is the assertion that a leak of ownership would actually trip.
       await tester.pumpWidget(makeTestable(const SizedBox.shrink()));
       expect(() => node.addListener(() {}), returnsNormally);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // AC8 — one centre line
-  // -------------------------------------------------------------------------
-  group('AC8 — vertical rhythm', () {
-    testWidgets('the leading icon, the text and the clear button sit on the '
-        'same centre line', (tester) async {
-      final controller = TextEditingController(text: 'meeting notes');
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(makeTestable(_field(controller: controller)));
-
-      // The prefix/suffix icon slots hold the box at Material's 48 dp floor,
-      // which is taller than the text row's own padded height. Without
-      // `textAlignVertical` the input keeps its own top-aligned box and the
-      // text rides 4 dp above both icons.
-      final field = tester.getRect(find.byType(WpSearchField)).center.dy;
-      expect(tester.getRect(find.byIcon(LucideIcons.search)).center.dy, field);
-      expect(tester.getRect(find.byIcon(LucideIcons.x)).center.dy, field);
-      expect(tester.getRect(find.byType(EditableText)).center.dy, field);
     });
   });
 

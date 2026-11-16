@@ -16,6 +16,9 @@
 /// native monitor and consults it directly.
 library;
 
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -108,6 +111,37 @@ void main() {
         ),
         isTrue,
       );
+    });
+  });
+
+  group('AppClipboard.setTextWithin', () {
+    test('a confirmed write is a success', () async {
+      expect(
+        await AppClipboard.setTextWithin('hello', const Duration(seconds: 5)),
+        isTrue,
+      );
+      expect(clipboardText, 'hello');
+    });
+
+    test('a write that does not answer in time is no success', () {
+      fakeAsync((async) {
+        final never = Completer<Object?>();
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              SystemChannels.platform,
+              (call) => never.future,
+            );
+        bool? result;
+        AppClipboard.setTextWithin(
+          'hello',
+          const Duration(seconds: 5),
+        ).then((value) => result = value);
+
+        async.elapse(const Duration(seconds: 4));
+        expect(result, isNull);
+        async.elapse(const Duration(seconds: 1));
+        expect(result, isFalse);
+      });
     });
   });
 

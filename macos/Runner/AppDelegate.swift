@@ -1,4 +1,5 @@
 import Cocoa
+import Darwin
 import FlutterMacOS
 import Security
 import Sentry
@@ -12,18 +13,42 @@ class AppDelegate: FlutterAppDelegate {
   private var sidePanelHost: SidePanelHost?
   private var clipboardMonitorHost: ClipboardMonitorHost?
   private var snippetPickerHost: SnippetPickerHost?
+  private var trayPanelHost: TrayPanelHost?
   private var audioRoutingHost: AudioRoutingHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
+  private var modifierKeyHost: ModifierKeyHost?
+private var audioFileDecodeHost: AudioFileDecodeHost?
   private var secureBookmarkHost: SecureBookmarkHost?
   private var supportStoreHost: SupportStoreHost?
+  private var reviewHost: ReviewHost?
+  private var settingsWindowPlacementHost: SettingsWindowPlacementHost?
+  private var permissionHelperHost: PermissionHelperHost?
+  private var appIdentityHost: AppIdentityHost?
+  private var keychainScopeHost: KeychainScopeHost?
+  private var targetFieldHost: TargetFieldHost?
+  private var fieldTypeHost: FieldTypeHost?
+  private var hangWatchdogHost: HangWatchdogHost?
+  private var systemSpeechHost: SystemSpeechHost?
   private var lifecycleChannel: FlutterMethodChannel?
+  private var powerChannel: FlutterMethodChannel?
+  private var systemLanguagesChannel: FlutterMethodChannel?
+  private var quietKeychainChannel: FlutterMethodChannel?
 
   /// Whether macOS launched this process as a login item. Captured once at
   /// launch: the launch Apple event is only readable while it is being
   /// handled, and an `SMAppService` login item cannot pass `--autostart`
   /// the way the Windows/Linux autostart entries do.
   private var launchedAsLoginItem = false
+
+  /// `whispaste://` links and audio file URLs ("Open With", #1684) macOS
+  /// opened before Dart asked for them (`takeOpenUrls`), e.g. the link or
+  /// file that cold-started the app. Finder's file URLs come with sandbox
+  /// access for this process, so the file import can read them. Once Dart
+  /// asked, later links go out at once as `openUrls`. Dart validates them;
+  /// this side only passes the strings on.
+  private var pendingOpenUrls: [String] = []
+  private var dartTakesOpenUrls = false
 
   /// How long after launch the snippet-picker's second Flutter engine is
   /// booted (see `SnippetPickerHost.prewarm`).
@@ -78,18 +103,41 @@ class AppDelegate: FlutterAppDelegate {
   override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
     guard let channel = lifecycleChannel else { return .terminateNow }
     didReplyToTerminate = false
-    let replyOnce = { [weak self] () -> Void in
+    let replyOnce = { [weak self] (terminate: Bool) -> Void in
       guard let self, !self.didReplyToTerminate else { return }
       self.didReplyToTerminate = true
-      sender.reply(toApplicationShouldTerminate: true)
+      sender.reply(toApplicationShouldTerminate: terminate)
     }
-    channel.invokeMethod("prepareForTermination", arguments: nil) { _ in
-      replyOnce()
-    }
-    DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
-      replyOnce()
+    // Step 1: Dart asks the user first when a dictation is running (#1498).
+    // Not time-limited, the user may take their time. false = stay open;
+    // any other reply (true, error, not implemented) goes on to terminate.
+    channel.invokeMethod("confirmTermination", arguments: nil) { confirmed in
+      if (confirmed as? Bool) == false {
+        replyOnce(false)
+        return
+      }
+      // Step 2: the graceful shutdown, with its hard limit behind the
+      // Dart-side deadline (kQuitHardDeadline, 3 s). If Dart still has not
+      // replied, end without C++ destructors (_exit): a normal termination
+      // would run them while Metal may still be busy.
+      channel.invokeMethod("prepareForTermination", arguments: nil) { _ in
+        replyOnce(true)
+      }
+      DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+        if self.didReplyToTerminate { return }
+        _exit(0)
+      }
     }
     return .terminateLater
+  }
+
+  override func application(_ application: NSApplication, open urls: [URL]) {
+    let links = urls.map(\.absoluteString)
+    if dartTakesOpenUrls, let channel = lifecycleChannel {
+      channel.invokeMethod("openUrls", arguments: links)
+    } else {
+      pendingOpenUrls.append(contentsOf: links)
+    }
   }
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
@@ -117,11 +165,24 @@ class AppDelegate: FlutterAppDelegate {
     sidePanelHost = SidePanelHost(messenger: messenger)
     clipboardMonitorHost = ClipboardMonitorHost(messenger: messenger)
     snippetPickerHost = SnippetPickerHost(messenger: messenger)
+    trayPanelHost = TrayPanelHost(messenger: messenger)
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
+    modifierKeyHost = ModifierKeyHost(messenger: messenger)
+    audioFileDecodeHost = AudioFileDecodeHost(messenger: messenger)
     secureBookmarkHost = SecureBookmarkHost(messenger: messenger)
     supportStoreHost = SupportStoreHost(messenger: messenger)
+    reviewHost = ReviewHost(messenger: messenger)
+    settingsWindowPlacementHost = SettingsWindowPlacementHost(messenger: messenger)
+    permissionHelperHost = PermissionHelperHost(messenger: messenger)
+    appIdentityHost = AppIdentityHost(messenger: messenger)
+    keychainScopeHost = KeychainScopeHost(messenger: messenger)
+    targetFieldHost = TargetFieldHost(messenger: messenger)
+    fieldTypeHost = FieldTypeHost(messenger: messenger)
+    // Hang watchdog (#338); Dart arms it once the app is up.
+    hangWatchdogHost = HangWatchdogHost(messenger: messenger)
+    systemSpeechHost = SystemSpeechHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
@@ -131,6 +192,71 @@ class AppDelegate: FlutterAppDelegate {
     lifecycleChannel?.setMethodCallHandler { [weak self] call, result in
       self?.handleLifecycleCall(call, result: result)
     }
+
+    // System language list for the first start (whispaste/system_languages):
+    // the preferred languages of macOS in their order, as Language & Region
+    // shows them.
+    systemLanguagesChannel = FlutterMethodChannel(
+      name: "whispaste/system_languages",
+      binaryMessenger: messenger
+    )
+    systemLanguagesChannel?.setMethodCallHandler { call, result in
+      if call.method == "preferredLanguages" {
+        result(Locale.preferredLanguages)
+      } else {
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    // Quiet key-store reads (#1161): before the app has explained why it
+    // needs the key store, it reads secrets without any system prompt.
+    quietKeychainChannel = FlutterMethodChannel(
+      name: "com.whispaste.quiet_keychain",
+      binaryMessenger: messenger
+    )
+    // The same channel addresses the old file-based keychain for the move
+    // into the data-protection keychain (#1163, #1674): a read after consent
+    // and the delete, confined to the file-based keychains like the quiet
+    // read.
+    quietKeychainChannel?.setMethodCallHandler { call, result in
+      guard let args = call.arguments as? [String: Any],
+        let service = args["service"] as? String,
+        let account = args["account"] as? String
+      else {
+        result(FlutterError(code: "INVALID_ARGS", message: "Missing service/account", details: nil))
+        return
+      }
+      switch call.method {
+      case "read":
+        result(QuietKeychain.read(service: service, account: account))
+      case "readAllowingPrompt":
+        result(QuietKeychain.readAllowingPrompt(service: service, account: account))
+      case "delete":
+        result(QuietKeychain.delete(service: service, account: account))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
+    // Power channel (ticket, 9.5): system sleep and wake, so Dart can finish a
+    // running recording before the machine suspends. Outbound only.
+    powerChannel = FlutterMethodChannel(
+      name: "com.whispaste.power",
+      binaryMessenger: messenger
+    )
+    let workspaceCenter = NSWorkspace.shared.notificationCenter
+    workspaceCenter.addObserver(
+      self,
+      selector: #selector(systemWillSleep(_:)),
+      name: NSWorkspace.willSleepNotification,
+      object: nil
+    )
+    workspaceCenter.addObserver(
+      self,
+      selector: #selector(systemDidWake(_:)),
+      name: NSWorkspace.didWakeNotification,
+      object: nil
+    )
 
     // Boot the snippet-picker's render engine off the critical path. Doing it
     // lazily on the first hotkey press (the old behaviour) put the whole
@@ -157,6 +283,14 @@ class AppDelegate: FlutterAppDelegate {
       == AEKeyword(keyAELaunchedAsLogInItem)
   }
 
+  @objc private func systemWillSleep(_ notification: Notification) {
+    powerChannel?.invokeMethod("willSleep", arguments: nil)
+  }
+
+  @objc private func systemDidWake(_ notification: Notification) {
+    powerChannel?.invokeMethod("didWake", arguments: nil)
+  }
+
   private func handleLifecycleCall(
     _ call: FlutterMethodCall,
     result: @escaping FlutterResult
@@ -179,8 +313,21 @@ class AppDelegate: FlutterAppDelegate {
       }
       result(nil)
 
+    case "hideOtherApplications":
+      NSApp.hideOtherApplications(nil)
+      result(nil)
+
+    case "unhideAllApplications":
+      NSApp.unhideAllApplications(nil)
+      result(nil)
+
     case "wasLaunchedAsLoginItem":
       result(launchedAsLoginItem)
+
+    case "takeOpenUrls":
+      dartTakesOpenUrls = true
+      result(pendingOpenUrls)
+      pendingOpenUrls.removeAll()
 
     case "requestUserAttention":
       // Critical request → dock icon bounces until user activates the app.
@@ -400,8 +547,11 @@ class AppDelegate: FlutterAppDelegate {
       // runModal blocks the main thread until the user answers, which
       // Sentry's watchdog reports as an "App Hanging" event every time the
       // alert stays open for 2 s -- noise on the shared error quota.
+      // The same holds for our own hang watchdog (#338).
       SentrySDK.pauseAppHangTracking()
+      self.hangWatchdogHost?.pause()
       let response = alert.runModal()
+      self.hangWatchdogHost?.resume()
       SentrySDK.resumeAppHangTracking()
       self.restartAlertShowing = false
       onDismiss(response == .alertFirstButtonReturn)
@@ -484,5 +634,112 @@ class AppDelegate: FlutterAppDelegate {
       NSApp.terminate(nil)
     }
     #endif
+  }
+}
+
+/// Moves WhisPaste's main window beside the System Settings window after the
+/// Accessibility deep-link (Onboarding v6, S2), channel
+/// `whispaste/settings_window`, method `placeBesideSystemSettings`.
+///
+/// The Settings window is found by the owner PID of the running app with
+/// bundle id `com.apple.systempreferences`, so the lookup does not depend on
+/// the system language. Only window bounds are read (CGWindowList without
+/// window names), which needs no Screen Recording permission. The method
+/// polls for up to three seconds, because the deep-link opens Settings with a
+/// delay, and answers `false` when no window shows up or none can be moved.
+final class SettingsWindowPlacementHost {
+  private let channel: FlutterMethodChannel
+  private let gap: CGFloat = 12
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(
+      name: "whispaste/settings_window",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "placeBesideSystemSettings" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.placeWhenReady(deadline: Date().addingTimeInterval(3), result: result)
+    }
+  }
+
+  private func placeWhenReady(deadline: Date, result: @escaping FlutterResult) {
+    if let settingsRect = systemSettingsRect(), let window = whisPasteWindow() {
+      result(move(window, besideSettingsRect: settingsRect))
+      return
+    }
+    if Date() >= deadline {
+      result(false)
+      return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+      self?.placeWhenReady(deadline: deadline, result: result)
+    }
+  }
+
+  /// Bounds of the largest on-screen System Settings window, in CoreGraphics
+  /// coordinates (origin at the top left of the primary display).
+  private func systemSettingsRect() -> CGRect? {
+    guard let app = NSRunningApplication.runningApplications(
+      withBundleIdentifier: "com.apple.systempreferences"
+    ).first else {
+      return nil
+    }
+    let pid = app.processIdentifier
+    guard let windows = CGWindowListCopyWindowInfo(
+      [.optionOnScreenOnly, .excludeDesktopElements],
+      kCGNullWindowID
+    ) as? [[String: Any]] else {
+      return nil
+    }
+    var best: CGRect?
+    for info in windows {
+      guard let owner = info[kCGWindowOwnerPID as String] as? NSNumber,
+            owner.int32Value == pid,
+            let layer = info[kCGWindowLayer as String] as? NSNumber,
+            layer.intValue == 0,
+            let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
+            let rect = CGRect(dictionaryRepresentation: boundsDict),
+            rect.width >= 200, rect.height >= 200 else {
+        continue
+      }
+      if best == nil || rect.width * rect.height > best!.width * best!.height {
+        best = rect
+      }
+    }
+    return best
+  }
+
+  private func whisPasteWindow() -> NSWindow? {
+    NSApp.windows.first { $0 is MainFlutterWindow && $0.isVisible }
+  }
+
+  /// Puts the window to the right of the Settings window, or to its left when
+  /// the right side has no room, top-aligned with it and kept on screen.
+  private func move(_ window: NSWindow, besideSettingsRect cg: CGRect) -> Bool {
+    guard let primary = NSScreen.screens.first else { return false }
+    // CoreGraphics uses a top-left origin, AppKit a bottom-left one; both are
+    // anchored to the primary display.
+    let settings = NSRect(
+      x: cg.minX,
+      y: primary.frame.height - cg.maxY,
+      width: cg.width,
+      height: cg.height
+    )
+    let screen = NSScreen.screens.first { $0.frame.intersects(settings) } ?? primary
+    let visible = screen.visibleFrame
+    let size = window.frame.size
+
+    var x = settings.maxX + gap
+    if x + size.width > visible.maxX {
+      x = settings.minX - gap - size.width
+    }
+    x = min(max(x, visible.minX), visible.maxX - size.width)
+    var y = settings.maxY - size.height
+    y = min(max(y, visible.minY), visible.maxY - size.height)
+    window.setFrameOrigin(NSPoint(x: x, y: y))
+    return true
   }
 }

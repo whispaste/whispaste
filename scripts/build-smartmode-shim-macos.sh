@@ -20,7 +20,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-LLAMA_TAG="b10150"
+# Pinned source: scripts/llama-cpp.pin (one pin for all platforms).
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$REPO_ROOT/scripts/llama-cpp.pin"
 LLAMA_SRC="$REPO_ROOT/.build/deps/llama.cpp/$LLAMA_TAG"
 STAGE_DIR="$REPO_ROOT/.build/libllama/macos"
 SHIM_SRC="$REPO_ROOT/native/smart_mode/smart_mode_shim.cpp"

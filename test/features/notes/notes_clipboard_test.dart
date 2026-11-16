@@ -97,14 +97,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(l10n.notesCopy));
+      await tester.tap(find.byTooltip(l10n.historyCopyText));
       await tester.pump();
 
       expect(clipboardText, 'Grocery list\nMilk, eggs, bread');
-      expect(find.text(l10n.notesCopied), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('copy-note-note-editor')),
+        findsOneWidget,
+      );
 
-      // Drain the toast's 2s auto-dismiss timer so no Timer outlives the
-      // test (see factory_reset_failed_toast_test.dart for the pattern).
+      // Let the confirmation end so no Timer outlives the test.
       await tester.pumpAndSettle(const Duration(seconds: 3));
     });
   });
@@ -142,7 +144,7 @@ void main() {
         // the editor panel's field, which holds the note body.
         final field = tester.widget<TextField>(
           find.descendant(
-            of: find.byType(NoteEditorPanel),
+            of: find.byKey(const ValueKey('notes-editor-body')),
             matching: find.byType(TextField),
           ),
         );

@@ -15,7 +15,7 @@
 /// - Every public **type** (class / enum / mixin / extension / typedef)
 ///   declared under `lib/widgets/` starts with `Wp`. This holds regardless of
 ///   whether the type is atomic (`WpButton`) or composed
-///   (`WpPasteCapabilityIndicator`), visual (`WpToast`), invisible
+///   (`WpPasteCapabilityIndicator`), visual (`WpNoticeBar`), invisible
 ///   (`WpServiceBootstrap`), a painter (`WpOverlayPainter`), a static-only
 ///   namespace (`WpMotion`) or a plain result type (`WpHotkeyResult`).
 /// - Every public **`show*` function** that is a component's own public API
@@ -54,27 +54,39 @@ const _documentedExceptions = <String, String>{
   // service-layer key resolver, not a component.
   'singleKeyWhitelist': 'hotkey domain data, not a component',
 
-  // lib/widgets/status_bar.dart — pure predicate over settings.
+  // lib/widgets/recording_dock.dart — pure predicate over settings.
   'shouldShowAutoPasteOffHint': 'pure visibility predicate, not a component',
 
   // lib/widgets/recording_behavior.dart — pure code→string mappings, a pure
   // gate predicate, and call sites that pour recording-specific content into
-  // the already-prefixed WpToast.
+  // the notice bar.
   'localizeRecordingError': 'code→string mapping, not a component',
   'localizeRecordingInfo': 'code→string mapping, not a component',
   'shouldShowCpuFallbackToast': 'pure gate predicate, not a component',
-  'showRecordingErrorToast': 'call site of WpToast, not a component',
-  'showPasteFailureToast': 'call site of WpToast, not a component',
-  'showRecoveryToast': 'call site of WpToast, not a component',
-  'showCpuFallbackToast': 'call site of WpToast, not a component',
+  'showRecordingErrorToast': 'call site of the notice paths, not a component',
+  'showPasteFailureToast': 'call site of the notice paths, not a component',
+  'showRecoveryToast': 'call site of the notice paths, not a component',
+  'showCpuFallbackToast': 'call site of the notice paths, not a component',
+  'showLanguageMismatchToast': 'call site of the notice paths, not a component',
+  'showPendingRetryFailedCard':
+      'call site of showWpDictationMessage, not a component',
 
-  // lib/widgets/feature_spotlight_notice.dart — call site of the existing
-  // _FeatureSpotlightDialog component, not a component of its own.
-  'showFeatureSpotlightPreview':
-      'call site of _FeatureSpotlightDialog, not a component',
+  // lib/widgets/hotkey_fallback_toast.dart — pours the fallback-hotkey
+  // message into the notice bar.
+  'showHotkeyFallbackToast': 'call site of showWpNotice, not a component',
 
-  // Test seams — not public component API.
-  'platformIsWindowsOverride': '@visibleForTesting seam',
+  // lib/widgets/desktop_shortcut_toast.dart — pours the GNOME desktop
+  // shortcut hint into the notice bar.
+  'showDesktopShortcutToast': 'call site of showWpNotice, not a component',
+  // lib/widgets/hotkey_fallback_toast.dart — conflict message for a held
+  // secondary hotkey, poured into the notice bar (UIA-SHL-05).
+  'showHotkeyDisturbanceToast': 'call site of showWpNotice, not a component',
+  'showHotkeyConflictToast': 'call site of showWpNotice, not a component',
+
+  // lib/widgets/recording_behavior.dart — OOM "no smaller model" message,
+  // poured into the notice bar (UIA-SHL-06).
+  'showOomNoSmallerModelToast':
+      'call site of the notice paths, not a component',
 };
 
 /// Matches a top-level type declaration at column 0, with any leading

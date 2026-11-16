@@ -34,6 +34,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "Debug" "Profile" "Release")
 endif()
 
+# Debug and Profile builds run under their own application ID, so their
+# desktop entry and portal registration never replace an installed release's
+# (the Dart side keeps their data apart in the same way, see isLocalBuild).
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(APPLICATION_ID "${APPLICATION_ID}.dev")
+endif()
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by
@@ -66,6 +73,41 @@ pkg_check_modules(X11 REQUIRED IMPORTED_TARGET x11)
 # (runner/keyboard_monitor_host.cc, catchup/09). libxi-dev is already a
 # dependency of libgtk-3-dev, so this adds no new build requirement.
 pkg_check_modules(XI REQUIRED IMPORTED_TARGET xi)
+# GDesktopAppInfo for the settings page of the Wayland hotkey
+# (runner/desktop_entry_installer.cc). Part of libglib2.0-dev, which GTK
+# already needs.
+pkg_check_modules(GIO_UNIX REQUIRED IMPORTED_TARGET gio-unix-2.0)
+pkg_check_modules(XSS IMPORTED_TARGET xscrnsaver)
+# Without XScreenSaver the undo gate has no idle source: every input then
+# counts as typing (fail-safe), so the build must say so instead of quietly
+# losing the feature. Install libxss-dev to enable it.
+if(NOT XSS_FOUND)
+  message(WARNING "libxss-dev (xscrnsaver) not found: the Linux undo idle gate is disabled and any input counts as typing. Install libxss-dev.")
+endif()
+
+# Optional: libei headers for the portal keyboard (RemoteDesktop + EIS, see
+# runner/portal_remote_desktop.cc). libei.so.1 is dlopen()ed at run time, so
+# only the headers are a build dependency and the binary has no libei link.
+# Without them the portal path reports unavailable and uinput stays the path.
+pkg_check_modules(LIBEI IMPORTED_TARGET libei-1.0)
+if(NOT LIBEI_FOUND)
+  message(WARNING "libei-dev (libei-1.0) not found: the portal keyboard input (RemoteDesktop/EIS) is disabled. Install libei-dev to enable it.")
+endif()
+# Decoders for imported audio files (ticket, runner/audio_file_decode_core.cc):
+# libopusfile for Ogg/Opus, libFLAC for FLAC. MP3 uses the vendored minimp3.
+pkg_check_modules(OPUSFILE REQUIRED IMPORTED_TARGET opusfile)
+# libFLAC changes its soname between releases (.so.8, .12, .14) and a binary
+# needs exactly the one of the build host, so a system link breaks the start
+# on any other distribution (#84). The runner therefore links the libFLAC that
+# flutter_soloud ships (with its matching headers), and that library goes into
+# the bundle below together with the plugin's other Xiph libraries: one FLAC
+# in the process, no FLAC dependency on the system.
+set(WP_SOLOUD_LINUX "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/flutter_soloud/linux")
+set(WP_FLAC_LIBRARY "${WP_SOLOUD_LINUX}/libs/libFLAC.so.14")
+set(WP_FLAC_INCLUDE_DIR "${WP_SOLOUD_LINUX}/include")
+if(NOT EXISTS "${WP_FLAC_LIBRARY}" OR NOT EXISTS "${WP_FLAC_INCLUDE_DIR}/FLAC/stream_decoder.h")
+  message(FATAL_ERROR "flutter_soloud's libFLAC.so.14 or its headers are missing under ${WP_SOLOUD_LINUX}: run `flutter pub get`; after a flutter_soloud update check the soname here and in WP_XIPH_LIBS.")
+endif()
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
@@ -86,6 +128,38 @@ set_target_properties(${BINARY_NAME}
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# sherpa-onnx without TTS. The sherpa_onnx pub plugin bundles a prebuilt C API
+# that statically contains espeak-ng (GPL-3.0-or-later). Swap it and its
+# onnxruntime for the TTS-free build staged by scripts/build-sherpa-onnx.sh.
+# A missing stage is only a warning here: release.yml stages it before building
+# and scripts/check-no-espeak.sh fails the release if the pub original ships.
+set(WP_SHERPA_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/sherpa-onnx/linux")
+file(GLOB WP_SHERPA_LIBS
+  "${WP_SHERPA_STAGE}/libsherpa-onnx-c-api.so*"
+  "${WP_SHERPA_STAGE}/libonnxruntime.so*")
+if(WP_SHERPA_LIBS)
+  # A stale stage (pin or pubspec.lock moved without a rebuild) fails here.
+  include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/check-sherpa-stage.cmake")
+  wp_check_sherpa_stage("${WP_SHERPA_STAGE}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+  list(FILTER PLUGIN_BUNDLED_LIBRARIES EXCLUDE REGEX "/lib(sherpa-onnx-c-api|onnxruntime)\\.so")
+  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_SHERPA_LIBS})
+else()
+  message(WARNING "sherpa-onnx TTS-free build not staged in ${WP_SHERPA_STAGE}: bundling the pub original (contains espeak-ng). Run: bash scripts/build-sherpa-onnx.sh linux")
+endif()
+
+# On-device Whisper: libwhisper.so, the libggml* backends and libwp_ffi_guard.so
+# staged by scripts/build-libwhisper-linux.sh. Bundled here so every
+# `flutter build linux` (debug too) ships them; the install step wipes the
+# bundle first, so copying them in beforehand does not survive. A missing
+# stage is only a warning, like the macOS embed phase.
+set(WP_WHISPER_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/libwhisper/linux")
+file(GLOB WP_WHISPER_LIBS "${WP_WHISPER_STAGE}/*.so*")
+if(WP_WHISPER_LIBS)
+  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_WHISPER_LIBS})
+else()
+  message(WARNING "libwhisper not staged in ${WP_WHISPER_STAGE}: on-device Whisper is missing from the bundle. Run: bash scripts/build-libwhisper-linux.sh")
+endif()
 
 
 # === Installation ===
@@ -113,11 +187,66 @@ install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}
 install(FILES "${FLUTTER_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+# flutter_soloud links its prebuilt Xiph libraries but lists only itself as a
+# bundled library, so they never reach the bundle and its RUNPATH points into
+# the build tree. Bundle the exact files its NEEDED entries name and let it
+# find them next to itself (#84).
+set(WP_XIPH_LIBS
+  "${WP_SOLOUD_LINUX}/libs/libFLAC.so.14"
+  "${WP_SOLOUD_LINUX}/libs/libogg.so.0"
+  "${WP_SOLOUD_LINUX}/libs/libopus.so.0")
+if(TARGET flutter_soloud_plugin)
+  include(vorbis.cmake)
+  list(APPEND WP_XIPH_LIBS
+    "${WP_VORBIS_DIR}/libvorbis.so.0"
+    "${WP_VORBIS_DIR}/libvorbisfile.so.3")
+  set_target_properties(flutter_soloud_plugin PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "$ORIGIN")
+else()
+  message(FATAL_ERROR "flutter_soloud's plugin target is no longer named flutter_soloud_plugin: update the RUNPATH setting above, or its RUNPATH points into the build tree again (#84).")
+endif()
+list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_XIPH_LIBS})
+
 foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
   install(FILES "${bundled_library}"
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# sentry-native's crashpad_handler is spawned as a subprocess, but the plugin
+# installs it with install(FILES), which drops the exec bit (0644): crashpad
+# then logs "failed to spawn ... crashpad_handler" and native crashes are never
+# reported (#95). Re-set the mode at install time, after all copies are done.
+# Guarded by scripts/check-crashpad-exec.sh.
+install(CODE "
+  set(_wp_crashpad \"${INSTALL_BUNDLE_LIB_DIR}/crashpad_handler\")
+  if(EXISTS \"\${_wp_crashpad}\")
+    file(CHMOD \"\${_wp_crashpad}\" PERMISSIONS
+      OWNER_READ OWNER_WRITE OWNER_EXECUTE
+      GROUP_READ GROUP_EXECUTE
+      WORLD_READ WORLD_EXECUTE)
+  endif()
+  " COMPONENT Runtime)
+
+# Silero-VAD model, looked up next to libwhisper.so (whisperVadModelPathFor).
+# Vendored in the repo, so it needs no stage.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/models/vad/ggml-silero-v5.1.2.bin"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+# On-device Smart Mode: libsmartmode_shim.so, libllama and its own ggml,
+# staged by scripts/build-libllama-linux.sh. They go into lib/smart_mode/ so
+# ggml's backend scan never mixes them with libwhisper's (see that script).
+set(WP_LLAMA_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/libllama/linux")
+file(GLOB WP_LLAMA_LIBS "${WP_LLAMA_STAGE}/*.so*")
+if(WP_LLAMA_LIBS)
+  install(FILES ${WP_LLAMA_LIBS}
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/smart_mode"
+    COMPONENT Runtime)
+else()
+  message(WARNING "libllama not staged in ${WP_LLAMA_STAGE}: on-device Smart Mode is missing from the bundle. Run: bash scripts/build-libllama-linux.sh")
+endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")
@@ -139,3 +268,6 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Local extraction of audio from video imports (#355).
+include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/video-decoder.cmake")

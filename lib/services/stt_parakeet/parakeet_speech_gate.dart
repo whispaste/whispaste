@@ -24,8 +24,10 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
+import '../audio/pcm_wav_codec.dart' show Pcm16WavView;
 import '../stt/whisper/whisper_bindings.dart' show whisper_vad_params;
-import 'parakeet_gpu_engine.dart' show loadGgmlBackendModules, openGgmlLibrary;
+import 'parakeet_gpu_engine.dart'
+    show ggmlDeviceCount, loadGgmlBackendModules, openGgmlLibrary;
 import '../stt/whisper/whisper_ffi_engine.dart'
     show defaultWhisperLibraryPath, defaultWhisperVadModelPath;
 
@@ -93,6 +95,54 @@ class ParakeetSpeechGate {
   /// (including unavailable) transcribes.
   Future<bool> hasSpeech(Float32List samples) async =>
       await check(samples) != ParakeetSpeechCheck.noSpeech;
+
+  /// [hasSpeech] for a whole recording, checked a window at a time
+  /// ([parakeetSpeechGateWindows], #1665), so the recording is never float32
+  /// as a whole. Up to [parakeetSpeechGateWindowSeconds] this is one check
+  /// on all samples, as before. Stops at the first window that is not
+  /// [ParakeetSpeechCheck.noSpeech].
+  Future<bool> hasSpeechIn(Pcm16WavView pcm) => hasSpeechInWindows(pcm, check);
+}
+
+/// Longest stretch of audio one VAD check gets (3.8 MB as float32).
+const int parakeetSpeechGateWindowSeconds = 60;
+
+/// Audio two neighbouring windows share, so speech at a window edge is
+/// still seen whole by one of them.
+const int parakeetSpeechGateOverlapSeconds = 2;
+
+/// The sample ranges `[start, end)` the gate checks for a recording of
+/// [length] samples: one range up to [parakeetSpeechGateWindowSeconds],
+/// otherwise windows of that length that overlap by
+/// [parakeetSpeechGateOverlapSeconds]; the last one ends at [length].
+List<(int, int)> parakeetSpeechGateWindows(
+  int length, {
+  int sampleRate = 16000,
+}) {
+  final window = parakeetSpeechGateWindowSeconds * sampleRate;
+  final step = window - parakeetSpeechGateOverlapSeconds * sampleRate;
+  if (length <= window) return [(0, length)];
+  final windows = <(int, int)>[];
+  var start = 0;
+  while (start + window < length) {
+    windows.add((start, start + window));
+    start += step;
+  }
+  windows.add((start, length));
+  return windows;
+}
+
+/// Runs [check] on each window of [pcm] in turn: false only when every
+/// window found no speech.
+Future<bool> hasSpeechInWindows(
+  Pcm16WavView pcm,
+  Future<ParakeetSpeechCheck> Function(Float32List samples) check,
+) async {
+  for (final (start, end) in parakeetSpeechGateWindows(pcm.sampleCount)) {
+    final result = await check(pcm.toFloat32(start, end));
+    if (result != ParakeetSpeechCheck.noSpeech) return true;
+  }
+  return false;
 }
 
 // --- FFI for the whisper_vad_* subset ---------------------------------------
@@ -174,12 +224,7 @@ int? _countVadSegments(
   // (libparakeet or the Whisper engine may already have done it).
   final dir = p.dirname(libraryPath);
   final ggml = openGgmlLibrary(dir);
-  if (ggml != null &&
-      ggml.providesSymbol('ggml_backend_dev_count') &&
-      ggml.lookupFunction<ffi.Size Function(), int Function()>(
-            'ggml_backend_dev_count',
-          )() ==
-          0) {
+  if (ggml != null && (ggmlDeviceCount(ggml, dir) ?? 0) == 0) {
     loadGgmlBackendModules(ggml, dir);
   }
 

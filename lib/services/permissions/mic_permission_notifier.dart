@@ -17,13 +17,14 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../../core/platform/polled_channel_call.dart';
 
 /// Deep-link target for macOS' microphone privacy pane.
 const String _micSettingsUriMacOS =
@@ -46,7 +47,17 @@ enum MicPermissionStatus {
   /// [MicPermissionNotifier.request] resolved without a grant. Only reachable
   /// through an in-process request — see class doc.
   denied,
+
+  /// The passive status read went unanswered [kMicCheckTimeoutsUntilUnresponsive]
+  /// times in a row (#326). Says nothing about the grant itself; the next
+  /// answered read or [MicPermissionNotifier.request] leaves this state.
+  unresponsive,
 }
+
+/// Unanswered status reads in a row (5 s deadline each) before the surface
+/// stops showing "pending" and reports the check as unresponsive. Two, so a
+/// single slow reply after wake-up does not flash an error.
+const int kMicCheckTimeoutsUntilUnresponsive = 2;
 
 /// Immutable snapshot of the microphone permission surface.
 class MicPermissionState {
@@ -98,6 +109,14 @@ class MicPermissionNotifier extends Notifier<MicPermissionState> {
   Timer? _pollTimer;
   Timer? _pollTimeout;
   bool _checkInFlight = false;
+  int _consecutiveTimeouts = 0;
+  Timer? _recheckTimer;
+
+  /// Deadline and single-flight for the polled status read. A reply that never
+  /// arrives must not leave the 1 s poller stacking unanswered handles.
+  final _checkCall = PolledChannelCall<bool>(
+    timeout: const Duration(seconds: 5),
+  );
 
   /// `true` once [request] has fired the OS-prompted check at least once
   /// this process. The OS shows its permission dialog at most once per
@@ -106,9 +125,14 @@ class MicPermissionNotifier extends Notifier<MicPermissionState> {
   /// only: a fresh process gets a fresh dialog budget.
   bool _osPromptFiredThisProcess = false;
 
+  /// Subclasses must call `super.build()`: it ends the timers and the check
+  /// deadline with the provider.
   @override
+  @mustCallSuper
   MicPermissionState build() {
     ref.onDispose(_cancelTimers);
+    ref.onDispose(() => _recheckTimer?.cancel());
+    ref.onDispose(_checkCall.dispose);
     return const MicPermissionState();
   }
 
@@ -128,15 +152,51 @@ class MicPermissionNotifier extends Notifier<MicPermissionState> {
     if (_checkInFlight) return state.status == MicPermissionStatus.granted;
     _checkInFlight = true;
     try {
-      final granted = await ref
-          .read(micPermissionCheckerProvider)
-          .check(request: false);
+      final call = await _checkCall.run(
+        () => ref.read(micPermissionCheckerProvider).check(request: false),
+      );
+      // Disposing the provider releases a waiting call; state is gone then.
+      if (!ref.mounted) return false;
+      switch (call.status) {
+        case PolledCallStatus.answered:
+          _consecutiveTimeouts = 0;
+        case PolledCallStatus.timedOut:
+          _log.debug('microphone check not answered; keeping last state');
+          _countTimeout();
+          return state.status == MicPermissionStatus.granted;
+        case PolledCallStatus.skipped:
+          // [_checkInFlight] already coalesces overlapping reads, so a skip
+          // here means the timed-out read still has not answered: one more
+          // missed deadline.
+          if (_consecutiveTimeouts > 0) _countTimeout();
+          return state.status == MicPermissionStatus.granted;
+      }
+      final granted = call.value ?? false;
       if (granted) {
         state = state.copyWith(status: MicPermissionStatus.granted);
+      } else if (state.status == MicPermissionStatus.unresponsive) {
+        // Answered again, but a bare `false` cannot mean denied: back to open.
+        state = state.copyWith(status: MicPermissionStatus.unknown);
       }
       return granted;
     } finally {
       _checkInFlight = false;
+    }
+  }
+
+  /// No answer is never treated as denied. A known grant or denial stays;
+  /// only a still-open status turns into [MicPermissionStatus.unresponsive]
+  /// once the reads keep failing, so the overview stops waiting forever. A
+  /// surface may read the status only once, so the first timeout schedules
+  /// the follow-up read itself.
+  void _countTimeout() {
+    _consecutiveTimeouts++;
+    if (state.status != MicPermissionStatus.unknown) return;
+    if (_consecutiveTimeouts >= kMicCheckTimeoutsUntilUnresponsive) {
+      state = state.copyWith(status: MicPermissionStatus.unresponsive);
+    } else {
+      _recheckTimer?.cancel();
+      _recheckTimer = Timer(_checkCall.timeout, () => unawaited(check()));
     }
   }
 
@@ -183,9 +243,11 @@ class MicPermissionNotifier extends Notifier<MicPermissionState> {
   }
 
   String? _settingsUri() {
-    if (Platform.isMacOS) return _micSettingsUriMacOS;
-    if (Platform.isWindows) return _micSettingsUriWindows;
-    return null;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS => _micSettingsUriMacOS,
+      TargetPlatform.windows => _micSettingsUriWindows,
+      _ => null,
+    };
   }
 
   /// Watches for a grant applied outside the app (the user flips the

@@ -1,5 +1,5 @@
 /// Layout-regression tests for the Unicode direct-type paste fallback
-/// (ticket 09 — `internal-notes`).
+/// (paste layout-regression ticket 09).
 ///
 /// Scope, per the ticket:
 /// - Targets ONLY the direct-type fallback (`Paster.typeText`, and the
@@ -42,8 +42,6 @@
 /// of script) so a future change can't reintroduce a per-layout table on
 /// either side of the Dart/native boundary without breaking a test.
 library;
-
-import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -200,7 +198,7 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
+        expect(outcome, PasteOutcome.unconfirmed);
         expect(controller.typeCalls, 1);
         expect(
           controller.lastTypedText,
@@ -233,28 +231,33 @@ void main() {
       for (final entry in _layoutSamples.entries) {
         test(
           '${entry.key}: when the native paste shortcut fails, the '
-          'macOS/Windows retry types the identical text; Linux (no '
-          'direct-type fallback) reports the original failure untouched',
+          'typing retry (macOS) types the identical text; without it '
+          '(Windows, Linux) the original failure is reported untouched',
           () async {
-            final controller = _FakeController()
-              ..pasteResult = const NativePasteResult(
-                status: NativePasteStatus.postFailed,
+            for (final typingFallback in [true, false]) {
+              final controller = _FakeController()
+                ..pasteResult = const NativePasteResult(
+                  status: NativePasteStatus.postFailed,
+                );
+              final paster = DesktopPaster(
+                controller,
+                typingFallback: typingFallback,
               );
-            final paster = DesktopPaster(controller);
 
-            final outcome = await paster.paste(
-              entry.value,
-              const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
-            );
+              final outcome = await paster.paste(
+                entry.value,
+                const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+              );
 
-            expect(controller.pasteCalls, 1);
-            if (Platform.isMacOS || Platform.isWindows) {
-              expect(outcome, PasteOutcome.success);
-              expect(controller.typeCalls, 1);
-              expect(controller.lastTypedText, entry.value);
-            } else {
-              expect(outcome, PasteOutcome.failed);
-              expect(controller.typeCalls, 0);
+              expect(controller.pasteCalls, 1);
+              if (typingFallback) {
+                expect(outcome, PasteOutcome.unconfirmed);
+                expect(controller.typeCalls, 1);
+                expect(controller.lastTypedText, entry.value);
+              } else {
+                expect(outcome, PasteOutcome.failed);
+                expect(controller.typeCalls, 0);
+              }
             }
           },
         );

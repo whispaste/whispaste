@@ -21,6 +21,7 @@ class FakeMicRecorder implements MicProbeRecorder {
     this._throwOnStart = false,
     this._devices = const [],
     this._throwOnListDevices = false,
+    this._startError,
   });
 
   bool _hasPermission;
@@ -28,6 +29,9 @@ class FakeMicRecorder implements MicProbeRecorder {
   final bool _throwOnStart;
   final List<InputDevice> _devices;
   final bool _throwOnListDevices;
+
+  /// Thrown by [startStream] instead of the generic failure, when set.
+  final Object? _startError;
 
   StreamController<Uint8List>? _streamController;
 
@@ -58,6 +62,8 @@ class FakeMicRecorder implements MicProbeRecorder {
 
   @override
   Future<Stream<Uint8List>> startStream(RecordConfig config) async {
+    final startError = _startError;
+    if (startError != null) throw startError;
     if (_throwOnStart) throw Exception('startStream failed');
     lastConfig = config;
     _recording = true;

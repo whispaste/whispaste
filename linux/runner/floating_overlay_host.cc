@@ -128,7 +128,7 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
     // ── updateSnapshot ────────────────────────────────────────────────────
     // args: { visible, size, state, label, … }
     bool visible = false;
-    // "size" is the canonical key ("normal" | "compact" | "mini"); fall back
+    // "size" is the canonical key ("normal" | "compact" | "mini" | "nano"); fall back
     // to the legacy "compact" bool for payloads from an older main engine.
     std::string size_class = "normal";
     if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
@@ -150,22 +150,21 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
     }
 
     bool size_changed = (size_class != size_class_);
+    // Content and window must never disagree (#1193): a shrinking shell
+    // relays the new snapshot first and resizes after it, a growing shell
+    // resizes first (same order as macOS handleUpdateSnapshot).
+    bool shrinking = OverlayLogicalW(size_class) < OverlayLogicalW(size_class_) ||
+                     OverlayLogicalH(size_class) < OverlayLogicalH(size_class_);
     size_class_ = size_class;
 
+    bool resize_existing = false;
     if (visible && overlay_window_ == nullptr) {
       // Lazy-create the overlay shell on first visible updateSnapshot.
       EnsureOverlayWindow();
     } else if (size_changed && overlay_window_ != nullptr) {
-      // Resize the existing shell when the size class changes.
-      overlay_window_->SetSizeClass(size_class_);
-      // Re-anchor after resize (matching macOS resizePanelToContent).
-      if (overlay_window_->IsCreated()) {
-        auto [rx, ry] =
-            ResolvePosition(pending_x_, pending_y_, pending_anchor_mode_);
-        suppress_next_configure_ = true;
-        overlay_window_->MoveTo(rx, ry);
-      }
+      resize_existing = true;
     }
+    if (resize_existing && !shrinking) ResizeOverlayWindow();
 
     // Cache and relay to the render engine.
     if (latest_snapshot_args_) fl_value_unref(latest_snapshot_args_);
@@ -173,6 +172,7 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
     if (render_ready_) {
       InvokeRenderChannel("updateSnapshot", args);
     }
+    if (resize_existing && shrinking) ResizeOverlayWindow();
 
     // Show or hide the native shell.
     if (overlay_window_) {
@@ -227,22 +227,32 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
 
   } else if (strcmp(method, "setContextMenuItems") == 0) {
     // ── setContextMenuItems ───────────────────────────────────────────────
-    // args: { items: [{id, label}, …] }
-    context_menu_items_.clear();
-    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
-      FlValue* items_val = fl_value_lookup_string(args, "items");
-      if (items_val && fl_value_get_type(items_val) == FL_VALUE_TYPE_LIST) {
-        size_t count = fl_value_get_length(items_val);
-        for (size_t i = 0; i < count; ++i) {
-          FlValue* item = fl_value_get_list_value(items_val, i);
-          if (!item || fl_value_get_type(item) != FL_VALUE_TYPE_MAP) continue;
-          FlValue* id_v = fl_value_lookup_string(item, "id");
-          FlValue* lb_v = fl_value_lookup_string(item, "label");
-          if (!id_v || !lb_v) continue;
-          context_menu_items_.push_back(
-              {fl_value_get_string(id_v), fl_value_get_string(lb_v)});
-        }
+    // args: {items:[...tree...], appearance} (#393, native_context_menu.h)
+    context_menu_ = ParseNativeMenu(args);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "rebootRenderEngine") == 0) {
+    // ── rebootRenderEngine ────────────────────────────────────────────────
+    // Dart's frame heartbeat found no painted frame after a show (see
+    // OverlayRenderRecovery). Re-boots only the render engine, like
+    // FloatingOverlayHost.swift: the cached snapshot and bars stay, a fresh
+    // shell opens at the current position (pending_x_/y_ follow every move)
+    // with the old visibility, and the new engine's `ready` flushes the
+    // cached state.
+    if (overlay_window_) {
+      g_message("[overlay-host] rebootRenderEngine: re-booting on request");
+      const bool was_visible = overlay_window_->IsVisible();
+      if (render_channel_) {
+        fl_method_channel_set_method_call_handler(render_channel_, nullptr,
+                                                   nullptr, nullptr);
+        g_object_unref(render_channel_);
+        render_channel_ = nullptr;
       }
+      delete overlay_window_;
+      overlay_window_ = nullptr;
+      has_pending_position_ = true;
+      EnsureOverlayWindow();
+      if (was_visible) overlay_window_->Show();
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
@@ -278,6 +288,18 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
 }
 
 // ── Overlay window creation ───────────────────────────────────────────────────
+
+void FloatingOverlayHost::ResizeOverlayWindow() {
+  if (overlay_window_ == nullptr) return;
+  overlay_window_->SetSizeClass(size_class_);
+  // Re-anchor after resize (matching macOS resizePanelToContent).
+  if (overlay_window_->IsCreated()) {
+    auto [rx, ry] =
+        ResolvePosition(pending_x_, pending_y_, pending_anchor_mode_);
+    suppress_next_configure_ = true;
+    overlay_window_->MoveTo(rx, ry);
+  }
+}
 
 void FloatingOverlayHost::EnsureOverlayWindow() {
   render_ready_ = false;
@@ -346,32 +368,15 @@ void FloatingOverlayHost::HandleRenderMethodCall(FlMethodCall* method_call) {
   } else if (strcmp(method, "startDrag") == 0) {
     // ── startDrag ─────────────────────────────────────────────────────────
     // The user began a pan gesture on the overlay pill (Dart onPanStart).
-    // We initiate a WM-level window move via gdk_window_begin_move_drag,
-    // which sends _NET_WM_MOVERESIZE to the X11 WM (GNOME Shell via XWayland).
-    // The WM then handles the interactive drag; configure-event fires on
-    // position changes and OnWindowMoved reports them as onDragEnded events.
+    // WindowDragMover follows the pointer until the button is released and
+    // reports the final position once via OnDragEnded. Not a WM move:
+    // KWin refuses to move NOTIFICATION windows (see window_drag_mover.h).
     //
-    // TUNING: gdk_window_begin_move_drag is X11-only and only reliable when
-    // GDK_BACKEND=x11 is set (see main.cc). On a bare Wayland session without
-    // XWayland it will be a no-op — ensure XWayland is running.
-    //
-    // TUNING: There is a latency of ~1 MethodChannel round-trip between the
-    // Dart gesture and this call, so root_x/root_y is the pointer position at
-    // handler time, not at the exact pan-start instant. This is accurate enough
-    // for WM interactive-move initiation in practice.
+    // TUNING: X11-only, like every window move here (GDK_BACKEND=x11, see
+    // main.cc); without XWayland the pointer cannot be queried.
     if (overlay_window_ && overlay_window_->IsCreated()) {
-      GtkWidget* gtk_win = overlay_window_->GetGtkWindow();
-      GdkWindow* gdk_win = gtk_win ? gtk_widget_get_window(gtk_win) : nullptr;
-      if (gdk_win) {
-        GdkDisplay* display = gdk_display_get_default();
-        GdkSeat* seat = gdk_display_get_default_seat(display);
-        GdkDevice* pointer = gdk_seat_get_pointer(seat);
-        gint root_x = 0, root_y = 0;
-        gdk_device_get_position(pointer, nullptr, &root_x, &root_y);
-        // Button 1 = left mouse button. GDK_CURRENT_TIME lets the X server
-        // use the most recent event timestamp (avoids focus-theft rejection).
-        gdk_window_begin_move_drag(gdk_win, 1, root_x, root_y,
-                                    GDK_CURRENT_TIME);
+      if (!drag_mover_.Start(GTK_WINDOW(overlay_window_->GetGtkWindow()))) {
+        g_print("[overlay-host] startDrag after the button was released\n");
       }
       pending_anchor_mode_ = "topLeft";
     }
@@ -383,9 +388,52 @@ void FloatingOverlayHost::HandleRenderMethodCall(FlMethodCall* method_call) {
     InvokeMainChannel("onBodyClicked", nullptr);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
+  } else if (strcmp(method, "closeClicked") == 0) {
+    // ── closeClicked ──────────────────────────────────────────────────────
+    // Click on the pill's X — relay to the main engine (discard dictation).
+    InvokeMainChannel("onCloseClicked", nullptr);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "noticeAction") == 0) {
+    // A notice-card button (overlay F2): relay {id} to the main engine.
+    FlValue* args = fl_method_call_get_args(method_call);
+    InvokeMainChannel("onNoticeAction", args);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
   } else if (strcmp(method, "showContextMenu") == 0) {
     // ── showContextMenu ───────────────────────────────────────────────────
     ShowContextMenu();
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "setPillWidth") == 0) {
+    // The macOS/Windows hosts resize their native glass backdrop to the
+    // painted pill (#476). Linux draws no native backdrop, so there is
+    // nothing to follow; the reply only keeps the render engine quiet.
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "frameRendered") == 0) {
+    // Frame heartbeat, relayed like the macOS host. The Dart service runs
+    // its stall recovery only for controllers that can re-boot the engine
+    // (macOS so far); elsewhere the event only ends a pending deadline.
+    InvokeMainChannel("onRenderFrame", nullptr);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "reportError") == 0) {
+    // Uncaught Dart error inside the render engine: relay it to the main
+    // engine's log, as the macOS host and the snippet picker do.
+    FlValue* args = fl_method_call_get_args(method_call);
+    std::string message;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* msg_v = fl_value_lookup_string(args, "message");
+      if (msg_v && fl_value_get_type(msg_v) == FL_VALUE_TYPE_STRING) {
+        message = fl_value_get_string(msg_v);
+      }
+    }
+    g_autoptr(FlValue) event_args = fl_value_new_map();
+    fl_value_set_string_take(event_args, "message",
+                             fl_value_new_string(message.c_str()));
+    fl_value_set_string_take(event_args, "isError", fl_value_new_bool(TRUE));
+    InvokeMainChannel("onRenderEngineDiagnostic", event_args);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else {
@@ -398,45 +446,11 @@ void FloatingOverlayHost::HandleRenderMethodCall(FlMethodCall* method_call) {
 // ── Context menu ──────────────────────────────────────────────────────────────
 
 void FloatingOverlayHost::ShowContextMenu() {
-  if (context_menu_items_.empty()) return;
-
-  GtkWidget* menu = gtk_menu_new();
-  for (const auto& item : context_menu_items_) {
-    GtkWidget* menu_item =
-        gtk_menu_item_new_with_label(item.label.c_str());
-
-    // Heap-allocate callback data; destroyed by the GClosureNotify below.
-    auto* data = new MenuItemCallbackData{this, item.id};
-    g_signal_connect_data(
-        menu_item, "activate",
-        G_CALLBACK(OnMenuItemActivated), data,
-        [](gpointer p, GClosure*) {
-          delete static_cast<MenuItemCallbackData*>(p);
-        },
-        static_cast<GConnectFlags>(0));
-
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-  }
-  gtk_widget_show_all(menu);
-
-  // Popup at the current pointer position.
-  // gtk_menu_popup_at_pointer requires GTK >= 3.22 (Ubuntu 18.04+).
-#if GTK_CHECK_VERSION(3, 22, 0)
-  gtk_menu_popup_at_pointer(GTK_MENU(menu), nullptr);
-#else
-  gtk_menu_popup(GTK_MENU(menu), nullptr, nullptr, nullptr, nullptr, 3,
-                  GDK_CURRENT_TIME);
-#endif
-}
-
-// static
-void FloatingOverlayHost::OnMenuItemActivated(GtkMenuItem* /*item*/,
-                                               gpointer user_data) {
-  auto* data = static_cast<MenuItemCallbackData*>(user_data);
-  g_autoptr(FlValue) args = fl_value_new_map();
-  fl_value_set_string_take(args, "action",
-                            fl_value_new_string(data->id.c_str()));
-  data->host->InvokeMainChannel("onContextMenu", args);
+  ShowNativeMenu(context_menu_, [this](const std::string& id) {
+    g_autoptr(FlValue) args = fl_value_new_map();
+    fl_value_set_string_take(args, "action", fl_value_new_string(id.c_str()));
+    InvokeMainChannel("onContextMenu", args);
+  });
 }
 
 // ── Drag / position tracking ──────────────────────────────────────────────────
@@ -451,6 +465,10 @@ void FloatingOverlayHost::OnWindowMoved(int x, int y, void* user_data) {
     self->suppress_next_configure_ = false;
     return;
   }
+  // The drag mover's own steps; it reports the end position itself.
+  if (self->drag_mover_.IsActive()) return;
+  // The configure-event of the mover's last step, already reported.
+  if (x == self->pending_x_ && y == self->pending_y_) return;
 
   // Store the new raw position (drag mode = "topLeft").
   self->pending_x_ = x;
@@ -461,6 +479,26 @@ void FloatingOverlayHost::OnWindowMoved(int x, int y, void* user_data) {
   g_autoptr(FlValue) args = fl_value_new_map();
   fl_value_set_string_take(args, "x", fl_value_new_float(static_cast<double>(x)));
   fl_value_set_string_take(args, "y", fl_value_new_float(static_cast<double>(y)));
+  fl_value_set_string_take(args, "anchorMode", fl_value_new_string("topLeft"));
+  self->InvokeMainChannel("onDragEnded", args);
+}
+
+// static
+void FloatingOverlayHost::OnDragEnded(int x, int y, void* user_data) {
+  auto* self = static_cast<FloatingOverlayHost*>(user_data);
+  // A pill dropped half off-screen snaps back inside the work area.
+  auto [rx, ry] = self->ResolvePosition(x, y, "topLeft");
+  if (rx != x || ry != y) {
+    self->suppress_next_configure_ = true;
+    self->overlay_window_->MoveTo(rx, ry);
+  }
+  self->pending_x_ = rx;
+  self->pending_y_ = ry;
+  self->pending_anchor_mode_ = "topLeft";
+
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "x", fl_value_new_float(static_cast<double>(rx)));
+  fl_value_set_string_take(args, "y", fl_value_new_float(static_cast<double>(ry)));
   fl_value_set_string_take(args, "anchorMode", fl_value_new_string("topLeft"));
   self->InvokeMainChannel("onDragEnded", args);
 }

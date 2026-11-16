@@ -24,6 +24,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/services/download_error_kind.dart';
+import 'package:whispaste/services/file_verification_service.dart';
+import 'package:whispaste/services/free_disk_space.dart';
 import 'package:whispaste/services/http_model_fetcher.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' show sttDirOverride;
@@ -35,7 +39,7 @@ enum _FetchBehaviour {
   /// Writes [_FakeFetcher.fileContent] bytes to [destPath] and succeeds.
   succeed,
 
-  /// Throws a [DioException] of type [DioExceptionType.unknown].
+  /// Throws a [DioException] with the configured error type.
   networkError,
 
   /// Throws a [DioException] of type [DioExceptionType.cancel].
@@ -50,7 +54,13 @@ enum _FetchBehaviour {
 }
 
 class _FakeFetcher extends HttpModelFetcher {
-  _FakeFetcher({this.behaviour = _FetchBehaviour.succeed, this.fileContent});
+  _FakeFetcher({
+    this.behaviour = _FetchBehaviour.succeed,
+    this.fileContent,
+    this.errorType = DioExceptionType.unknown,
+  });
+
+  final DioExceptionType errorType;
 
   _FetchBehaviour behaviour;
 
@@ -94,7 +104,7 @@ class _FakeFetcher extends HttpModelFetcher {
       case _FetchBehaviour.networkError:
         throw DioException(
           requestOptions: RequestOptions(path: url),
-          type: DioExceptionType.unknown,
+          type: errorType,
           message: 'connection refused',
         );
 
@@ -128,16 +138,44 @@ class _FakeFetcher extends HttpModelFetcher {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Creates a [ProviderContainer] whose [ModelDownloadNotifier] uses [fetcher].
-///
-/// The container overrides [modelDownloadProvider] so that the notifier's
-/// [fetcherOverride] is set before [build] runs.
-ProviderContainer _makeContainer({required _FakeFetcher fetcher}) {
+class _AcceptingVerifier extends FileVerificationService {
+  final calls = <(String, String)>[];
+
+  @override
+  Future<VerificationResult> verifyStamped(
+    File file,
+    String expectedHash,
+  ) async {
+    calls.add((file.path, expectedHash));
+    expect(await file.length(), greaterThan(0));
+    return const VerificationOk();
+  }
+}
+
+class _MemorySettings extends SettingsNotifier {
+  @override
+  Future<AppSettings> build() async =>
+      AppSettings.defaults.copyWith(sttModel: 'whisper-medium');
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    state = AsyncData(updater(state.requireValue));
+  }
+}
+
+/// Injects dependencies before the notifier's initial disk scan starts.
+ProviderContainer _makeContainer({
+  required _FakeFetcher fetcher,
+  FileVerificationService? verifier,
+}) {
   return ProviderContainer(
     overrides: [
+      settingsProvider.overrideWith(_MemorySettings.new),
+      freeDiskSpaceProbeProvider.overrideWithValue((_) async => 10 << 30),
       modelDownloadProvider.overrideWith(() {
         final notifier = ModelDownloadNotifier();
         notifier.fetcherOverride = fetcher;
+        notifier.verifierOverride = verifier;
         return notifier;
       }),
     ],
@@ -147,6 +185,7 @@ ProviderContainer _makeContainer({required _FakeFetcher fetcher}) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Directory tempDir;
 
   setUp(() async {
@@ -164,120 +203,61 @@ void main() {
   // ────────────────────────────────────────────────────────────────────────────
 
   group('AC1: Successful download', () {
-    test('transitions idle → downloading → verifying → done', () async {
-      // Pick whisper-small; use synthetic bytes (SHA256 will mismatch registry).
-      const modelId = 'whisper-small';
-      final model = findSttModel(modelId)!;
-      final fakeBytes = List<int>.generate(128, (i) => i & 0xFF);
+    for (final alreadyExists in [false, true]) {
+      test(
+        'verified model becomes done (already exists: $alreadyExists)',
+        () async {
+          const modelId = 'whisper-small';
+          final model = findSttModel(modelId)!;
+          final destPath = p.join(tempDir.path, model.filename);
+          if (alreadyExists) {
+            await File(destPath).writeAsBytes([1, 2, 3]);
+          }
+          // Hash correctness is covered by file_verification_service_test.dart;
+          // this checks the download pipeline's handoff and success transition.
+          final verifier = _AcceptingVerifier();
+          final fetcher = _FakeFetcher();
+          final container = _makeContainer(
+            fetcher: fetcher,
+            verifier: verifier,
+          );
+          addTearDown(container.dispose);
+          final notifier = container.read(modelDownloadProvider.notifier);
+          await notifier.awaitInitialScan();
+          await container.read(settingsProvider.future);
+          final phases = <DownloadPhase>[];
+          final sub = container.listen(
+            modelDownloadProvider,
+            (_, s) => phases.add(s.phase),
+          );
+          addTearDown(sub.close);
 
-      // Patch the model's SHA256 at runtime is not possible (const list).
-      // Instead, write the file with content whose hash matches the *real*
-      // sha256 field in the registry.  That means we need the actual registry
-      // hash.  For snapshot purposes, we verify the *state sequence* only and
-      // accept that SHA256 will mismatch — we handle that in AC4.
-      //
-      // Alternative: use writeBadContent + accept error, but that tests AC4.
-      // Here we write bytes whose hash matches the registry hash.
-      //
-      // Since we can't override a const, write bytes that SHA256 to the
-      // registry value.  We can't fabricate those bytes trivially, so instead
-      // we verify partial state sequence and use a separate helper model entry.
-      //
-      // Simplest correct approach: fake the fetcher to write a file, then
-      // manually write the correct hash so verification passes by overriding
-      // the file after the fetch.  We validate state transitions up to
-      // verifying, then patch.
+          await notifier.downloadModel(modelId);
 
-      // We'll collect all state snapshots.
-      final states = <DownloadPhase>[];
-
-      // Use a fetcher that writes `fakeBytes`.  SHA256 will mismatch the
-      // registry, so we intercept the state stream to verify the sequence
-      // up to `verifying`, then check that `error` (mismatch) is reached.
-      // Full success is tested in the resumeSucceed/sha256 test below.
-      final fetcher = _FakeFetcher(
-        behaviour: _FetchBehaviour.succeed,
-        fileContent: fakeBytes,
+          expect(verifier.calls, [(destPath, model.sha256)]);
+          expect(fetcher.fetchCalled, !alreadyExists);
+          if (!alreadyExists) expect(fetcher.lastUrl, model.url);
+          expect(
+            phases,
+            containsAllInOrder([
+              DownloadPhase.downloading,
+              DownloadPhase.verifying,
+              DownloadPhase.done,
+            ]),
+          );
+          final state = container.read(modelDownloadProvider);
+          expect(state.phase, DownloadPhase.done);
+          expect(state.activeModelId, modelId);
+          expect(state.progressPercent, 100);
+          expect(state.downloadedModels, contains(modelId));
+          expect(state.isBusy, isFalse);
+          expect(
+            container.read(settingsProvider).requireValue.sttModel,
+            modelId,
+          );
+        },
       );
-      final container = _makeContainer(fetcher: fetcher);
-      addTearDown(container.dispose);
-
-      final notifier = container.read(modelDownloadProvider.notifier);
-
-      final sub = container.listen(
-        modelDownloadProvider,
-        (_, s) => states.add(s.phase),
-      );
-      addTearDown(sub.close);
-
-      await notifier.downloadModel(modelId);
-
-      // The state should have gone: downloading → verifying → error
-      // (error because SHA256 mismatch with fakeBytes vs registry hash).
-      expect(states, containsAllInOrder([DownloadPhase.downloading]));
-      expect(states, contains(DownloadPhase.verifying));
-      // Fetcher was actually called.
-      expect(fetcher.fetchCalled, isTrue);
-      expect(fetcher.lastUrl, model.url);
-    });
-
-    test(
-      'state is done when file bytes match model sha256',
-      () async {
-        // We can only test this with a real SHA256 match.
-        // Use whisper-small and pre-compute bytes that hash to the registry value.
-        // Since we cannot trivially fabricate a SHA256 preimage, we write a
-        // dummy file and patch the file *in place* to the real registry hash
-        // bytes — but we can't do that either.
-        //
-        // Strategy: write the file manually to destPath before downloadModel,
-        // so the "already exists → verify" branch is taken. If the file has
-        // the correct hash, markModelDone is called.
-        //
-        // Skip for now with a known-good model: we write bytes that hash to
-        // a known value, then we create a fake SttModelInfo... but the registry
-        // is const so we can't inject a fake model.
-        //
-        // Pragmatic decision: the "done" state transition is exercised by the
-        // "already exists + correct hash" branch below.
-        const modelId = 'whisper-small';
-        final model = findSttModel(modelId)!;
-
-        // Pre-write a file with the correct hash by downloading it (fake).
-        // We compute bytes that hash to model.sha256.  Since we can't do that,
-        // we read the expected hash and use a real file whose hash matches.
-        //
-        // For the snapshot test, we verify: if the file exists and hash is
-        // correct, the state goes to done.  We simulate this by writing a
-        // file whose SHA256 equals the registry value — which requires knowing
-        // the actual hash, not fabricating matching bytes.
-        //
-        // We write a temp file and verify the hash ourselves, accepting that
-        // the hash won't match the registry for synthetic bytes.  Then we
-        // use the "already exists" path but with a CORRECT hash that we
-        // constructed.
-        //
-        // Since this is impossible without computing a SHA256 preimage, we
-        // test the `done` state via the `_scanExisting` route: write the file
-        // on disk before reading the provider, and the initial scan marks it
-        // as downloaded.
-        final destPath = p.join(tempDir.path, model.filename);
-        await File(destPath).writeAsBytes([0]);
-
-        // No-op fetcher.
-        final fetcher = _FakeFetcher(behaviour: _FetchBehaviour.succeed);
-        final container = _makeContainer(fetcher: fetcher);
-        addTearDown(container.dispose);
-
-        // The initial scan should find the model as downloaded.
-        final state = container.read(modelDownloadProvider);
-        expect(state.downloadedModels, contains(modelId));
-        expect(state.phase, DownloadPhase.idle);
-      },
-      skip:
-          'SHA256 preimage cannot be fabricated; done-state covered '
-          'by scan test',
-    );
+    }
   });
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -285,6 +265,34 @@ void main() {
   // ────────────────────────────────────────────────────────────────────────────
 
   group('AC2: Network error', () {
+    for (final (type, kind) in [
+      (DioExceptionType.connectionTimeout, DownloadErrorKind.offline),
+      (DioExceptionType.sendTimeout, DownloadErrorKind.network),
+      (DioExceptionType.receiveTimeout, DownloadErrorKind.network),
+    ]) {
+      test(
+        '$type leaves the download retryable without activating a model',
+        () async {
+          final fetcher = _FakeFetcher(
+            behaviour: _FetchBehaviour.networkError,
+            errorType: type,
+          );
+          final container = _makeContainer(fetcher: fetcher);
+          addTearDown(container.dispose);
+          await container
+              .read(modelDownloadProvider.notifier)
+              .downloadModel('whisper-small');
+
+          final state = container.read(modelDownloadProvider);
+          expect(fetcher.fetchCalled, isTrue);
+          expect(state.phase, DownloadPhase.error);
+          expect(state.errorKind, kind);
+          expect(state.isBusy, isFalse);
+          expect(state.downloadedModels, isNot(contains('whisper-small')));
+        },
+      );
+    }
+
     test('transitions to error phase on DioException', () async {
       const modelId = 'whisper-small';
 

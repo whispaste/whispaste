@@ -10,11 +10,13 @@
 /// it has always done.
 library;
 
-import 'dart:io';
-
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
@@ -45,14 +47,18 @@ List<Object> _sampleOverrides() {
   final archived = all.where((e) => e.archived && e.deletedAt == null).toList();
   final trash = all.where((e) => e.deletedAt != null).toList();
   return [
-    historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
+    pagedHistoryProvider.overrideWith((ref) => Stream.value(active)),
+    // The list carries no full text since #1333; the detail panel loads it.
+    historyFullEntryProvider.overrideWith(
+      (ref, id) => Stream.value(all.where((e) => e.id == id).firstOrNull),
+    ),
     archivedEntriesProvider.overrideWith((ref) => Stream.value(archived)),
     trashEntriesProvider.overrideWith((ref) => Stream.value(trash)),
   ];
 }
 
 Future<void> _pressShortcut(WidgetTester tester, LogicalKeyboardKey key) async {
-  final modifier = Platform.isMacOS
+  final modifier = defaultTargetPlatform == TargetPlatform.macOS
       ? LogicalKeyboardKey.meta
       : LogicalKeyboardKey.control;
   await tester.sendKeyDownEvent(modifier);
@@ -73,11 +79,26 @@ TextEditingController _transcriptController(WidgetTester tester) => tester
     )
     .controller;
 
-/// Opens the first sample entry and switches its transcript to edit mode.
+/// Opens the first sample entry and focuses its transcript editor.
 Future<void> _openTranscriptEditor(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1800, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  // The detail panel loads its entry from the database by id.
+  final first = generateSampleEntries().first;
+  final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+  await db.insertHistoryEntry(
+    HistoryEntriesCompanion.insert(
+      id: first.id,
+      timestamp: first.timestamp,
+      content: Value(first.content),
+      title: Value(first.title),
+    ),
+  );
   await tester.pumpWidget(
     makeTestable(
       const HistoryPage(),
+      db: db,
       size: const Size(1800, 900),
       overrides: _sampleOverrides(),
       locale: const Locale('en'),
@@ -88,12 +109,12 @@ Future<void> _openTranscriptEditor(WidgetTester tester) async {
   await tester.tap(find.text('Meeting notes — Product roadmap Q3').first);
   await tester.pumpAndSettle();
 
-  // The read view of the transcript carries the "Edit transcript" tooltip and
-  // opens edit mode on tap.
-  final readView = find.byTooltip(l10n.historyEditTranscript).first;
-  await tester.ensureVisible(readView);
-  await tester.pumpAndSettle();
-  await tester.tap(readView, warnIfMissed: false);
+  // The transcript is written directly (#1498); a tap puts the focus in it.
+  await tester.tap(
+    find.byWidgetPredicate(
+      (w) => w is WpTextField && w.variant == WpTextFieldVariant.passage,
+    ),
+  );
   await tester.pumpAndSettle();
 
   expect(
@@ -101,14 +122,25 @@ Future<void> _openTranscriptEditor(WidgetTester tester) async {
       (w) => w is WpTextField && w.variant == WpTextFieldVariant.passage,
     ),
     findsOneWidget,
-    reason: 'transcript edit mode did not open',
+    reason: 'transcript editor is not on screen',
   );
 }
 
-/// Drains Drift/Riverpod teardown timers before the framework's
+/// Taps a toolbar control after scrolling it to the middle of the pane. The
+/// edit pill sits below the transcript, so opening the editor leaves the
+/// toolbar (#638: it stays above the text) at the pane's top edge, under the
+/// page header.
+Future<void> _tapInView(WidgetTester tester, Finder finder) async {
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+}
+
+/// Drains the metadata preview debounce and Drift/Riverpod teardown timers before the framework's
 /// `!timersPending` invariant runs.
 Future<void> _teardownTree(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(milliseconds: 200));
   await tester.pumpAndSettle();
 }
 
@@ -165,8 +197,8 @@ void main() {
 
   // The find bar's own Escape handling only matters here. Pumped standalone,
   // the bar closes on Escape because nothing else wants the key; inside the
-  // detail panel, Escape is already bound to `_saveTranscript()`, which leaves
-  // edit mode and takes the toolbar — and the bar — down with it. Both paths
+  // detail panel, Escape is already bound to closing the panel, which takes the
+  // toolbar — and the bar — down with it. Both paths
   // end with the bar gone, so "the bar disappeared" proves nothing. The
   // load-bearing assertion is that the transcript is *still* being edited.
   testWidgets(
@@ -175,7 +207,7 @@ void main() {
       _ignoreOverflowErrors();
       await _openTranscriptEditor(tester);
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await _tapInView(tester, find.bySemanticsLabel(l10n.findReplaceToggle));
       await tester.pumpAndSettle();
       expect(find.byType(WpFindReplaceBar), findsOneWidget);
 
@@ -200,7 +232,7 @@ void main() {
         ),
         findsOneWidget,
         reason:
-            'Escape reached the panel and saved the transcript instead of being '
+            'Escape reached the panel and closed it instead of being '
             'consumed by the find bar',
       );
 
@@ -211,7 +243,7 @@ void main() {
   // The other half of the same contract: with the bar shut, Escape must still
   // do what it always did. A find bar that swallowed the key permanently
   // would pass the test above and still be a regression.
-  testWidgets('Escape still leaves transcript edit mode when the bar is shut', (
+  testWidgets('Escape still closes the panel when the bar is shut', (
     tester,
   ) async {
     _ignoreOverflowErrors();
@@ -240,9 +272,10 @@ void main() {
     final original = controller.text;
     controller.selection = const TextSelection(baseOffset: 0, extentOffset: 2);
 
-    await tester.tap(
+    await _tapInView(
+      tester,
       find.bySemanticsLabel(
-        l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel),
+        l10n.markdownToolbarBold(WpMarkdownFormatting.boldShortcutLabel(l10n)),
       ),
     );
     await tester.pump();

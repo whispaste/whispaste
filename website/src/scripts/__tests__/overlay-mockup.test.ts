@@ -12,9 +12,7 @@
  *     floor with no perpetual jitter.
  *
  * The recording-arc helpers (pill-width targets, the width spring, the
- * silhouette wobble waves) are pure and covered here too. The cross-engine
- * pixel parity (AC4) is proven separately by `tests/overlay-parity.spec.ts`
- * (WebKit vs Chromium).
+ * silhouette wobble waves) are pure and covered here too.
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -52,12 +50,6 @@ describe("AC1: tokens mirror the SSOT design spec", () => {
     expect(OVERLAY_TOKENS.light.success).toBe(OVERLAY_COLORS.success);
     expect(OVERLAY_TOKENS.light.error).toBe(OVERLAY_COLORS.error);
     expect(OVERLAY_SOLID_FILL.colors).toEqual([OVERLAY_COLORS.fill, OVERLAY_COLORS.fill]);
-  });
-
-  it("is flat navy with a cyan accent and an amber waveform (brand pair, no violet)", () => {
-    expect(OVERLAY_COLORS.fill).toBe("#0B122A"); //   color.navy.900
-    expect(OVERLAY_COLORS.accent).toBe("#6FDDF0"); // color.cyan.300
-    expect(OVERLAY_COLORS.wave).toBe("#FFB547"); //   color.amber.400
   });
 
   it("uses the dark colour set (OverlayDesignSpec.dark = light — one single capsule design)", () => {

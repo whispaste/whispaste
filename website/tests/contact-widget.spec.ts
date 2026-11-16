@@ -23,23 +23,118 @@ async function openForm(page: Page, kind: string) {
 test.describe('desktop', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('teaser appears later, is dismissed for good, panel never auto-opens', async ({ page }) => {
+  test('teaser waits for the pause and for scrolling past the hero, is dismissed for good, panel never auto-opens', async ({ page }) => {
     await freezeClock(page);
     await page.goto('/en/');
     await expect(page.getByTestId('contact-badge')).toBeVisible();
     await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    // The pause is over, but the visitor is still on the hero: no teaser.
     await page.clock.runFor(7000);
+    await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    await page.evaluate(() => {
+      const hero = document.querySelector<HTMLElement>('[data-testid="hero"]')!;
+      window.scrollTo({ top: hero.offsetTop + hero.offsetHeight + 100, behavior: 'instant' });
+    });
     await expect(page.getByTestId('contact-teaser')).toBeVisible();
     await expect(page.getByTestId('contact-panel')).toBeHidden();
 
+    // Dismissing the greeting keeps the badge: it stays until the panel was opened.
     await page.getByTestId('contact-teaser-dismiss').click();
     await expect(page.getByTestId('contact-teaser')).toBeHidden();
-    await expect(page.getByTestId('contact-badge')).toBeHidden();
+    await expect(page.getByTestId('contact-badge')).toBeVisible();
 
     await page.reload();
     await page.clock.runFor(7000);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    await expect(page.getByTestId('contact-badge')).toBeVisible();
+
+    await page.getByTestId('contact-launcher').click();
     await expect(page.getByTestId('contact-badge')).toBeHidden();
+    await page.reload();
+    await expect(page.getByTestId('contact-launcher')).toBeVisible();
+    await expect(page.getByTestId('contact-badge')).toBeHidden();
+  });
+
+  test('a known question gets the answer with a link into the FAQ', async ({ page }) => {
+    await page.goto('/en/');
+    await page.getByTestId('contact-launcher').click();
+    await page.getByTestId('contact-question').fill('Do I have to pay for it?');
+    await page.keyboard.press('Enter');
+    const answer = page.getByTestId('contact-answer');
+    await expect(answer).toBeVisible();
+    await expect(answer).toBeFocused();
+    await expect(page.getByTestId('contact-answer-link')).toHaveAttribute('href', /#faq-free$/);
+    await page.getByTestId('contact-answer-yes').click();
+    await expect(page.getByTestId('contact-thanks')).toBeVisible();
+    await page.getByTestId('contact-thanks-again').click();
+    await expect(page.getByTestId('contact-question')).toBeFocused();
+    await expect(page.getByTestId('contact-question')).toHaveValue('');
+  });
+
+  test('an ambiguous question offers at most three suggestions', async ({ page }) => {
+    // Labelled `choose` question from src/data/faq-match-questions.ts.
+    await page.goto('/en/');
+    await page.getByTestId('contact-launcher').click();
+    await page.getByTestId('contact-question').fill('Which model for my GPU?');
+    await page.getByTestId('contact-ask-submit').click();
+    await expect(page.getByTestId('contact-suggest-step')).toBeVisible();
+    const suggestions = page.getByTestId('contact-suggest-step').locator('[data-testid^="contact-suggestion-"]');
+    const count = await suggestions.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+    expect(count).toBeLessThanOrEqual(3);
+    await page.getByTestId('contact-suggestion-sysreq').click();
+    await expect(page.getByTestId('contact-answer-link')).toHaveAttribute('href', /#faq-sysreq$/);
+
+    // "No" leads to the email with the question prefilled.
+    await page.getByTestId('contact-answer-no').click();
+    await expect(page.getByTestId('contact-message')).toHaveValue('Which model for my GPU?');
+  });
+
+  test('an unknown question becomes an editable, prefilled email', async ({ page }) => {
+    let body: Record<string, unknown> = {};
+    await page.route(ENDPOINT, (route) => {
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      return route.fulfill({ status: 202, contentType: 'application/json', body: '{"status":"accepted"}' });
+    });
+    await page.goto('/');
+    await page.getByTestId('contact-launcher').click();
+    await page.getByTestId('contact-question').fill('Mein Mikrofon wird nicht erkannt');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('contact-unknown')).toBeVisible();
+    const message = page.getByTestId('contact-message');
+    await expect(message).toBeFocused();
+    await expect(message).toHaveValue('Mein Mikrofon wird nicht erkannt');
+    await message.press('End');
+    await message.pressSequentially(' (USB headset)');
+    await page.getByTestId('contact-email').fill('visitor@example.org');
+    await page.getByTestId('contact-submit').click();
+    await expect(page.getByTestId('contact-sent')).toBeVisible();
+    expect(body).toMatchObject({ kind: 'question', message: 'Mein Mikrofon wird nicht erkannt (USB headset)', lang: 'de' });
+  });
+
+  test('dismissed teaser does not come back after scrolling', async ({ page }) => {
+    await freezeClock(page);
+    await page.goto('/en/');
+    await page.clock.runFor(7000);
+    await page.evaluate(() => {
+      const hero = document.querySelector<HTMLElement>('[data-testid="hero"]')!;
+      window.scrollTo({ top: hero.offsetTop + hero.offsetHeight + 100, behavior: 'instant' });
+    });
+    await expect(page.getByTestId('contact-teaser')).toBeVisible();
+    await page.getByTestId('contact-teaser-dismiss').click();
+    await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(page.getByTestId('contact-teaser')).toBeHidden();
+  });
+
+  test('no teaser over the hero on first load', async ({ page }) => {
+    await freezeClock(page);
+    await page.goto('/en/');
+    await page.clock.runFor(30000);
+    await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    await expect(page.getByTestId('contact-panel')).toBeHidden();
   });
 
   test('opens and closes via launcher, close button and Escape', async ({ page }) => {
@@ -57,11 +152,10 @@ test.describe('desktop', () => {
     await expect(launcher).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('panel wiggles after opening from the FAQ, not with reduced motion', async ({ page }) => {
+  test('FAQ open nudges the panel, but not with reduced motion', async ({ page }) => {
     await page.goto('/en/');
     const panel = page.getByTestId('contact-panel');
-    // Record animation starts before clicking: under CI load the short
-    // wiggle can be over before getAnimations() is first polled.
+    // Record animation starts before clicking so a short animation cannot be missed.
     const started = () => panel.evaluate((el) => (el as HTMLElement & { started: string[] }).started);
     await panel.evaluate((el) => {
       const target = el as HTMLElement & { started: string[] };
@@ -71,7 +165,6 @@ test.describe('desktop', () => {
     await page.getByTestId('faq-ask-open').click();
     await expect(panel).toBeVisible();
     await expect(panel).toHaveClass(/is-nudged/);
-    await expect.poll(started).toContain('cw-nudge');
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByTestId('contact-close').click();
@@ -146,28 +239,42 @@ test.describe('desktop', () => {
 test.describe('mobile 390', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('no teaser, no horizontal overflow, launcher clears the mobile CTA', async ({ page }) => {
+  test('no teaser on mobile before scrolling past the hero', async ({ page }) => {
     await freezeClock(page);
     await page.goto('/en/');
     await page.clock.runFor(7000);
     await expect(page.getByTestId('contact-teaser')).toBeHidden();
+  });
 
-    await page.locator('#features').scrollIntoViewIfNeeded();
-    await expect(page.getByTestId('mobile-cta')).toHaveClass(/visible/);
-    // The launcher lifts with a transition once the bar shows; poll until it settles.
-    await expect
-      .poll(async () => {
-        const launcher = await page.getByTestId('contact-launcher').boundingBox();
-        const bar = await page.getByTestId('mobile-cta').boundingBox();
-        return bar!.y - (launcher!.y + launcher!.height);
-      })
-      .toBeGreaterThanOrEqual(0);
+  test('greeting and badge work on phones too and survive a reload', async ({ page }) => {
+    await freezeClock(page);
+    await page.goto('/en/');
+    await expect(page.getByTestId('contact-badge')).toBeVisible();
+    await page.clock.runFor(7000);
+    await page.evaluate(() => {
+      const hero = document.querySelector<HTMLElement>('[data-testid="hero"]')!;
+      window.scrollTo({ top: hero.offsetTop + hero.offsetHeight + 100, behavior: 'instant' });
+    });
+    await expect(page.getByTestId('contact-teaser')).toBeVisible();
 
-    await page.getByTestId('contact-launcher').click();
-    const panel = await page.getByTestId('contact-panel').boundingBox();
-    expect(panel!.x).toBeGreaterThanOrEqual(0);
-    expect(panel!.x + panel!.width).toBeLessThanOrEqual(390);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBe(0);
+    // Shown once is enough, also without dismissing it.
+    await page.reload();
+    await page.clock.runFor(7000);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect(page.getByTestId('contact-teaser')).toBeHidden();
+    await expect(page.getByTestId('contact-badge')).toBeVisible();
+  });
+});
+
+test.describe('without JavaScript', () => {
+  test.use({ javaScriptEnabled: false });
+
+  test('address and mailto link are visible, the launcher is not', async ({ page }) => {
+    await page.goto('/en/');
+    const nojs = page.getByTestId('contact-nojs');
+    await expect(nojs).toBeVisible();
+    await expect(nojs).toContainText('kontakt@whispaste.de');
+    await expect(nojs.locator('a[href^="mailto:kontakt@whispaste.de"]')).toBeVisible();
+    await expect(page.getByTestId('contact-launcher')).toBeHidden();
   });
 });

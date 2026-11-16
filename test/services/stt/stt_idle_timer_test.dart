@@ -1,6 +1,7 @@
 /// Unit tests for SttIdleTimer.
 library;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/stt/stt_idle_timer.dart';
@@ -26,48 +27,56 @@ void main() {
       expect(timer.isActive, isFalse);
     });
 
-    test('callback fires after timeout elapses', () async {
-      final timer = SttIdleTimer();
-      var fired = false;
-      timer.start(const Duration(milliseconds: 30), () => fired = true);
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      expect(fired, isTrue);
+    test('callback fires after timeout elapses', () {
+      fakeAsync((async) {
+        final timer = SttIdleTimer();
+        var fired = false;
+        timer.start(const Duration(milliseconds: 30), () => fired = true);
+        async.elapse(const Duration(milliseconds: 60));
+        expect(fired, isTrue);
+      });
     });
 
-    test('cancel() prevents callback from firing', () async {
-      final timer = SttIdleTimer();
-      var fired = false;
-      timer.start(const Duration(milliseconds: 50), () => fired = true);
-      timer.cancel();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(fired, isFalse);
+    test('cancel() prevents callback from firing', () {
+      fakeAsync((async) {
+        final timer = SttIdleTimer();
+        var fired = false;
+        timer.start(const Duration(milliseconds: 50), () => fired = true);
+        timer.cancel();
+        async.elapse(const Duration(milliseconds: 100));
+        expect(fired, isFalse);
+      });
     });
 
-    test('start() re-arms when called while already active', () async {
-      final timer = SttIdleTimer();
-      var count = 0;
-      timer.start(const Duration(milliseconds: 30), () => count++);
-      // Re-arm before the first fires.
-      await Future<void>.delayed(const Duration(milliseconds: 15));
-      timer.start(const Duration(milliseconds: 30), () => count++);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      // Only the second timer should have fired.
-      expect(count, 1);
-      timer.cancel();
+    test('start() re-arms when called while already active', () {
+      fakeAsync((async) {
+        final timer = SttIdleTimer();
+        var count = 0;
+        timer.start(const Duration(milliseconds: 30), () => count++);
+        // Re-arm before the first fires.
+        async.elapse(const Duration(milliseconds: 15));
+        timer.start(const Duration(milliseconds: 30), () => count++);
+        async.elapse(const Duration(milliseconds: 50));
+        // Only the second timer should have fired.
+        expect(count, 1);
+        timer.cancel();
+      });
     });
 
-    test('reset() re-arms with the same duration', () async {
-      final timer = SttIdleTimer();
-      var fired = false;
-      timer.start(const Duration(milliseconds: 40), () => fired = true);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      timer.reset();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      // Should not have fired yet (reset extended it).
-      expect(fired, isFalse);
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(fired, isTrue);
-      timer.cancel();
+    test('reset() re-arms with the same duration', () {
+      fakeAsync((async) {
+        final timer = SttIdleTimer();
+        var fired = false;
+        timer.start(const Duration(milliseconds: 40), () => fired = true);
+        async.elapse(const Duration(milliseconds: 20));
+        timer.reset();
+        async.elapse(const Duration(milliseconds: 30));
+        // Should not have fired yet (reset extended it).
+        expect(fired, isFalse);
+        async.elapse(const Duration(milliseconds: 30));
+        expect(fired, isTrue);
+        timer.cancel();
+      });
     });
 
     test('reset() is a no-op when start() was never called', () {

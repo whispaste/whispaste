@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/config/settings_labels.dart';
@@ -11,7 +12,9 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_dropdown.dart';
+import '../../widgets/wp_focus_ring.dart';
 import '../../widgets/wp_text_field.dart';
+import 'widgets/wp_settings_group.dart';
 
 // ---------------------------------------------------------------------------
 // SettingRow — single row with icon, label, optional subtitle, and control
@@ -21,6 +24,9 @@ import '../../widgets/wp_text_field.dart';
 /// Exposed so callers that render a heading above a bare, frameless row can
 /// put it on the same start edge instead of guessing the value.
 const double kSettingRowInset = WpSpacing.sm;
+
+/// Widest a settings dropdown may be in a [SettingRow]; its label ellipsizes.
+const double kSettingDropdownMaxWidth = 240;
 
 /// Width of the leading icon column plus the gap after it, measured from the
 /// row's own inset. [SettingRow] draws its label on this offset.
@@ -43,15 +49,19 @@ class SettingRow extends StatefulWidget {
     this.subtitle,
     // When the row hosts a toggle, pass the current on/off state here so
     // screen-readers announce "on" / "off" alongside the label.
-    this.semanticToggledValue,
+    this.switchNamesRow = false,
     this.trailingHugsLabel = false,
     this.iconSize = WpIconSize.sm,
     this.badge,
     this.badgeKey,
+    this.testId,
   });
 
   final IconData icon;
   final String label;
+
+  /// Stable id, exposed as the accessibility identifier (`<screen>-<element>`).
+  final String? testId;
 
   /// Short status word shown as a [WpAccentBadge] after [label] (e.g.
   /// "Experimental"); also appended to the row's semantics label.
@@ -88,9 +98,11 @@ class SettingRow extends StatefulWidget {
   /// scales rather than one line — see the ticket's P5.
   final double iconSize;
 
-  /// When non-null, the Semantics node carries `toggled: semanticToggledValue`.
-  /// Pass this for every row whose [trailing] is a toggle switch.
-  final bool? semanticToggledValue;
+  /// True when a live [settingsToggle] sits in this row. The switch then
+  /// carries the name and the state, so a screen reader meets each once; the
+  /// row itself reads only its explanation. Leave false where the switch is
+  /// hidden from screen readers: the row then names itself.
+  final bool switchNamesRow;
 
   @override
   State<SettingRow> createState() => _SettingRowState();
@@ -126,9 +138,13 @@ class _SettingRowState extends State<SettingRow> {
     // four trailing shapes.
     final badge = widget.badge;
     return Semantics(
-      label: badge == null ? widget.label : '${widget.label}, $badge',
-      hint: widget.subtitle,
-      toggled: widget.semanticToggledValue,
+      label: widget.switchNamesRow
+          ? widget.subtitle
+          : badge == null
+          ? widget.label
+          : '${widget.label}, $badge',
+      hint: widget.switchNamesRow ? null : widget.subtitle,
+      identifier: widget.testId,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
@@ -162,14 +178,28 @@ class _SettingRowState extends State<SettingRow> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (badge == null)
-                          Text(widget.label, style: tt.bodyLarge)
+                          Text(
+                            widget.label,
+                            style: tt.bodyLarge?.copyWith(
+                              // Same palette as the row's card fill: the
+                              // theme text can come from another palette.
+                              color: WpColors.textPrimary,
+                            ),
+                          )
                         else
                           Wrap(
                             spacing: WpSpacing.xs,
                             runSpacing: WpSpacing.xxs,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(widget.label, style: tt.bodyLarge),
+                              Text(
+                                widget.label,
+                                style: tt.bodyLarge?.copyWith(
+                                  // Same palette as the row's card fill: the
+                                  // theme text can come from another palette.
+                                  color: WpColors.textPrimary,
+                                ),
+                              ),
                               WpAccentBadge(key: widget.badgeKey, label: badge),
                             ],
                           ),
@@ -232,20 +262,27 @@ class HotkeyDisplay extends StatelessWidget {
       displayOverride: hotkeyKeyDisplay,
     );
 
+    // macOS spells the caps as glyphs side by side (⌃ ⇧ E), so the "+" stays
+    // on the word platforms only.
+    final macGlyphs = hotkeyUsesMacGlyphs;
     final caps = <Widget>[
       for (int i = 0; i < parts.length; i++) ...[
         if (i > 0)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-            child: Text(
-              '+',
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w500,
-                color: WpColors.textMuted,
-              ),
-            ),
-          ),
+          macGlyphs
+              ? const SizedBox(width: WpSpacing.xxs)
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.xxs,
+                  ),
+                  child: Text(
+                    '+',
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      fontWeight: FontWeight.w500,
+                      color: WpColors.textMuted,
+                    ),
+                  ),
+                ),
         Container(
           // A key cap stands beside a dense "Change" button in every place
           // it is used, so it takes that height rather than whatever its
@@ -269,10 +306,10 @@ class HotkeyDisplay extends StatelessWidget {
             widthFactor: 1,
             child: Text(
               parts[i],
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: [const FontFeature.tabularFigures()],
                 color: WpColors.textPrimary,
               ),
             ),
@@ -281,13 +318,19 @@ class HotkeyDisplay extends StatelessWidget {
       ],
     ];
 
-    return wrap
-        ? Wrap(
-            runSpacing: WpSpacing.xxs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: caps,
-          )
-        : Row(mainAxisSize: MainAxisSize.min, children: caps);
+    // Key caps read left to right in every locale, as in the recorder
+    // (UX-024): under Hebrew the row would otherwise run right to left and
+    // show "D + Shift + Win" for "Win + Shift + D" (UX-089).
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: wrap
+          ? Wrap(
+              runSpacing: WpSpacing.xxs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: caps,
+            )
+          : Row(mainAxisSize: MainAxisSize.min, children: caps),
+    );
   }
 }
 
@@ -316,6 +359,7 @@ class HotkeyComboLine extends StatelessWidget {
     required this.hotkeyKeyDisplay,
     required this.onChange,
     this.changeButtonKey,
+    this.changeTestId,
     this.padding = const EdgeInsetsDirectional.fromSTEB(
       kSettingRowTextInset,
       WpSpacing.xxs,
@@ -340,6 +384,9 @@ class HotkeyComboLine extends StatelessWidget {
   /// unterscheidbar.
   final Key? changeButtonKey;
 
+  /// Stable id of the change button (`<screen>-<element>`), for UI tests.
+  final String? changeTestId;
+
   final EdgeInsetsGeometry padding;
 
   @override
@@ -360,9 +407,9 @@ class HotkeyComboLine extends StatelessWidget {
             hotkeyModifiers: hotkeyModifiers,
             hotkeyKeyDisplay: hotkeyKeyDisplay,
           ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
           WpButton(
             key: changeButtonKey,
+            testId: changeTestId,
             label: l10n.settingsChangeHotkey,
             variant: WpButtonVariant.secondary,
             onPressed: onChange,
@@ -391,7 +438,8 @@ class HotkeyComboLine extends StatelessWidget {
 ///
 /// [disabledItems] marks item values that are shown but not selectable (e.g.
 /// a feature unavailable in the current build/platform); [disabledTooltip]
-/// explains why when hovered. A `null` [value] shows the muted [hint] instead
+/// explains why when hovered, and [onLockedTap] answers a click on one of
+/// them (#1686). A `null` [value] shows the muted [hint] instead
 /// of a selection (e.g. a picker with no choice made yet); [expanded] makes
 /// the dropdown fill its parent's width and ellipsize long labels, for use
 /// inside an [Expanded] row slot rather than a trailing settings slot.
@@ -400,15 +448,21 @@ Widget settingsDropdown({
   required String? value,
   required List<String> items,
   List<String>? labels,
-  required ValueChanged<String?> onChanged,
+  required ValueChanged<String?>? onChanged,
   Set<String>? disabledItems,
   String? disabledTooltip,
+  ValueChanged<String>? onLockedTap,
   String? hint,
   bool expanded = false,
+  String? keyPrefix,
+  String? testId,
 }) {
-  return WpDropdown<String>(
+  final dropdown = WpDropdown<String>(
+    key: keyPrefix == null ? null : ValueKey<String>(keyPrefix),
     value: value,
-    expanded: expanded,
+    // Always fills its box: a content-width trigger overflows when its widest
+    // item is wider than the cap, so the cap below is what sizes it.
+    expanded: true,
     hint: hint,
     items: [
       for (final (index, item) in items.indexed)
@@ -417,10 +471,58 @@ Widget settingsDropdown({
           label: labels != null ? labels[index] : item,
           enabled: !(disabledItems?.contains(item) ?? false),
           disabledTooltip: disabledTooltip,
+          itemKey: keyPrefix == null
+              ? null
+              : ValueKey<String>('$keyPrefix-item-$item'),
         ),
     ],
     onChanged: onChanged,
+    onLockedTap: onLockedTap,
   );
+  // Capped so a narrow settings row keeps room for its label; the trigger
+  // ellipsizes a longer value. A caller that asks for an expanded dropdown
+  // gets its full slot.
+  final wrapped = Semantics(identifier: testId, child: dropdown);
+  if (expanded) return wrapped;
+  return ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: kSettingDropdownMaxWidth),
+    child: wrapped,
+  );
+}
+
+/// Trailing slot for a dropdown that shares its width with the other dropdowns
+/// of its group.
+///
+/// Every group member passes the same [labels] (all labels of the group's
+/// dropdowns), so they all get one width: the widest label, see
+/// [wpDropdownFitWidth]. The row caps that width by its own space, through the
+/// constraints the slot receives. Only a row too narrow for it ellipsizes the
+/// label.
+class SharedWidthDropdown extends StatelessWidget {
+  const SharedWidthDropdown({
+    super.key,
+    required this.labels,
+    required this.selectedLabel,
+    required this.child,
+  });
+
+  /// Every label any dropdown of the group can show.
+  final List<String> labels;
+
+  /// The label the trigger shows right now, unshortened. Given to assistive
+  /// technology as the value, so a truncated label still reads in full.
+  final String selectedLabel;
+
+  /// The dropdown itself, filling the width this slot gives it.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: wpDropdownFitWidth(context, labels),
+      child: Semantics(value: selectedLabel, child: child),
+    );
+  }
 }
 
 /// Themed slider with value label for settings.
@@ -434,7 +536,7 @@ Widget settingsSlider({
   required ValueChanged<double> onChanged,
   ValueChanged<double>? onChangeEnd,
 }) {
-  const accent = WpColors.accent;
+  final accent = WpColors.accent;
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -475,11 +577,11 @@ Widget settingsSlider({
         child: Text(
           valueLabel,
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w500,
             color: WpColors.textSecondary,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: [const FontFeature.tabularFigures()],
           ),
         ),
       ),
@@ -505,12 +607,46 @@ Widget settingsSlider({
 /// centre it in whatever row it sits in — inflating it to 48 would read as a
 /// cartoon of a switch, not as consistency. The 48 belongs to the *row*
 /// around it, which [SettingRow] already carries.
+///
+/// [label] names the switch for screen readers: the row's own text is excluded
+/// from the semantics tree, so a focused switch would otherwise read only
+/// "on" or "off". Required, so that no caller can leave it out.
+///
+/// A disabled toggle (null [onChanged]) with a [disabledReason] stays in the
+/// tab order, with the focus ring, so a keyboard user can land on it and hear
+/// why it is off: the reason becomes the hint. Without a reason there is
+/// nothing to hear, so it takes no focus (Flutter's disabled [Switch] never
+/// does).
 Widget settingsToggle({
+  required String label,
   required bool value,
   required ValueChanged<bool>? onChanged,
   Key? key,
+  String? testId,
+  String? disabledReason,
+  bool showOffState = false,
 }) {
-  return Switch(key: key, value: value, onChanged: onChanged);
+  final toggle = Switch(key: key, value: value, onChanged: onChanged);
+  final explainedOff = onChanged == null && disabledReason != null;
+  // Its own node: merged into the row it would lose [testId] to the row's id.
+  final node = Semantics(
+    container: true,
+    label: label,
+    identifier: testId,
+    hint: explainedOff ? disabledReason : null,
+    child: explainedOff ? WpFocusRing(child: toggle) : toggle,
+  );
+  if (!showOffState || value) return node;
+  // The switch's own state is read out already; the words are for the eye,
+  // so a switch that turns off a whole block says so without colour.
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      ExcludeSemantics(child: _SwitchedOffMarker()),
+      const SizedBox(width: WpSpacing.sm),
+      node,
+    ],
+  );
 }
 
 /// Password / API key field with visibility toggle.
@@ -526,39 +662,47 @@ Widget settingsApiKeyField({
   required VoidCallback onToggle,
   ValueChanged<String>? onChanged,
   String? semanticLabel,
+  String? fieldTestId,
+  String? visibilityTestId,
 }) {
   // The reveal toggle rides the field's own trailing slot, which is 48 dp
   // tall because the field is — so the button meets WpLayout.minTouchTarget
   // without the field having to be pinned to a shorter fixed height and
   // without the text ever running underneath the icon.
-  return SizedBox(
-    width: 280,
-    child: WpTextField(
-      controller: controller,
-      variant: WpTextFieldVariant.form,
-      semanticsLabel: semanticLabel,
-      hintText: 'sk-...',
-      obscureText: obscure,
-      onChanged: onChanged,
-      suffix: Semantics(
-        label: L10n.of(context).settingsToggleApiKeyVisibility,
-        button: true,
-        child: IconButton(
-          icon: Icon(
-            obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-            size: WpIconSize.sm,
-            color: WpColors.textMuted,
-          ),
-          onPressed: onToggle,
-          tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(
-            minWidth: WpLayout.minTouchTarget,
-            minHeight: WpLayout.minTouchTarget,
-          ),
+  final field = WpTextField(
+    key: fieldTestId == null ? null : ValueKey(fieldTestId),
+    controller: controller,
+    variant: WpTextFieldVariant.form,
+    semanticsLabel: semanticLabel,
+    hintText: 'sk-...',
+    obscureText: obscure,
+    onChanged: onChanged,
+    suffix: Semantics(
+      identifier: visibilityTestId,
+      label: L10n.of(context).settingsToggleApiKeyVisibility,
+      button: true,
+      child: IconButton(
+        key: visibilityTestId == null ? null : ValueKey(visibilityTestId),
+        icon: Icon(
+          obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+          size: WpIconSize.sm,
+          color: WpColors.textMuted,
+        ),
+        onPressed: onToggle,
+        tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(
+          minWidth: WpLayout.minTouchTarget,
+          minHeight: WpLayout.minTouchTarget,
         ),
       ),
     ),
+  );
+  return SizedBox(
+    width: 280,
+    child: fieldTestId == null
+        ? field
+        : Semantics(identifier: fieldTestId, container: true, child: field),
   );
 }
 
@@ -573,6 +717,8 @@ Widget settingsTextField({
   int maxLines = 1,
   ValueChanged<String>? onChanged,
   String? semanticLabel,
+  int? maxLength,
+  List<TextInputFormatter>? inputFormatters,
 }) {
   return SizedBox(
     width: maxLines > 1 ? double.infinity : 240,
@@ -582,6 +728,8 @@ Widget settingsTextField({
       semanticsLabel: semanticLabel,
       hintText: hintText,
       maxLines: maxLines,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       onChanged: onChanged,
     ),
   );
@@ -614,13 +762,89 @@ const Widget settingsSectionBreak = SizedBox(height: WpSpacing.lg);
 /// would have fused the sub-groups into one list instead of separating them.
 const Widget settingsInlineBreak = SizedBox(height: WpSpacing.md);
 
+/// Makes a settings row inert for mouse and keyboard while [enabled] is
+/// false; the controls above it are never affected. Shared by the hotkey rows
+/// and the overlay look rows.
+///
+/// The row is not dimmed: any opacity pulls the muted explanation below
+/// 4.5:1 on the light ground (#1076). The "Switched off" words sit next to
+/// the switch that turns it off (`settingsToggle(showOffState: true)`), not
+/// above every dependent row. With [collapse] the row folds away while off:
+/// a hotkey's combination and its change button mean nothing until the
+/// hotkey is on (#1498). "Reduce motion" switches the fold in directly.
+Widget settingsSwitchedOffWhen(
+  BuildContext context, {
+  required bool enabled,
+  required Widget child,
+  bool collapse = false,
+}) => _SwitchedOffRow(enabled: enabled, collapse: collapse, child: child);
+
+/// The wrapper behind [settingsSwitchedOffWhen]. It stands for the row it
+/// wraps inside a [WpSettingsGroup], so the group sees the inner row's indent
+/// and draws the divider in front of it on the same start edge (#1498).
+class _SwitchedOffRow extends StatelessWidget implements SettingsRowStandIn {
+  const _SwitchedOffRow({
+    required this.enabled,
+    required this.collapse,
+    required this.child,
+  });
+
+  final bool enabled;
+  final bool collapse;
+  final Widget child;
+
+  @override
+  bool get indent => settingsRowIsIndented(child);
+
+  @override
+  Widget build(BuildContext context) {
+    final inert = ExcludeFocus(
+      excluding: !enabled,
+      child: IgnorePointer(ignoring: !enabled, child: child),
+    );
+    if (!collapse) return inert;
+    return AnimatedSize(
+      duration: WpMotion.durationFor(context, WpMotion.normal),
+      curve: WpMotion.defaultCurve,
+      alignment: AlignmentDirectional.topStart,
+      child: enabled ? inert : const SizedBox(width: double.infinity),
+    );
+  }
+}
+
+class _SwitchedOffMarker extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const Key('settings-row-switched-off'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          LucideIcons.powerOff,
+          size: WpIconSize.sm,
+          color: WpColors.textMuted,
+        ),
+        const SizedBox(width: WpSpacing.xs),
+        Text(
+          L10n.of(context).settingsRowSwitchedOff,
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            fontWeight: FontWeight.w500,
+            color: WpColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Inline notice
 // ---------------------------------------------------------------------------
 
 /// The settings page's one inline notice: a warning-tinted block that says
 /// something the rows above it cannot say for themselves — a sync that failed,
-/// a microphone that is clipping, a beta you can step back out of.
+/// a microphone that is clipping.
 ///
 /// There were three of these in two geometries, and a doc comment on one of
 /// them claiming it followed the pattern of another it did not actually match:
@@ -650,60 +874,53 @@ Widget settingsInlineNotice({
     vertical: WpSpacing.xs,
   ),
 }) {
-  const warning = WpColors.warning;
-  const textPrimary = WpColors.textPrimary;
+  final warning = WpColors.warning;
+  final textPrimary = WpColors.textPrimary;
 
-  return Container(
-    margin: margin,
-    padding: const EdgeInsets.all(WpSpacing.md),
-    decoration: BoxDecoration(
-      color: warning.withValues(alpha: 0.12),
-      borderRadius: WpRadius.borderMd,
-      border: Border.all(color: warning.withValues(alpha: 0.4)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          LucideIcons.triangleAlert,
-          size: WpIconSize.sm,
-          color: warning,
-        ),
-        const SizedBox(width: WpSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: textPrimary),
-              ),
-              if (action != null) ...[
-                const SizedBox(height: WpSpacing.xxs),
-                action,
+  // A notice appears after an action (clipping, autostart failure); a live
+  // region makes screen readers announce it without a focus change (UIA-SET-12).
+  final noticeStyle = Theme.of(context).textTheme.bodySmall;
+  return Semantics(
+    liveRegion: true,
+    child: Container(
+      margin: margin,
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: warning.withValues(alpha: 0.12),
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message, style: noticeStyle?.copyWith(color: textPrimary)),
+                if (action != null) ...[
+                  const SizedBox(height: WpSpacing.xxs),
+                  action,
+                ],
               ],
-            ],
-          ),
-        ),
-        if (onDismiss != null)
-          IconButton(
-            icon: const Icon(
-              LucideIcons.x,
-              size: WpIconSize.sm,
-              color: warning,
-            ),
-            tooltip: dismissTooltip,
-            onPressed: onDismiss,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: WpLayout.minTouchTarget,
-              minHeight: WpLayout.minTouchTarget,
             ),
           ),
-      ],
+          if (onDismiss != null)
+            IconButton(
+              icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warning),
+              tooltip: dismissTooltip,
+              onPressed: onDismiss,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
+                minHeight: WpLayout.minTouchTarget,
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }
@@ -732,6 +949,26 @@ void syncController(TextEditingController controller, String value) {
     text: value,
     selection: TextSelection.collapsed(offset: value.length),
     composing: TextRange.empty,
+  );
+}
+
+/// Neutral notice for a hotkey the system has not confirmed in time
+/// (`HotkeyRegistrationStatus.unavailable`). Unlike a conflict it names no
+/// other app and asks for nothing: the app keeps retrying on its own.
+class HotkeyPendingNotice extends StatelessWidget {
+  const HotkeyPendingNotice({super.key, required this.noticeKey});
+
+  final Key noticeKey;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: HotkeyNotice(
+      noticeKey: noticeKey,
+      icon: LucideIcons.info,
+      color: WpColors.textMuted,
+      text: L10n.of(context).hotkeyRegistrationPending,
+    ),
   );
 }
 

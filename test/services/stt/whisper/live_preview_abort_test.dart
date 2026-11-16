@@ -73,7 +73,7 @@ void main() {
       File(modelPath!).existsSync();
 
   test(
-    'stopLivePreview aborts a running preview decode instead of waiting',
+    'stopLivePreview cancels a queued decode and allows the next preview',
     () async {
       final engine = WhisperIsolateEngine(libraryPath: whisperPath);
       addTearDown(engine.shutdown);
@@ -101,27 +101,13 @@ void main() {
       }
 
       await engine.startLivePreview();
-      // Warm-up, then one uninterrupted decode as the reference duration.
-      await engine.decodeLivePreview(window, language: 'en');
-      final full = Stopwatch()..start();
-      await engine.decodeLivePreview(window, language: 'en');
-      final fullMs = full.elapsedMilliseconds;
-
-      // whisper.cpp polls the abort callback only after the encoder and
-      // between decoder steps, so stop once the decoder is under way (the
-      // encoder takes well under half of a speech window's decode).
+      // Cancel immediately; the calibrated in-flight decoder scenario lives
+      // in benchmarks/services/stt/whisper/live_preview_abort_bench_test.dart.
       final inFlight = engine.decodeLivePreview(window, language: 'en');
-      await Future<void>.delayed(Duration(milliseconds: fullMs * 6 ~/ 10));
-      final stop = Stopwatch()..start();
       await engine.stopLivePreview();
-      final stopMs = stop.elapsedMilliseconds;
       final aborted = await inFlight;
 
-      // Visible in `flutter test --reporter expanded` for the ticket notes.
-      // ignore: avoid_print
-      print('preview decode ${fullMs}ms, stop during decode ${stopMs}ms');
       expect(aborted, isEmpty);
-      expect(stopMs, lessThan(fullMs ~/ 4));
 
       // The next recording's preview works again (flag was reset).
       await engine.startLivePreview();

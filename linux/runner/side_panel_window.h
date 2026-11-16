@@ -4,7 +4,10 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
+#include <cstdint>
 #include <functional>
+#include <string>
+#include <vector>
 
 // Native shell windows for the clipboard quick-paste side panel (issue 06,
 // Linux/XWayland port). Structural precedent: floating_overlay_window
@@ -120,6 +123,12 @@ class SidePanelContentWindow {
   bool visible() const { return visible_; }
   bool IsCreated() const { return window_ != nullptr; }
 
+  // Starts an OS drag-out of one row (issue 11) from the last primary
+  // button press on the panel: text as UTF-8 text targets, an image (PNG
+  // bytes) as image targets. Returns false without such a press or with
+  // nothing to offer.
+  bool BeginDrag(const std::string& text, const std::vector<uint8_t>& png);
+
   void Destroy();
 
   // Native close-grace fallback, mirrors SidePanelContentHoverTracker
@@ -133,15 +142,33 @@ class SidePanelContentWindow {
   static gboolean OnLeaveNotify(GtkWidget* widget, GdkEventCrossing* event,
                                  gpointer user_data);
   static gboolean OnAnimationTick(gpointer user_data);
+  static void OnPressed(GtkGestureMultiPress* gesture, gint n_press,
+                        gdouble x, gdouble y, gpointer user_data);
+  static void OnReleased(GtkGestureMultiPress* gesture, gint n_press,
+                         gdouble x, gdouble y, gpointer user_data);
+  static void OnDragEnd(GtkWidget* widget, GdkDragContext* context,
+                        gpointer user_data);
+  static void OnDragDataGet(GtkWidget* widget, GdkDragContext* context,
+                            GtkSelectionData* data, guint info, guint time,
+                            gpointer user_data);
 
   void StartAnimation(int from_x, int to_x, int duration_ms,
                        bool hide_on_done);
   void StepAnimation();
+  void ReleaseHeldButton();
 
   GtkWidget* window_ = nullptr;
   FlView* fl_view_ = nullptr;  // Non-owning; container holds the ref.
 
   bool visible_ = false;
+
+  // ── Drag-out (issue 11) ──────────────────────────────────────────────
+  GtkGesture* press_gesture_ = nullptr;  // Owned.
+  GdkEvent* last_press_ = nullptr;       // Owned copy.
+  // True from a press until the Flutter view has seen its release.
+  bool button_held_ = false;
+  std::string drag_text_;
+  std::vector<uint8_t> drag_png_;
 
   // ── Animation state ─────────────────────────────────────────────────
   guint anim_timer_id_ = 0;

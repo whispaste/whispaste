@@ -53,8 +53,10 @@ void main() {
       expect(_u32(repaired, 40), 32000, reason: 'data size = len - 44');
       // Payload untouched.
       expect(repaired.sublist(44), broken.sublist(44));
-      // Input not mutated (repair returns a copy).
-      expect(_u32(broken, 4), 0);
+      // Zero-copy: the size fields of the input are patched in place and the
+      // result is a view over the same bytes (F31-5).
+      expect(_u32(broken, 4), 36 + 32000);
+      expect(repaired.length, broken.length);
     });
 
     test('returns null for a correctly patched WAV', () {

@@ -1,6 +1,5 @@
 /// Tests for [OnboardingRevisionRunNotifier] — the session-only flag and the
-/// two state transitions around it — `internal-notes
-/// issues/03`. [onboardingSurfaceActive] itself already has coverage
+/// two state transitions around it. [onboardingSurfaceActive] itself already has coverage
 /// wherever the eight read sites it feeds are tested (see that library's
 /// doc comment for the full list); this file is about `start()`/`complete()`
 /// specifically, which is the seam ticket 03 actually builds on top of.
@@ -208,6 +207,36 @@ void main() {
           ], currentOnboardingPlatform()),
         );
         expect(container.read(onboardingSurfaceActiveProvider), isFalse);
+      },
+    );
+
+    testWidgets(
+      'first run left early arms the "Erste Schritte" card; an existing '
+      'install leaving onboarding does not',
+      (tester) async {
+        final firstRun = _makeContainer(
+          initial: AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(onboardingCompleted: false),
+          ),
+        );
+        await firstRun.read(settingsProvider.future);
+        await _tapLeaveOnboardingSurface(tester, firstRun);
+        expect(
+          firstRun.read(settingsProvider).value!.onboarding.firstStepsArmed,
+          isTrue,
+        );
+
+        final existing = _makeContainer(
+          initial: AppSettings.defaults.copyWithSections(
+            onboarding: const OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await existing.read(settingsProvider.future);
+        await _tapLeaveOnboardingSurface(tester, existing);
+        expect(
+          existing.read(settingsProvider).value!.onboarding.firstStepsArmed,
+          isFalse,
+        );
       },
     );
 

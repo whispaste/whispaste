@@ -1,38 +1,24 @@
-/// Tests for the custom vocabulary field inside [SpeechRecognitionSection].
-///
-/// _CustomVocabularyField is private; the smallest public surface that
-/// contains it is SpeechRecognitionSection. The field only renders for the
-/// local Whisper engine (it feeds whisper.cpp's initial-prompt mechanism —
-/// neither Parakeet nor the cloud providers read it, see
-/// stt_server_state_notifier.dart), so tests must drive local/on-device mode
-/// with the default (Whisper) engine, stubbing the local-only providers
-/// WpSttModelManager and the benchmark button depend on.
-///
-/// Covers: initial value renders, placeholder text, hint text,
-/// text input writes customVocabulary through settingsProvider (debounced).
+/// What the terms list (Wörterbuch, "Begriffe" tab) triggers: Enter in the bar
+/// adds a term, the row actions edit and delete, and every change reaches
+/// `customVocabulary` through the settings provider. Found by testID only.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
-import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/settings/sections/stt_section.dart';
-import 'package:whispaste/services/model_download_service.dart';
-import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/features/dictionary/dictionary_notice.dart';
+import 'package:whispaste/features/dictionary/widgets/dictionary_terms_list.dart';
+import 'package:whispaste/widgets/wp_page_notice.dart';
 
 import '../../../fixtures/test_helpers.dart';
-
-// ---------------------------------------------------------------------------
-// Fake notifiers — mirrors gpu_acceleration_section_test.dart's setup
-// ---------------------------------------------------------------------------
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
 
   AppSettings _settings;
+
+  String get vocabulary => _settings.stt.customVocabulary;
 
   @override
   Future<AppSettings> build() async => _settings;
@@ -44,136 +30,126 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-class _FakeSttNotifier extends SttServerStateNotifier {
-  @override
-  SttStatus build() => const SttStatus(serverState: SttServerState.stopped);
+Future<_FakeSettingsNotifier> _pump(
+  WidgetTester tester,
+  String vocabulary,
+) async {
+  final notifier = _FakeSettingsNotifier(
+    AppSettings.defaults.copyWith(customVocabulary: vocabulary),
+  );
+  await tester.pumpWidget(
+    makeTestable(
+      const SingleChildScrollView(
+        child: Column(
+          children: [
+            WpPageNoticeSlot(page: dictionaryNoticePage),
+            DictionaryTermsList(),
+          ],
+        ),
+      ),
+      overrides: [settingsProvider.overrideWith(() => notifier)],
+      locale: const Locale('en'),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return notifier;
 }
 
-class _FakeDownloadNotifier extends ModelDownloadNotifier {
-  @override
-  ModelDownloadState build() => const ModelDownloadState();
-}
-
-late L10n l10n;
-
-// Helper: SpeechRecognitionSection needs to scroll in the test scaffold, plus
-// the local-mode provider stubs the on-device path depends on.
-Widget _pump(_FakeSettingsNotifier notifier) => makeTestable(
-  const SingleChildScrollView(child: SpeechRecognitionSection()),
-  overrides: [
-    settingsProvider.overrideWith(() => notifier),
-    localSttBundleProvider.overrideWith(() => _FakeSttNotifier()),
-    modelDownloadProvider.overrideWith(() => _FakeDownloadNotifier()),
-  ],
-  locale: const Locale('en'),
-);
+Finder _id(String id) => find.byKey(ValueKey(id));
 
 void main() {
-  setUpAll(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    l10n = await L10n.delegate.load(const Locale('en'));
+  setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
+  testWidgets('every stored term is a row', (tester) async {
+    await _pump(tester, 'GitHub, npm\nJSON');
+    expect(_id('dictionary-term-row-0'), findsOneWidget);
+    expect(_id('dictionary-term-row-2'), findsOneWidget);
+    expect(_id('dictionary-terms-empty'), findsNothing);
   });
 
-  group('_CustomVocabularyField (via SpeechRecognitionSection)', () {
-    // On-device provider, default (Whisper) engine — the only combination
-    // that actually renders the field.
-    AppSettings localWhisperSettings({String vocabulary = ''}) {
-      return AppSettings.defaults.copyWith(
-        sttProvider: SttProviderType.onDevice.value,
-        customVocabulary: vocabulary,
-      );
-    }
+  testWidgets('an empty list says so', (tester) async {
+    await _pump(tester, '');
+    expect(_id('dictionary-terms-empty'), findsOneWidget);
+  });
 
-    // -------------------------------------------------------------------------
-    // 1. Section label and hint text
-    // -------------------------------------------------------------------------
+  testWidgets('typing filters without touching the stored text', (
+    tester,
+  ) async {
+    final notifier = await _pump(tester, 'GitHub, npm, JSON');
+    await tester.enterText(_id('dictionary-terms-bar'), 'js');
+    await tester.pumpAndSettle();
+    expect(_id('dictionary-term-row-2'), findsOneWidget);
+    expect(_id('dictionary-term-row-0'), findsNothing);
+    expect(notifier.vocabulary, 'GitHub, npm, JSON');
+  });
 
-    testWidgets('shows custom vocabulary section label and hint', (
-      tester,
-    ) async {
-      final notifier = _FakeSettingsNotifier(localWhisperSettings());
-      await tester.pumpWidget(_pump(notifier));
-      await tester.pumpAndSettle();
+  testWidgets('Enter adds the typed term once and clears the bar', (
+    tester,
+  ) async {
+    final notifier = await _pump(tester, 'GitHub');
+    await tester.enterText(_id('dictionary-terms-bar'), 'Kubernetes');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'GitHub, Kubernetes');
+    expect(_id('dictionary-term-row-1'), findsOneWidget);
 
-      expect(find.text(l10n.settingsCustomVocabulary), findsOneWidget);
-      expect(find.text(l10n.settingsCustomVocabularyHint), findsOneWidget);
-    });
+    await tester.enterText(_id('dictionary-terms-bar'), 'github');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'GitHub, Kubernetes');
+  });
 
-    // -------------------------------------------------------------------------
-    // 2. Placeholder text
-    // -------------------------------------------------------------------------
+  testWidgets('delete removes at once', (tester) async {
+    final notifier = await _pump(tester, 'a\nb\nc');
+    await tester.tap(_id('dictionary-term-delete-1'));
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'a\nc');
+  });
 
-    testWidgets('shows placeholder when vocabulary is empty', (tester) async {
-      final notifier = _FakeSettingsNotifier(localWhisperSettings());
-      await tester.pumpWidget(_pump(notifier));
-      await tester.pumpAndSettle();
+  testWidgets('edit renames the entry in place', (tester) async {
+    final notifier = await _pump(tester, 'a, b, c');
+    await tester.tap(_id('dictionary-term-edit-1'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_id('dictionary-term-edit-field'), 'bee');
+    await tester.tap(_id('dictionary-term-edit-save'));
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'a, bee, c');
+  });
 
-      // Placeholder text is visible when the vocabulary field is empty
-      expect(
-        find.text(l10n.settingsCustomVocabularyPlaceholder),
-        findsOneWidget,
-      );
-    });
+  testWidgets('undo puts a deleted term back at its position', (tester) async {
+    final notifier = await _pump(tester, 'a\nb\nc');
+    await tester.tap(_id('dictionary-term-delete-1'));
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'a\nc');
+    await tester.tap(_id('dictionary-term-undo'));
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'a\nb\nc');
+  });
 
-    // -------------------------------------------------------------------------
-    // 3. Initial value pre-fills the field
-    // -------------------------------------------------------------------------
+  testWidgets('the undo notice stays until it is closed', (tester) async {
+    await _pump(tester, 'a, b');
+    await tester.tap(_id('dictionary-term-delete-0'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(minutes: 5));
+    expect(_id('dictionary-term-undo'), findsOneWidget);
+  });
 
-    testWidgets('pre-fills the text field with the initial vocabulary value', (
-      tester,
-    ) async {
-      const preloaded = 'whisper Kotlin Flutter';
-      final notifier = _FakeSettingsNotifier(
-        localWhisperSettings(vocabulary: preloaded),
-      );
-      await tester.pumpWidget(_pump(notifier));
-      await tester.pumpAndSettle();
+  testWidgets('a comma in the bar adds one entry per part', (tester) async {
+    final notifier = await _pump(tester, 'GitHub');
+    await tester.enterText(_id('dictionary-terms-bar'), 'Dr. Müller, PhD');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(notifier.vocabulary, 'GitHub, Dr. Müller, PhD');
+  });
 
-      // The multi-line vocabulary TextField should show the pre-loaded text
-      expect(find.text(preloaded), findsOneWidget);
-    });
-
-    // -------------------------------------------------------------------------
-    // 4. Typing updates the provider after the 600 ms debounce
-    // -------------------------------------------------------------------------
-
-    testWidgets(
-      'entering text updates customVocabulary in settingsProvider after debounce',
-      (tester) async {
-        final notifier = _FakeSettingsNotifier(localWhisperSettings());
-        await tester.pumpWidget(_pump(notifier));
-        await tester.pumpAndSettle();
-
-        // The custom vocabulary field is a multi-line TextField.
-        // We identify it via the bookType icon that precedes it.
-        final bookIcon = find.byIcon(LucideIcons.bookType);
-        expect(bookIcon, findsOneWidget);
-
-        // Find the TextField that follows the bookType icon by looking for
-        // a TextField in the same subtree region (last TextField in the
-        // section). The section contains the provider/engine dropdowns and
-        // the vocabulary field — vocabulary is the last one.
-        final vocabField = find.byType(TextField).last;
-        await tester.tap(vocabField);
-        await tester.enterText(vocabField, 'Riverpod Drift Flutter');
-        // Pump one frame so onChanged fires
-        await tester.pump();
-
-        // Verify not written yet (debounce is still pending)
-        expect(
-          notifier.state.value?.stt.customVocabulary,
-          isNot('Riverpod Drift Flutter'),
-        );
-
-        // Advance past the 600 ms debounce
-        await tester.pump(const Duration(milliseconds: 700));
-
-        expect(
-          notifier.state.value?.stt.customVocabulary,
-          'Riverpod Drift Flutter',
-          reason: 'customVocabulary should be updated after debounce fires',
-        );
-      },
-    );
+  testWidgets('a comma in the edit dialog is refused', (tester) async {
+    final notifier = await _pump(tester, 'a, b');
+    await tester.tap(_id('dictionary-term-edit-0'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_id('dictionary-term-edit-field'), 'x, y');
+    await tester.tap(_id('dictionary-term-edit-save'));
+    await tester.pumpAndSettle();
+    expect(_id('dictionary-term-edit-problem'), findsOneWidget);
+    expect(notifier.vocabulary, 'a, b');
   });
 }

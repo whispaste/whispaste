@@ -26,7 +26,7 @@
 
 .EXAMPLE
   pwsh scripts/smoke/smoke-windows.ps1 -ArtifactDir release-artifacts `
-    -MsixPath build\windows\x64\runner\Release\whispaste.msix
+    -MsixPath release-artifacts\WhisPaste.msix
 #>
 param(
   [Parameter(Mandatory = $true)][string]$ArtifactDir,
@@ -58,9 +58,9 @@ function Invoke-Diagnose([string]$Exe, [string]$Label) {
   }
   # whispaste.exe is a GUI-subsystem binary: its stdout does not reliably
   # reach this console, so the report goes through --out and success through
-  # the exit code (same contract as the former headless benchmark workflow). stdout/stderr must still
-  # be redirected: started without std handles, the Dart CLI blocks on its
-  # stdout write and never exits (seen on Windows 11 24H2).
+  # the exit code (same contract as the former headless benchmark workflow). With --out the
+  # report skips stdout, so a missing std handle no longer stalls the exit (it did on
+  # Windows 11 24H2); stdout/stderr stay redirected to keep any stderr output.
   $stdoutLog = Join-Path $workDir "$Label.stdout.txt"
   $stderrLog = Join-Path $workDir "$Label.stderr.txt"
   $p = Start-Process -FilePath $Exe -ArgumentList @('--diagnose', '--out', "`"$report`"") -PassThru `
@@ -132,6 +132,27 @@ try {
   }
 
   # --- MSIX -----------------------------------------------------------------
+  # LocalMachine\TrustedPeople needs an elevated token. The CI runner already has one; the
+  # lab's win job runs with tester's filtered admin token (2026-11-02: Import-Certificate
+  # E_ACCESSDENIED), so there the command runs once in an elevated pwsh (silent elevation).
+  function Invoke-MachineCert([string]$command) {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    if ((New-Object Security.Principal.WindowsPrincipal $id).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+      Invoke-Expression $command
+      return
+    }
+    $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("`$ErrorActionPreference = 'Stop'; $command"))
+    $p = Start-Process pwsh -Verb RunAs -PassThru -WindowStyle Hidden `
+      -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $enc)
+    $null = $p.Handle  # caches the handle so ExitCode is readable after exit
+    # Bounded wait (review S7): an unanswered elevation prompt must not hang the smoke.
+    if (-not $p.WaitForExit(120000)) {
+      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+      throw 'elevated certificate step did not exit within 120 s (elevation prompt unanswered?)'
+    }
+    if ($p.ExitCode -ne 0) { throw "elevated certificate step failed ($($p.ExitCode))" }
+  }
+
   if ($MsixPath) {
     $identity = Get-MsixIdentity $MsixPath
     Write-Host "-- MSIX: $($identity.Name) $($identity.Version) ($($identity.Publisher))"
@@ -148,7 +169,7 @@ try {
     $package = $null
     try {
       Export-Certificate -Cert $cert -FilePath $cerFile | Out-Null
-      Import-Certificate -FilePath $cerFile -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
+      Invoke-MachineCert "Import-Certificate -FilePath '$cerFile' -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null"
       & (Find-SignTool) sign /fd SHA256 /sha1 $cert.Thumbprint $signed
       if ($LASTEXITCODE -ne 0) { throw "signtool failed with $LASTEXITCODE" }
       Add-AppxPackage -Path $signed
@@ -160,9 +181,10 @@ try {
       }
     } finally {
       if ($package) { Remove-AppxPackage -Package $package.PackageFullName }
-      Get-ChildItem 'Cert:\LocalMachine\TrustedPeople', 'Cert:\CurrentUser\My' |
+      Get-ChildItem 'Cert:\CurrentUser\My' |
         Where-Object { $_.Thumbprint -eq $cert.Thumbprint } |
         Remove-Item -ErrorAction SilentlyContinue
+      Invoke-MachineCert "Get-ChildItem 'Cert:\LocalMachine\TrustedPeople' | Where-Object { `$_.Thumbprint -eq '$($cert.Thumbprint)' } | Remove-Item -ErrorAction SilentlyContinue"
     }
   }
 } finally {

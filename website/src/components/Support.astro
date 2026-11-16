@@ -1,5 +1,6 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
+import CoffeeButton from './CoffeeButton.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
 import { STORES } from '../data/platforms.ts';
 
@@ -11,7 +12,6 @@ const groups = [
   {
     key: 'money',
     rows: [
-      { key: 'coffee', href: 'https://ko-fi.com/silviol', testid: 'support-coffee' },
       { key: 'paypal', href: 'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY', testid: 'support-paypal' },
     ],
   },
@@ -25,22 +25,33 @@ const groups = [
     ],
   },
 ] as const;
+import { BUY_ME_A_COFFEE_URL } from '../data/support-links';
 ---
 <!-- Support: the closing beat above the footer (Pangram principle: big
      title with a small label on the left, numbered rows on the right).
-     One primary action (GitHub Sponsors) under the copy; every other way
-     is a numbered row, split into paying and non-paying help. No payment
-     UI of our own; all targets are external and open in a new tab. -->
+     Two primary actions under the copy: the coffee button (Ko-fi) first,
+     then GitHub Sponsors. Every other way is a numbered row, split into
+     paying and non-paying help. No payment UI of our own; all targets are
+     external and open in a new tab. -->
 <section id="support" class="wp-band relative wp-section scroll-mt-20" data-surface="light" data-testid="support">
   <div class="relative wp-container support-layout">
     <div class="support-copy">
       <SectionEyebrow key="support.label" />
       <h2 class="section-title"><span data-i18n="support.titleLead">{t(lang, "support.titleLead")}</span><span class="wp-marker" data-i18n="support.titleAccent">{t(lang, "support.titleAccent")}</span><span data-i18n="support.titleTail">{t(lang, "support.titleTail")}</span></h2>
       <p class="wp-lead mt-4" data-i18n="support.desc">{t(lang, "support.desc")}</p>
-      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="support-sponsor" data-testid="support-sponsor">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-        <span data-i18n="support.sponsor">{t(lang, "support.sponsor")}</span>
-      </a>
+      <div class="support-actions">
+        <div class="support-coffee" data-testid="support-coffee-group">
+          <p class="support-coffee__label" data-i18n="coffee.label">{t(lang, "coffee.label")}</p>
+          <div class="support-coffee__buttons">
+            <CoffeeButton label="Ko-fi" href="https://ko-fi.com/silviol" testid="support-coffee" />
+            <CoffeeButton label="Buy Me a Coffee" href={BUY_ME_A_COFFEE_URL} testid="support-buy-me-a-coffee" />
+          </div>
+        </div>
+        <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="support-sponsor" data-testid="support-sponsor">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span data-i18n="support.sponsor">{t(lang, "support.sponsor")}</span>
+        </a>
+      </div>
     </div>
 
     <div class="support-ways" data-testid="support-ways">
@@ -75,12 +86,28 @@ const groups = [
       align-items: start;
     }
   }
+  .support-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-3) var(--wp-space-4);
+    margin-top: var(--wp-space-8);
+  }
+  .support-coffee__label {
+    margin: 0 0 var(--wp-space-3);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+  }
+  .support-coffee__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-3) var(--wp-space-4);
+  }
   .support-sponsor {
     display: inline-flex;
     align-items: center;
     gap: var(--wp-space-3);
     min-height: 52px;
-    margin-top: var(--wp-space-8);
     padding: var(--wp-space-3) var(--wp-space-8);
     border-radius: var(--radius-pill);
     background: var(--wp-button-primary-fill);

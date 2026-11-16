@@ -69,7 +69,7 @@ Auto-Paste läuft auf Linux über ein uinput-virtuelles Keyboard
 (`linux/runner/desktop_paste_host.cc`, Ticket 30). snapd behandelt `uinput` als
 **nicht auto-connect**: der Plug im Manifest allein reicht nicht — Nutzer
 außerhalb eines Store-Auto-Freigabe-Assertions müssen einmalig
-`snap connect whispaste:uinput` ausführen, sonst bleibt `CheckCapability()` bei
+`sudo snap connect whispaste:uinput` ausführen, sonst bleibt `CheckCapability()` bei
 `permission_missing` und Auto-Paste fällt auf Zwischenablage-only zurück.
 
 ---
@@ -118,6 +118,10 @@ sudo snap install --dangerous ./whispaste_<version>_amd64.snap
 snap connections whispaste
 snap run whispaste
 ```
+
+`whispaste --diagnose` startet im Snap kein eigenes Xvfb; ohne Display
+schreibt es einen Fehlerreport und endet mit 2. Headless daher unter Xvfb
+prüfen: `xvfb-run -a snap run whispaste --diagnose`.
 
 `snapcraft`/`snap` sind auf macOS/dem Dev-Mac **nicht** verfügbar — Build +
 `--dangerous`-Install laufen in CI bzw. auf der NAS-x86-VM (Ubuntu x86_64).

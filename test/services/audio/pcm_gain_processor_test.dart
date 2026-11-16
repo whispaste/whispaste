@@ -23,6 +23,9 @@ List<int> _samples(Uint8List bytes) {
   ];
 }
 
+/// Limiter ceiling (-1 dBFS) in int16 units, rounded up.
+const int _ceiling = 29205;
+
 void main() {
   group('PcmGainProcessor', () {
     test('gain=1.0 is identity — output bytewise equal to input', () {
@@ -55,67 +58,52 @@ void main() {
       expect(processor.clippedSamples, 0);
     });
 
-    test('gain=0.0 zeroes all samples', () {
-      final input = _pcm([10000, -32768, 32767, 1, -1, 7777]);
-      final processor = PcmGainProcessor(gain: 0.0);
-
-      final output = _samples(processor.process(input));
-
-      expect(output, [0, 0, 0, 0, 0, 0]);
-      expect(processor.clippedSamples, 0);
-    });
-
-    test('gain=10.0 with +10000 saturates to +32767 and counts one clip', () {
-      final input = _pcm([10000]);
+    test('gain=10.0 bends +10000 below -1 dBFS and counts one clip', () {
       final processor = PcmGainProcessor(gain: 10.0);
 
-      final output = _samples(processor.process(input));
+      final output = _samples(processor.process(_pcm([10000])));
 
-      expect(output, [32767]);
+      expect(output.single, inInclusiveRange(25000, _ceiling));
       expect(processor.clippedSamples, 1);
     });
 
-    test('gain=10.0 with -10000 saturates to -32768 and counts one clip', () {
-      final input = _pcm([-10000]);
+    test('gain=10.0 bends -10000 above -(-1 dBFS) and counts one clip', () {
       final processor = PcmGainProcessor(gain: 10.0);
 
-      final output = _samples(processor.process(input));
+      final output = _samples(processor.process(_pcm([-10000])));
 
-      expect(output, [-32768]);
+      expect(output.single, inInclusiveRange(-_ceiling, -25000));
       expect(processor.clippedSamples, 1);
     });
 
-    test(
-      'mixed chunk with partial clipping increments counter only for clipped samples',
-      () {
-        // gain=4.0:
-        //   +1000   ×4 =   +4000     (safe)
-        //   +20000  ×4 = +80000   → +32767 (CLIP)
-        //   -20000  ×4 = -80000   → -32768 (CLIP)
-        //     +500  ×4 =  +2000     (safe)
-        //       0  ×4 =       0     (safe)
-        //   +8000   ×4 = +32000     (safe)
-        //   -9000   ×4 = -36000   → -32768 (CLIP)
-        final input = _pcm([1000, 20000, -20000, 500, 0, 8000, -9000]);
-        final processor = PcmGainProcessor(gain: 4.0);
+    test('the limiter is soft: louder input stays louder, never cut flat', () {
+      final processor = PcmGainProcessor(gain: 4.0);
 
-        final output = _samples(processor.process(input));
+      final output = _samples(processor.process(_pcm([7000, 9000, 20000])));
 
-        expect(output, [4000, 32767, -32768, 2000, 0, 32000, -32768]);
-        expect(processor.clippedSamples, 3);
-      },
-    );
+      expect(output[0], lessThan(output[1]));
+      expect(output[1], lessThan(output[2]));
+      expect(output[2], lessThanOrEqualTo(_ceiling));
+      // 9000 × 4 and 20000 × 4 leave the int16 range; 7000 × 4 does not.
+      expect(processor.clippedSamples, 2);
+    });
 
-    test('clippedSamples accumulates across multiple process() calls', () {
+    test('counters accumulate across process() calls', () {
       final processor = PcmGainProcessor(gain: 10.0);
 
-      processor.process(_pcm([10000])); // +1 clip
-      processor.process(_pcm([-10000, 1])); // +1 clip (the -10000 sample)
-      processor.process(_pcm([5000])); // 0 clips: 50000 → +32767 IS a clip
+      processor.process(_pcm([10000]));
+      processor.process(_pcm([-10000, 1]));
+      processor.process(_pcm([5000]));
 
-      // Re-check: gain=10.0 * 5000 = 50000 → clamps to +32767 → IS a clip.
-      // So the running total is 3.
       expect(processor.clippedSamples, 3);
+      expect(processor.sampleCount, 4);
+    });
+
+    test('the identity gain counts samples but changes nothing', () {
+      final processor = PcmGainProcessor(gain: 1.0);
+      processor.process(_pcm([1, 2, 3]));
+      expect(processor.sampleCount, 3);
+      expect(processor.clippedSamples, 0);
     });
   });
 }

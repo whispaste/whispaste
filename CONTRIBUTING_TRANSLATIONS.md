@@ -18,9 +18,10 @@ specific to translations.
 - Entries starting with `@` (for example `"@settingsAutomationApiStatusRunning"`)
   are metadata: descriptions and placeholder types. They only need to exist in
   `app_en.arb`. You do not have to copy them into your language file.
-- `lib/core/l10n/generated/` is generated code. Do not edit it by hand;
-  regenerate it with `flutter gen-l10n` after changing any ARB file and commit
-  the result together with your ARB change.
+- `lib/core/l10n/generated/` is generated code and not committed. `flutter pub get`
+  (or `flutter gen-l10n`) creates it from the ARB files. Do not edit it by hand.
+- Keep the ARB files sorted by key: `dart tool/sort_arb.dart` (the commit hook checks it).
+  Add a new key anywhere, then run the tool; sorted files let parallel branches merge.
 
 ## Improving an existing translation
 

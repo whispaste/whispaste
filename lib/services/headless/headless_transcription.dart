@@ -44,8 +44,12 @@ Transcribes a 16 kHz mono 16-bit PCM WAV without opening the app window.
   --cuda-pack <dir>          load the optional CUDA pack from <dir> instead
                              of the installed one (default: installed pack)
   --replacements             apply the text replacements from the app's data
+                             (read only, safe next to an open WhisPaste)
   --json                     print a JSON timing report instead of the text
   --out <file>               also write the JSON timing report to <file>
+
+Download the optional NVIDIA CUDA pack (needs NVIDIA EULA consent):
+  whispaste --download-cuda-pack --accept-nvidia-eula
 ''';
 
 /// Parsed `--transcribe-file` command line.
@@ -61,6 +65,7 @@ class HeadlessTranscriptionOptions {
     this.outPath,
     this.gpu = GpuAcceleration.auto,
     this.cudaPackDir,
+    this.allowEmpty = false,
   });
 
   final String wavPath;
@@ -82,6 +87,10 @@ class HeadlessTranscriptionOptions {
   /// benchmark compare GPU against CPU on the same machine.
   final GpuAcceleration gpu;
 
+  /// An empty transcript is not an error. The GPU probe feeds a tone, which
+  /// has no speech, so an engine that decoded it correctly returns "" (#1349).
+  final bool allowEmpty;
+
   static bool isRequested(List<String> args) =>
       args.contains('--transcribe-file');
 
@@ -95,6 +104,7 @@ class HeadlessTranscriptionOptions {
     var applyReplacements = false;
     var json = false;
     String? outPath;
+    var allowEmpty = false;
     var gpu = GpuAcceleration.auto;
     String? cudaPackDir;
 
@@ -141,6 +151,8 @@ class HeadlessTranscriptionOptions {
             (g) => g.value == name,
             orElse: () => throw FormatException('unknown --gpu value "$name"'),
           );
+        case '--allow-empty':
+          allowEmpty = true;
         case '--cuda-pack':
           cudaPackDir = value();
         default:
@@ -161,6 +173,7 @@ class HeadlessTranscriptionOptions {
       outPath: outPath,
       gpu: gpu,
       cudaPackDir: cudaPackDir,
+      allowEmpty: allowEmpty,
     );
   }
 
@@ -339,6 +352,10 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
     await transcriber.prepare();
   } on TranscriberException catch (e) {
     throw HeadlessTranscriptionException('engine failed to load: ${e.message}');
+  } finally {
+    // The load is over, success or not. The busy window ends here, once,
+    // before the timed decodes, so they run at full threads like a dictation.
+    lifecycle.notifyRecordingStopped();
   }
   final status = lifecycle.status;
   if (!status.isReady) {
@@ -361,7 +378,7 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
       transcript = applyTextReplacements(transcript, replacementRules);
     }
     runs.add(HeadlessRun(transcribeMs: now() - runStart));
-    if (transcript.isEmpty) {
+    if (transcript.isEmpty && !options.allowEmpty) {
       throw const HeadlessTranscriptionException('transcription was empty');
     }
   }
@@ -389,7 +406,9 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
     runs: runs,
     totalMs: now() - start,
     transcript: transcript,
-    backend: onGpu ? whisper.backend.name : (parakeetOnGpu ? 'gpu' : 'cpu'),
+    backend: onGpu
+        ? whisper.deviceBackend.name
+        : (parakeetOnGpu ? 'gpu' : 'cpu'),
     gpuDevice: onGpu ? whisper.gpuDevice : null,
   );
 }

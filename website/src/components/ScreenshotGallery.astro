@@ -26,10 +26,18 @@ type GalleryTheme = 'dark' | 'light';
 
 /**
  * Screens 01–05 are Flutter goldens (1920×1080), captured on Windows.
- * Screens 06–09 are real captures from the Windows test box (storyboard:
- * `internal-notes`) — cropped to the app
- * window (1920×1072; 09 keeps the full 1080 desktop because the edge-pulled
- * side panel over the desktop *is* the motif). The gallery deliberately shows
+ * Screens 06–09 are real captures of a release build on a Windows 11 notebook at
+ * 100 % scale, in the "Marine" design (navy frame, light content — the same look
+ * as the goldens) and from a separate throw-away profile holding only demo data.
+ * They are cropped to the app window (1920×1072; 09 keeps the full 1080 desktop
+ * because the edge-pulled side panel over the desktop *is* the motif, shown on
+ * the default Windows wallpaper). In de the Notepad account picture is replaced
+ * with a neutral person icon. In en and ru, the Notepad window in 07 and 09 is a
+ * second real capture (#1650): the same Notepad version, with an English or
+ * Russian UI, captured on the Windows test VM at the identical window size. It
+ * replaces the German-labelled Notepad of the notebook capture pixel for pixel.
+ * The WhisPaste parts (app window, snippet picker, side panel) stay the notebook
+ * capture. The gallery deliberately shows
  * one consistent set rather than a per-platform toggle: 06–09 only exist as
  * Windows captures (no real macOS captures — never faked), and mixing window
  * chrome/aspect ratios within one grid would look inconsistent. The app looks

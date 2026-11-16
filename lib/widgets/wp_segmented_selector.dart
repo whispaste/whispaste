@@ -1,17 +1,16 @@
 /// Segmented pill selector with an animated active indicator.
 ///
-/// Extracted from the onboarding Welcome step, where it used to drive the
-/// theme choice. **Currently unused**: the theme choice it was extracted for
-/// became a picture-tile selector on its own onboarding page (see
-/// `features/onboarding/steps/appearance_step.dart`), and no other caller
-/// picked this up in the meantime. Kept as-is pending a decision — delete it
-/// if nothing claims it. Pure presentational component: items carry their own
-/// active state and tap handlers.
+/// Pure presentational component: items carry their own active state and tap
+/// handlers. [WpSegmentedChoice] is the single-choice wrapper that the
+/// settings-style pages use (UIA-CMP-06, instead of a raw `SegmentedButton`).
 library;
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 /// One selectable segment of a [WpSegmentedSelector].
 class WpSegmentItem {
@@ -20,22 +19,87 @@ class WpSegmentItem {
     required this.isActive,
     required this.onTap,
     this.icon,
+    this.enabled = true,
+    this.iconOnly = false,
+    this.testId,
   });
 
-  /// Optional decorative icon rendered left of the label.  Null = text-only.
+  /// Optional decorative icon rendered before the label (start side).  Null = text-only.
   final Widget? icon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+
+  /// A disabled segment is shown dimmed and cannot be tapped.
+  final bool enabled;
+
+  /// Shows only [icon] and names the segment by [label] as tooltip and
+  /// accessible name. For narrow frames where a label would be cut off.
+  /// Needs an [icon].
+  final bool iconOnly;
+
+  /// Stable, language-independent id of the segment for UI flows.
+  final String? testId;
 }
 
-/// Horizontal pill selector: an animated gradient indicator slides behind the
-/// active segment; every segment is an equally sized tap target.
+/// One value of a [WpSegmentedChoice].
+class WpSegmentOption<T> {
+  const WpSegmentOption({
+    required this.value,
+    required this.label,
+    this.enabled = true,
+  });
+
+  final T value;
+  final String label;
+  final bool enabled;
+}
+
+/// Single choice among [options], drawn as a [WpSegmentedSelector] with the
+/// app's surface, border and secondary text roles.
+class WpSegmentedChoice<T> extends StatelessWidget {
+  const WpSegmentedChoice({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+    this.height = 48,
+  });
+
+  final List<WpSegmentOption<T>> options;
+
+  /// Height of the frame; 32 is the compact size for a quiet period filter.
+  final double height;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return WpSegmentedSelector(
+      borderColor: WpColors.borderDefault,
+      surfaceColor: WpColors.surfaceVariant,
+      textSecondary: WpColors.textSecondary,
+      height: height,
+      items: [
+        for (final option in options)
+          WpSegmentItem(
+            label: option.label,
+            isActive: option.value == selected,
+            enabled: option.enabled,
+            onTap: () => onChanged(option.value),
+          ),
+      ],
+    );
+  }
+}
+
+/// Horizontal segmented control (ticket §4): one frame with an 8 px radius, an
+/// active segment on a cyan-soft fill with petrol semibold text, and equal
+/// tap targets. The indicator slides behind the active segment.
 class WpSegmentedSelector extends StatelessWidget {
   const WpSegmentedSelector({
     super.key,
     required this.items,
-    required this.activeGradient,
     required this.borderColor,
     required this.surfaceColor,
     required this.textSecondary,
@@ -43,7 +107,6 @@ class WpSegmentedSelector extends StatelessWidget {
   });
 
   final List<WpSegmentItem> items;
-  final LinearGradient activeGradient;
   final Color borderColor;
   final Color surfaceColor;
   final Color textSecondary;
@@ -64,24 +127,25 @@ class WpSegmentedSelector extends StatelessWidget {
           height: height,
           decoration: BoxDecoration(
             color: surfaceColor,
-            borderRadius: WpRadius.borderFull,
+            borderRadius: BorderRadius.circular(WpRadiusTokens.sm),
             border: Border.all(color: borderColor),
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
-              AnimatedPositioned(
+              // Directional: the Row below mirrors under RTL, so the
+              // indicator measures from the start edge too (#1634).
+              AnimatedPositionedDirectional(
                 duration: WpMotion.durationFor(context, WpMotion.normal),
                 curve: Curves.easeOutCubic,
-                left: activeIndex >= 0 ? activeIndex * itemWidth + 4 : 4,
+                start: activeIndex >= 0 ? activeIndex * itemWidth + 4 : 4,
                 top: 4,
                 bottom: 4,
                 width: itemWidth - 8,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: activeGradient,
-                    borderRadius: WpRadius.borderFull,
-                    boxShadow: WpShadows.subtle,
+                    color: WpColors.accentSubtle,
+                    borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
                   ),
                 ),
               ),
@@ -104,6 +168,13 @@ class WpSegmentedSelector extends StatelessWidget {
   }
 }
 
+/// How far inside a segment's edge the focus ring is measured from: the
+/// ring's own outset ([WpShellTokens.focusRingGap] plus half its stroke) plus
+/// 2 px, so the stroke runs 1–3 px inside the segment, between its edge and
+/// the active indicator (inset 4 px).
+const double _ringInset =
+    WpShellTokens.focusRingGap + WpShellTokens.focusRingWidth / 2 + 2;
+
 class _SegmentButton extends StatefulWidget {
   const _SegmentButton({required this.item, required this.textSecondary});
 
@@ -115,11 +186,19 @@ class _SegmentButton extends StatefulWidget {
 }
 
 class _SegmentButtonState extends State<_SegmentButton> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'WpSegment');
   bool _hovered = false;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isActive = widget.item.isActive;
+    final iconOnly = widget.item.iconOnly && widget.item.icon != null;
 
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
     // Semantics. A `label:` is prepended to the subtree's own text rather
@@ -131,63 +210,96 @@ class _SegmentButtonState extends State<_SegmentButton> {
       child: Semantics(
         button: true,
         selected: isActive,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: widget.item.onTap,
-            borderRadius: WpRadius.borderFull,
-            focusColor: widget.textSecondary.withValues(alpha: 0.15),
-            onHover: (hovering) => setState(() => _hovered = hovering),
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(context, WpMotion.fast),
-              curve: WpMotion.defaultCurve,
-              color: !isActive && _hovered
-                  ? widget.textSecondary.withValues(alpha: 0.08)
-                  : Colors.transparent,
-              alignment: Alignment.center,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xs),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (widget.item.icon != null) ...[
-                          IconTheme(
-                            data: IconThemeData(
-                              color: isActive
-                                  ? Colors.white
-                                  : widget.textSecondary,
-                              size: 18,
-                            ),
-                            child: DefaultTextStyle(
-                              style: TextStyle(
-                                color: isActive
-                                    ? Colors.white
-                                    : widget.textSecondary,
+        enabled: widget.item.enabled,
+        identifier: widget.item.testId,
+        label: iconOnly ? widget.item.label : null,
+        // The tooltip only shows the name to sighted pointer users; the
+        // Semantics label above already names an icon-only segment, so the
+        // tooltip stays out of the tree (no second announcement).
+        child: Tooltip(
+          message: iconOnly ? widget.item.label : '',
+          excludeFromSemantics: true,
+          // The shared accent ring, drawn inside the segment: the frame clips
+          // anything outside it, and a faint fill alone missed 3:1 contrast.
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadiusTokens.xs,
+            insets: const EdgeInsets.all(_ringInset),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                focusNode: _focusNode,
+                onTap: widget.item.enabled ? widget.item.onTap : null,
+                borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
+                focusColor: Colors.transparent,
+                onHover: (hovering) => setState(() => _hovered = hovering),
+                child: AnimatedContainer(
+                  duration: WpMotion.durationFor(context, WpMotion.fast),
+                  curve: WpMotion.defaultCurve,
+                  color: !isActive && _hovered
+                      ? widget.textSecondary.withValues(alpha: 0.08)
+                      : Colors.transparent,
+                  alignment: Alignment.center,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.xs,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (widget.item.icon != null) ...[
+                              IconTheme(
+                                data: IconThemeData(
+                                  color: isActive
+                                      ? WpColors.accent
+                                      : widget.textSecondary,
+                                  size: WpIconSize.smMd,
+                                ),
+                                child: DefaultTextStyle.merge(
+                                  style: TextStyle(
+                                    color: isActive
+                                        ? WpColors.accent
+                                        : widget.textSecondary,
+                                  ),
+                                  child: widget.item.icon!,
+                                ),
                               ),
-                              child: widget.item.icon!,
-                            ),
-                          ),
-                          const SizedBox(width: WpSpacing.xs),
-                        ],
-                        AnimatedDefaultTextStyle(
-                          duration: WpMotion.durationFor(
-                            context,
-                            WpMotion.fast,
-                          ),
-                          style: TextStyle(
-                            fontSize: WpTypography.subheading,
-                            fontWeight: FontWeight.w700,
-                            color: isActive
-                                ? Colors.white
-                                : widget.textSecondary,
-                          ),
-                          child: Text(widget.item.label),
+                              if (!iconOnly)
+                                const SizedBox(width: WpSpacing.xs),
+                            ],
+                            if (!iconOnly)
+                              AnimatedDefaultTextStyle(
+                                duration: WpMotion.durationFor(
+                                  context,
+                                  WpMotion.fast,
+                                ),
+                                // Merged onto the inherited style: a bare TextStyle
+                                // would replace it and drop the app font and its
+                                // fallbacks (Hebrew rendered as boxes).
+                                style: DefaultTextStyle.of(context).style.merge(
+                                  TextStyle(
+                                    fontSize: WpTypography.subheading,
+                                    fontWeight: isActive
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isActive
+                                        ? WpColors.accent
+                                        : widget.item.enabled
+                                        ? widget.textSecondary
+                                        : widget.textSecondary.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                  ),
+                                ),
+                                child: Text(widget.item.label),
+                              ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

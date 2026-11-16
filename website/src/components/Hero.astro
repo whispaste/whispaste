@@ -73,6 +73,7 @@ const lang = currentLocale(Astro.currentLocale);
         href={localePath(lang, "download")}
         class="hero-secondary-cta hero-fade-rise inline-flex items-center gap-1.5 text-sm font-medium text-(--wp-text-link) hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring) rounded"
         data-testid="hero-secondary-cta"
+        data-download-anchor
         style="--wp-rise-delay: 600ms"
       >
         <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
@@ -98,7 +99,7 @@ const lang = currentLocale(Astro.currentLocale);
         <HeroExample />
 
         <div class="hero-sticker hero-sticker--keys" style="--r: -7deg; --wp-rise-delay: 700ms" aria-hidden="true" data-testid="hero-sticker-keys">
-          <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd>
+          <kbd><span class="kbd-win">Ctrl</span><span class="kbd-mac">⌘</span><span class="kbd-neutral">Ctrl/⌘</span></kbd><kbd><span class="kbd-win">Shift</span><span class="kbd-mac">⇧</span><span class="kbd-neutral">Shift</span></kbd><kbd>D</kbd>
         </div>
         <div class="hero-sticker hero-sticker--local" style="--r: 6deg; --wp-rise-delay: 860ms" data-testid="hero-sticker-local">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
@@ -386,6 +387,15 @@ const lang = currentLocale(Astro.currentLocale);
   }
   .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(2) { animation-delay: 80ms; }
   .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(3) { animation-delay: 160ms; }
+  /* Modifier labels follow the visitor's OS. data-os is set on <html> before
+     first paint (Layout.astro); without it (no JS, unknown OS) the neutral
+     "Ctrl/⌘" and "Shift" labels show. */
+  .hero-sticker--keys .kbd-win,
+  .hero-sticker--keys .kbd-mac { display: none; }
+  :global(html[data-os="windows"]) .hero-sticker--keys .kbd-win,
+  :global(html[data-os="linux"]) .hero-sticker--keys .kbd-win,
+  :global(html[data-os="macos"]) .hero-sticker--keys .kbd-mac { display: inline; }
+  :global(html[data-os]) .hero-sticker--keys .kbd-neutral { display: none; }
   @keyframes hero-key-press {
     0%, 8% { translate: 0 0; border-bottom-width: 3px; background-color: var(--wp-color-white); }
     16%, 70% {

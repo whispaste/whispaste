@@ -54,14 +54,7 @@ void main() {
 
   /// Floating surfaces inside those directories: they sit *above* the plane,
   /// so the rule grants them exactly one shadow. Path → why it floats.
-  const floatingSurfaces = <String, String>{
-    'lib/features/history/widgets/tag_management_dialog.dart':
-        'A modal dialog on its own barrier — it floats above the whole plane, '
-        'so the rule grants it the one shadow. It spends it on '
-        '`Material(elevation: 8)`, the same lift the shared `WpDialog` shell '
-        'paints, which is why the surface underneath is `floatingSurface` '
-        'rather than a frost fill.',
-  };
+  const floatingSurfaces = <String, String>{};
 
   /// Everything after a `//` on a line, so a file *discussing* shadows in a
   /// comment (`history_helpers.dart` carries two retraction notes about
@@ -136,7 +129,8 @@ void main() {
           'ambient gradient the frost fills exist to let through. Separate '
           'the surface with fill brightness (`cardFill` → `cardFillElevated`) '
           'or with `cardEdgeHighlight` instead. If a surface genuinely floats '
-          'above the plane, add it to `floatingSurfaces` with the reason.',
+          'above the plane, add it to `floatingSurfaces` with the reason. The '
+          'selected row marks itself with a border instead (UIA-FND-13 V2).',
     );
   });
 
@@ -147,7 +141,7 @@ void main() {
     expect(tokens.existsSync(), isTrue);
     final source = tokens.readAsStringSync();
 
-    for (final name in <String>['subtle', 'card', 'elevated']) {
+    for (final name in <String>['card', 'elevated']) {
       expect(
         source,
         contains('$name ='),
@@ -162,7 +156,6 @@ void main() {
     // the rule keeps out of the plane rather than a glow (which Ticket 04's
     // offset audit in `wcag_contrast_test.dart` owns).
     for (final shadow in <List<dynamic>>[
-      ['subtle', WpShadows.subtle],
       ['card', WpShadows.card],
       ['elevated', WpShadows.elevated],
     ]) {

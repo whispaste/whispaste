@@ -6,14 +6,15 @@ library;
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
-import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_search_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -21,6 +22,9 @@ import '../../fixtures/test_helpers.dart';
 late L10n l10n;
 
 List<Object> get _noTagOverrides => [
+  // The metadata index would start isolates; these tests are not about it.
+  contentMetadataProvider.overrideWith((ref, key) => Stream.value(null)),
+  contentMetadataPreviewProvider.overrideWith((ref, text) async => null),
   allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
   noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const [])),
 ];
@@ -38,8 +42,10 @@ Note _note({required String id, required String content, DateTime? deletedAt}) {
   );
 }
 
+/// The note body. The panel's title field comes first in the tree now, so
+/// `.first` on the panel's fields would type into the title instead.
 Finder _editorTextFields() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -93,7 +99,7 @@ void main() {
       await tester.tap(_editorTextFields().first);
       await tester.pump();
       await tester.enterText(_editorTextFields().first, 'Hello world');
-      // No pump past the 400ms debounce — only blur should flush this.
+      // No pump past the quiet pause — only blur should flush this.
       await tester.pump();
       expect(actions.saveCalls, isEmpty);
 
@@ -103,6 +109,55 @@ void main() {
       expect(actions.saveCalls, contains(('n1', 'Hello world')));
     },
   );
+
+  testWidgets('Cmd/Ctrl+S saves the note at once and the status says saved', (
+    tester,
+  ) async {
+    final notes = [_note(id: 'n1', content: 'Hello')];
+    final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    final actions = _RecordingSaveActions(db);
+    addTearDown(db.close);
+
+    await tester.pumpWidget(
+      makeTestable(
+        const NotesPage(),
+        size: const Size(1800, 900),
+        overrides: [
+          notesProvider.overrideWith((ref) => Stream.value(notes)),
+          notesActionsProvider.overrideWith((ref) => actions),
+          ..._noTagOverrides,
+        ],
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hello'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(_editorTextFields().first);
+    await tester.pump();
+    await tester.enterText(_editorTextFields().first, 'Hello world');
+    await tester.pump();
+    expect(actions.saveCalls, isEmpty);
+    expect(
+      find.byKey(const ValueKey('notes-editor-save-status-saving')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyDownEvent(primaryShortcutModifier);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+    await tester.sendKeyUpEvent(primaryShortcutModifier);
+    // Shorter than the quiet pause: only the shortcut can have written.
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump();
+
+    expect(actions.saveCalls, contains(('n1', 'Hello world')));
+    expect(
+      find.byKey(const ValueKey('notes-editor-save-status-saved')),
+      findsOneWidget,
+    );
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+  });
 
   testWidgets('delete-forever flushes the pending autosave before deleting', (
     tester,
@@ -130,7 +185,12 @@ void main() {
     await tester.pumpAndSettle();
 
     // Switch to the trash filter, then open the trashed note.
-    await tester.tap(find.text(l10n.notesTrash));
+    // The view filter lives in the toolbar's filter menu.
+    await tester.tap(find.bySemanticsIdentifier('notes-filter-menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsIdentifier('notes-filter-trash'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Hello'));
     await tester.pumpAndSettle();

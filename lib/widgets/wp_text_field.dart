@@ -32,12 +32,11 @@
 /// looks onto the other". The deciding test is whether anything else shares
 /// the surface:
 ///
-///  * [WpTextFieldVariant.heading] sits in a document flow among other things
-///    — a header row with an avatar, a timestamp and six actions. Nothing
-///    there says "this block is a field now" unless the field says it itself,
-///    and it appears only when edit mode opens, so the box is also the mode
-///    indicator. It is boxed, per `lib/DESIGN.md` ("Inputs / Fields"): filled
-///    surface, 8 dp radius, 1 dp subtle hairline.
+///  * [WpTextFieldVariant.heading] is the title in the shared editor head
+///    (`WpEditorHead`) of Notes, Recordings and Snippets. It paints no fill
+///    and no edge at rest, so the title is the same text whether it is being
+///    edited or not; the accent contour while focused is the mode indicator
+///    (#1498: one head in all three editors, no filled title field).
 ///  * [WpTextFieldVariant.passage] is a whole paragraph of prose, and since
 ///    Ticket 09 it is **card material rather than a box** (see "What the
 ///    surfaces are made of"). A transcript is the one thing on that panel a
@@ -99,9 +98,9 @@
 /// Two materials, and which one a variant takes is decided by what it stands
 /// on (Ticket 09, following Ticket 08's in-plane/floating split):
 ///
-///  * `heading` and `form` keep the **opaque** `surfaceVariant`. Both live in
-///    dialogs and header rows on top of already-opaque grounds, where a 3–5 %
-///    translucent tint is not a material, it is a rounding error.
+///  * `form` keeps the **opaque** `surfaceVariant`. It lives in dialogs and
+///    forms on top of already-opaque grounds, where a 3–5 % translucent tint
+///    is not a material, it is a rounding error.
 ///  * `passage` and `bare` take the **card material** — `WpColors.cardFill`,
 ///    the same translucent tint every other card in the app is made of. Both
 ///    own a whole region of a panel, and both panels now paint no ground of
@@ -110,7 +109,8 @@
 ///    *single* frost layer rather than a panel card with a field card on top:
 ///    stacking two rungs drops the hint text (`textMuted`) to 4.43:1 over the
 ///    lightest ambient stop, below AA. Unstacked it measures 4.76:1.
-///  * `embedded` paints nothing at all; its host row already did.
+///  * `embedded` paints nothing at all; its host row already did. Neither
+///    does `heading`: the editor head is the panel's own ground.
 ///
 /// ### The hover lift
 ///
@@ -149,34 +149,24 @@
 /// ## One highlight per state
 ///
 /// The [WpSearchField] rule, unchanged: **the field's own contour is the only
-/// focus signal**. No [WpFocusRing] around the control, no glow — a text field
+/// focus signal**. No [WpFocusRing] around the control, no light effect — a text field
 /// already draws a contour, and a ring outside it would be two markings for
-/// one state. Boxed variants therefore move their hairline to the accent at
-/// 1.5 dp, and [WpTextFieldVariant.bare], having no hairline to move, grows
-/// the same accent stroke from nothing for as long as it holds focus. Both
-/// come out of one predicate on the spec ([_WpTextFieldSpec.strokeAt]) and one
+/// one state. The boxed form variants move their hairline to the accent at
+/// 1.5 dp. The editor surfaces (`heading`, `passage`, `bare`) show no edge at
+/// rest (maintainer, #1498: no border without focus) but still paint a 1 dp
+/// stroke in `Colors.transparent` there — [WpSearchField]'s idiom, a resting
+/// border left transparent rather than absent, so the focus transition
+/// animates a *colour* instead of snapping in from nothing. All of it comes
+/// out of one predicate on the spec ([_WpTextFieldSpec.strokeAt]) and one
 /// paint site, so there is no second focus treatment to keep in step with the
 /// first.
-///
-/// [WpTextFieldVariant.passage] is the third case and the reason
-/// [_WpFieldRestingStroke] has three values rather than two: it shows no
-/// contour at rest, but it still paints a 1 dp stroke in `Colors.transparent`
-/// there. That is [WpSearchField]'s idiom — a resting border left transparent
-/// rather than absent, so the focus transition animates a *colour* instead of
-/// appearing out of nothing. `passage` used to cross-fade `borderSubtle` →
-/// accent, and going to a null decoration at rest would have silently
-/// downgraded that to `bare`'s snap.
 ///
 /// `bare` used to show focus by the caret alone, on the argument that a stroke
 /// there would frame the whole lower half of the Notes panel for as long as
 /// the user types. The maintainer decided against that reading: a writing
 /// surface the size of a panel is exactly where "is my typing going here" must
 /// not be a question, and the rule was never "the contour, where the variant
-/// happens to have one". The stroke snaps in and out instead of cross-fading
-/// like the boxed variants: [AnimatedContainer] builds the tween fresh on the
-/// frame a decoration first appears, so its begin and its target are the same
-/// value and the controller never starts. On a focus indicator that reads as
-/// immediate rather than as a jump, so it is left alone.
+/// happens to have one".
 ///
 /// [WpTextFieldVariant.embedded] is the one variant that still shows nothing
 /// of its own, and it follows the same rule from the other side:
@@ -194,8 +184,10 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 
 // ---------------------------------------------------------------------------
@@ -204,10 +196,10 @@ import '../core/theme/tokens.dart';
 
 /// What is being edited — and therefore what the field has to look like.
 enum WpTextFieldVariant {
-  /// A short title edited in place, inside a row that carries other things
-  /// too (History's entry header). Boxed, single-line, and rendered at the
-  /// size and weight the title has when it is *not* being edited, so opening
-  /// edit mode never resizes the text.
+  /// A short title edited in place in the shared editor head (`WpEditorHead`).
+  /// No fill and no edge at rest, the accent contour while focused,
+  /// single-line, and rendered at the size and weight the title has when it
+  /// is *not* being edited, so opening edit mode never resizes the text.
   heading,
 
   /// A passage of prose that is one section among several on its surface
@@ -220,6 +212,12 @@ enum WpTextFieldVariant {
   /// Snippets/Replacements dialogs, the feedback form). Boxed, 13 dp, 48 dp
   /// tall at rest, and it takes its line count from the call site.
   form,
+
+  /// A short value in a settings row's control slot, beside dropdowns (the
+  /// automation port). The same box as [form], but on the dropdown trigger's
+  /// surface and rim, so the controls of one settings page read as one
+  /// family instead of a grey box that looks like a disabled button.
+  control,
 
   /// The same form value inside a container the caller draws because that
   /// container also holds other controls (History's note rows: field plus
@@ -271,17 +269,31 @@ class WpTextField extends StatefulWidget {
     this.onEditingComplete,
     this.minLines,
     this.maxLines,
+    this.expands = false,
     this.obscureText = false,
     this.autocorrect = true,
     this.maxLength,
+    this.enforceMaxLength = true,
+    this.keyboardType,
+    this.inputFormatters,
     this.suffix,
     this.scrollToEnd,
+    this.undoController,
   }) : assert(
          minLines == null && maxLines == null ||
              variant == WpTextFieldVariant.form ||
-             variant == WpTextFieldVariant.embedded,
-         'Only form/embedded take their line count from the call site — the '
-         'other variants are one-line or free-growing by definition.',
+             variant == WpTextFieldVariant.embedded ||
+             variant == WpTextFieldVariant.passage,
+         'Only form/embedded take their line count from the call site, and '
+         'passage a floor/cap for its growth — the others are one-line or '
+         'fill their box by definition.',
+       ),
+       assert(
+         !expands ||
+             variant == WpTextFieldVariant.form ||
+             variant == WpTextFieldVariant.passage,
+         'Only form and passage grow into a bounded parent on request; '
+         'bare already fills its box by definition.',
        ),
        assert(
          suffix == null || variant == WpTextFieldVariant.form,
@@ -324,10 +336,19 @@ class WpTextField extends StatefulWidget {
   final VoidCallback? onEditingComplete;
 
   /// How much room this particular *value* needs — see the library docs on
-  /// optical vs. functional parameters. `form`/`embedded` only; a `maxLines`
-  /// of 1 (the default) also makes Enter submit rather than insert a newline.
+  /// optical vs. functional parameters. `form`/`embedded`, where a `maxLines`
+  /// of 1 (the default) also makes Enter submit rather than insert a newline,
+  /// and a [minLines] without [maxLines] grows without a line cap (the snippet
+  /// body, #664); and `passage`, where they only bound its growth (the
+  /// interactive snippet's template, #1498) and Enter stays a newline.
   final int? minLines;
   final int? maxLines;
+
+  /// `form` and `passage`: the box takes the full height its bounded parent
+  /// offers instead of sizing by [minLines]/[maxLines] (the static snippet's
+  /// body, which fills its pane like the note, #1498). Line counts are
+  /// ignored then.
+  final bool expands;
 
   /// Functional pass-throughs. None of them change how the field looks; each
   /// exists because exactly one call site cannot work without it: the API key
@@ -336,6 +357,18 @@ class WpTextField extends StatefulWidget {
   final bool obscureText;
   final bool autocorrect;
   final int? maxLength;
+
+  /// Whether typing stops at [maxLength]. Off, the field only counts: the
+  /// counter turns red past the limit and the caller refuses to save. For a
+  /// value stored before a limit existed (Smart Mode preset instructions,
+  /// #1685) — Flutter's length limiter would otherwise cut such a text to
+  /// the limit on the very first keystroke, silently dropping the rest.
+  final bool enforceMaxLength;
+
+  /// Keyboard type and input filters for fields that take a constrained
+  /// value, such as a digits-only PIN.
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   /// A button inside the box's trailing 48 dp slot, the way [WpSearchField]
   /// carries its clear button — not overlaid on the field by the call site,
@@ -357,12 +390,45 @@ class WpTextField extends StatefulWidget {
   /// no controller of its own, Flutter's internal one.
   final Listenable? scrollToEnd;
 
+  /// The field's undo/redo history, when someone outside the field needs to
+  /// drive it — [WpTextEditor]'s undo and redo buttons. Omitted, the field
+  /// keeps Flutter's internal history and Ctrl/Cmd+Z behaves exactly as
+  /// before.
+  final UndoHistoryController? undoController;
+
   /// The text style [variant] renders at, so a read-only view of the same
   /// text can match it exactly. See the library docs.
   static TextStyle styleFor(
     WpTextFieldVariant variant, {
     required Color color,
   }) => _WpTextFieldSpec.of(variant).textStyle(color);
+
+  /// The heading variant's text inset. A read-only title in an editor head
+  /// pads itself by it, so opening edit mode never moves the text (#1498).
+  static EdgeInsets get headingContentPadding =>
+      _WpTextFieldSpec.of(WpTextFieldVariant.heading).padding;
+
+  /// Decoration for a raw `TextField` that sits inside a
+  /// [WpTextFieldSurface] as one of several rows (the long note's
+  /// paragraphs): no border in any state, no inset, no label. The surface
+  /// draws the fill, the inset and the one focus contour around all rows;
+  /// `InputDecoration.collapsed` alone would still let the theme's focused
+  /// outline frame the single row being edited (#1498).
+  static const InputDecoration surfaceRowDecoration = InputDecoration(
+    isCollapsed: true,
+    floatingLabelBehavior: FloatingLabelBehavior.never,
+    border: InputBorder.none,
+    enabledBorder: InputBorder.none,
+    focusedBorder: InputBorder.none,
+    disabledBorder: InputBorder.none,
+    errorBorder: InputBorder.none,
+    focusedErrorBorder: InputBorder.none,
+  );
+
+  /// Whether [variant] fills the box it is given (and so must sit in an
+  /// `Expanded`) instead of sizing to its lines.
+  static bool fillsBox(WpTextFieldVariant variant) =>
+      _WpTextFieldSpec.of(variant).fillsItsBox;
 
   @override
   State<WpTextField> createState() => _WpTextFieldState();
@@ -458,30 +524,41 @@ class _WpTextFieldState extends State<WpTextField> {
 
   @override
   Widget build(BuildContext context) {
-    const palette = _WpTextFieldPalette._palette;
+    final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
     final style = spec.textStyle(palette.textPrimary);
 
-    // On `form`/`embedded` the call site owns the line count; everywhere else
-    // the variant does, and passing either is an assertion error.
+    // On `form`/`embedded` the call site owns the line count; `passage` may
+    // bound its growth; everywhere else the variant decides.
     final maxLines = spec.linesFromCallSite
-        ? (widget.maxLines ?? 1)
-        : (spec.multiline ? null : 1);
-    final multiline = spec.linesFromCallSite ? maxLines != 1 : spec.multiline;
+        ? (widget.maxLines ?? (widget.minLines == null ? 1 : null))
+        : (spec.multiline ? widget.maxLines : 1);
+    final multiline =
+        widget.expands ||
+        (spec.linesFromCallSite ? maxLines != 1 : spec.multiline);
+    final expands = spec.fillsItsBox || widget.expands;
 
     Widget field = TextField(
       controller: widget.controller,
       focusNode: _focusNode,
       scrollController: _scrollController,
+      undoController: widget.undoController,
       autofocus: widget.autofocus,
-      minLines: spec.linesFromCallSite ? widget.minLines : null,
-      maxLines: spec.fillsItsBox ? null : maxLines,
-      expands: spec.fillsItsBox,
-      textAlignVertical: spec.fillsItsBox ? TextAlignVertical.top : null,
-      keyboardType: multiline ? TextInputType.multiline : null,
+      minLines: (spec.linesFromCallSite || spec.multiline) && !expands
+          ? widget.minLines
+          : null,
+      maxLines: expands ? null : maxLines,
+      expands: expands,
+      textAlignVertical: expands
+          ? TextAlignVertical.top
+          : spec.minHeight != null
+          ? TextAlignVertical.center
+          : null,
+      keyboardType: multiline ? TextInputType.multiline : widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
       obscureText: widget.obscureText,
       autocorrect: widget.autocorrect,
-      maxLength: widget.maxLength,
+      maxLength: widget.enforceMaxLength ? widget.maxLength : null,
       style: style,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
@@ -496,6 +573,12 @@ class _WpTextFieldState extends State<WpTextField> {
         counterText: '',
         isDense: true,
         contentPadding: spec.padding,
+        constraints: spec.minHeight == null
+            ? null
+            : BoxConstraints(minHeight: spec.minHeight!),
+        // The desktops resolve a compact density that shaves the inset; the
+        // floor above alone would keep the box but push the text to its top.
+        visualDensity: spec.minHeight == null ? null : VisualDensity.standard,
         // Fill, stroke and radius all live on the box below — the decoration
         // would otherwise paint a second, differently-timed border under the
         // one the box already animates.
@@ -572,16 +655,22 @@ class _WpTextFieldState extends State<WpTextField> {
       liveRegion: _hasFocus,
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: widget.controller,
-        builder: (context, value, _) => Text(
+        builder: (context, value, _) {
           // Graphemes, the same unit LengthLimitingTextInputFormatter
           // enforces in — so the readout cannot disagree with the limit it
           // reports.
-          '${value.text.characters.length}/${widget.maxLength}',
-          style: TextStyle(
-            fontSize: WpTypography.small,
-            color: palette.textMuted,
-          ),
-        ),
+          final count = value.text.characters.length;
+          return Text(
+            '$count/${widget.maxLength}',
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              // Only reachable with [enforceMaxLength] off.
+              color: count > widget.maxLength!
+                  ? palette.error
+                  : palette.textMuted,
+            ),
+          );
+        },
       ),
     ),
   );
@@ -611,6 +700,7 @@ class WpTextFieldSurface extends StatefulWidget {
     required this.variant,
     required this.child,
     this.liftsOnHover = true,
+    this.focused = false,
   });
 
   /// Which field this surface is the read view of. Same value the edit view
@@ -629,6 +719,12 @@ class WpTextFieldSurface extends StatefulWidget {
   /// that never lift at all.
   final bool liftsOnHover;
 
+  /// Whether the text inside has the keyboard focus. A surface that hosts its
+  /// own editing rows (the long note, which edits one paragraph at a time)
+  /// sets it so the whole surface carries the field's focus contour, not the
+  /// paragraph being typed in (#1498). Read views leave it off.
+  final bool focused;
+
   @override
   State<WpTextFieldSurface> createState() => _WpTextFieldSurfaceState();
 }
@@ -643,7 +739,7 @@ class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
 
   @override
   Widget build(BuildContext context) {
-    const palette = _WpTextFieldPalette._palette;
+    final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
     final lifts = spec.liftsOnHover && widget.liftsOnHover;
 
@@ -658,11 +754,15 @@ class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
         color: spec.fillAt(hovered: lifts && _hovered, palette: palette),
         borderRadius: spec.radius,
       ),
-      foregroundDecoration: spec.strokeAt(focused: false)
+      foregroundDecoration: spec.strokeAt(focused: widget.focused)
           ? BoxDecoration(
               borderRadius: spec.radius,
               border: Border.all(
-                color: spec.strokeColor(focused: false, palette: palette),
+                color: spec.strokeColor(
+                  focused: widget.focused,
+                  palette: palette,
+                ),
+                width: widget.focused && spec.focusStroke ? 1.5 : 1,
               ),
             )
           : null,
@@ -693,9 +793,12 @@ class _WpTextFieldPalette {
     required this.cardFill,
     required this.cardFillHover,
     required this.border,
+    required this.triggerFill,
+    required this.triggerEdge,
     required this.textPrimary,
     required this.textMuted,
     required this.accent,
+    required this.error,
   });
 
   /// The opaque writing surface, for the variants that stand on an already
@@ -711,6 +814,11 @@ class _WpTextFieldPalette {
   final Color cardFillHover;
 
   final Color border;
+
+  /// Fill and rim of a dropdown trigger, for [WpTextFieldVariant.control].
+  final Color triggerFill;
+  final Color triggerEdge;
+
   final Color textPrimary;
   final Color textMuted;
 
@@ -718,19 +826,25 @@ class _WpTextFieldPalette {
   /// signal.
   final Color accent;
 
+  /// The counter past its limit (only with enforcement off).
+  final Color error;
+
   /// The one palette. Named `_dark` while it had a `_light` twin and an
   /// `of(Brightness)` resolver between them; both went with the light
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
-  static const _palette = _WpTextFieldPalette(
+  static _WpTextFieldPalette current() => _WpTextFieldPalette(
     surface: WpColors.surfaceVariant,
     cardFill: WpColors.cardFill,
     cardFillHover: WpColors.cardFillElevated,
-    border: WpColors.borderSubtle,
+    border: WpColors.controlEdge,
+    triggerFill: WpColors.cardFillElevated,
+    triggerEdge: WpColors.cardEdgeHighlight,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
+    error: WpColors.errorRed,
   );
 }
 
@@ -751,6 +865,9 @@ enum _WpFieldMaterial {
 
   /// Nothing at all: the host row already painted it — `embedded`.
   none,
+
+  /// The dropdown trigger's surface and rim — `control`.
+  trigger,
 }
 
 /// What a variant's contour is while nothing is happening to it.
@@ -759,10 +876,11 @@ enum _WpFieldRestingStroke {
   /// around itself.
   hairline,
 
-  /// A 1 dp stroke painted in `Colors.transparent`: invisible, but present,
-  /// so the focus stroke animates a colour instead of appearing out of
-  /// nothing. [WpSearchField]'s idiom.
-  invisible,
+  /// A 1 dp stroke in `Colors.transparent`: nothing visible at rest, but the
+  /// focus accent fades in as a colour change instead of snapping in. The
+  /// editor surfaces (`heading`, `passage`, `bare`) since #1498: no edge
+  /// until the caret is there.
+  transparent,
 
   /// No `foregroundDecoration` at all. The focus stroke, where there is one,
   /// then snaps in rather than fading — deliberate, see the library docs.
@@ -784,6 +902,8 @@ class _WpTextFieldSpec {
     required this.fillsItsBox,
     this.focusStroke = true,
     this.linesFromCallSite = false,
+    this.minHeight,
+    this.surfaceCorners = false,
   });
 
   final double fontSize;
@@ -825,12 +945,26 @@ class _WpTextFieldSpec {
   /// docs on optical vs. functional parameters.
   final bool linesFromCallSite;
 
-  /// Only the card variants lift under the pointer: the opaque ones still
-  /// carry a resting hairline, so they never lost the affordance the lift is
-  /// there to replace.
+  /// Floor of the box, with the text centred in it and the standard visual
+  /// density. Set on the one-line families that share a line with buttons
+  /// and dropdowns: the desktops' compact density took 8 dp off the inset, so
+  /// `form` rested at 40 beside a 48-dp button (UX-131).
+  final double? minHeight;
+
+  /// Only the card variants lift under the pointer: they show no edge at
+  /// rest, so the lift is their "you can write here"; the opaque form
+  /// variants keep their resting hairline instead.
   bool get liftsOnHover => material == _WpFieldMaterial.card;
 
-  BorderRadius get radius => rounded ? WpRadius.borderSm : BorderRadius.zero;
+  /// The writing surfaces ([_passage], [_bare]) are panels of their own, so
+  /// they take the surface radius instead of the control radius.
+  final bool surfaceCorners;
+
+  BorderRadius get radius => surfaceCorners
+      ? BorderRadius.circular(WpRadiusTokens.surface)
+      : rounded
+      ? WpRadius.borderSm
+      : BorderRadius.zero;
 
   /// The box's fill in this state — `null` where the host already painted it.
   Color? fillAt({
@@ -840,6 +974,7 @@ class _WpTextFieldSpec {
     _WpFieldMaterial.opaque => palette.surface,
     _WpFieldMaterial.card => hovered ? palette.cardFillHover : palette.cardFill,
     _WpFieldMaterial.none => null,
+    _WpFieldMaterial.trigger => palette.triggerFill,
   };
 
   /// Whether a stroke is painted at all in this state — the single source the
@@ -849,17 +984,20 @@ class _WpTextFieldSpec {
   bool strokeAt({required bool focused}) =>
       restingStroke != _WpFieldRestingStroke.none || (focusStroke && focused);
 
-  /// And what colour that stroke is. `Colors.transparent` is the resting
-  /// value of [_WpFieldRestingStroke.invisible] — a real stroke that happens
-  /// to be see-through, so [AnimatedContainer] has something to tween from.
+  /// And what colour that stroke is: the accent while focused, the hairline
+  /// colour on the boxed form variants at rest, and transparent on the
+  /// editor surfaces at rest (#1498: no edge without focus).
   Color strokeColor({
     required bool focused,
     required _WpTextFieldPalette palette,
   }) {
     if (focused && focusStroke) return palette.accent;
-    return restingStroke == _WpFieldRestingStroke.hairline
-        ? palette.border
-        : Colors.transparent;
+    if (restingStroke != _WpFieldRestingStroke.hairline) {
+      return Colors.transparent;
+    }
+    return material == _WpFieldMaterial.trigger
+        ? palette.triggerEdge
+        : palette.border;
   }
 
   TextStyle textStyle(Color color) => TextStyle(
@@ -870,8 +1008,10 @@ class _WpTextFieldSpec {
   );
 
   /// 16 dp/700, single line, and the tight 8/4 inset that keeps the title on
-  /// the same baseline it occupies when idle, inside a header row it shares
-  /// with an avatar, a timestamp and six actions.
+  /// the same baseline it occupies when idle, inside the shared editor head
+  /// (`WpEditorHead`). Unfilled and edgeless at rest, the accent contour only
+  /// while focused, so the title reads as the same text in every editor
+  /// whether it is being edited or not (#1498).
   static const _heading = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w700,
@@ -880,50 +1020,52 @@ class _WpTextFieldSpec {
       horizontal: WpSpacing.xs,
       vertical: WpSpacing.xxs,
     ),
-    material: _WpFieldMaterial.opaque,
-    restingStroke: _WpFieldRestingStroke.hairline,
+    material: _WpFieldMaterial.none,
+    restingStroke: _WpFieldRestingStroke.transparent,
     rounded: true,
     multiline: false,
     fillsItsBox: false,
   );
 
   /// Prose metrics: 16 dp at 1.65, the measure the History panel already caps
-  /// at 720 dp (~85 characters) for exactly this size. Card material and no
-  /// resting contour since Ticket 09 — a transcript is what the reader came
-  /// for, and a hairline all the way around it frames the reading.
+  /// at 720 dp (~85 characters) for exactly this size. One writing surface on
+  /// Notes, History and Snippets (#1498 F-editor-pattern): card material, no
+  /// visible edge at rest (the fill and the hover lift say "editable"), the
+  /// accent contour while focused, and the surface radius.
   static const _passage = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w400,
     lineHeight: 1.65,
-    padding: EdgeInsets.all(WpSpacing.sm),
+    padding: EdgeInsets.all(WpSpacing.md),
     material: _WpFieldMaterial.card,
-    restingStroke: _WpFieldRestingStroke.invisible,
+    restingStroke: _WpFieldRestingStroke.transparent,
     rounded: true,
+    surfaceCorners: true,
     multiline: true,
     fillsItsBox: false,
   );
 
-  /// The same prose metrics and the same material as [_passage] — one writing
-  /// surface, one text size, one fill — with the resting stroke gone entirely
-  /// and the inset opened up to 24 dp, because here the padding is the only
-  /// thing holding the text off the panel edge.
+  /// The same writing surface as [_passage] — metrics, material, edge and
+  /// corners — stretched to fill the pane it sits in (the note body).
   static const _bare = _WpTextFieldSpec(
     fontSize: WpTypography.heading,
     fontWeight: FontWeight.w400,
     lineHeight: 1.65,
-    padding: EdgeInsets.all(WpSpacing.xl),
+    padding: EdgeInsets.all(WpSpacing.md),
     material: _WpFieldMaterial.card,
-    restingStroke: _WpFieldRestingStroke.none,
-    rounded: false,
+    restingStroke: _WpFieldRestingStroke.transparent,
+    rounded: true,
+    surfaceCorners: true,
     multiline: true,
     fillsItsBox: true,
   );
 
-  /// 13 dp, and the inset that *is* the field's height: 14 dp above and below
-  /// a 20 dp line puts the resting box at exactly 48 dp — the touch-target
-  /// floor and [WpSearchField]'s height — without a `SizedBox` to clip
-  /// against once the text scaler grows the line. 16 dp horizontal is the
-  /// same inset the search field puts in front of its glyph.
+  /// 13 dp, standing at [WpLayout.controlHeight] — the height of the button,
+  /// dropdown and [WpSearchField] beside it. The floor holds that on every
+  /// desktop (the 14 dp inset alone came out at 40 under compact density);
+  /// the inset stays the room the box grows into once the text scaler grows
+  /// the line, so nothing clips. 16 dp horizontal is the same inset the
+  /// search field puts in front of its glyph.
   static const _form = _WpTextFieldSpec(
     fontSize: WpTypography.body,
     fontWeight: FontWeight.w400,
@@ -938,13 +1080,15 @@ class _WpTextFieldSpec {
     multiline: false,
     fillsItsBox: false,
     linesFromCallSite: true,
+    minHeight: WpLayout.controlHeight,
   );
 
   /// [_form] with the box handed back to the host: no fill, no stroke, no
   /// radius. The horizontal inset drops to the 12 dp its host row reads its
   /// own text at, so the note does not shift sideways when edit mode opens;
-  /// the vertical inset stays [_form]'s, so the row still stands 48 dp tall
-  /// and its save/cancel buttons keep their full touch target.
+  /// the height stays [_form]'s, so the row still stands at
+  /// [WpLayout.controlHeight] and its save/cancel buttons keep their full
+  /// touch target.
   static const _embedded = _WpTextFieldSpec(
     fontSize: WpTypography.body,
     fontWeight: FontWeight.w400,
@@ -960,12 +1104,31 @@ class _WpTextFieldSpec {
     fillsItsBox: false,
     focusStroke: false,
     linesFromCallSite: true,
+    minHeight: WpLayout.controlHeight,
+  );
+
+  static const _control = _WpTextFieldSpec(
+    fontSize: WpTypography.body,
+    fontWeight: FontWeight.w400,
+    lineHeight: null,
+    padding: EdgeInsets.symmetric(
+      horizontal: WpSpacing.md,
+      vertical: WpSpacing.sm + 2,
+    ),
+    material: _WpFieldMaterial.trigger,
+    restingStroke: _WpFieldRestingStroke.hairline,
+    rounded: true,
+    multiline: false,
+    fillsItsBox: false,
+    linesFromCallSite: true,
+    minHeight: WpLayout.controlHeight,
   );
 
   static _WpTextFieldSpec of(WpTextFieldVariant variant) => switch (variant) {
     WpTextFieldVariant.heading => _heading,
     WpTextFieldVariant.passage => _passage,
     WpTextFieldVariant.form => _form,
+    WpTextFieldVariant.control => _control,
     WpTextFieldVariant.embedded => _embedded,
     WpTextFieldVariant.bare => _bare,
   };

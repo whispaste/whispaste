@@ -27,13 +27,7 @@ void main() {
         r'C:\Users\test\Desktop\report.html',
         platformOverride: 'windows',
       );
-      expect(
-        cmd,
-        equals([
-          'explorer',
-          r'C:\Users\test\Desktop\report.html',
-        ]),
-      );
+      expect(cmd, equals(['explorer', r'C:\Users\test\Desktop\report.html']));
     });
 
     test('linux: xdg-open <htmlPath>', () {
@@ -232,10 +226,7 @@ void main() {
       );
 
       expect(calls[1].$1, equals('explorer'));
-      expect(
-        calls[1].$2,
-        equals([r'C:\Users\test\Desktop\report.html']),
-      );
+      expect(calls[1].$2, equals([r'C:\Users\test\Desktop\report.html']));
     });
 
     test('second call on linux uses xdg-open for html', () async {

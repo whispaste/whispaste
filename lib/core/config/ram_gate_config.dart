@@ -57,3 +57,18 @@ const int _kEnvThresholdMB = int.fromEnvironment(
       (_kEnvThresholdMB > 0 ? _kEnvThresholdMB : hw.kRamCheckThresholdMB);
   return (minRamMB: min, thresholdMB: threshold);
 }
+
+/// What the RAM check at start advises (decision 22, 2026-10-20). Low RAM
+/// never blocks the app; the speech recommendation reads the same RAM figure
+/// and already picks the compact tier on such a machine.
+enum RamStartupAdvice { none, compactSpeechModel }
+
+/// The start-up advice for [ramMB] (detected total RAM, `null` when unknown).
+/// Below the threshold the compact speech model is advised; at or above it,
+/// and when RAM is unknown, there is no advice.
+RamStartupAdvice ramStartupAdvice(int? ramMB) {
+  final threshold = resolveRamThresholds().thresholdMB;
+  return ramMB != null && ramMB < threshold
+      ? RamStartupAdvice.compactSpeechModel
+      : RamStartupAdvice.none;
+}

@@ -130,16 +130,22 @@ void main() {
       final modelFile = File(p.join(tempDir.path, sttModels.first.filename));
       await modelFile.writeAsBytes([0]);
 
-      // Delay every hook call so the scan is still in flight when
+      // Hold every hook call so the scan is still in flight when
       // awaitInitialScan() is invoked, not already finished by coincidence.
+      final release = Completer<void>();
       final container = _makeContainerWithHook((path) async {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await release.future;
         return File(path).exists();
       });
       addTearDown(container.dispose);
 
       final notifier = container.read(modelDownloadProvider.notifier);
-      await notifier.awaitInitialScan();
+      var resolved = false;
+      final scan = notifier.awaitInitialScan().then((_) => resolved = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(resolved, isFalse, reason: 'the scan is still held in flight');
+      release.complete();
+      await scan.timeout(const Duration(seconds: 5));
 
       final state = container.read(modelDownloadProvider);
       expect(

@@ -6,11 +6,14 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../services/graceful_shutdown.dart';
+import '../../services/quit_deadline.dart';
 import '../../services/single_instance_service.dart';
 import '../logging/app_logger.dart';
 
@@ -24,6 +27,23 @@ class MacOSLifecycleChannel {
   MacOSLifecycleChannel._();
 
   static const _channel = MethodChannel('com.whispaste.app_lifecycle');
+
+  /// Hides every application except WhisPaste (the standard Cmd+Option+H).
+  static Future<void> hideOtherApplications() =>
+      _invoke('hideOtherApplications');
+
+  /// Unhides every hidden application (the standard "Show All").
+  static Future<void> unhideAllApplications() =>
+      _invoke('unhideAllApplications');
+
+  static Future<void> _invoke(String method) async {
+    if (!Platform.isMacOS) return;
+    try {
+      await _channel.invokeMethod<void>(method);
+    } on PlatformException catch (e) {
+      _log.debug('$method failed', e);
+    }
+  }
 
   /// Show the app in Dock and App Switcher (normal app mode).
   static Future<void> setRegular() async {
@@ -86,6 +106,11 @@ class MacOSLifecycleChannel {
     } on PlatformException catch (e) {
       _log.debug('requestUserAttention failed', e);
       return null;
+    } on MissingPluginException catch (e) {
+      // A Dock bounce is a best-effort hint: a host without the handler must
+      // not break the paste flow that asked for it.
+      _log.debug('requestUserAttention handler not registered', e);
+      return null;
     }
   }
 
@@ -99,6 +124,8 @@ class MacOSLifecycleChannel {
     } on PlatformException catch (e) {
       // Best-effort cancel.
       _log.debug('cancelUserAttention($token) failed', e);
+    } on MissingPluginException catch (e) {
+      _log.debug('cancelUserAttention handler not registered', e);
     }
   }
 
@@ -219,7 +246,9 @@ class MacOSLifecycleChannel {
     required String restartCancelLabel,
     required void Function(bool restart) onDismiss,
   }) async {
-    if (!Platform.isMacOS) return false;
+    // Whether the guide is offered is a platform decision (the seam), so a
+    // test can pin macOS on any host; the channel itself is native.
+    if (defaultTargetPlatform != TargetPlatform.macOS) return false;
     _permissionAlertCallbacks[id] = onDismiss;
     try {
       await _channel.invokeMethod('showStaleEntryRemovalGuide', {
@@ -281,11 +310,28 @@ class MacOSLifecycleChannel {
   /// this, native quit bypasses the Dart-level `onWindowClose` handler
   /// entirely and can abort the process mid-teardown (see
   /// `graceful_shutdown.dart`).
-  static void registerTerminationHandler(ProviderContainer container) {
+  ///
+  /// [confirmTermination] answers the native `confirmTermination` call
+  /// (`answerConfirmTermination` in quit_guard.dart). It is passed in so this
+  /// channel does not import the quit guard, which imports window activation,
+  /// which imports this channel.
+  static void registerTerminationHandler(
+    ProviderContainer container, {
+    required Future<bool> Function() confirmTermination,
+  }) {
     if (!Platform.isMacOS) return;
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'prepareForTermination') {
-        await runGracefulEngineShutdown(container);
+        // Bounded: a hung step must not keep Cmd+Q alive (see quit_deadline.dart).
+        await shutdownWithHardDeadline(
+          orderlyShutdown: () => runGracefulEngineShutdown(container),
+          hardExit: endProcessWithoutDestructors,
+        );
+      } else if (call.method == 'confirmTermination') {
+        // Cmd+Q / Dock Quit during a dictation asks first (#1498). Unbounded
+        // on purpose: the user may take their time; native only starts its
+        // hard deadline after this answers true. false keeps the app open.
+        return confirmTermination();
       } else if (call.method == 'relaunchFailed') {
         // Native relaunch could not start (e.g. the sandbox refused the
         // self-launch) and deliberately did NOT terminate, so the app is
@@ -312,8 +358,28 @@ class MacOSLifecycleChannel {
         final confirmed = args?['confirmed'] == true;
         final callback = _permissionAlertCallbacks.remove(id);
         callback?.call(confirmed);
+      } else if (call.method == 'openUrls') {
+        SingleInstanceService.openUrls(_urls(call.arguments));
       }
       return null;
     });
   }
+
+  /// `whispaste://` links macOS opened before Dart was listening (a cold
+  /// start from a link). Later ones arrive as `openUrls` calls. Call once the
+  /// remote command handler is registered.
+  static Future<void> takeOpenUrls() async {
+    if (!Platform.isMacOS) return;
+    try {
+      final urls = await _channel.invokeMethod<Object?>('takeOpenUrls');
+      SingleInstanceService.openUrls(_urls(urls));
+    } on PlatformException catch (e) {
+      _log.debug('takeOpenUrls failed', e);
+    } on MissingPluginException catch (e) {
+      _log.debug('takeOpenUrls unavailable', e);
+    }
+  }
+
+  static Iterable<String> _urls(Object? value) =>
+      value is List ? value.whereType<String>() : const [];
 }

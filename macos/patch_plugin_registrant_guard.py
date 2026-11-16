@@ -83,7 +83,9 @@ def main() -> int:
             print(f"{path} already guards AutoUpdaterMacosPlugin — nothing to do.")
         return 0
 
-    with open(path, "w") as f:
+    # LF as in the index: on Windows text mode would write CRLF, and the
+    # healed file would still show as modified.
+    with open(path, "w", newline="\n") as f:
         f.write(new_content)
     print(f"patch_plugin_registrant_guard: guarded {path}")
     return 0

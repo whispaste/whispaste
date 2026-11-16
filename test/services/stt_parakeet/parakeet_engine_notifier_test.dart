@@ -63,4 +63,15 @@ void main() {
       ),
     );
   });
+
+  test('stopForQuit() on an idle engine returns at once with no native call '
+      'running, so quit never waits on Parakeet', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(parakeetEngineProvider.notifier);
+
+    expect(notifier.hasNativeCallRunning, isFalse);
+    await notifier.stopForQuit().timeout(const Duration(milliseconds: 500));
+    expect(notifier.hasNativeCallRunning, isFalse);
+  });
 }

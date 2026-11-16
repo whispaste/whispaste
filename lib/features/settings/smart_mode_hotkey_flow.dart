@@ -5,7 +5,7 @@
 /// Einstellungen sind die einzige Aufrufstelle heute, aber der Weg selbst —
 /// „Dialog öffnen → Kollision prüfen → erst dann speichern" — steht in
 /// `hotkey_flow.dart`; hier steht nur, welcher Abschnitt dabei gelesen und
-/// geschrieben wird (ticket 04 of `internal-notes`).
+/// geschrieben wird.
 library;
 
 import 'package:flutter/widgets.dart';
@@ -20,7 +20,6 @@ Future<HotkeyRecordResult> recordSmartModeHotkey({
   required BuildContext context,
   required WidgetRef ref,
   required AppSettings settings,
-  // loam-ignore: code-duplicates – Zwilling zu `recordSnippetPickerHotkey`, Begründung im Doc-Kommentar dort
 }) {
   final smartMode = settings.smartModeHotkey;
   return recordHotkey(

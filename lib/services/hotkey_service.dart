@@ -8,63 +8,88 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'dart:ui' show Locale;
+
 import '../core/config/settings_labels.dart';
 import '../core/config/settings_provider.dart';
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
+import '../core/recording/recording_state.dart'
+    show isDictationBusy, recordingProvider;
+import 'floating_button/floating_button_support.dart';
+import 'hotkey_chain.dart';
 import 'hotkey_key_resolver.dart';
+import 'hotkey_trigger.dart';
+import 'profile_hotkey_plan.dart';
+import 'input_monitoring_offer.dart';
+import 'permissions/input_monitoring_status.dart'
+    show inputMonitoringAccessProvider;
+import 'short_press_hint.dart';
+import 'hotkey_event_time.dart';
+import 'hotkey_registrar.dart';
 import 'prompt_display_arbiter.dart';
+import 'hotkey_heal_notice.dart';
+import 'hotkey_observer_health.dart';
+import 'hotkey_self_heal.dart';
 import 'keyboard_up_monitor.dart';
+import 'modifier_key_monitor.dart';
 
-// ---------------------------------------------------------------------------
-// Registrar abstraction (enables unit testing without platform channels)
-// ---------------------------------------------------------------------------
-
-/// Thin abstraction over the two [hotKeyManager] operations used by
-/// [HotkeyService]. Swap with a [FakeHotKeyRegistrar] in tests.
-abstract class HotKeyRegistrar {
-  Future<void> register(
-    HotKey hotKey, {
-    HotKeyHandler? keyDownHandler,
-    HotKeyHandler? keyUpHandler,
-  });
-
-  Future<void> unregister(HotKey hotKey);
-
-  /// Whether this registrar supports key-up events.
-  ///
-  /// macOS: true (hotkey_manager native layer fires onKeyUp).
-  /// Windows/Linux: false (RegisterHotKey is key-down only; WH_KEYBOARD_LL
-  /// not yet implemented).
-  bool get supportsKeyUp;
-}
+export 'hotkey_registrar.dart' show HotKeyRegistrar;
 
 /// Production registrar — delegates to the package singleton.
-class _PackageHotKeyRegistrar implements HotKeyRegistrar {
-  const _PackageHotKeyRegistrar();
+class _PackageHotKeyRegistrar
+    implements
+        HotKeyRegistrar,
+        RepeatFilteringHotKeyRegistrar,
+        HotKeyEventTimeSource {
+  _PackageHotKeyRegistrar();
+
+  /// macOS Carbon event times (issue #809); inert elsewhere.
+  final HotKeyEventTimes _times = HotKeyEventTimes();
+
+  @override
+  Duration? get lastEventAt => _times.lastEventAt;
 
   @override
   Future<void> register(
     HotKey hotKey, {
     HotKeyHandler? keyDownHandler,
     HotKeyHandler? keyUpHandler,
-  }) => hotKeyManager.register(
-    hotKey,
-    keyDownHandler: keyDownHandler,
-    keyUpHandler: keyUpHandler,
-  );
+  }) async {
+    // F21–F24 can be imported from Windows/Linux, but macOS has no native
+    // code for them. Do not send null to the plugin or call this a conflict.
+    if (Platform.isMacOS &&
+        !kMacOsToPhysicalKey.containsValue(hotKey.physicalKey)) {
+      throw ArgumentError.value(
+        hotKey.logicalKey,
+        'key',
+        'Unsupported on macOS',
+      );
+    }
+    await hotKeyManager.register(
+      hotKey,
+      keyDownHandler: _times.wrap('onKeyDown', keyDownHandler),
+      keyUpHandler: _times.wrap('onKeyUp', keyUpHandler),
+    );
+  }
 
   @override
   Future<void> unregister(HotKey hotKey) => hotKeyManager.unregister(hotKey);
 
   @override
   bool get supportsKeyUp => Platform.isMacOS;
+
+  @override
+  bool get filtersKeyRepeat => Platform.isWindows || Platform.isLinux;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,10 +102,44 @@ class _PackageHotKeyRegistrar implements HotKeyRegistrar {
 /// - [unknown]: no registration attempt has completed yet (transitional).
 /// - [success]: the user-configured hotkey is currently registered.
 /// - [conflict]: the user-configured hotkey could not be registered (typically
-///   because another app or the OS owns the same shortcut). The service falls
-///   back to the safe-default in this case, but UI surfaces should still prompt
-///   the user to re-bind before continuing.
-enum HotkeyRegistrationStatus { unknown, success, conflict }
+///   because another app or the OS owns the same shortcut). A failed start
+///   registration falls back to the safe-default; a refused self-heal leaves
+///   the key as it was and retries later. UI surfaces should still prompt the
+///   user to re-bind before continuing.
+/// - [unknownKey]: the stored key is none WhisPaste can bind (for example from
+///   an imported settings file). No other app is involved, so UI names the key
+///   as the cause; everything else behaves like [conflict], including the
+///   safe-default fallback of the main hotkey.
+/// - [waylandUnbound]: Linux Wayland only — the hotkey is registered, but the
+///   desktop has not bound it through the GlobalShortcuts portal, so it does
+///   not fire in other apps ([waylandHotkeyBindingProvider] says why). Main
+///   hotkey only; UI offers a reconnect and the `--toggle` fallback.
+/// - [unavailable]: the system did not answer the registration in time. Not
+///   a conflict: nothing is known to own the shortcut, so there is no
+///   safe-default fallback and no prompt to re-bind; the self-heal retries,
+///   and UI shows a neutral "still trying" notice that never blocks.
+enum HotkeyRegistrationStatus {
+  unknown,
+  success,
+  conflict,
+  unknownKey,
+  waylandUnbound,
+  unavailable;
+
+  /// Whether the hotkey stays out of service until the user picks another key.
+  bool get needsNewKey => this == conflict || this == unknownKey;
+}
+
+/// The status a failed registration reports: [HotkeyRegistrationStatus
+/// .unavailable] when the system call timed out, [HotkeyRegistrationStatus
+/// .unknownKey] when `resolveKey` rejected the stored key, else a conflict.
+HotkeyRegistrationStatus hotkeyFailureStatus(Object error) => switch (error) {
+  TimeoutException() => HotkeyRegistrationStatus.unavailable,
+  ArgumentError() => HotkeyRegistrationStatus.unknownKey,
+  PlatformException(code: 'hotkey_unsupported') =>
+    HotkeyRegistrationStatus.unknownKey,
+  _ => HotkeyRegistrationStatus.conflict,
+};
 
 /// Notifier holding the latest [HotkeyRegistrationStatus]. Written by
 /// [HotkeyService]; watched by [ReadyStep] and any other surface that needs
@@ -104,6 +163,59 @@ final hotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatusController,
       HotkeyRegistrationStatus
     >(HotkeyRegistrationStatusController.new);
+
+/// Notifier holding the main hotkey's latest [WaylandHotkeyBinding] — the
+/// reason behind [HotkeyRegistrationStatus.waylandUnbound]. Written by
+/// [HotkeyService].
+class WaylandHotkeyBindingController extends Notifier<WaylandHotkeyBinding> {
+  @override
+  WaylandHotkeyBinding build() => WaylandHotkeyBinding.notApplicable;
+
+  void set(WaylandHotkeyBinding binding) {
+    state = binding;
+  }
+}
+
+/// Provider for the main hotkey's [WaylandHotkeyBinding].
+final waylandHotkeyBindingProvider =
+    NotifierProvider<WaylandHotkeyBindingController, WaylandHotkeyBinding>(
+      WaylandHotkeyBindingController.new,
+    );
+
+/// Notifier holding the shortcut the desktop bound for the main hotkey
+/// (null until it reports one). Written by [HotkeyService].
+class WaylandBoundTriggerController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? trigger) {
+    state = trigger;
+  }
+}
+
+/// Provider for the desktop-bound shortcut shown in the Wayland notice.
+final waylandBoundTriggerProvider =
+    NotifierProvider<WaylandBoundTriggerController, String?>(
+      WaylandBoundTriggerController.new,
+    );
+
+/// Notifier holding the desktop ID whose settings page lets the user change
+/// the bound main hotkey (null when there is none). Written by
+/// [HotkeyService].
+class WaylandSettingsAppIdController extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? appId) {
+    state = appId;
+  }
+}
+
+/// Provider for [KeyboardUpMonitor.waylandSettingsAppId].
+final waylandSettingsAppIdProvider =
+    NotifierProvider<WaylandSettingsAppIdController, String?>(
+      WaylandSettingsAppIdController.new,
+    );
 
 /// Notifier holding the [HotkeyRegistrationStatus] for the quick-note hotkey
 /// (ticket 20) — kept fully separate from [hotkeyRegistrationStatusProvider]
@@ -146,8 +258,66 @@ final snippetPickerHotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(SnippetPickerHotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the "next favorite
+/// language" hotkey. Kept separate so a conflict there never shows up on the
+/// other actions.
+class LanguageCycleHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the "next favorite language" [HotkeyRegistrationStatus].
+final languageCycleHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      LanguageCycleHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(LanguageCycleHotkeyRegistrationStatusController.new);
+
+/// Notifier holding the [HotkeyRegistrationStatus] for the "paste the last
+/// dictation again" hotkey, separate like the other extra actions.
+class RepasteHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the "paste the last dictation again" [HotkeyRegistrationStatus].
+final repasteHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      RepasteHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(RepasteHotkeyRegistrationStatusController.new);
+
+/// Notifier holding the [HotkeyRegistrationStatus] for the "Learn
+/// correction" hotkey (#934), separate like the other extra actions.
+class LearnCorrectionHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the "Learn correction" [HotkeyRegistrationStatus].
+final learnCorrectionHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      LearnCorrectionHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(LearnCorrectionHotkeyRegistrationStatusController.new);
+
 /// Notifier holding the [HotkeyRegistrationStatus] for the Smart-Mode hotkey
-/// (ticket 04 of `internal-notes`) — kept fully separate from the
+/// — kept fully separate from the
 /// other status providers so a conflict on one action never surfaces as a
 /// conflict on another.
 class SmartModeHotkeyRegistrationStatusController
@@ -168,7 +338,7 @@ final smartModeHotkeyRegistrationStatusProvider =
     >(SmartModeHotkeyRegistrationStatusController.new);
 
 /// Notifier holding the [HotkeyRegistrationStatus] for the edit-selection
-/// hotkey (`internal-notes`) — separate from the other
+/// hotkey — separate from the other
 /// status providers for the same reason as the Smart-Mode one.
 class SelectionEditHotkeyRegistrationStatusController
     extends Notifier<HotkeyRegistrationStatus> {
@@ -197,14 +367,85 @@ final selectionEditHotkeyRegistrationStatusProvider =
 /// Platform-aware: macOS uses Meta (Cmd) instead of Control.
 HotKey get safeDefaultHotKey => HotKey(
   key: LogicalKeyboardKey.space,
-  modifiers: Platform.isMacOS
+  modifiers: defaultTargetPlatform == TargetPlatform.macOS
       ? [HotKeyModifier.meta, HotKeyModifier.shift]
       : [HotKeyModifier.control, HotKeyModifier.shift],
 );
 
 /// Human-readable label for the safe-default hotkey shown in toasts.
 String get safeDefaultHotKeyLabel =>
-    Platform.isMacOS ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
+    defaultTargetPlatform == TargetPlatform.macOS
+    ? 'Cmd+Shift+Space'
+    : 'Ctrl+Shift+Space';
+
+/// [safeDefaultHotKey] in the settings storage format (see
+/// `hotkey_key_resolver.dart`), so settings and dock can display it.
+const safeDefaultHotkeyKey = 'Space';
+String get safeDefaultHotkeyModifiers =>
+    defaultTargetPlatform == TargetPlatform.macOS ? 'shift+meta' : 'ctrl+shift';
+
+/// True while the global action listens on [safeDefaultHotKey] because the
+/// configured combination could not be registered. Settings and dock then
+/// show the fallback instead of the configured hotkey, and the app tells the
+/// user once with a toast.
+class GlobalHotkeyFallbackController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool active) {
+    state = active;
+  }
+}
+
+final globalHotkeyFallbackActiveProvider =
+    NotifierProvider<GlobalHotkeyFallbackController, bool>(
+      GlobalHotkeyFallbackController.new,
+    );
+
+/// True while the saved double-tap trigger is not observable on this device
+/// (Fn off macOS, Wayland, a key the native observer refuses), so the stored
+/// key combination listens in its place. The double-tap choice stays saved and
+/// takes over again as soon as the device can observe it.
+class DoubleTapFallbackController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool active) {
+    state = active;
+  }
+}
+
+final doubleTapFallbackActiveProvider =
+    NotifierProvider<DoubleTapFallbackController, bool>(
+      DoubleTapFallbackController.new,
+    );
+
+/// True while the fallback above has a lasting cause: this system cannot
+/// observe the key at all (Fn off macOS, Wayland), so no permission or retry
+/// helps here. False for a key the native observer refused for now.
+final doubleTapUnavailableProvider =
+    NotifierProvider<DoubleTapFallbackController, bool>(
+      DoubleTapFallbackController.new,
+    );
+
+/// The global hotkey every surface should name (dock, overlay hint,
+/// onboarding, settings): the safe default while it stands in for a taken
+/// combination, else the configured one. [display] is the stored display
+/// override of the key (empty for the safe default).
+({String key, String modifiers, String display}) activeGlobalHotkey(
+  AppSettings settings, {
+  required bool fallback,
+}) => fallback
+    ? (
+        key: safeDefaultHotkeyKey,
+        modifiers: safeDefaultHotkeyModifiers,
+        display: '',
+      )
+    : (
+        key: settings.hotkeyKey,
+        modifiers: settings.hotkeyModifiers,
+        display: settings.hotkey.hotkeyKeyDisplay,
+      );
 
 // ---------------------------------------------------------------------------
 // Per-action state
@@ -224,6 +465,10 @@ class _ActionHotkeyState {
   /// Timestamp of the most recent key-down event (accepted OR suppressed),
   /// used to bridge the auto-repeat stream on platforms without key-up.
   DateTime? lastKeyDownAt;
+
+  /// When the current press began: the accepted key-down, never an
+  /// auto-repeat, so a long hold is not mistaken for a short one.
+  DateTime? pressStartedAt;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +484,26 @@ class _ActionHotkeyState {
 /// `hotkey_manager`), the service falls back to a safe-default hotkey
 /// (Ctrl/Cmd+Shift+Space) and invokes [onRegistrationFailed] so the caller
 /// can display a localised toast prompting the user to re-bind.
+/// Maps the stored cancel-dictation key name (see
+/// `cancelDictationKeyChoices`) to its key. Unknown names fall back to Escape.
+LogicalKeyboardKey logicalKeyForCancelDictation(String name) => switch (name) {
+  'f12' => LogicalKeyboardKey.f12,
+  _ => LogicalKeyboardKey.escape,
+};
+
+/// The key that runs a standing notice card's first button (#585): the one of
+/// the two cancel keys that closes nothing, so Escape closes and F12 acts, or
+/// the other way round when F12 is the cancel key.
+LogicalKeyboardKey logicalKeyForNoticeAction(String cancelName) =>
+    cancelName == 'f12' ? LogicalKeyboardKey.escape : LogicalKeyboardKey.f12;
+
+ModifierHotkey? _modifierHotkeyNamed(String name) {
+  for (final key in ModifierHotkey.values) {
+    if (key.name == name) return key;
+  }
+  return null;
+}
+
 class HotkeyService extends Notifier<void> {
   static final _log = AppLogger('HotkeyService');
 
@@ -256,15 +521,30 @@ class HotkeyService extends Notifier<void> {
   /// per its own doc comment above.
   static const _snippetPickerActionId = 'snippetPicker';
 
+  /// Action identifier for the toggle-only "next favorite language" hotkey.
+  /// Must match the action id in `hotkey_flow.dart`'s binding list.
+  static const _languageCycleActionId = 'languageCycle';
+
+  /// Action identifier for the toggle-only "paste the last dictation again"
+  /// hotkey. Must match the action id in `hotkey_flow.dart`'s binding list.
+  static const _repasteActionId = 'repaste';
+
+  /// Action identifier for the toggle-only "Learn correction" hotkey
+  /// (#934). Must match the action id in `hotkey_flow.dart`'s binding list.
+  static const _learnCorrectionActionId = 'learnCorrection';
+
+  /// Prefix of the per-profile action ids (see [profileHotkeyActionId]).
+  static const _profileActionPrefix = 'profile:';
+
   /// Action identifier for the fourth, push-to-talk-capable Smart-Mode
-  /// hotkey (ticket 04 of `internal-notes`). Unlike
+  /// hotkey. Unlike
   /// [_quickNoteActionId]/[_snippetPickerActionId] it mirrors
   /// [_globalActionId]'s push-to-talk support (ADR 0008: one extra hotkey,
   /// behaving like the main one, not a lesser toggle-only action).
   static const _smartModeActionId = 'smartMode';
 
   /// Action identifier for the edit-selection hotkey
-  /// (`internal-notes`) — push-to-talk-capable exactly like
+  /// — push-to-talk-capable exactly like
   /// [_smartModeActionId] (macOS registrar key-up; toggle elsewhere).
   static const _selectionEditActionId = 'selectionEdit';
 
@@ -286,6 +566,19 @@ class HotkeyService extends Notifier<void> {
   /// truly needed" contract as the snippet keys above; `FloatingOverlayService`
   /// owns the pairing.
   static const _cancelDictationActionId = 'cancelDictation';
+
+  /// Second session key, held only while a notice card with a button stands
+  /// (#585): runs the card's first button without a click and without taking
+  /// focus from the target window. See [registerNoticeActionKey].
+  static const _noticeActionActionId = 'noticeAction';
+
+  /// Callback fired when a profile hotkey is pressed (key-down), with the
+  /// profile's id. The profile is applied persistently by the caller.
+  void Function(String profileId)? onProfileHotkeyPressed;
+
+  /// Profile hotkeys currently registered: action id to the combination's
+  /// signature (see [ProfileHotkeyEntry.signature]).
+  final Map<String, String> _profileRegistrations = {};
 
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
@@ -314,6 +607,18 @@ class HotkeyService extends Notifier<void> {
   /// no "released" callback either (ticket 26).
   VoidCallback? onSnippetPickerHotkeyPressed;
 
+  /// Fired when the "next favorite language" hotkey is pressed. The bootstrap
+  /// wires it to the language switch (cycle + feedback). One-shot.
+  VoidCallback? onLanguageCycleHotkeyPressed;
+
+  /// Fired when the "paste the last dictation again" hotkey is pressed. The
+  /// bootstrap wires it to the repaste service. One-shot, starts nothing.
+  VoidCallback? onRepasteHotkeyPressed;
+
+  /// Fired when the "Learn correction" hotkey is pressed (#934). The
+  /// bootstrap wires it to the selection learning. One-shot, starts nothing.
+  VoidCallback? onLearnCorrectionHotkeyPressed;
+
   /// Callback fired when the Smart-Mode hotkey is pressed (key-down).
   VoidCallback? onSmartModeHotkeyPressed;
 
@@ -333,12 +638,92 @@ class HotkeyService extends Notifier<void> {
   /// same platform availability as [onSmartModeHotkeyReleased].
   VoidCallback? onSelectionEditHotkeyReleased;
 
+  /// The object that wired the persistent action callbacks above (the
+  /// service bootstrap), see [bindCallbacks].
+  Object? _callbackOwner;
+
+  /// Records [owner] as the one whose closures sit in the action callbacks.
+  /// A newer owner (a rebuilt bootstrap) takes over; [releaseCallbacks] of
+  /// the older one then leaves the newer closures alone.
+  void bindCallbacks(Object owner) => _callbackOwner = owner;
+
+  /// Clears the action callbacks when [owner] still owns them, so no hotkey
+  /// reaches the state of a torn-down bootstrap (#439). A press then finds
+  /// no callback and is logged, instead of reading a disposed `ref`.
+  void releaseCallbacks(Object owner) {
+    if (!identical(_callbackOwner, owner)) return;
+    _callbackOwner = null;
+    onHotkeyPressed = null;
+    onHotkeyReleased = null;
+    onModifierOtherKey = null;
+    onQuickNoteHotkeyPressed = null;
+    onSnippetPickerHotkeyPressed = null;
+    onLanguageCycleHotkeyPressed = null;
+    onRepasteHotkeyPressed = null;
+    onLearnCorrectionHotkeyPressed = null;
+    onProfileHotkeyPressed = null;
+    onSmartModeHotkeyPressed = null;
+    onSmartModeHotkeyReleased = null;
+    onSelectionEditHotkeyPressed = null;
+    onSelectionEditHotkeyReleased = null;
+    // The Escape cancel key of a running dictation belongs to the owner too;
+    // a newer owner registers its own (and then owns the callbacks).
+    if (_onCancelDictation != null) unawaited(unregisterCancelDictationKey());
+    if (_onNoticeAction != null) unawaited(unregisterNoticeActionKey());
+  }
+
+  /// Runs one action callback. A throw is logged and contained, so the rest
+  /// of the key handling (release watch, held state) still runs (#439).
+  /// Async work the callback starts reports through the zone error log.
+  void _dispatch(String label, VoidCallback? callback) {
+    if (callback == null) {
+      if (_callbackOwner == null) {
+        _log.info('$label hotkey has no handler bound; press dropped');
+      }
+      return;
+    }
+    try {
+      callback();
+    } on Object catch (e, st) {
+      // Warning with the error kind only: stays in the local log, no Sentry
+      // event of its own and no message text that could carry user content.
+      _log.warning('$label hotkey handler failed: ${errorKind(e)}', null, st);
+    }
+  }
+
+  /// The native event time and press length of the key event being delivered
+  /// right now (see [ChannelKeyboardUpMonitor.lastEventAt]); null for events
+  /// that come from the OS registrar or a host without stamps, and outside a
+  /// callback. The trigger handler decides hold, tap and double tap from them
+  /// and falls back to the arrival time without.
+  Duration? get nativeEventAt =>
+      _modifierMonitor.lastEventAt ??
+      _registrar.lastEventAt ??
+      switch (_monitor) {
+        final ChannelKeyboardUpMonitor m => m.lastEventAt,
+        _ => null,
+      };
+
+  /// See [nativeEventAt].
+  Duration? get nativePressed =>
+      _modifierMonitor.lastPressed ??
+      switch (_monitor) {
+        final ChannelKeyboardUpMonitor m => m.lastPressed,
+        _ => null,
+      };
+
   /// Whether the current platform can deliver key-up events for global hotkeys.
   ///
   /// macOS gets key-up from the registrar; Windows gets it from the RawInput
   /// [_monitor] (issue #39). Either source enabling key-up makes push-to-talk
   /// available — this is the capability flag the settings toggle reads.
   bool get supportsKeyUp => _registrar.supportsKeyUp || _monitor.supportsKeyUp;
+
+  /// Whether the optional actions (Smart Mode, selection edit) get key-up.
+  /// Only the registrar delivers it to them; the RawInput monitor serves the
+  /// global action alone. A hold on them must therefore use this flag, not
+  /// [supportsKeyUp], or its release never arrives on Windows/Linux.
+  bool get optionalActionsSupportKeyUp => _registrar.supportsKeyUp;
 
   /// Whether push-to-talk rests solely on the experimental Linux key-up
   /// monitor (catchup/09) — the settings UI marks the option then.
@@ -350,6 +735,9 @@ class HotkeyService extends Notifier<void> {
   bool _initialized = false;
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
+  bool _languageCycleInitialized = false;
+  bool _repasteInitialized = false;
+  bool _learnCorrectionInitialized = false;
   bool _smartModeInitialized = false;
   bool _selectionEditInitialized = false;
 
@@ -361,6 +749,8 @@ class HotkeyService extends Notifier<void> {
   VoidCallback? _onInteractiveSnippetAdvance;
   VoidCallback? _onInteractiveSnippetCancel;
   VoidCallback? _onCancelDictation;
+  VoidCallback? _onNoticeAction;
+  int _noticeActionEpoch = 0;
 
   /// Monotonic epoch guarding the register/unregister race on the
   /// session-scoped keys: [unregisterInteractiveSnippetKeys] bumps it, and a
@@ -384,8 +774,12 @@ class HotkeyService extends Notifier<void> {
       _actionStates.putIfAbsent(actionId, _ActionHotkeyState.new);
 
   /// Pluggable registrar — defaults to the package singleton; override in
-  /// tests by calling [injectRegistrar].
-  HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
+  /// tests by calling [injectRegistrar]. Wrapped so a hotkey recorder can
+  /// take every registration off the system while it listens
+  /// ([_syncCaptureSuspension]).
+  SuspendableHotKeyRegistrar _registrar = SuspendableHotKeyRegistrar(
+    _PackageHotKeyRegistrar(),
+  );
 
   /// Key-up source for platforms whose registrar is key-down only (Windows
   /// RawInput, issue #39; Linux XInput2/GlobalShortcuts portal, experimental,
@@ -394,6 +788,93 @@ class HotkeyService extends Notifier<void> {
   KeyboardUpMonitor _monitor = (Platform.isWindows || Platform.isLinux)
       ? ChannelKeyboardUpMonitor()
       : NoopKeyboardUpMonitor();
+
+  /// Native observer for a modifier-only global hotkey on macOS. Windows and
+  /// Linux route the same events through [_monitor] instead.
+  ModifierKeyMonitor _modifierMonitor = ModifierKeyMonitor();
+
+  /// Process environment the Linux session type is read from.
+  Map<String, String> _environment = Platform.environment;
+
+  /// Linux Wayland, first run: starting the monitor asks the desktop to bind
+  /// the hotkey (GlobalShortcuts portal), and GNOME answers with a modal
+  /// shortcut dialog. Until the onboarding reaches its hotkey page or is
+  /// done, that start waits, so the dialog never lands on a page that has not
+  /// explained it. Installs with a completed onboarding bind at startup.
+  bool _desktopBindingAllowed = false;
+
+  /// A monitor start was held back by [_desktopBindingDeferred].
+  bool _desktopBindingPending = false;
+
+  /// True while the global hotkey is a modifier-only key instead of a combo.
+  bool _modifierOnlyActive = false;
+
+  /// The key the modifier-only observer is wanted for, from a successful start
+  /// until the observer is replaced by a combination or switched off. Stays
+  /// set while a rebuild is under way or has failed, so the health check keeps
+  /// trying (#773).
+  ModifierHotkey? _modifierOnlyKey;
+
+  /// Asks a running observer for its health every [kObserverHealthInterval].
+  Timer? _observerHealthTimer;
+  final ObserverHealthTracker _observerHealth = ObserverHealthTracker();
+  bool _observerCheckBusy = false;
+
+  /// The modifier-only start/stop chain, see [_serializeModifierOnly].
+  late final HotkeyChain _modifierOnlyChain = HotkeyChain(
+    limit: _chainActionLimit,
+    onStuck: _log.warning,
+  );
+
+  /// The global-hotkey chain, see [_serializeGlobal].
+  late final HotkeyChain _globalChain = HotkeyChain(
+    limit: _chainActionLimit,
+    onStuck: _log.warning,
+  );
+
+  /// Zone key carrying the [ChainStep] of the global-chain step a status
+  /// write comes from. An aborted step writes no status and registers
+  /// nothing more (core review L-16 F16-5, #293).
+  static const _globalStepKey = #hotkeyGlobalStep;
+
+  /// Limit of one hotkey-chain step: past it the step is aborted and its
+  /// caller answered (see [HotkeyChain]). The chain waits for an operation to
+  /// end, since a successor running beside it could lose registrations (core
+  /// review L-15 F15-1), and the registrar already bounds every native call
+  /// to a few seconds. The limit is generous because a Linux Wayland start
+  /// waits for the GlobalShortcuts portal dialog, which the user reads and
+  /// confirms.
+  static const _chainActionLimit = Duration(seconds: 60);
+
+  /// Throttle and failure streak of the self-heal (see [requestHotkeyHeal]).
+  final HotkeyHealGate _healGate = HotkeyHealGate();
+
+  /// Safety-net timer for the periodic heal ([kHotkeyHealInterval]).
+  Timer? _healTimer;
+
+  /// Fires just past [kHotkeyCaptureListenLimit] after a recorder started
+  /// listening, so a lost recorder gives the hotkeys back on time instead of
+  /// at the next periodic heal, up to [kHotkeyHealInterval] later.
+  Timer? _captureLimitTimer;
+
+  /// Test seams for the heal's environment; null reads the real providers.
+  bool Function()? _healHotkeyEnabled;
+  bool Function()? _healDictationBusy;
+  DateTime Function() _healNow = DateTime.now;
+
+  /// Called once per streak of [kHotkeyHealFailureToastThreshold] failed heals,
+  /// so the user is told that the hotkey cannot be restored automatically.
+  void Function()? onHotkeyHealFailedRepeatedly;
+
+  /// The keyboard-monitor channel that runs the active modifier-only watch on
+  /// Windows and Linux, or null when the macOS observer runs it. Remembered at
+  /// start so the stop ends the observer that was started, not the one the
+  /// host would pick now.
+  ChannelKeyboardUpMonitor? _modifierOnlyChannel;
+
+  /// Called when another key is pressed while the modifier-only hotkey is
+  /// held (⌘+C stays ⌘+C). The recording trigger cancels its recording here.
+  VoidCallback? onModifierOtherKey;
 
   /// How long a key-down stream is treated as OS auto-repeat. Refreshed on
   /// every key-down (including suppressed repeats), so a held key keeps the
@@ -410,6 +891,35 @@ class HotkeyService extends Notifier<void> {
     if (!_isDesktop) return;
 
     _wireMonitor();
+    HotkeyCaptureGuard.setListeningListener((listening) {
+      _captureLimitTimer?.cancel();
+      _captureLimitTimer = listening
+          ? Timer(
+              kHotkeyCaptureListenLimit + const Duration(seconds: 1),
+              () => unawaited(requestHotkeyHeal(HotkeyHealTrigger.timer)),
+            )
+          : null;
+      unawaited(_captureSync = _syncCaptureSuspension());
+    });
+    ref.onDispose(() => HotkeyCaptureGuard.setListeningListener(null));
+    _healTimer = Timer.periodic(
+      kHotkeyHealInterval,
+      (_) => unawaited(requestHotkeyHeal(HotkeyHealTrigger.timer)),
+    );
+    onHotkeyHealFailedRepeatedly = () =>
+        ref.read(hotkeyHealNoticeProvider.notifier).raise();
+
+    // A double tap the device refused is retried when the app comes back to
+    // the foreground, so a permission granted meanwhile takes over without a
+    // restart. On desktop, window focus arrives as the resumed state.
+    final lifecycle = AppLifecycleListener(onResume: retryDoubleTapFallback);
+    ref.onDispose(lifecycle.dispose);
+
+    // A grant given back in System Settings (#1200) takes the single key over
+    // as soon as it is read, without waiting for the app to come back.
+    ref.listen<bool?>(inputMonitoringAccessProvider, (prev, next) {
+      if (next == true && prev != true) retryDoubleTapFallback();
+    });
 
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final previous = prev?.value;
@@ -419,14 +929,28 @@ class HotkeyService extends Notifier<void> {
       final globalChanged =
           previous.hotkeyKey != current.hotkeyKey ||
           previous.hotkeyModifiers != current.hotkeyModifiers ||
+          previous.hotkey.hotkeyDoubleTapKey !=
+              current.hotkey.hotkeyDoubleTapKey ||
           previous.hotkeyEnabled != current.hotkeyEnabled;
       if (globalChanged) {
         if (current.hotkeyEnabled) {
           unawaited(_registerFromSettings(current));
         } else {
-          unawaited(_unregisterAction(_globalActionId, stopMonitor: true));
+          unawaited(
+            _serializeGlobal(() async {
+              await _stopModifierOnly();
+              await _unregisterAction(_globalActionId, stopMonitor: true);
+              _setFallbackActive(false);
+              _setDoubleTapFallback(false);
+            }),
+          );
           _log.info('Global hotkey disabled by user');
         }
+      }
+
+      if (!previous.onboarding.onboardingCompleted &&
+          current.onboarding.onboardingCompleted) {
+        unawaited(allowDesktopHotkeyBinding());
       }
 
       _handleSecondaryHotkeySettingsChange(
@@ -452,6 +976,42 @@ class HotkeyService extends Notifier<void> {
         actionId: _snippetPickerActionId,
         label: 'Snippet-Picker',
         register: () => _registerSnippetPickerFromSettings(current),
+      );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.stt.languageCycleHotkeyKey,
+        key: current.stt.languageCycleHotkeyKey,
+        prevModifiers: previous.stt.languageCycleHotkeyModifiers,
+        modifiers: current.stt.languageCycleHotkeyModifiers,
+        prevEnabled: previous.stt.languageCycleHotkeyEnabled,
+        enabled: current.stt.languageCycleHotkeyEnabled,
+        actionId: _languageCycleActionId,
+        label: 'Language-cycle',
+        register: () => _registerLanguageCycleFromSettings(current),
+      );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.behavior.repasteHotkeyKey,
+        key: current.behavior.repasteHotkeyKey,
+        prevModifiers: previous.behavior.repasteHotkeyModifiers,
+        modifiers: current.behavior.repasteHotkeyModifiers,
+        prevEnabled: previous.behavior.repasteHotkeyEnabled,
+        enabled: current.behavior.repasteHotkeyEnabled,
+        actionId: _repasteActionId,
+        label: 'Repaste',
+        register: () => _registerRepasteFromSettings(current),
+      );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.behavior.learnCorrectionHotkeyKey,
+        key: current.behavior.learnCorrectionHotkeyKey,
+        prevModifiers: previous.behavior.learnCorrectionHotkeyModifiers,
+        modifiers: current.behavior.learnCorrectionHotkeyModifiers,
+        prevEnabled: previous.behavior.learnCorrectionHotkeyEnabled,
+        enabled: current.behavior.learnCorrectionHotkeyEnabled,
+        actionId: _learnCorrectionActionId,
+        label: 'Learn-correction',
+        register: () => _registerLearnCorrectionFromSettings(current),
       );
 
       _handleSecondaryHotkeySettingsChange(
@@ -490,6 +1050,15 @@ class HotkeyService extends Notifier<void> {
       }
       if (settings.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
         await _registerSnippetPickerFromSettings(settings);
+      }
+      if (settings.stt.languageCycleHotkeyEnabled) {
+        await _registerLanguageCycleFromSettings(settings);
+      }
+      if (settings.behavior.repasteHotkeyEnabled) {
+        await _registerRepasteFromSettings(settings);
+      }
+      if (settings.behavior.learnCorrectionHotkeyEnabled) {
+        await _registerLearnCorrectionFromSettings(settings);
       }
       if (settings.smartModeHotkey.smartModeHotkeyEnabled) {
         await _registerSmartModeFromSettings(settings);
@@ -531,6 +1100,245 @@ class HotkeyService extends Notifier<void> {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
+  /// Injects the macOS modifier observer for unit testing.
+  @visibleForTesting
+  void injectModifierMonitor(ModifierKeyMonitor monitor) {
+    _modifierMonitor = monitor;
+  }
+
+  /// Injects the environment for unit testing, so the Linux session type does
+  /// not follow the machine the tests run on.
+  @visibleForTesting
+  void injectEnvironment(Map<String, String> environment) {
+    _environment = environment;
+  }
+
+  /// Makes [key] the global hotkey without a key combination: hold starts,
+  /// release stops, another key cancels. Returns false when the platform
+  /// cannot observe the key; the caller then keeps the combination.
+  Future<bool> registerModifierOnly(ModifierHotkey key) {
+    if (!_isDesktop) return Future.value(false);
+    return _serializeModifierOnly(
+      (step) => _startModifierOnly(key, step),
+      onTimeout: false,
+    );
+  }
+
+  /// Runs one modifier-only start or stop after the previous one has
+  /// finished. A stop that arrives while a start still awaits its native reply
+  /// must run after it, or the observer would stay on for a disabled hotkey.
+  ///
+  /// Bounded like [_serializeGlobal]: a step that has not ended after
+  /// [_chainActionLimit] is aborted and its caller gets [onTimeout]; at quit
+  /// every waiting caller gets [onTimeout] as well.
+  Future<T> _serializeModifierOnly<T>(
+    Future<T> Function(ChainStep step) action, {
+    required T onTimeout,
+  }) => _modifierOnlyChain.run(
+    action,
+    onLimit: () {
+      _log.warning(
+        'Modifier-only step did not end within '
+        '${_chainActionLimit.inSeconds} s; it is aborted',
+      );
+      return onTimeout;
+    },
+    aborted: onTimeout,
+  );
+
+  Future<bool> _startModifierOnly(ModifierHotkey key, ChainStep step) async {
+    await _unregisterAction(_globalActionId, stopMonitor: true);
+    final bool started;
+    ChannelKeyboardUpMonitor? channel;
+    if (defaultTargetPlatform == TargetPlatform.macOS) {
+      _modifierMonitor.onInput = _routeModifierInput;
+      started = await _modifierMonitor.start(key);
+    } else if (_monitor case final ChannelKeyboardUpMonitor channelMonitor) {
+      channel = channelMonitor;
+      channelMonitor.onModifierInput = _routeModifierInput;
+      started = await channelMonitor.watchModifier(key);
+    } else {
+      started = false;
+    }
+    if (started && step.aborted) {
+      // The caller was already told the start failed and kept the
+      // combination: an observer that comes up late must not run beside it.
+      // A successor that took over after the backstop owns the observer now
+      // and keeps it.
+      if (_modifierOnlyActive) return false;
+      if (channel != null) {
+        channel.onModifierInput = null;
+        await channel.stop();
+      } else {
+        _modifierMonitor.onInput = null;
+        await _modifierMonitor.stop();
+      }
+      return false;
+    }
+    _modifierOnlyActive = started;
+    _modifierOnlyChannel = started ? channel : null;
+    if (started) {
+      _log.info('Modifier-only global hotkey active: ${key.name}');
+      _watchObserver(key);
+    }
+    return started;
+  }
+
+  void _routeModifierInput(ModifierInput input, Duration? pressed) {
+    switch (input) {
+      case ModifierInput.down:
+        _handleKeyDown(_globalActionId, 'Global');
+      case ModifierInput.up:
+        // All three hosts time the press from their own event timestamps
+        // (F15-4); an untimed release (a resync) gets no hint.
+        _onMonitorKeyUp(pressed);
+      case ModifierInput.other:
+        _signalDictationActivity((c) => c.otherKey());
+        _dispatch('Modifier other-key', onModifierOtherKey);
+    }
+  }
+
+  /// Ends the modifier-only observer before a combination takes its place.
+  Future<void> _stopModifierOnly() => _serializeModifierOnly((_) async {
+    _unwatchObserver();
+    if (!_modifierOnlyActive) return;
+    _modifierOnlyActive = false;
+    await _stopNativeObserver();
+  }, onTimeout: null);
+
+  /// Ends the native modifier-only observer that is running, whichever host
+  /// started it.
+  Future<void> _stopNativeObserver() async {
+    final channel = _modifierOnlyChannel;
+    _modifierOnlyChannel = null;
+    if (channel != null) {
+      channel.onModifierInput = null;
+      await channel.stop();
+    } else {
+      _modifierMonitor.onInput = null;
+      await _modifierMonitor.stop();
+    }
+  }
+
+  // ── Observer health (#773) ────────────────────────────────────────────────
+
+  void _watchObserver(ModifierHotkey key) {
+    _modifierOnlyKey = key;
+    _observerHealthTimer ??= Timer.periodic(
+      kObserverHealthInterval,
+      (_) => unawaited(checkObserverHealth()),
+    );
+  }
+
+  void _unwatchObserver() {
+    _modifierOnlyKey = null;
+    _observerHealthTimer?.cancel();
+    _observerHealthTimer = null;
+    _observerHealth.reset();
+  }
+
+  Future<ObserverHealth> _probeObserver() {
+    final channel = _modifierOnlyChannel;
+    return channel != null
+        ? channel.modifierHealth()
+        : _modifierMonitor.health();
+  }
+
+  /// One health check of the single-key observer: asks the host, rebuilds a
+  /// dead observer a few times, and then hands over to the stored
+  /// combination with a notice. Runs on a timer; public so a test can drive it
+  /// without waiting. Idle while no observer is wanted, while a dictation is
+  /// busy and while a hotkey capture is open, since a rebuild then could lose
+  /// a press.
+  @visibleForTesting
+  Future<void> checkObserverHealth() async {
+    final key = _modifierOnlyKey;
+    if (key == null || _observerCheckBusy) return;
+    final state = _readHealState();
+    // A key held now would lose its release in a rebuild.
+    if (state.dictationBusy || state.captureActive || state.keyHeld) return;
+    _observerCheckBusy = true;
+    try {
+      // A rebuild that failed left no running observer: that is dead too.
+      final health = _modifierOnlyActive
+          ? await _probeObserver()
+          : ObserverHealth.dead;
+      if (_modifierOnlyKey != key) return; // changed while asking
+      switch (_observerHealth.decide(health)) {
+        case ObserverHealthAction.none:
+          break;
+        case ObserverHealthAction.rebuild:
+          _log.warning(
+            'Single-key observer ${key.name} is not running; rebuilding '
+            '(${_observerHealth.attempts}/${_observerHealth.maxAttempts})',
+          );
+          await _rebuildObserver(key);
+        case ObserverHealthAction.fallbackPermission:
+          _markInputMonitoringRevoked();
+          await _fallBackToCombination(ObserverLossReason.permissionRevoked);
+        case ObserverHealthAction.fallbackExhausted:
+          await _fallBackToCombination(ObserverLossReason.repeatedFailure);
+      }
+    } finally {
+      _observerCheckBusy = false;
+    }
+  }
+
+  /// Tears the native observer down and starts it again for [key]; the wanted
+  /// key stays set whatever the outcome, so the next check tries again.
+  Future<bool> _rebuildObserver(ModifierHotkey key) =>
+      _serializeModifierOnly((step) async {
+        _modifierOnlyActive = false;
+        await _stopNativeObserver();
+        return _startModifierOnly(key, step);
+      }, onTimeout: false);
+
+  /// Tells the permissions overview at once that the grant is gone (#1200).
+  void _markInputMonitoringRevoked() {
+    try {
+      ref.read(inputMonitoringAccessProvider.notifier).markRevoked();
+    } on Object catch (e) {
+      _log.debug('Input Monitoring status skipped (standalone instance): $e');
+    }
+  }
+
+  /// Gives the single key up: the stored combination listens instead (the
+  /// double-tap fallback, so an app resume tries the observer again), and the
+  /// user is told why.
+  Future<void> _fallBackToCombination(ObserverLossReason reason) async {
+    _log.warning(
+      'Single-key observer given up (${reason.name}); '
+      'the stored key combination listens in its place',
+    );
+    _setDoubleTapFallback(true);
+    final settings = _settingsOrNull();
+    await _serializeGlobal(() async {
+      await _stopModifierOnly();
+      if (settings == null) return;
+      try {
+        await _applyCombo(
+          key: resolveKey(settings.hotkeyKey),
+          modifiers: resolveModifiers(settings.hotkeyModifiers),
+        );
+      } on Object catch (e) {
+        _setStatus(hotkeyFailureStatus(e));
+        _log.warning('Combination after a lost observer failed: $e');
+      }
+    });
+    try {
+      ref.read(hotkeyObserverLostNoticeProvider.notifier).raise(reason);
+    } on Object catch (e) {
+      _log.debug('Observer notice skipped (standalone test instance): $e');
+    }
+  }
+
+  /// The heal of a single-key trigger: there is no registration to renew, so
+  /// the observer is rebuilt. Failures are not counted toward the toast of the
+  /// combination heal; the health check owns the escalation.
+  Future<bool> _reregisterModifierOnly(ModifierHotkey key) async {
+    return _rebuildObserver(key);
+  }
+
   /// Injects a custom [KeyboardUpMonitor] for unit testing and wires its
   /// key-up callback. Call before [updateHotkey].
   @visibleForTesting
@@ -543,8 +1351,131 @@ class HotkeyService extends Notifier<void> {
   /// arrives from the Linux portal path; a press the X11 grab reports as well
   /// is deduplicated by [_handleKeyDown]'s held-key guard.
   void _wireMonitor() {
-    _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
+    _monitor.onKeyUp = _onMonitorKeyUp;
     _monitor.onKeyDown = () => _handleKeyDown(_globalActionId, 'Global');
+    _monitor.onWaylandBindingChanged = _applyWaylandBinding;
+  }
+
+  /// Key-up of the global hotkey from the native monitor. [pressed] is the
+  /// press length the native side timed, so the one-time hint is decided on
+  /// the real press, not on when this event reached Dart. A press that short
+  /// cannot have been a deliberate hold: it is an on-screen keyboard click, so
+  /// the hint explains the "Tap or hold" option. The release itself is handled
+  /// as before.
+  void _onMonitorKeyUp(Duration? pressed) {
+    final wasHeld = _stateFor(_globalActionId).keyHeld;
+    _handleKeyUp(_globalActionId, 'Global');
+    if (wasHeld && pressed != null && pressed <= shortPressMaxDuration) {
+      _requestShortPressHint();
+    }
+  }
+
+  /// Key-up of the global hotkey from the registrar, which only macOS delivers
+  /// (PAR-064). The registrar gives no press length, so the press is timed in
+  /// Dart from [_ActionHotkeyState.pressStartedAt]. That is not exact: a
+  /// key-down that reaches Dart late shortens the measured press, so after a
+  /// stalled UI thread the hint can follow a real hold. The hint only offers
+  /// the "Tap or hold" option and changes nothing by itself.
+  void _onDartTimedGlobalKeyUp(String label) {
+    final state = _stateFor(_globalActionId);
+    final wasHeld = state.keyHeld;
+    final started = state.pressStartedAt;
+    _handleKeyUp(_globalActionId, label);
+    if (wasHeld &&
+        started != null &&
+        clock.now().difference(started) <= shortPressMaxDuration) {
+      _requestShortPressHint();
+    }
+  }
+
+  /// Starts the key-up monitor for the global [hotKey]. On Linux Wayland this
+  /// also asks the desktop to bind it (GlobalShortcuts portal), under the
+  /// localized name the desktop shows in its dialog.
+  Future<void> _startMonitor(HotKey hotKey) async {
+    if (_desktopBindingDeferred) {
+      _desktopBindingPending = true;
+      _log.info('Desktop hotkey binding waits for the onboarding hotkey page');
+      return;
+    }
+    await _monitor.start(
+      hotKey,
+      description: _resolveL10n().waylandHotkeyPortalDescription,
+    );
+    _applyWaylandBinding();
+  }
+
+  bool get _desktopBindingDeferred =>
+      !_desktopBindingAllowed &&
+      linuxSessionTypeFrom(_environment) == LinuxSessionType.wayland &&
+      !(_settingsOrNull()?.onboarding.onboardingCompleted ?? true);
+
+  /// Lets the global hotkey be bound by the desktop from now on and starts a
+  /// monitor that waited for it (see [_desktopBindingAllowed]). Called by the
+  /// onboarding hotkey page and once the onboarding is completed or closed.
+  Future<void> allowDesktopHotkeyBinding() async {
+    if (_desktopBindingAllowed) return;
+    _desktopBindingAllowed = true;
+    if (!_desktopBindingPending) return;
+    _desktopBindingPending = false;
+    await _serializeGlobal(reconnectWaylandHotkey);
+  }
+
+  /// Asks the desktop again to bind the global hotkey (Linux Wayland, after
+  /// the portal dialog was declined or the app ID was missing). No-op without
+  /// a registered global hotkey.
+  Future<void> reconnectWaylandHotkey() async {
+    final hotKey = _stateFor(_globalActionId).registeredHotKey;
+    if (hotKey == null) return;
+    await _startMonitor(hotKey);
+  }
+
+  /// Mirrors the monitor's [WaylandHotkeyBinding] into the main hotkey's
+  /// status: an unbound Wayland hotkey is registered but does not fire in
+  /// other apps, so it must not read as [HotkeyRegistrationStatus.success].
+  /// A conflict (or no attempt yet) is never overwritten.
+  void _applyWaylandBinding() {
+    final binding = _monitor.waylandBinding;
+    try {
+      ref.read(waylandHotkeyBindingProvider.notifier).set(binding);
+      ref
+          .read(waylandBoundTriggerProvider.notifier)
+          .set(_monitor.waylandTrigger);
+      ref
+          .read(waylandSettingsAppIdProvider.notifier)
+          .set(_monitor.waylandSettingsAppId);
+      final current = ref.read(hotkeyRegistrationStatusProvider);
+      if (current != HotkeyRegistrationStatus.success &&
+          current != HotkeyRegistrationStatus.waylandUnbound) {
+        return;
+      }
+    } on Object catch (e) {
+      _log.debug('Wayland binding update skipped (standalone test): $e');
+      return;
+    }
+    _setStatus(
+      binding.isUnbound
+          ? HotkeyRegistrationStatus.waylandUnbound
+          : HotkeyRegistrationStatus.success,
+    );
+  }
+
+  /// The app's own language setting, falling back to English (same rule as
+  /// the recording orchestrator's native texts).
+  L10n _resolveL10n() {
+    String? localeCode;
+    try {
+      localeCode = ref.read(settingsProvider).value?.locale;
+    } on Object catch (e) {
+      _log.debug('No settings for the portal text (standalone test): $e');
+    }
+    if (localeCode != null) {
+      try {
+        return lookupL10n(Locale(localeCode));
+      } on Object catch (e) {
+        _log.debug('Unsupported locale "$localeCode", falling back to en: $e');
+      }
+    }
+    return lookupL10n(const Locale('en'));
   }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.
@@ -552,7 +1483,8 @@ class HotkeyService extends Notifier<void> {
   /// Call this before [updateHotkey] to avoid real platform-channel calls.
   @visibleForTesting
   void injectRegistrar(HotKeyRegistrar registrar) {
-    _registrar = registrar;
+    _registrar.dispose();
+    _registrar = SuspendableHotKeyRegistrar(registrar);
   }
 
   /// Re-registers the hotkey with a new combination.
@@ -560,33 +1492,95 @@ class HotkeyService extends Notifier<void> {
   /// If registration throws any [Object] (including [TypeError] from
   /// `hotkey_manager`), the service registers the safe-default hotkey instead
   /// and fires [onRegistrationFailed].
+  ///
+  /// Calls run one after another ([_serializeGlobal]), so the last one wins and
+  /// no earlier registration is left behind.
   Future<void> updateHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _serializeGlobal(() => _applyCombo(key: key, modifiers: modifiers));
+
+  /// Runs one global-hotkey operation after the previous one has finished.
+  /// Settings changes arrive as unawaited futures, so without this chain two
+  /// quick changes could interleave their unregister and register calls and
+  /// leave a duplicate or an orphaned registration. Must not be nested: an
+  /// action running inside the chain calls [_applyCombo] directly.
+  ///
+  /// The next operation waits for this one to end. An operation that has not
+  /// ended after [_chainActionLimit] is aborted: the status turns
+  /// unavailable, the operation registers nothing more, and the next one runs
+  /// once it has ended (see [HotkeyChain]). At quit every waiting caller is
+  /// answered.
+  Future<void> _serializeGlobal(Future<void> Function() action) =>
+      _globalChain.run<void>(
+        (step) => runZoned(action, zoneValues: {_globalStepKey: step}),
+        onLimit: () {
+          _log.warning(
+            'Global hotkey step did not end within '
+            '${_chainActionLimit.inSeconds} s; it is aborted',
+          );
+          _setStatus(HotkeyRegistrationStatus.unavailable);
+        },
+        aborted: null,
+      );
+
+  /// The one place that registers the global action's handlers: first
+  /// registration, safe default and self-heal all go through it, so the heal
+  /// cannot drop an option again (#771: it lost `checkReleasedAtArm`, so after
+  /// the first heal a press already released at arm time kept recording).
+  /// A heal still unregisters before it registers; that gap is bounded by the
+  /// registrar's call limits and a heal never runs during a held key or a
+  /// dictation, so it is kept rather than redesigned.
+  Future<void> _registerGlobalHandlers(HotKey hotKey, String label) =>
+      _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(
+          _globalActionId,
+          label,
+          checkReleasedAtArm: true,
+          fromRegistrar: true,
+        ),
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) => _onDartTimedGlobalKeyUp(label)
+            : null,
+      );
+
+  Future<void> _applyCombo({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
   }) async {
     if (!_isDesktop) return;
+    await _stopModifierOnly();
     await _unregisterAction(_globalActionId, stopMonitor: true);
+    // The step was aborted while it hung (past the limit or at quit):
+    // registering now would put a stale combination beside the next change.
+    if (_globalStepAborted) return;
 
     final hotKey = HotKey(key: key, modifiers: modifiers);
     _stateFor(_globalActionId).registeredHotKey = hotKey;
 
     try {
-      await _registrar.register(
-        hotKey,
-        keyDownHandler: (_) => _handleKeyDown(_globalActionId, 'Global'),
-        keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp(_globalActionId, 'Global')
-            : null,
-      );
+      await _registerGlobalHandlers(hotKey, 'Global');
       _log.info('Hotkey registered successfully');
       _setStatus(HotkeyRegistrationStatus.success);
+      _setFallbackActive(false);
       // Start the RawInput key-up monitor for the same combo (Windows; no-op
       // elsewhere) so push-to-talk has a release event (#39).
-      await _monitor.start(hotKey);
+      await _startMonitor(hotKey);
+    } on TimeoutException {
+      // The system did not answer: nothing is known to own the combination,
+      // so no safe default takes its place; the self-heal retries it.
+      _stateFor(_globalActionId).registeredHotKey = null;
+      _setStatus(HotkeyRegistrationStatus.unavailable);
+      _setFallbackActive(false);
+      _log.warning('Hotkey register timed out; the self-heal retries it');
     } on Object catch (e, st) {
       // Catch Object (not just Exception) so TypeError from hotkey_manager
       // is handled gracefully.
-      _setStatus(HotkeyRegistrationStatus.conflict);
+      // Nothing is registered: forget the refused combination, or the next
+      // change unregisters it and the native plugin has no record of it.
+      _stateFor(_globalActionId).registeredHotKey = null;
+      _setStatus(hotkeyFailureStatus(e));
       final keyCode = key.keyId.toRadixString(16);
       _log.warning('Failed to register hotkey (key=0x$keyCode): $e');
 
@@ -617,35 +1611,14 @@ class HotkeyService extends Notifier<void> {
   Future<void> updateQuickNoteHotkey({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
-  }) async {
-    if (!_isDesktop) return;
-    await _unregisterAction(_quickNoteActionId, stopMonitor: false);
-
-    final hotKey = HotKey(key: key, modifiers: modifiers);
-    _stateFor(_quickNoteActionId).registeredHotKey = hotKey;
-
-    try {
-      await _registrar.register(
-        hotKey,
-        keyDownHandler: (_) => _handleKeyDown(_quickNoteActionId, 'QuickNote'),
-        // Toggle-only — no push-to-talk for this action, so no keyUpHandler
-        // is ever wired, regardless of registrar capability.
-      );
-      _log.info('Quick-note hotkey registered successfully');
-      _setQuickNoteStatus(HotkeyRegistrationStatus.success);
-      // No monitor.start() — the monitor is a single shared native channel
-      // (Windows RawInput) and this toggle-only action never needs key-up.
-      // Starting it here would steal the global hotkey's release watch.
-    } on Object catch (e) {
-      _setQuickNoteStatus(HotkeyRegistrationStatus.conflict);
-      _stateFor(_quickNoteActionId).registeredHotKey = null;
-      final keyCode = key.keyId.toRadixString(16);
-      _log.warning(
-        'Failed to register quick-note hotkey (key=0x$keyCode): $e '
-        '— staying unregistered, no safe-default fallback',
-      );
-    }
-  }
+  }) => _registerToggleOnlyAction(
+    actionId: _quickNoteActionId,
+    handlerLabel: 'QuickNote',
+    logName: 'Quick-note',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setQuickNoteStatus,
+  );
 
   /// Re-registers the Snippet-Picker hotkey (ticket 26) with a new
   /// combination.
@@ -658,36 +1631,95 @@ class HotkeyService extends Notifier<void> {
   Future<void> updateSnippetPickerHotkey({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _snippetPickerActionId,
+    handlerLabel: 'SnippetPicker',
+    logName: 'Snippet-Picker',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setSnippetPickerStatus,
+  );
+
+  /// Shared registration for the toggle-only one-shot actions (quick-note,
+  /// Snippet-Picker, language cycle): no monitor is started, and a failed
+  /// registration stays unregistered rather than falling back to a safe
+  /// default. Where key-up exists (macOS) the release clears `keyHeld`, so a
+  /// later press is not taken for auto-repeat.
+  Future<void> _registerToggleOnlyAction({
+    required String actionId,
+    required String handlerLabel,
+    required String logName,
+    required LogicalKeyboardKey key,
+    required List<HotKeyModifier> modifiers,
+    required void Function(HotkeyRegistrationStatus) setStatus,
   }) async {
     if (!_isDesktop) return;
-    await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
+    await _unregisterAction(actionId, stopMonitor: false);
 
     final hotKey = HotKey(key: key, modifiers: modifiers);
-    _stateFor(_snippetPickerActionId).registeredHotKey = hotKey;
+    _stateFor(actionId).registeredHotKey = hotKey;
 
     try {
       await _registrar.register(
         hotKey,
         keyDownHandler: (_) =>
-            _handleKeyDown(_snippetPickerActionId, 'SnippetPicker'),
-        // Toggle-only/one-shot — no push-to-talk for this action, so no
-        // keyUpHandler is ever wired, regardless of registrar capability.
+            _handleKeyDown(actionId, handlerLabel, fromRegistrar: true),
       );
-      _log.info('Snippet-Picker hotkey registered successfully');
-      _setSnippetPickerStatus(HotkeyRegistrationStatus.success);
-      // No monitor.start() — same reasoning as updateQuickNoteHotkey: the
-      // shared monitor is a single native channel and this action never
-      // needs key-up.
+      _log.info('$logName hotkey registered successfully');
+      setStatus(HotkeyRegistrationStatus.success);
     } on Object catch (e) {
-      _setSnippetPickerStatus(HotkeyRegistrationStatus.conflict);
-      _stateFor(_snippetPickerActionId).registeredHotKey = null;
+      setStatus(hotkeyFailureStatus(e));
+      _stateFor(actionId).registeredHotKey = null;
       final keyCode = key.keyId.toRadixString(16);
       _log.warning(
-        'Failed to register Snippet-Picker hotkey (key=0x$keyCode): $e '
+        'Failed to register $logName hotkey (key=0x$keyCode): $e '
         '— staying unregistered, no safe-default fallback',
       );
     }
   }
+
+  /// Re-registers the "next favorite language" hotkey with a new combination.
+  /// Toggle-only one-shot like the Snippet-Picker: no key-up is wired, and no
+  /// safe-default fallback on failure.
+  Future<void> updateLanguageCycleHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _languageCycleActionId,
+    handlerLabel: 'LanguageCycle',
+    logName: 'Language-cycle',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setLanguageCycleStatus,
+  );
+
+  /// Re-registers the "paste the last dictation again" hotkey with a new
+  /// combination. Toggle-only one-shot, no safe-default fallback on failure.
+  Future<void> updateRepasteHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _repasteActionId,
+    handlerLabel: 'Repaste',
+    logName: 'Repaste',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setRepasteStatus,
+  );
+
+  /// Re-registers the "Learn correction" hotkey (#934) with a new
+  /// combination. Toggle-only one-shot, no safe-default fallback on failure.
+  Future<void> updateLearnCorrectionHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _learnCorrectionActionId,
+    handlerLabel: 'LearnCorrection',
+    logName: 'Learn-correction',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setLearnCorrectionStatus,
+  );
 
   /// Re-registers the Smart-Mode hotkey (ticket 04) with a new combination.
   ///
@@ -750,7 +1782,8 @@ class HotkeyService extends Notifier<void> {
     try {
       await _registrar.register(
         hotKey,
-        keyDownHandler: (_) => _handleKeyDown(actionId, handlerLabel),
+        keyDownHandler: (_) =>
+            _handleKeyDown(actionId, handlerLabel, fromRegistrar: true),
         keyUpHandler: _registrar.supportsKeyUp
             ? (_) => _handleKeyUp(actionId, handlerLabel)
             : null,
@@ -758,7 +1791,7 @@ class HotkeyService extends Notifier<void> {
       _log.info('$logName hotkey registered successfully');
       setStatus(HotkeyRegistrationStatus.success);
     } on Object catch (e) {
-      setStatus(HotkeyRegistrationStatus.conflict);
+      setStatus(hotkeyFailureStatus(e));
       _stateFor(actionId).registeredHotKey = null;
       final keyCode = key.keyId.toRadixString(16);
       _log.warning(
@@ -845,6 +1878,7 @@ class HotkeyService extends Notifier<void> {
   /// Escape itself via [registerInteractiveSnippetKeys]).
   Future<void> registerCancelDictationKey({
     required VoidCallback onCancel,
+    LogicalKeyboardKey key = LogicalKeyboardKey.escape,
   }) async {
     if (!_isDesktop) return;
     final epoch = ++_cancelDictationEpoch;
@@ -853,8 +1887,8 @@ class HotkeyService extends Notifier<void> {
     _onCancelDictation = onCancel;
     await _registerSessionKeyGeneric(
       _cancelDictationActionId,
-      LogicalKeyboardKey.escape,
-      'Cancel dictation (Escape)',
+      key,
+      'Cancel dictation',
       epoch,
       () => epoch == _cancelDictationEpoch,
     );
@@ -866,6 +1900,35 @@ class HotkeyService extends Notifier<void> {
     _cancelDictationEpoch++;
     _onCancelDictation = null;
     await _unregisterAction(_cancelDictationActionId, stopMonitor: false);
+  }
+
+  /// Registers the key that runs the first button of a standing notice card
+  /// (#585). Same system-wide-grab contract as [registerCancelDictationKey]:
+  /// `FloatingOverlayService` pairs it with [unregisterNoticeActionKey] and
+  /// holds it only while the card stands.
+  Future<void> registerNoticeActionKey({
+    required VoidCallback onPressed,
+    required LogicalKeyboardKey key,
+  }) async {
+    if (!_isDesktop) return;
+    final epoch = ++_noticeActionEpoch;
+    await _unregisterAction(_noticeActionActionId, stopMonitor: false);
+    if (epoch != _noticeActionEpoch) return;
+    _onNoticeAction = onPressed;
+    await _registerSessionKeyGeneric(
+      _noticeActionActionId,
+      key,
+      'Notice action',
+      epoch,
+      () => epoch == _noticeActionEpoch,
+    );
+  }
+
+  /// Removes the notice-action key. Safe to call when nothing is registered.
+  Future<void> unregisterNoticeActionKey() async {
+    _noticeActionEpoch++;
+    _onNoticeAction = null;
+    await _unregisterAction(_noticeActionActionId, stopMonitor: false);
   }
 
   /// Drops both session-scoped key registrations WITHOUT bumping the epoch —
@@ -914,7 +1977,8 @@ class HotkeyService extends Notifier<void> {
     try {
       await _registrar.register(
         hotKey,
-        keyDownHandler: (_) => _handleKeyDown(actionId, label),
+        keyDownHandler: (_) =>
+            _handleKeyDown(actionId, label, fromRegistrar: true),
         // Where key-up is available (macOS registrar), clear the held state
         // so a quick successive press within the auto-repeat window is not
         // swallowed as OS key-repeat.
@@ -943,11 +2007,237 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Test seam: replaces the reads of "hotkey enabled" and "dictation busy".
+  @visibleForTesting
+  void injectHealEnvironment({
+    required bool Function() hotkeyEnabled,
+    required bool Function() dictationBusy,
+  }) {
+    _healHotkeyEnabled = hotkeyEnabled;
+    _healDictationBusy = dictationBusy;
+  }
+
+  /// Test seam: replaces the clock that drives the heal throttle.
+  @visibleForTesting
+  void injectHealClock(DateTime Function() now) => _healNow = now;
+
+  /// Re-registers the global hotkey (and the enabled extra hotkeys) after a
+  /// trigger that may mean the OS has stopped delivering presses: a wake, a
+  /// memory-pressure unload, a UI stall, or the periodic safety net.
+  ///
+  /// Idempotent and cheap to call often: runs are throttled to one per
+  /// [kHotkeyHealMinInterval], queued behind other hotkey changes, and skipped
+  /// while a dictation, a held key or a hotkey capture makes a re-registration
+  /// unsafe. Each run that actually happens writes one log line.
+  Future<void> requestHotkeyHeal(HotkeyHealTrigger trigger) {
+    if (!_isDesktop) return Future<void>.value();
+    if (HotkeyCaptureGuard.releaseStale(_healNow())) {
+      _log.warning(
+        'Hotkey recorder listened longer than $kHotkeyCaptureListenLimit; '
+        'hotkeys restored',
+      );
+      ref.read(hotkeyCaptureTimeoutNoticeProvider.notifier).raise();
+    }
+    if (_healGate.isThrottled(_healNow())) return Future<void>.value();
+    if (hotkeyHealBlocker(_readHealState()) != null) {
+      return Future<void>.value();
+    }
+    return _serializeGlobal(() => _healGlobal(trigger));
+  }
+
+  Future<void> _captureSync = Future<void>.value();
+
+  /// Test seam: completes once the registrations follow the last change of
+  /// [HotkeyCaptureGuard.listening].
+  @visibleForTesting
+  Future<void> get captureSuspensionSettled => _captureSync;
+
+  /// Brings the system registrations in line with [HotkeyCaptureGuard]:
+  /// off while a recorder listens, back on afterwards. Reads the guard when it
+  /// runs, so quick open/close sequences settle on the current state. A
+  /// global hotkey the system refuses on the way back is reported like any
+  /// failed registration; the periodic self-heal registers it again.
+  Future<void> _syncCaptureSuspension() async {
+    if (HotkeyCaptureGuard.listening) {
+      await _registrar.suspend();
+      return;
+    }
+    final refused = await _registrar.resume();
+    if (refused.isEmpty) return;
+    final global = _stateFor(_globalActionId).registeredHotKey;
+    if (global != null &&
+        refused.any((h) => h.identifier == global.identifier)) {
+      _log.warning('Global hotkey refused after recording; self-heal retries');
+      _setStatus(HotkeyRegistrationStatus.conflict);
+    }
+  }
+
+  Future<void> _healGlobal(HotkeyHealTrigger trigger) async {
+    final now = _healNow();
+    if (_healGate.isThrottled(now)) return;
+    final blocker = hotkeyHealBlocker(_readHealState());
+    if (blocker != null) {
+      _log.debug('Hotkey self-heal (${trigger.name}) skipped: $blocker');
+      return;
+    }
+    _healGate.markRun(now);
+
+    final watch = Stopwatch()..start();
+    // Awaited to the end: the registrar bounds each native call, so a hung
+    // one fails the heal instead of leaving it running beside the next step.
+    final modifierKey = _modifierOnlyKey;
+    final ok = modifierKey != null
+        ? await _reregisterModifierOnly(modifierKey)
+        : await _reregisterGlobal();
+    watch.stop();
+    final ms = watch.elapsedMilliseconds;
+
+    if (ok) {
+      _healGate.recordSuccess();
+      _log.info('Hotkey self-heal (${trigger.name}): re-registered in $ms ms');
+      return;
+    }
+    // A single key that did not come back is escalated by the health check.
+    final showToast = modifierKey == null && _healGate.recordFailure();
+    _log.warning(
+      'Hotkey self-heal (${trigger.name}): failed after $ms ms, '
+      '${_healGate.consecutiveFailures} in a row; retried on the next trigger',
+    );
+    if (showToast) onHotkeyHealFailedRepeatedly?.call();
+  }
+
+  /// Snapshot of what a heal depends on. A key held on any action counts
+  /// until its key-up, or for at most [kHotkeyHeldStaleAfter] on platforms
+  /// without key-up, so a lost release cannot block heals forever.
+  HotkeyHealState _readHealState() {
+    final now = DateTime.now();
+    final held = _actionStates.values.any(
+      (s) =>
+          s.keyHeld &&
+          (s.lastKeyDownAt == null ||
+              now.difference(s.lastKeyDownAt!) < kHotkeyHeldStaleAfter),
+    );
+    final busyOverride = _healDictationBusy;
+    final enabledOverride = _healHotkeyEnabled;
+    return HotkeyHealState(
+      hotkeyEnabled:
+          enabledOverride?.call() ?? (_settingsOrNull()?.hotkeyEnabled ?? true),
+      dictationBusy:
+          busyOverride?.call() ??
+          isDictationBusy(ref.read(recordingProvider).phase),
+      keyHeld: held,
+      captureActive: HotkeyCaptureGuard.active,
+    );
+  }
+
+  /// Current settings, or null where the service runs without the app's
+  /// providers (standalone unit tests read a notifier that was never built).
+  AppSettings? _settingsOrNull() {
+    try {
+      return ref.read(settingsProvider).value;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Unregisters and registers the same combination again. The combination is
+  /// the one currently registered; only when none is known is it taken from
+  /// the settings. Never falls back to the safe-default combination: a heal
+  /// that fails leaves the user's key as it was and is retried later.
+  Future<bool> _reregisterGlobal() async {
+    final global = _stateFor(_globalActionId);
+    var hotKey = global.registeredHotKey;
+    if (hotKey == null) {
+      final settings = _settingsOrNull() ?? AppSettings.defaults;
+      try {
+        hotKey = HotKey(
+          key: resolveKey(settings.hotkeyKey),
+          modifiers: resolveModifiers(settings.hotkeyModifiers),
+        );
+      } on ArgumentError {
+        return false;
+      }
+    }
+    await _unregisterAction(_globalActionId, stopMonitor: false);
+    global.registeredHotKey = hotKey;
+    try {
+      await _registerGlobalHandlers(hotKey, 'Global');
+    } on TimeoutException {
+      // The system did not answer: nothing is known to own the combination.
+      global.registeredHotKey = null;
+      _setStatus(HotkeyRegistrationStatus.unavailable);
+      return false;
+    } on Object {
+      // The system refused it (another app owns it now): show the conflict
+      // instead of leaving the status on success, and let the next heal retry.
+      // Forget the refused combination, see _applyCombo.
+      global.registeredHotKey = null;
+      _setStatus(HotkeyRegistrationStatus.conflict);
+      return false;
+    }
+    // A Wayland portal binding is held by the compositor and is not lost like
+    // a grab. Restarting the monitor would open a new portal session, and
+    // GNOME would ask the user to confirm the shortcut again on every heal.
+    final portalOwned =
+        _monitor.waylandBinding != WaylandHotkeyBinding.notApplicable;
+    if (!portalOwned) await _startMonitor(hotKey);
+    _setStatus(HotkeyRegistrationStatus.success);
+    if (portalOwned) _applyWaylandBinding();
+
+    final settings = _settingsOrNull();
+    if (settings != null) {
+      // Extra hotkeys re-register themselves without a fallback; their own
+      // failures are logged and shown in their status, not counted here.
+      if (settings.quickNoteHotkey.quickNoteHotkeyEnabled) {
+        await _registerQuickNoteFromSettings(settings);
+      }
+      if (settings.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
+        await _registerSnippetPickerFromSettings(settings);
+      }
+      if (settings.stt.languageCycleHotkeyEnabled) {
+        await _registerLanguageCycleFromSettings(settings);
+      }
+      if (settings.behavior.repasteHotkeyEnabled) {
+        await _registerRepasteFromSettings(settings);
+      }
+      if (settings.behavior.learnCorrectionHotkeyEnabled) {
+        await _registerLearnCorrectionFromSettings(settings);
+      }
+      if (settings.smartModeHotkey.smartModeHotkeyEnabled) {
+        await _registerSmartModeFromSettings(settings);
+      }
+      if (settings.selectionEditHotkey.selectionEditHotkeyEnabled) {
+        await _registerSelectionEditFromSettings(settings);
+      }
+    }
+    return true;
+  }
+
   // ── Private ───────────────────────────────────────────────────────────────
 
-  Future<void> _registerFromSettings(AppSettings settings) async {
+  Future<void> _registerFromSettings(AppSettings settings) =>
+      _serializeGlobal(() => _applyFromSettings(settings));
+
+  Future<void> _applyFromSettings(AppSettings settings) async {
+    final doubleTapKey = _modifierHotkeyNamed(
+      settings.hotkey.hotkeyDoubleTapKey,
+    );
+    if (doubleTapKey != null) {
+      if (await _registerDoubleTapTrigger(doubleTapKey)) {
+        _setDoubleTapFallback(false);
+        return;
+      }
+      // Not observable on this device: the stored combination listens instead,
+      // and the double-tap choice stays saved for later.
+      _setDoubleTapFallback(
+        true,
+        unavailable: !_doubleTapObservable(doubleTapKey),
+      );
+    } else {
+      _setDoubleTapFallback(false);
+    }
     try {
-      await updateHotkey(
+      await _applyCombo(
         key: resolveKey(settings.hotkeyKey),
         modifiers: resolveModifiers(settings.hotkeyModifiers),
       );
@@ -959,10 +2249,10 @@ class HotkeyService extends Notifier<void> {
     } on ArgumentError catch (e) {
       // resolveKey rejected the stored key label. Happens with pre-fix DBs
       // that contain a non-resolvable label (e.g. 'Ö', '+', ';') the recorder
-      // used to accept but the registrar cannot handle. Fall back to
-      // safe-default and prompt for re-bind. Sibling of the TypeError path
-      // in updateHotkey — same observable behaviour for the user.
-      _setStatus(HotkeyRegistrationStatus.conflict);
+      // used to accept but the registrar cannot handle, and with imported
+      // settings. Fall back to safe-default and prompt for re-bind, like the
+      // TypeError path in updateHotkey, but name the key as the cause.
+      _setStatus(HotkeyRegistrationStatus.unknownKey);
       final label = settings.hotkeyKey;
       final firstCodepointHex = label.isEmpty
           ? '0x0'
@@ -985,9 +2275,63 @@ class HotkeyService extends Notifier<void> {
       );
       await _registerSafeDefault();
     } on Object catch (e) {
-      _setStatus(HotkeyRegistrationStatus.conflict);
+      _setStatus(hotkeyFailureStatus(e));
       _log.warning('Failed to register global hotkey: $e');
     }
+  }
+
+  /// Starts a double-tap key as the dictation trigger and returns true. Its
+  /// observer is the modifier-only path. Returns false when the device cannot
+  /// observe the key (Fn off macOS, Wayland, a refusing native observer); the
+  /// caller then listens on the stored combination instead, see
+  /// [_applyFromSettings].
+  Future<bool> _registerDoubleTapTrigger(ModifierHotkey key) async {
+    if (_doubleTapObservable(key) && await registerModifierOnly(key)) {
+      _setStatus(HotkeyRegistrationStatus.success);
+      _initialized = true;
+      _log.info('Double-tap dictation trigger active: ${key.name}');
+      return true;
+    }
+    _log.warning(
+      'Double-tap trigger ${key.name} cannot be observed on this platform; '
+      'the stored key combination listens in its place',
+    );
+    return false;
+  }
+
+  /// Whether this platform can observe a double tap of [key] at all. Fixed for
+  /// the session: Fn off macOS and Wayland never change.
+  bool _doubleTapObservable(ModifierHotkey key) {
+    final isWayland =
+        defaultTargetPlatform == TargetPlatform.linux &&
+        linuxSessionTypeFrom(_environment) == LinuxSessionType.wayland;
+    return doubleTapSupported(
+      key,
+      isMacOS: defaultTargetPlatform == TargetPlatform.macOS,
+      isWayland: isWayland,
+    );
+  }
+
+  /// Retries a refused double tap when the app comes back to the foreground,
+  /// and when the onboarding sees the Input Monitoring grant arrive (#1199).
+  /// Idle unless a fallback is active, and only for keys the platform can
+  /// observe in principle, so a Fn key off macOS never causes a native call.
+  /// Re-runs [_applyFromSettings]: on success the double tap takes over, on
+  /// another refusal the stored combination listens again.
+  void retryDoubleTapFallback() {
+    if (!ref.read(doubleTapFallbackActiveProvider)) return;
+    unawaited(
+      _serializeGlobal(() async {
+        // Checked again inside the chain: an earlier retry may have lifted it.
+        if (!ref.read(doubleTapFallbackActiveProvider)) return;
+        final settings = ref.read(settingsProvider).value;
+        if (settings == null || !settings.hotkeyEnabled) return;
+        final key = _modifierHotkeyNamed(settings.hotkey.hotkeyDoubleTapKey);
+        if (key == null || !_doubleTapObservable(key)) return;
+        _log.info('Retrying double-tap trigger ${key.name}');
+        await _applyFromSettings(settings);
+      }),
+    );
   }
 
   /// Shared implementation behind [_registerQuickNoteFromSettings],
@@ -1019,7 +2363,7 @@ class HotkeyService extends Notifier<void> {
         '${formatHotkeyShortcut(modifiers, key)}',
       );
     } on Object catch (e) {
-      setStatus(HotkeyRegistrationStatus.conflict);
+      setStatus(hotkeyFailureStatus(e));
       _log.warning('Failed to register $label hotkey: $e');
     }
   }
@@ -1051,6 +2395,46 @@ class HotkeyService extends Notifier<void> {
     );
   }
 
+  /// Sibling of [_registerFromSettings] for the "next favorite language"
+  /// action.
+  Future<void> _registerLanguageCycleFromSettings(AppSettings settings) {
+    final stt = settings.stt;
+    return _registerSecondaryHotkeyFromSettings(
+      key: stt.languageCycleHotkeyKey,
+      modifiers: stt.languageCycleHotkeyModifiers,
+      update: updateLanguageCycleHotkey,
+      markInitialized: () => _languageCycleInitialized = true,
+      setStatus: _setLanguageCycleStatus,
+      label: 'Language-cycle',
+    );
+  }
+
+  /// Sibling of [_registerFromSettings] for the repaste action.
+  Future<void> _registerRepasteFromSettings(AppSettings settings) {
+    final behavior = settings.behavior;
+    return _registerSecondaryHotkeyFromSettings(
+      key: behavior.repasteHotkeyKey,
+      modifiers: behavior.repasteHotkeyModifiers,
+      update: updateRepasteHotkey,
+      markInitialized: () => _repasteInitialized = true,
+      setStatus: _setRepasteStatus,
+      label: 'Repaste',
+    );
+  }
+
+  /// Sibling of [_registerFromSettings] for the "Learn correction" action.
+  Future<void> _registerLearnCorrectionFromSettings(AppSettings settings) {
+    final behavior = settings.behavior;
+    return _registerSecondaryHotkeyFromSettings(
+      key: behavior.learnCorrectionHotkeyKey,
+      modifiers: behavior.learnCorrectionHotkeyModifiers,
+      update: updateLearnCorrectionHotkey,
+      markInitialized: () => _learnCorrectionInitialized = true,
+      setStatus: _setLearnCorrectionStatus,
+      label: 'Learn-correction',
+    );
+  }
+
   /// Sibling of [_registerFromSettings] for the Smart-Mode action
   /// (ticket 04).
   Future<void> _registerSmartModeFromSettings(AppSettings settings) {
@@ -1078,6 +2462,13 @@ class HotkeyService extends Notifier<void> {
     );
   }
 
+  /// True inside a global-chain step the chain has aborted (past the limit
+  /// or at quit).
+  bool get _globalStepAborted {
+    final step = Zone.current[_globalStepKey];
+    return step is ChainStep && step.aborted;
+  }
+
   /// Writes [status] to [hotkeyRegistrationStatusProvider] if a Riverpod ref
   /// is available (i.e. the service was created via the provider, not via a
   /// bare `HotkeyService()` constructor in a unit test).
@@ -1086,10 +2477,40 @@ class HotkeyService extends Notifier<void> {
   /// `test/services/hotkey_service_test.dart` keep working — they construct
   /// the service directly without a [ProviderContainer].
   void _setStatus(HotkeyRegistrationStatus status) {
+    if (_globalStepAborted) {
+      _log.debug('Hotkey status of an aborted step dropped: $status');
+      return;
+    }
     try {
       ref.read(hotkeyRegistrationStatusProvider.notifier).set(status);
     } on Object catch (e) {
       _log.debug('Hotkey status update skipped (standalone test instance): $e');
+    }
+  }
+
+  /// Writes [globalHotkeyFallbackActiveProvider] — same standalone-test guard
+  /// as [_setStatus].
+  void _setFallbackActive(bool active) {
+    try {
+      ref.read(globalHotkeyFallbackActiveProvider.notifier).set(active);
+    } on Object catch (e) {
+      _log.debug(
+        'Hotkey fallback update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Writes [doubleTapFallbackActiveProvider] and
+  /// [doubleTapUnavailableProvider] — same standalone-test guard as
+  /// [_setStatus].
+  void _setDoubleTapFallback(bool active, {bool unavailable = false}) {
+    try {
+      ref.read(doubleTapFallbackActiveProvider.notifier).set(active);
+      ref.read(doubleTapUnavailableProvider.notifier).set(unavailable);
+    } on Object catch (e) {
+      _log.debug(
+        'Double-tap fallback update skipped (standalone test instance): $e',
+      );
     }
   }
 
@@ -1100,6 +2521,44 @@ class HotkeyService extends Notifier<void> {
     } on Object catch (e) {
       _log.debug(
         'Quick-note hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Repaste sibling of [_setStatus] — same standalone-test guard.
+  void _setRepasteStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref.read(repasteHotkeyRegistrationStatusProvider.notifier).set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Repaste hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Learn-correction sibling of [_setStatus] — same standalone-test guard.
+  void _setLearnCorrectionStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref
+          .read(learnCorrectionHotkeyRegistrationStatusProvider.notifier)
+          .set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Learn-correction hotkey status update skipped (standalone test '
+        'instance): $e',
+      );
+    }
+  }
+
+  /// Language-cycle sibling of [_setStatus] — same standalone-test guard.
+  void _setLanguageCycleStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref
+          .read(languageCycleHotkeyRegistrationStatusProvider.notifier)
+          .set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Language-cycle hotkey status update skipped (standalone test instance): $e',
       );
     }
   }
@@ -1169,18 +2628,13 @@ class HotkeyService extends Notifier<void> {
     final fallback = safeDefaultHotKey;
     _stateFor(_globalActionId).registeredHotKey = fallback;
     try {
-      await _registrar.register(
-        fallback,
-        keyDownHandler: (_) => _handleKeyDown(_globalActionId, 'Safe-default'),
-        keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp(_globalActionId, 'Safe-default')
-            : null,
-      );
+      await _registerGlobalHandlers(fallback, 'Safe-default');
       _log.info(
         'Safe-default hotkey registered successfully ($safeDefaultHotKeyLabel)',
       );
       _initialized = true;
-      await _monitor.start(fallback);
+      await _startMonitor(fallback);
+      _setFallbackActive(true);
       onRegistrationFailed?.call();
     } on Object catch (e) {
       // Even the fallback failed — log and leave the service in a non-crashing
@@ -1190,23 +2644,45 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Feeds the onboarding demo key cap (V05). The demo must never stop the
+  /// hotkey itself, so a failing signal is logged and dropped.
+  void _signalDictationActivity(
+    void Function(DictationHotkeyActivityController controller) signal,
+  ) {
+    try {
+      signal(ref.read(dictationHotkeyActivityProvider.notifier));
+    } on Object catch (e) {
+      _log.debug('dictation activity signal dropped: $e');
+    }
+  }
+
   /// Handles a hotkey key-down, swallowing OS auto-repeat so a held key fires
   /// exactly once. State is tracked per [actionId] (see [_stateFor]) so a
   /// held key on one action never suppresses auto-repeat on another.
   ///
-  /// On macOS (key-up available) a held key is detected directly via
-  /// `keyHeld`, cleared on key-up. On Windows/Linux (no key-up) the
-  /// [_autoRepeatWindow] sliding window — refreshed on every key-down
-  /// including suppressed repeats — bridges the repeat stream; a genuine
-  /// re-press lands after a longer gap and is honoured. Without this, holding
-  /// the key in toggle mode rapidly flips start/stop and wedges the
-  /// recording state.
-  void _handleKeyDown(String actionId, String label) {
+  /// Native Windows/Linux registrars already filter held-key repeats, so each
+  /// delivered down is a genuine press, regardless of the time since the last
+  /// one. Other sources retain the sliding-window fallback; key-up clears it
+  /// immediately. The registrar guarantee never applies to monitor events.
+  void _handleKeyDown(
+    String actionId,
+    String label, {
+    bool checkReleasedAtArm = false,
+    bool fromRegistrar = false,
+  }) {
+    // While a recorder listens, a press is the user recording a key, never a
+    // trigger: this covers the modifier-only and monitor paths, which are not
+    // taken off the system.
+    if (HotkeyCaptureGuard.listening) {
+      _log.debug('$label hotkey press ignored while a hotkey is recorded');
+      return;
+    }
     final state = _stateFor(actionId);
-    final now = DateTime.now();
+    final now = clock.now();
     final last = state.lastKeyDownAt;
     state.lastKeyDownAt = now;
     final isAutoRepeat =
+        !(fromRegistrar && _registrar.filtersKeyRepeat) &&
         state.keyHeld &&
         last != null &&
         now.difference(last) < _autoRepeatWindow;
@@ -1214,22 +2690,40 @@ class HotkeyService extends Notifier<void> {
       _log.debug('$label hotkey auto-repeat ignored (key held)');
       return;
     }
+    // A real press while the previous one still counts as held: that
+    // press's release never arrived (#807).
+    final releaseLost = state.keyHeld;
     state.keyHeld = true;
+    state.pressStartedAt = clock.now();
     _log.info('$label hotkey pressed');
     // A hotkey press closes an open nudge prompt. The close records nothing,
     // so it is neither a dismissal nor a snooze.
     _promptArbiter?.closeOpenPrompt();
     if (actionId == _globalActionId) {
+      // Lights the onboarding demo key cap (V05); the press itself is
+      // unchanged.
+      _signalDictationActivity((c) => c.pressed(keyUpSupported: supportsKeyUp));
       // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
       // captures the earliest possible Dart-layer moment of this event.
       // Counterpart: PerfMarkers.markOverlayShown() in FloatingOverlayService.
       PerfMarkers.instance.markHotkeyPressed();
-      onHotkeyPressed?.call();
-      // Arm the RawInput release-watch (Windows): RegisterHotKey hides the
-      // hotkey key's DOWN from RawInput, so the native monitor snapshots the
-      // held key now and reports its release. No-op on other platforms (#39).
+      _dispatch(label, onHotkeyPressed);
+      _startHeldProbe(state.pressStartedAt);
+      if (releaseLost) _requestInputMonitoringOffer();
+      // Arm the native release-watch: on Windows RegisterHotKey hides the
+      // hotkey key's DOWN from RawInput, so the monitor snapshots the held key
+      // now and reports its release; Linux arms its watch the same way. Both
+      // answer whether the key is still held. macOS needs no watch because
+      // the hotkey registrar delivers the release itself (#39).
       // Only the global action uses the shared monitor.
-      unawaited(_monitor.armRelease());
+      final armed = _monitor.armRelease(
+        modifiers: state.registeredHotKey?.modifiers ?? const [],
+      );
+      if (checkReleasedAtArm) {
+        unawaited(_endPressReleasedBeforeArm(armed, now));
+      } else {
+        unawaited(armed);
+      }
     } else if (actionId == _quickNoteActionId) {
       // Same t₀ stamp as the global action — the quick-note action also
       // drives the recording overlay (FloatingOverlayService is not
@@ -1237,34 +2731,193 @@ class HotkeyService extends Notifier<void> {
       // markOverlayShown() counterpart to report a meaningful latency
       // instead of a stale/null value from an earlier global press.
       PerfMarkers.instance.markHotkeyPressed();
-      onQuickNoteHotkeyPressed?.call();
+      _dispatch(label, onQuickNoteHotkeyPressed);
     } else if (actionId == _snippetPickerActionId) {
       // No perf mark here — this action never drives the recording overlay
       // (it doesn't start a recording at all, ticket 26), so the
       // hotkey→overlay latency marker doesn't apply.
-      onSnippetPickerHotkeyPressed?.call();
+      _dispatch(label, onSnippetPickerHotkeyPressed);
+    } else if (actionId == _languageCycleActionId) {
+      // No perf mark: switching the language does not start a recording.
+      _dispatch(label, onLanguageCycleHotkeyPressed);
+    } else if (actionId == _repasteActionId) {
+      // No perf mark: pasting the last text again starts no recording.
+      _dispatch(label, onRepasteHotkeyPressed);
+    } else if (actionId == _learnCorrectionActionId) {
+      // No perf mark: copying the selection starts no recording.
+      _dispatch(label, onLearnCorrectionHotkeyPressed);
+    } else if (actionId.startsWith(_profileActionPrefix)) {
+      // No perf mark: a profile switch changes settings, it starts nothing.
+      final profile = onProfileHotkeyPressed;
+      _dispatch(
+        label,
+        profile == null
+            ? null
+            : () => profile(actionId.substring(_profileActionPrefix.length)),
+      );
     } else if (actionId == _smartModeActionId) {
       // Same t₀ stamp rationale as the quick-note action — this action also
       // drives the recording overlay.
       PerfMarkers.instance.markHotkeyPressed();
-      onSmartModeHotkeyPressed?.call();
+      _dispatch(label, onSmartModeHotkeyPressed);
     } else if (actionId == _selectionEditActionId) {
       // Drives the recording overlay too — same t₀ stamp rationale.
       PerfMarkers.instance.markHotkeyPressed();
-      onSelectionEditHotkeyPressed?.call();
+      _dispatch(label, onSelectionEditHotkeyPressed);
     } else if (actionId == _snippetAdvanceActionId) {
       // No perf mark — the field advance ends a recording rather than
       // starting the hotkey→overlay hot path this marker measures.
-      _onInteractiveSnippetAdvance?.call();
+      _dispatch(label, _onInteractiveSnippetAdvance);
     } else if (actionId == _snippetCancelActionId) {
-      _onInteractiveSnippetCancel?.call();
+      _dispatch(label, _onInteractiveSnippetCancel);
     } else if (actionId == _cancelDictationActionId) {
-      _onCancelDictation?.call();
+      _dispatch(label, _onCancelDictation);
+    } else if (actionId == _noticeActionActionId) {
+      _dispatch(label, _onNoticeAction);
     }
   }
 
-  /// Handles a hotkey key-up (macOS only; global and Smart-Mode actions only
-  /// — the quick-note and Snippet-Picker actions never wire a keyUpHandler).
+  /// A registered combination whose main key was already up when the native
+  /// release-watch armed. No release event will come for that press, so it is
+  /// ended now, like a release at once. Otherwise the recording it started
+  /// would run on with no way to stop it by holding (for example a click on an
+  /// on-screen keyboard). Only the press that is still current is ended.
+  Future<void> _endPressReleasedBeforeArm(
+    Future<bool> armed,
+    DateTime now,
+  ) async {
+    final held = await armed;
+    if (held) return;
+    final state = _stateFor(_globalActionId);
+    if (state.lastKeyDownAt != now) return;
+    _log.info('Global hotkey already released at arm time; ending the press');
+    // Linux may already have ended the press with its own key-up, which
+    // arrives first. Ending it again is then a no-op.
+    if (state.keyHeld) _handleKeyUp(_globalActionId, 'Global');
+    _requestShortPressHint();
+  }
+
+  /// Asks for the one-time "Tap or hold" hint. Only pure hold-to-talk
+  /// misfires this way. With "Tap or hold" on, the short press latches the
+  /// recording instead, so there is nothing to explain.
+  void _requestShortPressHint() {
+    // Dropped like the activity signal when no container backs the service
+    // (macOS now times every release, so a bare service can get here).
+    try {
+      final audio = ref.read(settingsProvider).value?.audioInput;
+      final holdModeOn =
+          (audio?.pushToTalk ?? false) && !(audio?.holdOrTap ?? false);
+      // Build the provider first: writing its state needs build to have run.
+      ref.read(shortPressHintProvider);
+      ref.read(shortPressHintProvider.notifier).request(holdModeOn: holdModeOn);
+    } on Object catch (e) {
+      _log.debug('short-press hint dropped: $e');
+    }
+  }
+
+  /// A key combination's release got lost on macOS (#807). Without the
+  /// Input Monitoring permission [_probeHeld] cannot notice that, so the app
+  /// offers the permission once. A single modifier key already has it, and
+  /// Windows and Linux read the key state without it.
+  void _requestInputMonitoringOffer() {
+    if (_monitor.supportsKeyUp || !_modifierMonitor.supportsHeld) return;
+    if (_modifierOnlyActive) return;
+    _log.info('Global hotkey release was lost before this press');
+    try {
+      final audio = ref.read(settingsProvider).value?.audioInput;
+      // Build the provider first: writing its state needs build to have run.
+      ref.read(inputMonitoringOfferProvider);
+      unawaited(
+        ref
+            .read(inputMonitoringOfferProvider.notifier)
+            .releaseLost(holdModeOn: audio?.pushToTalk ?? false),
+      );
+    } on Object catch (e) {
+      _log.debug('input monitoring offer dropped: $e');
+    }
+  }
+
+  Timer? _heldProbe;
+  bool _heldProbeBusy = false;
+
+  /// Compares a running global press with the real key state until it ends
+  /// (#774). The release event can get lost (screen lock, user switch, secure
+  /// desktop, a tap that stopped delivering): without this the recording would
+  /// run on until the user notices. When the hardware says "up" while the
+  /// press still counts as held, the press ends like a normal release. Hosts
+  /// that cannot tell ([KeyboardUpMonitor.isHeld] or, on macOS via
+  /// [_readHeld], [ModifierKeyMonitor.isHeld] null) leave it to the event.
+  void _startHeldProbe(DateTime? press) {
+    if (!_monitor.supportsKeyUp && !_modifierMonitor.supportsHeld) return;
+    _heldProbe?.cancel();
+    _heldProbeBusy = false;
+    _heldProbe = Timer.periodic(
+      kHotkeyHeldProbeInterval,
+      (_) => unawaited(_probeHeld(press)),
+    );
+  }
+
+  void _stopHeldProbe() {
+    _heldProbe?.cancel();
+    _heldProbe = null;
+    // A read that never returns must not silence the next press's check.
+    _heldProbeBusy = false;
+  }
+
+  /// The real state of the watched key. Windows and Linux ask their keyboard
+  /// monitor; macOS (no monitor, the registrar owns the key-up) asks the
+  /// modifier host: the main key of a registered combination, else the
+  /// modifier it observes (#791).
+  Future<bool?> _readHeld() {
+    if (_monitor.supportsKeyUp || !_modifierMonitor.supportsHeld) {
+      return _monitor.isHeld();
+    }
+    final hotKey = _modifierOnlyActive
+        ? null
+        : _stateFor(_globalActionId).registeredHotKey;
+    return _modifierMonitor.isHeld(keyCode: _macKeyCode(hotKey?.physicalKey));
+  }
+
+  static final Map<int, int> _macKeyCodes = {
+    for (final e in kMacOsToPhysicalKey.entries) e.value.usbHidUsage: e.key,
+  };
+
+  /// The macOS virtual key code (kVK_*) of [key], from Flutter's public
+  /// macOS key map; null for a key macOS does not have.
+  static int? _macKeyCode(PhysicalKeyboardKey? key) =>
+      key == null ? null : _macKeyCodes[key.usbHidUsage];
+
+  Future<void> _probeHeld(DateTime? press) async {
+    final state = _stateFor(_globalActionId);
+    bool current() => state.keyHeld && state.pressStartedAt == press;
+    if (!current()) {
+      _stopHeldProbe();
+      return;
+    }
+    if (_heldProbeBusy) return;
+    _heldProbeBusy = true;
+    try {
+      final readStarted = clock.now();
+      final held = await _readHeld();
+      if (held == false && current()) {
+        // A stalled read: the real release is probably queued behind it and
+        // carries the native time (#1194). Give it the chance to arrive.
+        if (clock.now().difference(readStarted) >= kHotkeyProbeStallThreshold) {
+          await Future<void>.delayed(kHotkeyProbeStallGrace);
+          if (!current()) return;
+        }
+        _log.warning('Global hotkey release was lost; ending the press');
+        _handleKeyUp(_globalActionId, 'Global');
+      }
+    } finally {
+      _heldProbeBusy = false;
+    }
+  }
+
+  /// Handles a hotkey key-up (the registrar's or the monitor's release event,
+  /// or the lost-release check [_probeHeld] on Windows, Linux X11 and macOS; global and
+  /// Smart-Mode actions, and the toggle-only actions where
+  /// [HotKeyRegistrar.supportsKeyUp] holds).
   /// Clears the held state so the next press is honoured immediately, and
   /// forwards to [onHotkeyReleased]/[onSmartModeHotkeyReleased]. The
   /// session-scoped interactive-snippet keys also land here purely for the
@@ -1280,11 +2933,13 @@ class HotkeyService extends Notifier<void> {
     state.keyHeld = false;
     _log.info('$label hotkey released');
     if (actionId == _globalActionId) {
-      onHotkeyReleased?.call();
+      _stopHeldProbe();
+      _signalDictationActivity((c) => c.released());
+      _dispatch(label, onHotkeyReleased);
     } else if (actionId == _smartModeActionId) {
-      onSmartModeHotkeyReleased?.call();
+      _dispatch(label, onSmartModeHotkeyReleased);
     } else if (actionId == _selectionEditActionId) {
-      onSelectionEditHotkeyReleased?.call();
+      _dispatch(label, onSelectionEditHotkeyReleased);
     }
   }
 
@@ -1297,6 +2952,9 @@ class HotkeyService extends Notifier<void> {
     String actionId, {
     required bool stopMonitor,
   }) async {
+    // Before the first await: a probe tick must not end the press after the
+    // registration is gone.
+    if (actionId == _globalActionId) _stopHeldProbe();
     final state = _stateFor(actionId);
     if (state.registeredHotKey != null) {
       try {
@@ -1312,9 +2970,75 @@ class HotkeyService extends Notifier<void> {
     // Reset auto-repeat state so a fresh registration starts clean.
     state.keyHeld = false;
     state.lastKeyDownAt = null;
+    state.pressStartedAt = null;
+  }
+
+  /// Makes the registered profile hotkeys match [entries]. A profile whose
+  /// combination is unchanged stays registered, so calling this again with the
+  /// same entries registers nothing; a removed or changed entry is unregistered
+  /// first. Returns the profile ids the OS refused.
+  Future<Set<String>> syncProfileHotkeys(
+    List<ProfileHotkeyEntry> entries,
+  ) async {
+    if (!_isDesktop) return const {};
+    final wanted = {for (final entry in entries) entry.actionId: entry};
+    for (final actionId in _profileRegistrations.keys.toList()) {
+      final target = wanted[actionId];
+      if (target != null &&
+          _profileRegistrations[actionId] == target.signature) {
+        continue;
+      }
+      await _unregisterProfileAction(actionId);
+    }
+    final refused = <String>{};
+    for (final entry in entries) {
+      if (_profileRegistrations.containsKey(entry.actionId)) continue;
+      if (!await _registerProfileHotkey(entry)) refused.add(entry.profileId);
+    }
+    return refused;
+  }
+
+  Future<bool> _registerProfileHotkey(ProfileHotkeyEntry entry) async {
+    try {
+      final hotKey = HotKey(
+        key: resolveKey(entry.key),
+        modifiers: resolveModifiers(entry.modifiers),
+      );
+      _stateFor(entry.actionId).registeredHotKey = hotKey;
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) =>
+            _handleKeyDown(entry.actionId, 'Profile', fromRegistrar: true),
+      );
+      _profileRegistrations[entry.actionId] = entry.signature;
+      _log.info('Profile hotkey registered: ${entry.profileId}');
+      return true;
+    } on Object catch (e) {
+      _stateFor(entry.actionId).registeredHotKey = null;
+      _log.warning('Profile hotkey refused for ${entry.profileId}: $e');
+      return false;
+    }
+  }
+
+  Future<void> _unregisterProfileAction(String actionId) async {
+    await _unregisterAction(actionId, stopMonitor: false);
+    _profileRegistrations.remove(actionId);
+    _actionStates.remove(actionId);
   }
 
   Future<void> _destroy() async {
+    _stopHeldProbe();
+    _healTimer?.cancel();
+    _healTimer = null;
+    _unwatchObserver();
+    _captureLimitTimer?.cancel();
+    _captureLimitTimer = null;
+    _globalChain.close();
+    _modifierOnlyChain.close();
+    _registrar.dispose();
+    for (final actionId in _profileRegistrations.keys.toList()) {
+      await _unregisterProfileAction(actionId);
+    }
     if (_initialized) {
       await _unregisterAction(_globalActionId, stopMonitor: true);
       _log.info('Global hotkey unregistered');
@@ -1326,6 +3050,18 @@ class HotkeyService extends Notifier<void> {
     if (_snippetPickerInitialized) {
       await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
       _log.info('Snippet-Picker hotkey unregistered');
+    }
+    if (_languageCycleInitialized) {
+      await _unregisterAction(_languageCycleActionId, stopMonitor: false);
+      _log.info('Language-cycle hotkey unregistered');
+    }
+    if (_repasteInitialized) {
+      await _unregisterAction(_repasteActionId, stopMonitor: false);
+      _log.info('Repaste hotkey unregistered');
+    }
+    if (_learnCorrectionInitialized) {
+      await _unregisterAction(_learnCorrectionActionId, stopMonitor: false);
+      _log.info('Learn-correction hotkey unregistered');
     }
     if (_smartModeInitialized) {
       await _unregisterAction(_smartModeActionId, stopMonitor: false);
@@ -1344,6 +3080,7 @@ class HotkeyService extends Notifier<void> {
     // FloatingOverlayService normally unregisters it on every phase exit,
     // but a teardown mid-recording must not leak the system-wide grab.
     await unregisterCancelDictationKey();
+    await unregisterNoticeActionKey();
   }
 
   static bool get _isDesktop =>
@@ -1358,3 +3095,73 @@ class HotkeyService extends Notifier<void> {
 final hotkeyServiceProvider = NotifierProvider<HotkeyService, void>(
   HotkeyService.new,
 );
+
+/// What the dictation hotkey is doing right now, for the onboarding demo
+/// (Onboarding v6, V05): [held] while the key is down, [presses] counts the
+/// genuine presses (auto-repeat excluded), [otherKeys] counts the other keys
+/// that joined a held single key (a shortcut, no gesture). Only the global
+/// action feeds it.
+@immutable
+class DictationHotkeyActivity {
+  const DictationHotkeyActivity({
+    this.presses = 0,
+    this.held = false,
+    this.otherKeys = 0,
+  });
+
+  final int presses;
+  final bool held;
+  final int otherKeys;
+}
+
+/// Time after which a press without a key-up (Windows, Linux) stops lighting
+/// the demo key cap again.
+const Duration _demoHoldWindow = Duration(milliseconds: 700);
+
+class DictationHotkeyActivityController
+    extends Notifier<DictationHotkeyActivity> {
+  Timer? _release;
+
+  @override
+  DictationHotkeyActivity build() {
+    ref.onDispose(() => _release?.cancel());
+    return const DictationHotkeyActivity();
+  }
+
+  /// A genuine press. Without key-up support the held flag clears itself.
+  void pressed({required bool keyUpSupported}) {
+    _release?.cancel();
+    state = DictationHotkeyActivity(
+      presses: state.presses + 1,
+      held: true,
+      otherKeys: state.otherKeys,
+    );
+    if (!keyUpSupported) {
+      _release = Timer(_demoHoldWindow, released);
+    }
+  }
+
+  void released() {
+    _release?.cancel();
+    if (!state.held) return;
+    state = DictationHotkeyActivity(
+      presses: state.presses,
+      otherKeys: state.otherKeys,
+    );
+  }
+
+  /// Another key joined the held single key.
+  void otherKey() {
+    state = DictationHotkeyActivity(
+      presses: state.presses,
+      held: state.held,
+      otherKeys: state.otherKeys + 1,
+    );
+  }
+}
+
+final dictationHotkeyActivityProvider =
+    NotifierProvider<
+      DictationHotkeyActivityController,
+      DictationHotkeyActivity
+    >(DictationHotkeyActivityController.new);

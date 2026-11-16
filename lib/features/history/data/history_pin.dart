@@ -4,7 +4,7 @@
 /// The PIN is a visibility lock against casual snooping on a shared OS
 /// account, not encryption — the history itself stays a plain SQLite file.
 /// That is why a forgotten PIN is resolved by deleting the history rather
-/// than by any recovery path (`internal-notes`).
+/// than by any recovery path.
 library;
 
 import 'dart:convert';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 
@@ -21,7 +22,7 @@ class WpTriggerChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xs,
-        vertical: WpSpacing.xxs / 2,
+        vertical: WpSpacing.xxxs,
       ),
       decoration: BoxDecoration(
         color: WpColors.accentChipFill,
@@ -30,7 +31,7 @@ class WpTriggerChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: WpColors.accent,
           fontWeight: FontWeight.w600,
           fontSize: WpTypography.small,

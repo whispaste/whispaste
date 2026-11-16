@@ -16,16 +16,21 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/overlay_customization.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 
-FloatingOverlaySnapshot _snap({required bool visible}) =>
-    FloatingOverlaySnapshot(
-      visible: visible,
-      state: OverlayVisualState.recording,
-      label: 'Recording',
-      elapsed: '0:03',
-    );
+FloatingOverlaySnapshot _snap({
+  required bool visible,
+  OverlayVisualState state = OverlayVisualState.recording,
+  bool fluid = true,
+}) => FloatingOverlaySnapshot(
+  visible: visible,
+  state: state,
+  label: 'Recording',
+  elapsed: '0:03',
+  appearance: OverlayAppearance(waveFluid: fluid),
+);
 
 Widget _wrap(Widget child) => MediaQuery(
   data: const MediaQueryData(),
@@ -74,6 +79,69 @@ void main() {
     );
 
     // Settle the perpetual animations so the test binding can tear down.
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // North-star review #25: the drift repaints every vsync, so it runs only
+  // while something on screen reads its phase.
+  testWidgets('recording without the fluid outline settles to no frames', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        WpFloatingOverlayView(snapshot: _snap(visible: true, fluid: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
+  testWidgets('transcribing keeps the drift for its spinner and ripple', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        WpFloatingOverlayView(snapshot: _snap(visible: true, fluid: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      _wrap(
+        WpFloatingOverlayView(
+          snapshot: _snap(
+            visible: true,
+            fluid: false,
+            state: OverlayVisualState.transcribing,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('switching the fluid outline on starts the drift', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        WpFloatingOverlayView(snapshot: _snap(visible: true, fluid: false)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      _wrap(WpFloatingOverlayView(snapshot: _snap(visible: true))),
+    );
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

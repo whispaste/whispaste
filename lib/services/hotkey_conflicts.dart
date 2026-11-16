@@ -9,19 +9,43 @@
 /// not to enforce policy.
 library;
 
-import 'dart:io';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
+
+import '../core/l10n/generated/app_localizations.dart';
+import 'globe_key_action.dart';
 
 // ---------------------------------------------------------------------------
 // Data model
 // ---------------------------------------------------------------------------
 
-/// A known system-reserved hotkey combination.
+/// What the user can do about a reserved hotkey.
+enum ConflictAction {
+  /// Pick another combination or trigger. Every reservation allows this.
+  chooseOther,
+
+  /// Switch the system function off in the system settings (macOS dictation
+  /// on a double tap of Fn). The hint names the path.
+  disableInSystem,
+}
+
+/// A known system-reserved hotkey combination, or a single-key double tap.
 class ConflictEntry {
   const ConflictEntry({
     required this.modifiers,
     required this.key,
-    this.note = '',
+    this.note,
+    this.action = ConflictAction.chooseOther,
+    this.doubleTapKey,
   });
+
+  /// The [ModifierHotkey] name of a single-key double tap this entry reserves
+  /// (e.g. `fn`), or null for a key combination. A double tap is a trigger,
+  /// not a combination, so [findConflict] never matches such an entry.
+  final String? doubleTapKey;
+
+  /// What the user can do about this reservation.
+  final ConflictAction action;
 
   /// Modifier set in storage format, e.g. `'meta'` or `'ctrl+alt'`.
   ///
@@ -32,11 +56,61 @@ class ConflictEntry {
   /// e.g. `'Space'`, `'Tab'`, `'F4'`, `'L'`.
   final String key;
 
-  /// Human-readable note about which system function owns this combo.
-  final String note;
+  /// Which system function owns this combo. Rendered in the user's language
+  /// by the hotkey recorder; `null` shows the key instead.
+  final ConflictNote? note;
 
   @override
   String toString() => 'ConflictEntry($modifiers + $key)';
+}
+
+/// The system function that owns a conflicting combination. Each value maps to
+/// one `hotkeyConflictNote*` ARB key, so the warning is shown in the app
+/// language instead of the English OS menu names.
+enum ConflictNote {
+  spotlight,
+  appSwitcher,
+  quitApp,
+  closeWindow,
+  hideApp,
+  minimizeWindow,
+  cycleWindows,
+  screenshotFullScreen,
+  screenshotSelection,
+  screenshotRecording,
+  emojiPicker,
+  forceQuit,
+  lockWorkstation,
+  showDesktop,
+  fileExplorer,
+  runDialog,
+  settings,
+  search,
+  taskView,
+  inputLanguageSwitch,
+  maximizeWindow,
+  snapLeft,
+  snapRight,
+  securityOptionsTaskManager,
+  taskManager,
+  lockScreenGnomeKde,
+  runDialogKde,
+  inputSourceGnome,
+  logoutShutdownDialog,
+  openTerminal,
+  lockScreenGnome,
+  fnDoubleTap,
+
+  /// macOS "Press 🌐 key to" = Emoji & Symbols, read from the system (#778).
+  globeEmoji,
+
+  /// macOS "Press 🌐 key to" = Change Input Source (#778).
+  globeInputSource,
+
+  /// macOS "Press 🌐 key to" = Start Dictation (#778).
+  globeDictation,
+  windowsDictation,
+  windowsClipboardHistory,
 }
 
 // ---------------------------------------------------------------------------
@@ -45,85 +119,127 @@ class ConflictEntry {
 
 /// System hotkeys reserved on macOS.
 const _macConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
-  ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
-  ConflictEntry(modifiers: 'meta', key: 'Q', note: 'Quit App'),
-  ConflictEntry(modifiers: 'meta', key: 'W', note: 'Close Window'),
-  ConflictEntry(modifiers: 'meta', key: 'H', note: 'Hide App'),
-  ConflictEntry(modifiers: 'meta', key: 'M', note: 'Minimize Window'),
-  ConflictEntry(modifiers: 'meta', key: '`', note: 'Cycle Windows'),
+  ConflictEntry(modifiers: 'meta', key: 'Space', note: ConflictNote.spotlight),
+  ConflictEntry(modifiers: 'meta', key: 'Tab', note: ConflictNote.appSwitcher),
+  ConflictEntry(modifiers: 'meta', key: 'Q', note: ConflictNote.quitApp),
+  ConflictEntry(modifiers: 'meta', key: 'W', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'meta', key: 'H', note: ConflictNote.hideApp),
+  ConflictEntry(modifiers: 'meta', key: 'M', note: ConflictNote.minimizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '`', note: ConflictNote.cycleWindows),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '3',
-    note: 'Screenshot (full screen)',
+    note: ConflictNote.screenshotFullScreen,
   ),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '4',
-    note: 'Screenshot (selection)',
+    note: ConflictNote.screenshotSelection,
   ),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '5',
-    note: 'Screenshot/Screen Recording',
+    note: ConflictNote.screenshotRecording,
   ),
   ConflictEntry(
     modifiers: 'ctrl+meta',
     key: 'Space',
-    note: 'Emoji & Symbols picker',
+    note: ConflictNote.emojiPicker,
   ),
   ConflictEntry(
     modifiers: 'meta+option',
     key: 'Esc',
-    note: 'Force Quit dialog',
+    note: ConflictNote.forceQuit,
+  ),
+  // macOS dictation: a double tap of Fn (Globe) starts the system dictation,
+  // which also takes WhisPaste's Fn double tap. Switched off in Keyboard
+  // settings > Dictation.
+  ConflictEntry(
+    modifiers: '',
+    key: 'Fn',
+    note: ConflictNote.fnDoubleTap,
+    action: ConflictAction.disableInSystem,
+    doubleTapKey: 'fn',
   ),
 ];
 
 /// System hotkeys reserved on Windows.
 const _windowsConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock workstation'),
-  ConflictEntry(modifiers: 'meta', key: 'D', note: 'Show/Hide Desktop'),
-  ConflictEntry(modifiers: 'meta', key: 'E', note: 'File Explorer'),
-  ConflictEntry(modifiers: 'meta', key: 'R', note: 'Run dialog'),
-  ConflictEntry(modifiers: 'meta', key: 'I', note: 'Settings'),
-  ConflictEntry(modifiers: 'meta', key: 'S', note: 'Search'),
-  ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'Task View'),
-  ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Input language switch'),
-  ConflictEntry(modifiers: 'meta', key: '↑', note: 'Maximize window'),
-  ConflictEntry(modifiers: 'meta', key: '↓', note: 'Minimize window'),
-  ConflictEntry(modifiers: 'meta', key: '←', note: 'Snap window left'),
-  ConflictEntry(modifiers: 'meta', key: '→', note: 'Snap window right'),
-  ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-  ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'L',
+    note: ConflictNote.lockWorkstation,
+  ),
+  ConflictEntry(modifiers: 'meta', key: 'D', note: ConflictNote.showDesktop),
+  ConflictEntry(modifiers: 'meta', key: 'E', note: ConflictNote.fileExplorer),
+  ConflictEntry(modifiers: 'meta', key: 'R', note: ConflictNote.runDialog),
+  ConflictEntry(modifiers: 'meta', key: 'I', note: ConflictNote.settings),
+  ConflictEntry(modifiers: 'meta', key: 'S', note: ConflictNote.search),
+  // Win+H starts Windows voice typing; Win+V opens the clipboard history.
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'H',
+    note: ConflictNote.windowsDictation,
+  ),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'V',
+    note: ConflictNote.windowsClipboardHistory,
+  ),
+  ConflictEntry(modifiers: 'meta', key: 'Tab', note: ConflictNote.taskView),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'Space',
+    note: ConflictNote.inputLanguageSwitch,
+  ),
+  ConflictEntry(modifiers: 'meta', key: '↑', note: ConflictNote.maximizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '↓', note: ConflictNote.minimizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '←', note: ConflictNote.snapLeft),
+  ConflictEntry(modifiers: 'meta', key: '→', note: ConflictNote.snapRight),
+  ConflictEntry(modifiers: 'alt', key: 'F4', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'alt', key: 'Tab', note: ConflictNote.appSwitcher),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'Delete',
-    note: 'Security options / Task Manager',
+    note: ConflictNote.securityOptionsTaskManager,
   ),
-  ConflictEntry(modifiers: 'ctrl+shift', key: 'Esc', note: 'Task Manager'),
+  ConflictEntry(
+    modifiers: 'ctrl+shift',
+    key: 'Esc',
+    note: ConflictNote.taskManager,
+  ),
 ];
 
 /// System hotkeys reserved on Linux (covers common GNOME & KDE defaults).
 const _linuxConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock screen (GNOME/KDE)'),
-  ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-  ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
-  ConflictEntry(modifiers: 'alt', key: 'F2', note: 'Run dialog (KDE)'),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'L',
+    note: ConflictNote.lockScreenGnomeKde,
+  ),
+  ConflictEntry(modifiers: 'alt', key: 'F4', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'alt', key: 'Tab', note: ConflictNote.appSwitcher),
+  ConflictEntry(modifiers: 'alt', key: 'F2', note: ConflictNote.runDialogKde),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'Delete',
-    note: 'System logout/shutdown dialog',
+    note: ConflictNote.logoutShutdownDialog,
   ),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'T',
-    note: 'Open terminal (GNOME/KDE default)',
+    note: ConflictNote.openTerminal,
   ),
-  ConflictEntry(modifiers: 'ctrl+alt', key: 'L', note: 'Lock screen (GNOME)'),
+  ConflictEntry(
+    modifiers: 'ctrl+alt',
+    key: 'L',
+    note: ConflictNote.lockScreenGnome,
+  ),
+  // GNOME: Super+Space switches the input source (keyboard layout).
   ConflictEntry(
     modifiers: 'meta',
     key: 'Space',
-    note: 'Activity overview (KDE)',
+    note: ConflictNote.inputSourceGnome,
   ),
 ];
 
@@ -134,10 +250,25 @@ const _linuxConflicts = <ConflictEntry>[
 /// Returns the conflict list applicable to the current OS.
 ///
 /// Never throws; returns an empty list on unsupported platforms (mobile/web).
-List<ConflictEntry> get platformConflicts {
-  if (Platform.isMacOS) return _macConflicts;
-  if (Platform.isWindows) return _windowsConflicts;
-  if (Platform.isLinux) return _linuxConflicts;
+///
+/// Reads [defaultTargetPlatform] (the platform seam): the list is pure data, so
+/// tests pin the OS with `TargetPlatformVariant` instead of depending on the
+/// host.
+List<ConflictEntry> get platformConflicts => conflictsFor(
+  isMacOS: defaultTargetPlatform == TargetPlatform.macOS,
+  isWindows: defaultTargetPlatform == TargetPlatform.windows,
+  isLinux: defaultTargetPlatform == TargetPlatform.linux,
+);
+
+/// The conflict list of one OS. Pure, so every list is testable on any host.
+List<ConflictEntry> conflictsFor({
+  required bool isMacOS,
+  required bool isWindows,
+  required bool isLinux,
+}) {
+  if (isMacOS) return _macConflicts;
+  if (isWindows) return _windowsConflicts;
+  if (isLinux) return _linuxConflicts;
   return const [];
 }
 
@@ -157,6 +288,7 @@ ConflictEntry? findConflict(
   final normKey = key.trim();
 
   for (final entry in list) {
+    if (entry.doubleTapKey != null) continue;
     if (_normalise(entry.modifiers) == normMods &&
         entry.key.trim() == normKey) {
       return entry;
@@ -164,6 +296,103 @@ ConflictEntry? findConflict(
   }
   return null;
 }
+
+/// The system entry that reserves a single-key double tap of [keyName] (a
+/// [ModifierHotkey] name such as `fn`), or null when the OS does not use it.
+ConflictEntry? findDoubleTapConflict(
+  String keyName, {
+  List<ConflictEntry>? conflicts,
+}) {
+  for (final entry in conflicts ?? platformConflicts) {
+    if (entry.doubleTapKey == keyName) return entry;
+  }
+  return null;
+}
+
+/// The Fn double-tap warning sharpened by the read "Press 🌐 key to" setting
+/// (#778). Null when the setting is "Do Nothing" (no conflict). A known action
+/// names itself; the system default or an unreadable value keeps the generic
+/// [ConflictNote.fnDoubleTap] text, so the sandbox fallback still warns.
+ConflictEntry? globeKeyConflict(ConflictEntry fnEntry, GlobeKeyAction action) {
+  final note = switch (action) {
+    GlobeKeyAction.none => null,
+    GlobeKeyAction.emoji => ConflictNote.globeEmoji,
+    GlobeKeyAction.inputSource => ConflictNote.globeInputSource,
+    GlobeKeyAction.dictation => ConflictNote.globeDictation,
+    GlobeKeyAction.systemDefault ||
+    GlobeKeyAction.unknown => fnEntry.note ?? ConflictNote.fnDoubleTap,
+  };
+  if (note == null) return null;
+  return ConflictEntry(
+    modifiers: fnEntry.modifiers,
+    key: fnEntry.key,
+    note: note,
+    action: fnEntry.action,
+    doubleTapKey: fnEntry.doubleTapKey,
+  );
+}
+
+/// The sentences that say what to do about [entry], one per line: pick another
+/// combination, or switch the system function off where the OS allows it. The
+/// system function comes first and is followed by the other way out. Two
+/// separate lines, not one run-on paragraph, so each way out reads as its own
+/// option (UX-107).
+List<String> conflictActionLines(L10n l10n, ConflictEntry entry) =>
+    switch (entry.action) {
+      ConflictAction.chooseOther => [l10n.hotkeyConflictActionChooseOther],
+      ConflictAction.disableInSystem => [
+        l10n.hotkeyConflictActionDisableMacDictation,
+        l10n.hotkeyConflictActionChooseOther,
+      ],
+    };
+
+/// Localized name of the OS function behind a conflicting combination.
+String conflictNoteLabel(L10n l10n, ConflictNote note) => switch (note) {
+  ConflictNote.spotlight => l10n.hotkeyConflictNoteSpotlight,
+  ConflictNote.appSwitcher => l10n.hotkeyConflictNoteAppSwitcher,
+  ConflictNote.quitApp => l10n.hotkeyConflictNoteQuitApp,
+  ConflictNote.closeWindow => l10n.hotkeyConflictNoteCloseWindow,
+  ConflictNote.hideApp => l10n.hotkeyConflictNoteHideApp,
+  ConflictNote.minimizeWindow => l10n.hotkeyConflictNoteMinimizeWindow,
+  ConflictNote.cycleWindows => l10n.hotkeyConflictNoteCycleWindows,
+  ConflictNote.screenshotFullScreen =>
+    l10n.hotkeyConflictNoteScreenshotFullScreen,
+  ConflictNote.screenshotSelection =>
+    l10n.hotkeyConflictNoteScreenshotSelection,
+  ConflictNote.screenshotRecording =>
+    l10n.hotkeyConflictNoteScreenshotRecording,
+  ConflictNote.emojiPicker => l10n.hotkeyConflictNoteEmojiPicker,
+  ConflictNote.forceQuit => l10n.hotkeyConflictNoteForceQuit,
+  ConflictNote.lockWorkstation => l10n.hotkeyConflictNoteLockWorkstation,
+  ConflictNote.showDesktop => l10n.hotkeyConflictNoteShowDesktop,
+  ConflictNote.fileExplorer => l10n.hotkeyConflictNoteFileExplorer,
+  ConflictNote.runDialog => l10n.hotkeyConflictNoteRunDialog,
+  ConflictNote.settings => l10n.hotkeyConflictNoteSettings,
+  ConflictNote.search => l10n.hotkeyConflictNoteSearch,
+  ConflictNote.taskView => l10n.hotkeyConflictNoteTaskView,
+  ConflictNote.inputLanguageSwitch =>
+    l10n.hotkeyConflictNoteInputLanguageSwitch,
+  ConflictNote.maximizeWindow => l10n.hotkeyConflictNoteMaximizeWindow,
+  ConflictNote.snapLeft => l10n.hotkeyConflictNoteSnapLeft,
+  ConflictNote.snapRight => l10n.hotkeyConflictNoteSnapRight,
+  ConflictNote.securityOptionsTaskManager =>
+    l10n.hotkeyConflictNoteSecurityOptionsTaskManager,
+  ConflictNote.taskManager => l10n.hotkeyConflictNoteTaskManager,
+  ConflictNote.lockScreenGnomeKde => l10n.hotkeyConflictNoteLockScreenGnomeKde,
+  ConflictNote.runDialogKde => l10n.hotkeyConflictNoteRunDialogKde,
+  ConflictNote.logoutShutdownDialog =>
+    l10n.hotkeyConflictNoteLogoutShutdownDialog,
+  ConflictNote.openTerminal => l10n.hotkeyConflictNoteOpenTerminal,
+  ConflictNote.lockScreenGnome => l10n.hotkeyConflictNoteLockScreenGnome,
+  ConflictNote.inputSourceGnome => l10n.hotkeyConflictNoteInputSourceGnome,
+  ConflictNote.fnDoubleTap => l10n.hotkeyConflictNoteFnDoubleTap,
+  ConflictNote.globeEmoji => l10n.hotkeyConflictNoteGlobeEmoji,
+  ConflictNote.globeInputSource => l10n.hotkeyConflictNoteGlobeInputSource,
+  ConflictNote.globeDictation => l10n.hotkeyConflictNoteGlobeDictation,
+  ConflictNote.windowsDictation => l10n.hotkeyConflictNoteWindowsDictation,
+  ConflictNote.windowsClipboardHistory =>
+    l10n.hotkeyConflictNoteWindowsClipboardHistory,
+};
 
 // ---------------------------------------------------------------------------
 // WhisPaste-interne Doppelbelegung

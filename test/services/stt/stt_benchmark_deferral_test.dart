@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,8 +34,10 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 /// header.
 const _warmupBytes = 44 + (16000 ~/ 4) * 2;
 
-/// `SttBenchmark.generateBenchmarkWav()`: 3 s at the same format.
-const _benchmarkBytes = 44 + 16000 * 3 * 2;
+/// The benchmark's payload: the spoken reference clip the notifier loads via
+/// `SttBenchmark.referenceWav()` (set in [setUp] from that same asset, so the
+/// test follows the clip rather than a copy of its length).
+late int _benchmarkBytes;
 
 /// What [_validWav] below produces for the simulated real dictation.
 const _dictationBytes = 44 + 16000;
@@ -157,8 +160,8 @@ Uint8List _validWav({int dataBytes = 16000}) {
   return buf;
 }
 
-/// Polls [condition] on the event loop. Used instead of a fixed delay so the
-/// tests stay deterministic rather than timing-dependent.
+/// Yields event-loop turns until [condition] holds. Used instead of a fixed
+/// delay so the tests stay deterministic rather than timing-dependent.
 Future<void> _waitUntil(
   bool Function() condition, {
   Duration timeout = const Duration(seconds: 5),
@@ -168,7 +171,7 @@ Future<void> _waitUntil(
     if (DateTime.now().isAfter(deadline)) {
       fail('Condition not met within $timeout');
     }
-    await Future<void>.delayed(const Duration(milliseconds: 1));
+    await Future<void>.delayed(Duration.zero);
   }
 }
 
@@ -184,6 +187,7 @@ void main() {
 
   setUp(() async {
     tempDir = await _createFakeSttDir();
+    _benchmarkBytes = (await SttBenchmark.referenceWav()).length;
     savedIdleDelay = SttServerStateNotifier.benchmarkIdleDelay;
     SttServerStateNotifier.benchmarkIdleDelay = const Duration(milliseconds: 5);
   });
@@ -225,6 +229,22 @@ void main() {
     expect(engine.transcribedSizes.last, _benchmarkBytes);
   });
 
+  test('a load without warm-up sends no silent inference, so the dictation '
+      'that follows is the first request the worker sees', () async {
+    final engine = _QueueRecordingEngine();
+    final container = _makeContainer(engine);
+    addTearDown(container.dispose);
+    await container.read(settingsProvider.future);
+    final notifier = container.read(localSttBundleProvider.notifier);
+
+    await notifier.ensureRunning(warmup: false);
+    expect(engine.transcribedSizes, isEmpty);
+
+    final text = await notifier.transcribeBytes(_validWav(), language: 'en');
+    expect(text, 'fake transcript');
+    expect(engine.transcribedSizes.first, _dictationBytes);
+  });
+
   test(
     'with an idle pipeline the benchmark still runs right after the load',
     () async {
@@ -256,11 +276,21 @@ void main() {
     await running;
     expect(engine.transcribedSizes, [_warmupBytes]);
 
-    await notifier.stop();
-    notifier.notifyTranscriptionCompleted();
+    // From here on time is simulated: a benchmark timer armed after the stop
+    // runs on the fake clock, and a benchmark that starts flips
+    // isBenchmarking at once.
+    final time = FakeAsync();
+    var stopped = false;
+    time.run((_) {
+      unawaited(notifier.stop().then((_) => stopped = true));
+    });
+    time.elapse(Duration.zero);
+    expect(stopped, isTrue);
+    time.run((_) => notifier.notifyTranscriptionCompleted());
 
     // Well past benchmarkIdleDelay — a surviving timer would have fired.
-    await Future<void>.delayed(const Duration(milliseconds: 100));
+    time.elapse(const Duration(milliseconds: 100));
+    expect(notifier.state.isBenchmarking, isFalse);
     expect(engine.transcribedSizes, [_warmupBytes]);
   });
 }

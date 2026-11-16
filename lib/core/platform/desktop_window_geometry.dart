@@ -16,7 +16,7 @@ import '../config/settings_provider.dart';
 /// reliably on a 1280 × 800 notebook including OS chrome, with three demo
 /// beats laid out side by side rather than stacked (PRD "Entscheidungen aus
 /// der Triage").
-const Size kOnboardingWindowSize = Size(1100, 720);
+const Size kOnboardingWindowSize = Size(1100, 800);
 
 /// What size/position/maximized-state the window should open at for the
 /// given [settings].

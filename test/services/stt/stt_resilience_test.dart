@@ -13,6 +13,9 @@
 /// recovered ones capture never.
 library;
 
+// test_bundles: own run (counts events of the process-wide CrashReporter, which other files
+// in the same isolate also feed and dedupe).
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -21,12 +24,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'package:whispaste/core/app_info.dart' as app;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/logging/crash_reporter.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/file_verification_service.dart';
+import 'package:whispaste/services/gpu_probe_process.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
+import 'package:whispaste/services/pending_audio/pending_audio_queue.dart';
+import 'package:whispaste/services/recording_orchestrator.dart'
+    show unclassifiedTranscribeErrorCode;
+import 'package:whispaste/services/stt/engine_load_triage.dart';
+import 'package:whispaste/services/stt/recovery_toast_notifier.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/stt/whisper/gpu_probe.dart';
 
 // ---------------------------------------------------------------------------
 // Sentry spy
@@ -49,6 +61,12 @@ SentryEvent? _spyBeforeSend(SentryEvent event, Hint hint) {
 /// made after the most recent `arm*` call — i.e. the real inference calls under
 /// test, not warmup/benchmark.
 class _FakeWhisperEngine implements WhisperEngine {
+  _FakeWhisperEngine({this.backend = WhisperBackend.cpu});
+
+  /// Backend reported by [status]; a GPU-backed fake exercises the
+  /// GPU-only recovery paths.
+  final WhisperBackend backend;
+
   String transcript = 'hallo welt';
   bool _loaded = false;
 
@@ -90,7 +108,7 @@ class _FakeWhisperEngine implements WhisperEngine {
 
   @override
   WhisperEngineStatus get status =>
-      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
+      WhisperEngineStatus(isLoaded: _loaded, backend: backend);
 
   @override
   Future<void> load({required String modelPath, String? vadModelPath}) async {
@@ -129,6 +147,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     // keys on — the whole point of "recovery greift, kein harter Abbruch".
     WhisperFailureKind.oom => 'stt_cuda_oom: simulated GPU out-of-memory',
     WhisperFailureKind.gpuCrash => 'simulated GPU backend crash',
+    WhisperFailureKind.gpuBackendLost => 'simulated lost GPU backend',
     WhisperFailureKind.transient => 'simulated transient inference failure',
     WhisperFailureKind.timeout => 'simulated timeout',
     WhisperFailureKind.other => 'simulated other failure',
@@ -180,16 +199,107 @@ class _CrashingGpuEngine implements WhisperEngine {
   }
 }
 
+/// A Metal [WhisperEngine] fake whose context can be put into ggml-metal's
+/// sticky error state: once [loseBackend] is called, every [transcribe] fails
+/// with [WhisperFailureKind.gpuBackendLost] until the context is recreated
+/// (unload + load) — or forever when [recoversOnReload] is `false`. With
+/// [failReload] every load after the first throws.
+class _LostBackendGpuEngine implements WhisperEngine {
+  _LostBackendGpuEngine({
+    this.recoversOnReload = true,
+    this.failReload = false,
+  });
+
+  final bool recoversOnReload;
+  final bool failReload;
+  bool _loaded = false;
+  bool _lost = false;
+  int loads = 0;
+  int unloads = 0;
+  int lostFailures = 0;
+
+  void loseBackend() => _lost = true;
+
+  /// The GPU recovered on its own (e.g. driver restarted).
+  void heal() => _lost = false;
+
+  /// Runs inside every [load] — lets a test look at the world mid-reload.
+  void Function()? onLoad;
+
+  /// When set, the next [transcribe] waits for it before it answers.
+  Completer<void>? holdNextTranscribe;
+
+  @override
+  WhisperEngineStatus get status =>
+      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.metal);
+
+  @override
+  Future<void> load({required String modelPath, String? vadModelPath}) async {
+    loads++;
+    onLoad?.call();
+    if (failReload && loads > 1) {
+      throw StateError('simulated reload failure');
+    }
+    _loaded = true;
+    if (recoversOnReload) _lost = false;
+  }
+
+  @override
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+  }) async {
+    final hold = holdNextTranscribe;
+    if (hold != null) {
+      holdNextTranscribe = null;
+      await hold.future;
+    }
+    if (_lost) {
+      lostFailures++;
+      throw const WhisperEngineException(
+        WhisperFailureKind.gpuBackendLost,
+        'whisper_full failed with code -6 on metal',
+      );
+    }
+    return 'gpu';
+  }
+
+  @override
+  Future<void> unload() async {
+    unloads++;
+    _loaded = false;
+  }
+}
+
 /// A [WhisperEngine] fake with a fixed, non-swappable [backend] whose [load]
 /// can be armed to fail — used to exercise the FLUTTER_WHISPASTE-80 load-time
 /// CPU-fallback path (a GPU/driver cold-start that hangs past the engine's
 /// internal load timeout), distinct from [_FakeWhisperEngine]'s
 /// transcribe-time failure simulation.
 class _LoadFailingEngine implements WhisperEngine {
-  _LoadFailingEngine({required this.backend, this.failLoad = false});
+  _LoadFailingEngine({
+    required this.backend,
+    this.failLoad = false,
+    this.loadError,
+  });
 
   final WhisperBackend backend;
   bool failLoad;
+
+  /// The message [load] throws with when [failLoad] is set; defaults to the
+  /// isolate timeout of FLUTTER_WHISPASTE-80.
+  final String? loadError;
+  int loads = 0;
+
+  /// When set, [load] never returns — models a native hang or a process that
+  /// dies inside the load, so the crash marker is left behind.
+  bool hangLoad = false;
+
+  /// Completes once a [hangLoad] load has started and hangs.
+  final Completer<void> loadHung = Completer<void>();
 
   /// When set, [transcribe] throws — the warmup inference fails after a
   /// successful load (must not count as a surviving GPU path).
@@ -209,11 +319,17 @@ class _LoadFailingEngine implements WhisperEngine {
 
   @override
   Future<void> load({required String modelPath, String? vadModelPath}) async {
+    loads++;
     if (failLoad) {
       throw StateError(
-        'whisper_isolate_load_failed: TimeoutException after '
-        '0:01:00.000000: Future not completed',
+        loadError ??
+            'whisper_isolate_load_failed: TimeoutException after '
+                '0:01:00.000000: Future not completed',
       );
+    }
+    if (hangLoad) {
+      if (!loadHung.isCompleted) loadHung.complete();
+      return Completer<void>().future;
     }
     trace?.add('load');
     lastLoadedModelPath = modelPath;
@@ -270,9 +386,12 @@ ProviderContainer _makeContainer(
   WhisperEngine engine, {
   AppSettings? settings,
   WhisperEngine? cpuFallbackEngine,
+  GpuLoadCrashGuard? crashGuard,
 }) {
   return ProviderContainer(
     overrides: [
+      if (crashGuard != null)
+        gpuLoadCrashGuardProvider.overrideWithValue(crashGuard),
       whisperEngineProvider.overrideWithValue(engine),
       whisperCpuFallbackEngineProvider.overrideWithValue(
         cpuFallbackEngine ?? _FakeWhisperEngine(),
@@ -288,6 +407,30 @@ ProviderContainer _makeContainer(
       ),
     ],
   );
+}
+
+/// Counts silent re-downloads (#561).
+class _CountingModelDownloadNotifier extends _FakeModelDownloadNotifier {
+  final List<String> downloads = [];
+
+  @override
+  Future<void> downloadModel(String modelId) async {
+    downloads.add(modelId);
+    await super.downloadModel(modelId);
+  }
+}
+
+/// Answers the hash check after a load failure without reading the file.
+class _FixedVerifier extends FileVerificationService {
+  const _FixedVerifier({required this.intact});
+
+  final bool intact;
+
+  @override
+  Future<VerificationResult> verify(File file, String expectedHash) async =>
+      intact
+      ? const VerificationOk()
+      : VerificationMismatch(expectedHash: expectedHash, actualHash: '00');
 }
 
 Future<Directory> _createFakeSttDir() async {
@@ -333,13 +476,16 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Directory tempDir;
-  late Duration savedTimeout;
+  late Duration? savedTimeout;
 
   setUpAll(() async {
     await SentryFlutter.init((options) {
       options.dsn = 'https://abc123@sentry.example.invalid/0';
       options.environment = 'test';
       options.beforeSend = _spyBeforeSend;
+      // Tests reuse error objects; Sentry would drop the second capture of
+      // the same object, so the count depended on the test order (#1492).
+      options.enableDeduplication = false;
     });
     CrashReporter.init();
     CrashReporter.instance!.consentGranted = true;
@@ -356,7 +502,13 @@ void main() {
     SttServerStateNotifier.stuckGuardTimeout = const Duration(
       milliseconds: 200,
     );
+    // A capture the previous test started can land after it ended (lab run
+    // 2849: two events where one was expected); wait for it before clearing.
+    await CrashReporter.instance?.flush();
     _capturedEvents.clear();
+    // The reporter sends one error at most three times per session; in a
+    // shuffled order earlier tests used that up (#1492, seed 1613591121).
+    CrashReporter.resetThrottlesForTesting();
   });
 
   tearDown(() async {
@@ -521,6 +673,129 @@ void main() {
     });
   });
 
+  // ── Lost GPU backend (sticky ggml-metal error) → rebuild, then CPU ───────
+  group('a lost GPU backend is rebuilt, then degraded to CPU', () {
+    test('a rebuilt context serves the retry on the GPU, without a CPU '
+        'swap and without a Sentry event', () async {
+      final gpuEngine = _LostBackendGpuEngine();
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = _makeContainer(gpuEngine, cpuFallbackEngine: cpuEngine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      final loadsBefore = gpuEngine.loads;
+      gpuEngine.loseBackend();
+      _capturedEvents.clear();
+
+      final text = await notifier.transcribeBytes(
+        _validWav(),
+        language: 'auto',
+      );
+
+      expect(text, 'gpu');
+      expect(
+        gpuEngine.lostFailures,
+        1,
+        reason: 'the dead context must not be retried as a transient failure',
+      );
+      expect(gpuEngine.unloads, 1);
+      expect(gpuEngine.loads, loadsBefore + 1);
+      expect(cpuEngine.lastLoadedModelPath, isNull);
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
+      await CrashReporter.instance!.flush();
+      expect(
+        _capturedEvents,
+        isEmpty,
+        reason: 'a recovered backend is no error',
+      );
+    });
+
+    test('when the rebuilt context fails again, the run degrades to the CPU '
+        'engine', () async {
+      final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = _makeContainer(gpuEngine, cpuFallbackEngine: cpuEngine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      _capturedEvents.clear();
+
+      final text = await notifier.transcribeBytes(
+        _validWav(),
+        language: 'auto',
+      );
+
+      expect(text, 'ok', reason: 'the CPU engine serves the run');
+      expect(gpuEngine.lostFailures, 2, reason: 'one try, one after rebuild');
+      expect(cpuEngine.lastLoadedModelPath, isNotNull);
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isTrue);
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, isEmpty);
+    });
+
+    test('when the CPU fallback fails too, the typed failure reaches the '
+        'caller, so the recording is parked for a retry', () async {
+      final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+      final cpuEngine = _LoadFailingEngine(
+        backend: WhisperBackend.cpu,
+        failLoad: true,
+      );
+      final container = _makeContainer(gpuEngine, cpuFallbackEngine: cpuEngine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      _capturedEvents.clear();
+
+      Object? caught;
+      try {
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+      } catch (e) {
+        caught = e;
+      }
+
+      expect(caught, isA<WhisperEngineException>());
+      expect(
+        (caught! as WhisperEngineException).kind,
+        WhisperFailureKind.gpuBackendLost,
+      );
+      final code = unclassifiedTranscribeErrorCode(caught);
+      expect(code, 'stt_server_failed');
+      expect(isRepeatableTranscriptionError(code), isTrue);
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, hasLength(1));
+    });
+
+    test('when the rebuild and the CPU fallback both fail, the server drops '
+        'to stopped, so the next dictation loads the model afresh', () async {
+      final gpuEngine = _LostBackendGpuEngine(failReload: true);
+      final cpuEngine = _LoadFailingEngine(
+        backend: WhisperBackend.cpu,
+        failLoad: true,
+      );
+      final container = _makeContainer(gpuEngine, cpuFallbackEngine: cpuEngine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+
+      await expectLater(
+        notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(isA<WhisperEngineException>()),
+      );
+
+      expect(gpuEngine.unloads, 1);
+      expect(
+        container.read(localSttBundleProvider).serverState,
+        SttServerState.stopped,
+        reason:
+            'a ready state over an unloaded engine would fail the next '
+            'dictation on the warm fast path',
+      );
+    });
+  });
+
   // ── AC3: GPU OOM → recovery trigger, no hard abort ───────────────────────
   group('OOM-recovery trigger', () {
     test('a GPU OOM surfaces the stt_cuda_oom recovery token without a CPU '
@@ -578,25 +853,79 @@ void main() {
       engine.armHang();
       _capturedEvents.clear();
 
-      final sw = Stopwatch()..start();
       await expectLater(
         notifier.transcribeBytes(_validWav(), language: 'auto'),
         throwsA(anything),
       );
-      sw.stop();
-
-      expect(
-        sw.elapsed,
-        lessThan(const Duration(seconds: 5)),
-        reason: 'the stuck-guard must bound the hang — no deadlock',
-      );
 
       await CrashReporter.instance!.flush();
+      // Only this test's report counts: under load on the win guest a late
+      // event of another test landed in the spy as well (lab run 2849).
       expect(
-        _capturedEvents,
+        _capturedEvents.where(
+          (e) => '${e.message?.formatted} ${e.throwable}'.contains(
+            'pipeline_timeout',
+          ),
+        ),
         hasLength(1),
         reason: 'the stuck transcription is captured once',
       );
+    });
+
+    test(
+      'a hung GPU transcription moves to the CPU engine once and the retry '
+      'succeeds there, so later dictation does not queue behind the hang',
+      () async {
+        final gpuEngine = _FakeWhisperEngine(backend: WhisperBackend.cuda);
+        final cpuEngine = _FakeWhisperEngine();
+        final container = _makeContainer(
+          gpuEngine,
+          cpuFallbackEngine: cpuEngine,
+        );
+        addTearDown(container.dispose);
+
+        final notifier = await _bringReady(container);
+        gpuEngine.armHang();
+        _capturedEvents.clear();
+
+        final text = await notifier.transcribeBytes(
+          _validWav(),
+          language: 'auto',
+        );
+
+        expect(text, 'hallo welt', reason: 'the CPU retry must succeed');
+        expect(
+          gpuEngine.armedCallCount,
+          1,
+          reason: 'one hung GPU attempt only',
+        );
+        expect(
+          container.read(localSttBundleProvider).cpuFallbackActive,
+          isTrue,
+          reason: 'the hang must leave the engine on CPU for later requests',
+        );
+        expect(
+          container.read(localSttBundleProvider).serverState,
+          SttServerState.ready,
+        );
+      },
+    );
+
+    test('a hang on a CPU engine is not retried — it ends in the bounded '
+        'timeout error', () async {
+      final cpuEngine = _FakeWhisperEngine();
+      final fallback = _FakeWhisperEngine();
+      final container = _makeContainer(cpuEngine, cpuFallbackEngine: fallback);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      cpuEngine.armHang();
+
+      await expectLater(
+        notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(anything),
+      );
+      expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
     });
   });
 
@@ -703,6 +1032,26 @@ void main() {
       await notifier.transcribeBytes(_validWav(), language: 'auto');
 
       expect(engine.lastPrompt, isNull);
+    });
+
+    test('a decoder loop on one letter does not prime the next recording, '
+        'normal text does', () async {
+      final engine = _FakeWhisperEngine();
+      final container = _makeContainer(engine);
+      addTearDown(container.dispose);
+
+      final notifier = await _bringReady(container);
+      _capturedEvents.clear();
+
+      engine.transcript = 'i' * 32;
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+      expect(engine.lastPrompt, isNull);
+
+      engine.transcript = 'hallo welt';
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+      expect(engine.lastPrompt, contains('hallo welt'));
     });
 
     test(
@@ -822,6 +1171,9 @@ void main() {
       final unusedFallback = _LoadFailingEngine(backend: WhisperBackend.cpu);
       final container = ProviderContainer(
         overrides: [
+          modelFileVerifierProvider.overrideWithValue(
+            const _FixedVerifier(intact: true),
+          ),
           whisperEngineProvider.overrideWithValue(cpuEngine),
           whisperCpuFallbackEngineProvider.overrideWithValue(unusedFallback),
           settingsProvider.overrideWith(
@@ -850,6 +1202,543 @@ void main() {
       );
       expect(container.read(localSttBundleProvider).cpuFallbackActive, isFalse);
       expect(unusedFallback.lastLoadedModelPath, isNull);
+    });
+  });
+
+  // ── #561: a failed load names its cause and heals itself ───────────────
+  group('load failure triage (#561)', () {
+    const gpu = hw.GpuInfo(
+      vendor: hw.GpuVendor.amd,
+      name: 'Radeon RX 6600',
+      vramMB: 8192,
+      driverVersion: '24.12.1',
+    );
+    late Directory probeDir;
+
+    setUp(() async {
+      probeDir = await Directory.systemTemp.createTemp('gpu_probe_561_');
+    });
+    tearDown(() => probeDir.delete(recursive: true));
+
+    // The probe child passes on the first launch: only the real load fails.
+    GpuProbeService probe({bool firstLaunch = false}) => GpuProbeService(
+      store: GpuProbeStore(File('${probeDir.path}/gpu_probe.json')),
+      run: ({required modelId, required timeout}) async => firstLaunch
+          ? const GpuProbeOutcome.ok('vulkan')
+          : fail('a stored verdict needs no probe'),
+      appVersion: '1.4.3',
+      osVersion: 'Linux 7.0',
+      operatingSystem: 'linux',
+    );
+
+    ProviderContainer make({
+      required WhisperEngine engine,
+      WhisperEngine? cpu,
+      bool? intact,
+      _CountingModelDownloadNotifier? downloads,
+      GpuProbeService? probeService,
+    }) => ProviderContainer(
+      overrides: [
+        whisperEngineProvider.overrideWithValue(engine),
+        whisperCpuFallbackEngineProvider.overrideWithValue(
+          cpu ?? _LoadFailingEngine(backend: WhisperBackend.cpu),
+        ),
+        settingsProvider.overrideWith(
+          () => _FakeSettingsNotifier(
+            AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+          ),
+        ),
+        modelDownloadProvider.overrideWith(
+          () => downloads ?? _CountingModelDownloadNotifier(),
+        ),
+        hw.gpuInfoProvider.overrideWith((_) async => gpu),
+        if (intact != null)
+          modelFileVerifierProvider.overrideWithValue(
+            _FixedVerifier(intact: intact),
+          ),
+        if (probeService != null)
+          gpuProbeServiceProvider.overrideWithValue(probeService),
+      ],
+    );
+
+    Future<SttStatus> start(ProviderContainer c) async {
+      await c.read(settingsProvider.future);
+      await c.read(hw.gpuInfoProvider.future);
+      await c.read(localSttBundleProvider.notifier).ensureRunning();
+      return c.read(localSttBundleProvider);
+    }
+
+    File modelFile() =>
+        File('${tempDir.path}/${findSttModel('whisper-small')!.filename}');
+
+    // Big enough to pass the size check, so the hash check is what decides.
+    void restoreModelFile() {
+      final raf = modelFile().openSync(mode: FileMode.write);
+      raf.truncateSync(11 * 1024 * 1024);
+      raf.closeSync();
+    }
+
+    test('a damaged file fails its hash check: deleted, loaded again in the '
+        'background, and the user is told', () async {
+      final downloads = _CountingModelDownloadNotifier();
+      final cpu = _LoadFailingEngine(
+        backend: WhisperBackend.cpu,
+        failLoad: true,
+        loadError: 'whisper_init_failed: invalid model data (bad magic)',
+      );
+      final c = make(engine: cpu, intact: false, downloads: downloads);
+      addTearDown(c.dispose);
+      final toasts = <RecoveryToastKind>[];
+      c.listen(recoveryToastNotifierProvider, (_, e) => toasts.add(e!.kind));
+
+      final status = await start(c);
+
+      expect(status.serverState, SttServerState.stopped);
+      expect(downloads.downloads, ['whisper-small']);
+      expect(modelFile().existsSync(), isFalse);
+      expect(toasts, [RecoveryToastKind.modelFileRepair]);
+    });
+
+    test(
+      'an intact file is not downloaded again; the load error stays',
+      () async {
+        final downloads = _CountingModelDownloadNotifier();
+        final cpu = _LoadFailingEngine(
+          backend: WhisperBackend.cpu,
+          failLoad: true,
+          loadError: 'whisper_init_failed: invalid model data (bad magic)',
+        );
+        final c = make(engine: cpu, intact: true, downloads: downloads);
+        addTearDown(c.dispose);
+
+        final status = await start(c);
+
+        expect(status.serverState, SttServerState.error);
+        expect(status.errorMessage, 'stt_model_load_failed');
+        expect(downloads.downloads, isEmpty);
+        expect(modelFile().existsSync(), isTrue);
+      },
+    );
+
+    test(
+      'a damaged file on the GPU is repaired without a CPU attempt',
+      () async {
+        final downloads = _CountingModelDownloadNotifier();
+        final gpuEngine = _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+          loadError: 'failed to read model tensor: unexpected end of file',
+        );
+        final cpu = _LoadFailingEngine(backend: WhisperBackend.cpu);
+        final c = make(
+          engine: gpuEngine,
+          cpu: cpu,
+          intact: false,
+          downloads: downloads,
+        );
+        addTearDown(c.dispose);
+
+        final status = await start(c);
+
+        expect(status.serverState, SttServerState.stopped);
+        expect(downloads.downloads, ['whisper-small']);
+        expect(cpu.loads, 0);
+      },
+    );
+
+    test('same repair on macos, windows and linux: the probe platform '
+        'changes nothing about the file repair', () async {
+      for (final os in ['macos', 'windows', 'linux']) {
+        final downloads = _CountingModelDownloadNotifier();
+        final c = make(
+          engine: _LoadFailingEngine(
+            backend: WhisperBackend.cpu,
+            failLoad: true,
+            loadError: 'whisper_init_failed: invalid model data (bad magic)',
+          ),
+          intact: false,
+          downloads: downloads,
+          probeService: GpuProbeService(
+            store: GpuProbeStore(File('${probeDir.path}/$os.json')),
+            run: ({required modelId, required timeout}) async =>
+                const GpuProbeOutcome.ok('vulkan'),
+            appVersion: '1.4.3',
+            osVersion: os,
+            operatingSystem: os,
+          ),
+        );
+        addTearDown(c.dispose);
+        final toasts = <RecoveryToastKind>[];
+        c.listen(recoveryToastNotifierProvider, (_, e) => toasts.add(e!.kind));
+
+        final status = await start(c);
+
+        expect(status.serverState, SttServerState.stopped, reason: os);
+        expect(downloads.downloads, ['whisper-small'], reason: os);
+        expect(toasts, [RecoveryToastKind.modelFileRepair], reason: os);
+        // The repair deleted the file; the next system starts from a new one.
+        restoreModelFile();
+      }
+    });
+
+    test(
+      'stt_model_corrupted goes to Sentry at most once per session',
+      () async {
+        final sent = <String>[];
+        final c = ProviderContainer(
+          overrides: [
+            whisperEngineProvider.overrideWithValue(
+              _LoadFailingEngine(
+                backend: WhisperBackend.cpu,
+                failLoad: true,
+                loadError: 'invalid model data (bad magic)',
+              ),
+            ),
+            whisperCpuFallbackEngineProvider.overrideWithValue(
+              _LoadFailingEngine(backend: WhisperBackend.cpu),
+            ),
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              _CountingModelDownloadNotifier.new,
+            ),
+            hw.gpuInfoProvider.overrideWith((_) async => gpu),
+            modelFileVerifierProvider.overrideWithValue(
+              const _FixedVerifier(intact: false),
+            ),
+            modelCorruptedReporterProvider.overrideWithValue(
+              ModelCorruptedReporter(send: (message, _) => sent.add(message)),
+            ),
+          ],
+        );
+        addTearDown(c.dispose);
+
+        await start(c);
+        restoreModelFile();
+        await start(c);
+
+        expect(sent, hasLength(1));
+      },
+    );
+
+    test('GPU and CPU both failing checks the file after all', () async {
+      final downloads = _CountingModelDownloadNotifier();
+      final c = make(
+        engine: _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+          loadError: 'vk::DeviceLostError',
+        ),
+        cpu: _LoadFailingEngine(backend: WhisperBackend.cpu, failLoad: true),
+        intact: false,
+        downloads: downloads,
+      );
+      addTearDown(c.dispose);
+
+      final status = await start(c);
+
+      expect(status.serverState, SttServerState.stopped);
+      expect(downloads.downloads, ['whisper-small']);
+    });
+
+    test('a CPU failure that names a device still checks the file', () async {
+      final downloads = _CountingModelDownloadNotifier();
+      final c = make(
+        engine: _LoadFailingEngine(
+          backend: WhisperBackend.cpu,
+          failLoad: true,
+          loadError: 'I/O error on device while reading the model',
+        ),
+        intact: false,
+        downloads: downloads,
+      );
+      addTearDown(c.dispose);
+
+      expect((await start(c)).serverState, SttServerState.stopped);
+      expect(downloads.downloads, ['whisper-small']);
+    });
+
+    test('a GPU load timeout moves only this session to the CPU', () async {
+      final first = make(
+        engine: _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+        ),
+        probeService: probe(firstLaunch: true),
+      );
+      final status = await start(first);
+      first.dispose();
+      expect(status.cpuFallbackActive, isTrue);
+
+      final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+      final next = make(
+        engine: gpuEngine,
+        probeService: probe(firstLaunch: true),
+      );
+      addTearDown(next.dispose);
+      expect((await start(next)).cpuFallbackActive, isFalse);
+      expect(gpuEngine.loads, 1);
+    });
+
+    test('video memory held by other programs (whisper_init NULL, #1669) '
+        'moves only this session to the CPU, with the notice', () async {
+      final first = make(
+        engine: _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+          loadError: whisperInitReturnedNullError(const [
+            'ggml_vulkan: Device memory allocation of size 1617000000 failed.',
+            'whisper_model_load: failed to allocate Vulkan0 buffer for the '
+                'model weights (out of memory)',
+            'whisper_init_with_params_no_state: failed to load model',
+          ]),
+        ),
+        intact: true,
+        probeService: probe(firstLaunch: true),
+      );
+      final status = await start(first);
+      first.dispose();
+      expect(status.serverState, SttServerState.ready);
+      expect(status.cpuFallbackActive, isTrue);
+
+      // Not remembered: the next start tries the GPU again.
+      final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+      final next = make(
+        engine: gpuEngine,
+        probeService: probe(firstLaunch: true),
+      );
+      addTearDown(next.dispose);
+      expect((await start(next)).cpuFallbackActive, isFalse);
+      expect(gpuEngine.loads, 1);
+    });
+
+    test('an incompatible GPU moves to the CPU, and the next start goes '
+        'there at once and names the cause', () async {
+      final first = make(
+        engine: _LoadFailingEngine(
+          backend: WhisperBackend.vulkan,
+          failLoad: true,
+          loadError: 'vk::DeviceLostError: vk::Queue::submit',
+        ),
+        intact: true,
+        probeService: probe(firstLaunch: true),
+      );
+      final status = await start(first);
+      first.dispose();
+      expect(status.serverState, SttServerState.ready);
+      expect(status.cpuFallbackActive, isTrue);
+
+      // Next launch: a fresh service reads the stored verdict from disk.
+      final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+      final cpu = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final next = make(engine: gpuEngine, cpu: cpu, probeService: probe());
+      addTearDown(next.dispose);
+      final toasts = <RecoveryToastKind>[];
+      next.listen(recoveryToastNotifierProvider, (_, e) => toasts.add(e!.kind));
+
+      final again = await start(next);
+
+      expect(again.serverState, SttServerState.ready);
+      expect(gpuEngine.loads, 0);
+      expect(cpu.loads, 1);
+      expect(toasts, [RecoveryToastKind.gpuLoadIncompatible]);
+    });
+  });
+
+  group('GPU loss recovery: crash guard, return to GPU, waiting dictation '
+      '(#404)', () {
+    late Directory guardDir;
+
+    setUp(() async {
+      guardDir = await Directory.systemTemp.createTemp('gpu_recovery_guard_');
+    });
+
+    tearDown(() async {
+      await guardDir.delete(recursive: true);
+    });
+
+    test('the GPU reload after a lost backend runs under the crash marker, '
+        'which stays until the retried inference proves the context', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final gpuEngine = _LostBackendGpuEngine();
+      final container = _makeContainer(
+        gpuEngine,
+        cpuFallbackEngine: _LoadFailingEngine(backend: WhisperBackend.cpu),
+        crashGuard: guard,
+      );
+      addTearDown(container.dispose);
+      final notifier = await _bringReady(container);
+      final marksBefore = guard.markCalls;
+      gpuEngine.loseBackend();
+      var markedDuringReload = false;
+      gpuEngine.onLoad = () => markedDuringReload = guard.crashedLastAttempt;
+
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+      expect(guard.markCalls, marksBefore + 1);
+      expect(
+        markedDuringReload,
+        isTrue,
+        reason: 'a crash while reloading must be found at the next start',
+      );
+      expect(guard.crashedLastAttempt, isFalse);
+    });
+
+    test(
+      'a failed reload clears the marker again (caught, no crash)',
+      () async {
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final gpuEngine = _LostBackendGpuEngine(failReload: true);
+        final container = _makeContainer(
+          gpuEngine,
+          cpuFallbackEngine: _LoadFailingEngine(backend: WhisperBackend.cpu),
+          crashGuard: guard,
+        );
+        addTearDown(container.dispose);
+        final notifier = await _bringReady(container);
+        gpuEngine.loseBackend();
+
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+        expect(guard.crashedLastAttempt, isFalse);
+      },
+    );
+
+    test(
+      'after a successful CPU run the next load tries the GPU again',
+      () async {
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+        final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+        final container = _makeContainer(
+          gpuEngine,
+          cpuFallbackEngine: cpuEngine,
+          crashGuard: guard,
+        );
+        addTearDown(container.dispose);
+        final notifier = await _bringReady(container);
+        gpuEngine.loseBackend();
+        expect(
+          await notifier.transcribeBytes(_validWav(), language: 'auto'),
+          'ok',
+        );
+        expect(
+          container.read(localSttBundleProvider).cpuFallbackActive,
+          isTrue,
+        );
+
+        gpuEngine.heal();
+        final loadsBefore = gpuEngine.loads;
+        await notifier.stop();
+        await notifier.ensureRunning();
+
+        expect(gpuEngine.loads, greaterThan(loadsBefore));
+        final state = container.read(localSttBundleProvider);
+        expect(state.backend, WhisperBackend.metal);
+        expect(state.cpuFallbackActive, isFalse);
+        expect(
+          await notifier.transcribeBytes(_validWav(), language: 'auto'),
+          'gpu',
+        );
+      },
+    );
+
+    test('a set crash marker keeps the next load on the CPU', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = _makeContainer(
+        gpuEngine,
+        cpuFallbackEngine: cpuEngine,
+        crashGuard: guard,
+      );
+      addTearDown(container.dispose);
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+      guard.markAttempt();
+      final loadsBefore = gpuEngine.loads;
+      await notifier.stop();
+      await notifier.ensureRunning();
+
+      expect(gpuEngine.loads, loadsBefore);
+    });
+
+    test('a failed CPU run does not queue a GPU retry', () async {
+      final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+      final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+      final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+      final container = _makeContainer(
+        gpuEngine,
+        cpuFallbackEngine: cpuEngine,
+        crashGuard: guard,
+      );
+      addTearDown(container.dispose);
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      cpuEngine.failTranscribe = true;
+      await expectLater(
+        notifier.transcribeBytes(_validWav(), language: 'auto'),
+        throwsA(anything),
+      );
+      gpuEngine.heal();
+      final loadsBefore = gpuEngine.loads;
+      await notifier.stop();
+      await notifier.ensureRunning();
+
+      expect(gpuEngine.loads, loadsBefore);
+    });
+
+    test('a second dictation waiting during the rebuild never hits the dead '
+        'context', () async {
+      final gpuEngine = _LostBackendGpuEngine();
+      final container = _makeContainer(
+        gpuEngine,
+        cpuFallbackEngine: _LoadFailingEngine(backend: WhisperBackend.cpu),
+      );
+      addTearDown(container.dispose);
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      final hold = Completer<void>();
+      gpuEngine.holdNextTranscribe = hold;
+
+      final first = notifier.transcribeBytes(_validWav(), language: 'auto');
+      await Future<void>.delayed(Duration.zero);
+      final second = notifier.transcribeBytes(_validWav(), language: 'auto');
+      await Future<void>.delayed(Duration.zero);
+      hold.complete();
+
+      expect(await first, 'gpu');
+      expect(await second, 'gpu');
+      expect(gpuEngine.lostFailures, 1);
+    });
+
+    test('a second dictation waiting during the CPU swap runs on the CPU '
+        'engine, not on the dead GPU context', () async {
+      final gpuEngine = _LostBackendGpuEngine(recoversOnReload: false);
+      final container = _makeContainer(
+        gpuEngine,
+        cpuFallbackEngine: _LoadFailingEngine(backend: WhisperBackend.cpu),
+      );
+      addTearDown(container.dispose);
+      final notifier = await _bringReady(container);
+      gpuEngine.loseBackend();
+      final hold = Completer<void>();
+      gpuEngine.holdNextTranscribe = hold;
+
+      final first = notifier.transcribeBytes(_validWav(), language: 'auto');
+      await Future<void>.delayed(Duration.zero);
+      final second = notifier.transcribeBytes(_validWav(), language: 'auto');
+      await Future<void>.delayed(Duration.zero);
+      hold.complete();
+
+      expect(await first, 'ok');
+      expect(await second, 'ok');
+      expect(gpuEngine.lostFailures, 2, reason: 'only the first dictation');
     });
   });
 
@@ -1060,6 +1949,183 @@ void main() {
         expect(guard.resetCalls, 0);
       },
     );
+
+    group('crash streak across warm-up and reloads (P0.1, P0.2)', () {
+      const modelId = 'whisper-small';
+
+      String keyFor(String backend) => GpuLoadCrashGuard.attemptKey(
+        backend: backend,
+        modelId: modelId,
+        appVersion: app.appVersion,
+      );
+
+      ProviderContainer makeContainer(
+        GpuLoadCrashGuard guard,
+        WhisperEngine engine,
+      ) {
+        return ProviderContainer(
+          overrides: [
+            whisperEngineProvider.overrideWithValue(engine),
+            whisperCpuFallbackEngineProvider.overrideWithValue(
+              _LoadFailingEngine(backend: WhisperBackend.cpu),
+            ),
+            gpuLoadCrashGuardProvider.overrideWithValue(guard),
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(sttModel: modelId),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              () => _FakeModelDownloadNotifier(),
+            ),
+            hw.gpuInfoProvider.overrideWith(
+              (_) async =>
+                  const hw.GpuInfo(vendor: hw.GpuVendor.none, name: 'CPU'),
+            ),
+          ],
+        );
+      }
+
+      test('a crash on the reload after an idle unload is the second strike '
+          'and persists CPU-only — the successful start warm-up in between '
+          'must not reset the streak', () async {
+        final key = keyFor('vulkan');
+        // An earlier launch crashed while loading the GPU model.
+        _SpyGpuLoadCrashGuard(dataDir: guardDir.path).recordCrash(key: key);
+
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+        final container = makeContainer(guard, gpuEngine);
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+
+        // Start with warm-up: succeeds, so the marker is cleared again.
+        await notifier.ensureRunning();
+        expect(guard.clearCalls, 1);
+        expect(
+          guard.consecutiveCrashes,
+          1,
+          reason:
+              'a successful warm-up is no proof the GPU is healthy; the '
+              'streak may only be reset after a real transcription',
+        );
+        expect(guard.resetCalls, 0);
+
+        // Idle unload, then the first hotkey reloads the model and the
+        // process dies inside the native load.
+        await notifier.stop();
+        gpuEngine.hangLoad = true;
+        unawaited(notifier.ensureRunning());
+        await gpuEngine.loadHung.future.timeout(const Duration(seconds: 10));
+        expect(
+          guard.markCalls,
+          2,
+          reason: 'every GPU load, including a reload, sets the marker',
+        );
+        expect(guard.crashedLastAttempt, isTrue);
+        expect(guard.crashedLastAttemptKey, key);
+
+        // Next launch: the recorded streak is now two, so CPU-only persists.
+        final relaunch = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final relaunchContainer = makeContainer(
+          relaunch,
+          _LoadFailingEngine(backend: WhisperBackend.vulkan),
+        );
+        addTearDown(relaunchContainer.dispose);
+        await relaunchContainer.read(settingsProvider.future);
+        expect(
+          relaunchContainer
+              .read(settingsProvider)
+              .value!
+              .behavior
+              .gpuAcceleration,
+          isNot('disabled'),
+        );
+        await recoverFromGpuLoadCrash(relaunchContainer);
+
+        expect(
+          relaunchContainer
+              .read(settingsProvider)
+              .value!
+              .behavior
+              .gpuAcceleration,
+          'disabled',
+          reason:
+              'two consecutive GPU load crashes must persist CPU-only — '
+              'before this fix the launch warm-up reset the streak every time',
+        );
+      });
+
+      test('a GPU never loads a model that does not fit its VRAM — the load '
+          'runs on the CPU engine and no GPU crash marker is set', () async {
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final gpuEngine = _LoadFailingEngine(backend: WhisperBackend.vulkan);
+        final cpuEngine = _LoadFailingEngine(backend: WhisperBackend.cpu);
+        final container = ProviderContainer(
+          overrides: [
+            whisperEngineProvider.overrideWithValue(gpuEngine),
+            whisperCpuFallbackEngineProvider.overrideWithValue(cpuEngine),
+            gpuLoadCrashGuardProvider.overrideWithValue(guard),
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+              ),
+            ),
+            modelDownloadProvider.overrideWith(
+              () => _FakeModelDownloadNotifier(),
+            ),
+            hw.gpuInfoProvider.overrideWith(
+              (_) async => const hw.GpuInfo(
+                vendor: hw.GpuVendor.nvidia,
+                name: 'NVIDIA GeForce GTX 1050',
+                vramMB: 512,
+                vulkanAvailable: true,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        // The VRAM gate reads the GPU info synchronously, as main.dart
+        // pre-warms it at start-up; resolve it here the same way.
+        await container.read(hw.gpuInfoProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+
+        expect(gpuEngine.lastLoadedModelPath, isNull);
+        expect(cpuEngine.lastLoadedModelPath, isNotNull);
+        expect(guard.markCalls, 0);
+        final status = container.read(localSttBundleProvider);
+        expect(status.serverState, SttServerState.ready);
+        expect(status.backend, WhisperBackend.cpu);
+      });
+
+      test('a healthy GPU is not demoted: the streak is reset only by a real '
+          'transcription that succeeds on the same key', () async {
+        final key = keyFor('vulkan');
+        final seeded = _SpyGpuLoadCrashGuard(dataDir: guardDir.path)
+          ..recordCrash(key: key);
+        expect(seeded.consecutiveCrashes, 1);
+
+        final guard = _SpyGpuLoadCrashGuard(dataDir: guardDir.path);
+        final container = makeContainer(
+          guard,
+          _LoadFailingEngine(backend: WhisperBackend.vulkan),
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+        expect(guard.consecutiveCrashes, 1);
+
+        await notifier.transcribeBytes(_validWav(), language: 'auto');
+
+        expect(guard.resetCalls, 1);
+        expect(guard.consecutiveCrashes, 0);
+        expect(guard.crashedLastAttempt, isFalse);
+      });
+    });
   });
 }
 
@@ -1078,10 +2144,10 @@ class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
   final List<String>? trace;
 
   @override
-  void markAttempt({bool cuda = false}) {
+  void markAttempt({bool cuda = false, String key = ''}) {
     markCalls++;
     trace?.add('mark');
-    super.markAttempt(cuda: cuda);
+    super.markAttempt(cuda: cuda, key: key);
   }
 
   @override
@@ -1092,8 +2158,8 @@ class _SpyGpuLoadCrashGuard extends GpuLoadCrashGuard {
   }
 
   @override
-  void resetCrashStreak() {
+  void resetCrashStreak({String key = ''}) {
     resetCalls++;
-    super.resetCrashStreak();
+    super.resetCrashStreak(key: key);
   }
 }

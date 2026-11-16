@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * IndexNow-Submission als Post-Build-Hook — siehe `internal-notes`
- * §D ("LLM-Search-Foundation") und Issue 06.
+ * IndexNow-Submission als Post-Build-Hook ("LLM-Search-Foundation").
  *
  * Was passiert hier:
  *   1. Sitemap aus `<repo>/website/dist/sitemap-0.xml` lesen (Astro-Output;

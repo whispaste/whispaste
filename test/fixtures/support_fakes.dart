@@ -5,10 +5,26 @@ library;
 
 import 'package:http/http.dart' as http;
 import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/social_stats/social_stats_logic.dart';
+import 'package:whispaste/services/social_stats/social_stats_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support/support_store_bridge.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+
+/// Shows fixed numbers and never reads the settings database or the network.
+class FakeSocialStatsNotifier extends SocialStatsNotifier {
+  FakeSocialStatsNotifier([this.initial = const SocialStatsView()]);
+
+  final SocialStatsView initial;
+  int refreshes = 0;
+
+  @override
+  SocialStatsView build() => initial;
+
+  @override
+  Future<void> refreshIfDue() async => refreshes++;
+}
 
 /// Records calls and answers purchases with [purchaseResult]. Overrides every
 /// method the UI reaches, so the real `loaded` gate is never awaited.
@@ -70,7 +86,6 @@ TelemetryService silentTelemetry() => TelemetryService(
   endpointUrl: '',
   siteId: 0,
   consentGranted: false,
-  dntActive: false,
 );
 
 /// Pins one deploy channel and platform. The capability list comes from the
@@ -82,6 +97,11 @@ List<Object> supportOverrides({
   List<SupportProduct> products = const [],
   Object? productsError,
   Future<List<SupportProduct>>? pendingCatalogue,
+  SocialStatsView socialStats = const SocialStatsView(),
+  FakeSocialStatsNotifier? socialStatsNotifier,
+  bool buyMeACoffeeFirst = false,
+  TelemetryService? telemetry,
+  Future<bool>? pendingCoffeeOrder,
 }) => [
   deployChannelProvider.overrideWithValue(channel),
   supportPlatformProvider.overrideWithValue(platform),
@@ -94,5 +114,11 @@ List<Object> supportOverrides({
     if (productsError != null) throw productsError;
     return products;
   }),
-  telemetryProvider.overrideWithValue(silentTelemetry()),
+  telemetryProvider.overrideWithValue(telemetry ?? silentTelemetry()),
+  socialStatsProvider.overrideWith(
+    () => socialStatsNotifier ?? FakeSocialStatsNotifier(socialStats),
+  ),
+  coffeeBuyMeACoffeeFirstProvider.overrideWith(
+    (ref) => pendingCoffeeOrder ?? Future.value(buyMeACoffeeFirst),
+  ),
 ];

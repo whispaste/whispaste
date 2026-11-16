@@ -24,9 +24,9 @@
 /// - No `Random`; identical inputs produce identical snapshots.
 library;
 
-import 'dart:math' as math;
-
 import '../../core/theme/overlay_design_spec.dart';
+import '../audio/level_smoother.dart';
+import '../audio/wave_level_shaper.dart';
 
 /// Scrolling bar-history pipeline. Reads its shape (bar count, min height,
 /// attack/release smoothing) entirely from [OverlayDesignSpec].
@@ -37,13 +37,22 @@ class WaveformPipeline {
   /// overridable to keep the type testable. The normalised min-height floor is
   /// derived from the SSOT pair `minBarHeightPx / normalSize.waveformMaxHeight`.
   WaveformPipeline({WaveformSpec? spec})
-    : _spec = spec ?? OverlayDesignSpec.waveform {
+    : _spec = spec ?? OverlayDesignSpec.waveform,
+      _smoother = LevelSmoother(spec: spec) {
     _minBarLevel =
         _spec.minBarHeightPx / OverlayDesignSpec.normalSize.waveformMaxHeight;
     _history = List<double>.filled(_spec.barCount, 0.0);
   }
 
   final WaveformSpec _spec;
+
+  /// Attack/release smoothing shared with the onboarding microphone test.
+  final LevelSmoother _smoother;
+
+  /// Spreads speech over the whole height before it is smoothed, so every
+  /// wave style uses its full range whatever the microphone's gain.
+  final WaveLevelShaper _shaper = WaveLevelShaper();
+  DateTime? _lastSampleTime;
 
   /// Normalised floor every bar clamps up to. Derived from the SSOT.
   late final double _minBarLevel;
@@ -54,7 +63,6 @@ class WaveformPipeline {
   late final List<double> _history;
 
   double _targetLevel = 0.0;
-  double _displayLevel = 0.0;
   DateTime? _lastTickTime;
 
   /// Number of bars in every snapshot — taken from the spec, shared across
@@ -67,7 +75,12 @@ class WaveformPipeline {
   /// Records a new normalised input level (volume). The next [tick] smooths the
   /// display level toward it and scrolls it into the history.
   void pushSample(double level, DateTime now) {
-    _targetLevel = level;
+    final last = _lastSampleTime;
+    _lastSampleTime = now;
+    final seconds = last == null
+        ? 0.0
+        : now.difference(last).inMicroseconds / 1e6;
+    _targetLevel = _shaper.shape(level, seconds);
   }
 
   /// Advances one time-moment: smooths the display level toward the last pushed
@@ -81,25 +94,16 @@ class WaveformPipeline {
     final last = _lastTickTime;
     _lastTickTime = now;
     if (last != null) {
-      final deltaMs = now.difference(last).inMicroseconds / 1000.0;
-      if (deltaMs > 0) {
-        final rising = _targetLevel > _displayLevel;
-        final tau = rising
-            ? _spec.attackTimeConstantMs
-            : _spec.releaseTimeConstantMs;
-        if (tau <= 0) {
-          _displayLevel = _targetLevel;
-        } else {
-          final alpha = 1.0 - math.exp(-deltaMs / tau);
-          _displayLevel += (_targetLevel - _displayLevel) * alpha;
-        }
-      }
+      _smoother.step(
+        _targetLevel,
+        now.difference(last).inMicroseconds / 1000.0,
+      );
     }
     // Scroll right→left: drop the oldest moment, append the newest at the edge.
     for (var i = 0; i < _spec.barCount - 1; i++) {
       _history[i] = _history[i + 1];
     }
-    _history[_spec.barCount - 1] = _displayLevel;
+    _history[_spec.barCount - 1] = _smoother.value;
   }
 
   /// Returns the rendered bar levels, oldest→newest (left→right). Length is
@@ -133,7 +137,9 @@ class WaveformPipeline {
       _history[i] = 0.0;
     }
     _targetLevel = 0.0;
-    _displayLevel = 0.0;
+    _shaper.reset();
+    _lastSampleTime = null;
+    _smoother.reset();
     _lastTickTime = null;
   }
 

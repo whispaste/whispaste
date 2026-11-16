@@ -1,5 +1,4 @@
-/// Drives an interactive snippet's guided multi-field recording sequence
-/// (PRD `internal-notes`).
+/// Drives an interactive snippet's guided multi-field recording sequence.
 ///
 /// Sits above [RecordingOrchestrator] rather than inside it (additive —
 /// "der bestehende Einzel-Aufnahme-Pfad bleibt unverändert"): it calls
@@ -36,6 +35,16 @@
 /// instruction covers the "thrown into dictation" problem without adding a
 /// sound the calm-UI rules (ADR 0002) would frown at.
 ///
+/// ## "In einem Satz" ([startSentence])
+///
+/// The same machinery with ONE take for all fields: no briefing, the
+/// announce names every field, and after the take the sentence is mapped to
+/// the fields ([SpokenFieldsAssigner], stage [InteractiveSnippetStage.
+/// assigning]). The result goes to a preview ([onShowFieldPreview]) where
+/// the user fixes or confirms the values; only a confirmed preview is
+/// composed and pasted, through the same [RecordingOrchestrator.
+/// completeInteractiveSnippet] as the guided sequence.
+///
 /// For the whole lifetime of a sequence, bare **Enter** (advance) and
 /// **Escape** (cancel) are additionally registered as system-wide keys via
 /// `HotkeyService.registerInteractiveSnippetKeys` — registered once per
@@ -56,6 +65,7 @@ import '../../core/recording/recording_state.dart';
 import '../hotkey_service.dart';
 import '../recording_orchestrator.dart';
 import 'interactive_snippet_composer.dart';
+import 'spoken_fields.dart';
 
 /// Pre-roll shown before each field's recording starts: long enough to read
 /// "Field i/N: name", short enough not to drag out a sequence (Performance
@@ -79,6 +89,30 @@ enum InteractiveSnippetStage {
   /// The current field's recording is running (or just finished and the
   /// pipeline is transcribing it).
   recording,
+
+  /// "In einem Satz" only: the take is done and its sentence is being
+  /// mapped to the fields (may run the text model). Escape cancels.
+  assigning,
+}
+
+/// What the field preview of "In einem Satz" shows: the values found for
+/// each field, editable before anything is pasted.
+class SpokenFieldPreviewRequest {
+  const SpokenFieldPreviewRequest({
+    required this.title,
+    required this.template,
+    required this.fieldNames,
+    required this.values,
+    required this.modelReady,
+  });
+
+  final String title;
+  final String template;
+  final List<String> fieldNames;
+  final List<String> values;
+
+  /// False: the preview tells the user to speak the field names along.
+  final bool modelReady;
 }
 
 /// Watched by the overlay to render the guided-sequence UI (PRD User
@@ -90,6 +124,7 @@ class InteractiveSnippetSessionState {
     required this.fieldCount,
     required this.fieldName,
     this.stage = InteractiveSnippetStage.recording,
+    this.sentence = false,
   });
 
   /// 0-based index of the field currently being recorded.
@@ -100,6 +135,10 @@ class InteractiveSnippetSessionState {
   /// Which stage of the guided flow this state describes.
   final InteractiveSnippetStage stage;
 
+  /// "In einem Satz": one take for all fields; [fieldName] then lists every
+  /// field name.
+  final bool sentence;
+
   /// True during the short pre-roll BEFORE this field's recording starts —
   /// the overlay shows the announce instruction; the microphone is not
   /// yet open. False once the field is actually recording.
@@ -108,6 +147,9 @@ class InteractiveSnippetSessionState {
   /// True while the sequence waits for the user's first Enter (the
   /// orientation frame shown before field 1's announce).
   bool get briefing => stage == InteractiveSnippetStage.briefing;
+
+  /// True while the sentence of "In einem Satz" is mapped to the fields.
+  bool get assigning => stage == InteractiveSnippetStage.assigning;
 }
 
 class InteractiveSnippetController
@@ -121,7 +163,14 @@ class InteractiveSnippetController
     return null;
   }
 
-  List<SnippetField> _fields = const [];
+  /// Field names in composition order.
+  List<String> _fieldNames = const [];
+
+  /// What each take asks for: one entry per field, or one entry naming all
+  /// fields for "In einem Satz".
+  List<String> _prompts = const [];
+  bool _sentence = false;
+  String _title = '';
   String _template = '';
   final List<String> _collectedTranscripts = [];
   DateTime? _startedAt;
@@ -142,6 +191,13 @@ class InteractiveSnippetController
   Future<void> Function(Duration) announceDelay = (d) =>
       Future<void>.delayed(d);
 
+  /// Shows the field preview of "In einem Satz" and completes with the
+  /// confirmed values, or null when the user cancelled. Wired by the
+  /// composition root to the snippet picker panel (same reason as
+  /// `SnippetPickerService.onInteractiveSnippetSelected`: no import cycle).
+  Future<List<String>?> Function(SpokenFieldPreviewRequest request)?
+  onShowFieldPreview;
+
   bool get isActive => state != null;
 
   /// Starts a new sequence for [fields] (already sorted by `sortOrder`),
@@ -156,8 +212,43 @@ class InteractiveSnippetController
   }) async {
     if (isActive || fields.isEmpty) return;
 
-    _fields = fields;
+    _fieldNames = [for (final f in fields) f.name];
+    _prompts = _fieldNames;
+    _sentence = false;
     _template = template;
+    await _beginSequence();
+    // Orientation first, microphone later: the briefing frame stays up until
+    // the user presses Enter (see [advanceField]) — being dropped straight
+    // into field 1's countdown was the "unexplained hotkey presses" feel the
+    // guided-UX pass exists to remove.
+    state = InteractiveSnippetSessionState(
+      fieldIndex: 0,
+      fieldCount: _prompts.length,
+      fieldName: _prompts[0],
+      stage: InteractiveSnippetStage.briefing,
+    );
+  }
+
+  /// "In einem Satz": records ONE take for all [fields] and maps it to them
+  /// (see the library doc). No briefing — the user chose this path in the
+  /// picker a moment ago, so the announce goes straight to the take.
+  Future<void> startSentence(
+    List<SnippetField> fields, {
+    required String template,
+    required String title,
+  }) async {
+    if (isActive || fields.isEmpty) return;
+
+    _fieldNames = [for (final f in fields) f.name];
+    _prompts = [_fieldNames.join(', ')];
+    _sentence = true;
+    _title = title;
+    _template = template;
+    await _beginSequence();
+    await _announceThenRecord(0);
+  }
+
+  Future<void> _beginSequence() async {
     _collectedTranscripts.clear();
     _startedAt = DateTime.now();
 
@@ -173,16 +264,6 @@ class InteractiveSnippetController
           onAdvance: () => unawaited(advanceField()),
           onCancel: () => unawaited(cancel()),
         );
-    // Orientation first, microphone later: the briefing frame stays up until
-    // the user presses Enter (see [advanceField]) — being dropped straight
-    // into field 1's countdown was the "unexplained hotkey presses" feel the
-    // guided-UX pass exists to remove.
-    state = InteractiveSnippetSessionState(
-      fieldIndex: 0,
-      fieldCount: _fields.length,
-      fieldName: _fields[0].name,
-      stage: InteractiveSnippetStage.briefing,
-    );
   }
 
   /// Advances the guided flow — the single action the hotkey, Enter key,
@@ -231,8 +312,8 @@ class InteractiveSnippetController
 
     _collectedTranscripts.add(result.transcript ?? '');
     final nextIndex = state!.fieldIndex + 1;
-    if (nextIndex >= _fields.length) {
-      await _finish();
+    if (nextIndex >= _prompts.length) {
+      await (_sentence ? _finishSentence() : _finish());
       return;
     }
 
@@ -246,18 +327,20 @@ class InteractiveSnippetController
     final epoch = _epoch;
     state = InteractiveSnippetSessionState(
       fieldIndex: index,
-      fieldCount: _fields.length,
-      fieldName: _fields[index].name,
+      fieldCount: _prompts.length,
+      fieldName: _prompts[index],
       stage: InteractiveSnippetStage.announcing,
+      sentence: _sentence,
     );
     await announceDelay(announceDuration);
     if (_epoch != epoch) return; // Cancelled during the pre-roll.
 
     state = InteractiveSnippetSessionState(
       fieldIndex: index,
-      fieldCount: _fields.length,
-      fieldName: _fields[index].name,
+      fieldCount: _prompts.length,
+      fieldName: _prompts[index],
       stage: InteractiveSnippetStage.recording,
+      sentence: _sentence,
     );
     await ref
         .read(recordingOrchestratorProvider.notifier)
@@ -294,7 +377,10 @@ class InteractiveSnippetController
 
   void _reset() {
     _epoch++;
-    _fields = const [];
+    _fieldNames = const [];
+    _prompts = const [];
+    _sentence = false;
+    _title = '';
     _template = '';
     _collectedTranscripts.clear();
     _startedAt = null;
@@ -311,7 +397,7 @@ class InteractiveSnippetController
   }
 
   Future<void> _finish() async {
-    final fieldNames = [for (final f in _fields) f.name];
+    final fieldNames = _fieldNames;
     final composed = composeInteractiveSnippetText(
       template: _template,
       fieldNames: fieldNames,
@@ -325,6 +411,62 @@ class InteractiveSnippetController
           composedText: composed,
           audioDuration: elapsed,
         );
+  }
+
+  /// End of "In einem Satz": maps the sentence to the fields, shows the
+  /// preview and pastes only what the user confirmed.
+  Future<void> _finishSentence() async {
+    final epoch = _epoch;
+    final names = _fieldNames;
+    final template = _template;
+    final title = _title;
+    final sentence = _collectedTranscripts.single;
+    final elapsed = DateTime.now().difference(_startedAt ?? DateTime.now());
+
+    state = InteractiveSnippetSessionState(
+      fieldIndex: 0,
+      fieldCount: 1,
+      fieldName: _prompts.single,
+      stage: InteractiveSnippetStage.assigning,
+      sentence: true,
+    );
+    final assigned = await ref
+        .read(spokenFieldsAssignerProvider)
+        .assign(names, sentence);
+    if (_epoch != epoch) return; // Escape while the fields were filled in.
+
+    _reset();
+    // The preview needs Enter and Escape for itself: release the
+    // system-wide keys before it opens, not fire-and-forget.
+    await ref
+        .read(hotkeyServiceProvider.notifier)
+        .unregisterInteractiveSnippetKeys();
+
+    final confirmed = await onShowFieldPreview?.call(
+      SpokenFieldPreviewRequest(
+        title: title,
+        template: template,
+        fieldNames: names,
+        values: assigned.values,
+        modelReady: assigned.modelReady,
+      ),
+    );
+    final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    if (confirmed == null || confirmed.length != names.length) {
+      // Cancelled: nothing is pasted; drop the take's finished frame.
+      if (ref.read(recordingProvider).phase == RecordingPhase.done) {
+        orchestrator.reset();
+      }
+      return;
+    }
+    await orchestrator.completeInteractiveSnippet(
+      composedText: composeInteractiveSnippetText(
+        template: template,
+        fieldNames: names,
+        fieldTranscripts: confirmed,
+      ),
+      audioDuration: elapsed,
+    );
   }
 }
 

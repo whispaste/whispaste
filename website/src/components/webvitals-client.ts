@@ -4,7 +4,7 @@
  * Bundled first-party by Astro (never a CDN) via <WebVitals>. Uses Google's
  * `web-vitals` library (Apache-2.0) to measure the five Core Web Vitals of real
  * visitors and reports them as Matomo custom events on the existing `_paq` queue
- * configured in Layout.astro (cookiefree, IP-anonymised, DNT-honouring).
+ * configured in Layout.astro (cookiefree, IP-anonymised server-side in Matomo).
  *
  * Only numeric timing/layout metrics are sent — no additional personal data. The
  * web-vitals library never transmits anything itself; it just invokes `report`.

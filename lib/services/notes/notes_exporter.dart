@@ -1,33 +1,36 @@
-/// Orchestrates the user-facing export flow for a single [Note].
+/// Orchestrates the user-facing export flow for one [Note] or a multi-select
+/// of notes (#655, all of them in one file).
 ///
-/// 1:1 structure of `history_exporter.dart`, scoped down to one note at a
-/// time (no multi-select for Notizen) and restricted to the txt/md formats
+/// 1:1 structure of `history_exporter.dart`, restricted to the txt/md formats
 /// (`notesExportFormats`) — Notes have no structured metadata (duration,
 /// language, model, cost) worth a CSV/JSON/DOCX export.
 ///
 /// Responsibilities:
 ///   1. Show the format picker, pre-filtered to txt/md.
 ///   2. Map [Note] + its tags → [ExportEntry].
-///   3. Resolve the output directory (Downloads, falling back to Documents).
-///   4. Invoke [ExportService.export] with the resolved path.
-///   5. Surface success/error via [WpToast].
+///   3. Ask the native save dialog where the file goes (a cancel is silent).
+///   4. Invoke [ExportService.export] with the chosen path.
+///   5. Surface success/error as a notice at the editor ([showWpPageNotice]).
 library;
 
 import 'package:flutter/widgets.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/data/database.dart' show Note, Tag;
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/app_logger.dart';
 import '../../features/history/data/export_service.dart';
 import '../../features/notes/data/note_title.dart';
 import '../../widgets/export_format_picker.dart';
-import '../../widgets/toast.dart';
+import '../../widgets/wp_page_notice.dart';
+import '../../widgets/wp_banner.dart';
 import '../history/history_exporter.dart'
-    show ExportFn, PathResolverFn, ToasterFn;
+    show ExportFn, ExportSaveLocationFn, pickExportSaveLocation;
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+final _log = AppLogger('NotesExporter');
 
 /// Notes-only formats — txt/md. Unlike history entries, a note has no
 /// duration/language/model/cost fields, so CSV/JSON/DOCX would just be an
@@ -40,16 +43,38 @@ const List<ExportFormat> notesExportFormats = [
 /// Orchestrate the export flow for [note].
 ///
 /// Behaviour mirrors [history_exporter.exportEntries]:
-/// - If the picker is dismissed (returns `null`): no-op.
-/// - On success: `WpToast` shows `"Exported to <fullPath>"` (success).
-/// - On failure: `WpToast` shows the exception message (error).
+/// - If the picker or the save dialog is dismissed (returns `null`): no-op.
+/// - On success: a notice at the editor names the save location.
+/// - On failure: an error notice names the next step (the raw error is hidden).
 Future<void> exportNote(BuildContext context, Note note, List<Tag> tags) {
   return const NotesExporter().exportNote(context, note, tags);
+}
+
+/// Orchestrate the export flow for several [notes] (multi-select, #655):
+/// one format pick, one save dialog, one file with all notes in the given
+/// order. Same cancel/success/failure contract as [exportNote]; the notice
+/// goes to the page head, as no single editor owns it.
+Future<void> exportNotes(
+  BuildContext context,
+  List<Note> notes,
+  Map<String, List<Tag>> tagsByNoteId,
+) {
+  return const NotesExporter().exportNotes(context, notes, tagsByNoteId);
 }
 
 // ---------------------------------------------------------------------------
 // Injectable seam (top-level typedef + function)
 // ---------------------------------------------------------------------------
+
+/// Notice seam — reports the result for note [noteId] at its editor, or at
+/// the page head when [noteId] is `null` (a multi-note export).
+typedef NotesNoticeFn =
+    void Function(
+      BuildContext context, {
+      required String? noteId,
+      required bool failed,
+      required String message,
+    });
 
 /// Picker seam — shows the export-format picker, pre-filtered to txt/md.
 typedef NotesExportFormatPickerFn =
@@ -65,49 +90,79 @@ Future<ExportFormat?> _pickNotesFormat(BuildContext context) =>
 /// Class form of [exportNote] — accepts injectable dependencies for tests.
 ///
 /// The default constructor wires production bindings: [_pickNotesFormat],
-/// [ExportService.export], [getDownloadsDirectory] /
-/// [getApplicationDocumentsDirectory], and [WpToast.show]. Tests construct a
-/// [NotesExporter] with fakes to assert orchestration behaviour without
-/// touching the filesystem or platform channels.
+/// [ExportService.export], [pickExportSaveLocation], and [showWpPageNotice]. Tests
+/// construct a [NotesExporter] with fakes to assert orchestration behaviour
+/// without touching the filesystem or platform channels.
 class NotesExporter {
   const NotesExporter({
     this.pickerFn = _pickNotesFormat,
     this.exporter = ExportService.export,
-    this.downloadsDirFn = getDownloadsDirectory,
-    this.documentsDirFn = getApplicationDocumentsDirectory,
-    this.toaster = _defaultToaster,
+    this.saveLocationFn = pickExportSaveLocation,
+    this.notifier = _defaultNotifier,
   });
 
   final NotesExportFormatPickerFn pickerFn;
   final ExportFn exporter;
-  final PathResolverFn downloadsDirFn;
-  final PathResolverFn documentsDirFn;
-  final ToasterFn toaster;
+  final ExportSaveLocationFn saveLocationFn;
+  final NotesNoticeFn notifier;
 
   /// Run the export flow. See [exportNote] for behaviour contract.
-  Future<void> exportNote(
+  Future<void> exportNote(BuildContext context, Note note, List<Tag> tags) =>
+      _export(context, [note], {note.id: tags}, noticeArea: note.id);
+
+  /// Run the multi-note export flow. See [exportNotes].
+  Future<void> exportNotes(
     BuildContext context,
-    Note note,
-    List<Tag> tags,
-  ) async {
+    List<Note> notes,
+    Map<String, List<Tag>> tagsByNoteId,
+  ) {
+    if (notes.isEmpty) return Future.value();
+    return _export(context, notes, tagsByNoteId, noticeArea: null);
+  }
+
+  Future<void> _export(
+    BuildContext context,
+    List<Note> notes,
+    Map<String, List<Tag>> tagsByNoteId, {
+    required String? noticeArea,
+  }) async {
     final format = await pickerFn(context);
     if (format == null) return;
     if (!context.mounted) return;
 
-    final exportRow = _toExportEntry(note, tags, L10n.of(context));
+    final l10n = L10n.of(context);
+    final rows = [
+      for (final note in notes)
+        _toExportEntry(note, tagsByNoteId[note.id] ?? const [], l10n),
+    ];
 
-    final dir = await downloadsDirFn() ?? await documentsDirFn();
-    final dirPath = dir?.path ?? '.';
-    final filename = ExportService.defaultFilename([exportRow], format);
-    final fullPath = '$dirPath/$filename';
+    final filename = ExportService.defaultFilename(rows, format);
+    final fullPath = await saveLocationFn(
+      format: format,
+      suggestedName: filename,
+    );
+    if (fullPath == null) return;
+    if (!context.mounted) return;
 
     try {
-      await exporter([exportRow], format, fullPath);
+      await exporter(rows, format, fullPath);
       if (!context.mounted) return;
-      toaster(context, WpToastType.success, 'Exported to $fullPath');
+      notifier(
+        context,
+        noteId: noticeArea,
+        failed: false,
+        message: L10n.of(context).historyExportDone(fullPath),
+      );
     } catch (e) {
+      _log.warning('Note export failed: $e');
       if (!context.mounted) return;
-      toaster(context, WpToastType.error, _exceptionMessage(e));
+      // The raw error is not shown: the notice names the next step.
+      notifier(
+        context,
+        noteId: noticeArea,
+        failed: true,
+        message: L10n.of(context).historyExportFailed,
+      );
     }
   }
 
@@ -123,26 +178,27 @@ class NotesExporter {
       pinned: note.pinned,
     );
   }
-
-  /// Best-effort extraction of a human-readable message from [error].
-  ///
-  /// Falls back to `error.toString()` so the user always sees something.
-  static String _exceptionMessage(Object error) {
-    if (error is Exception) {
-      // Strip the leading "Exception: " that Dart inserts on toString().
-      final s = error.toString();
-      const prefix = 'Exception: ';
-      if (s.startsWith(prefix)) return s.substring(prefix.length);
-      return s;
-    }
-    return error.toString();
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Default toaster
+// Default notifier
 // ---------------------------------------------------------------------------
 
-void _defaultToaster(BuildContext context, WpToastType type, String message) {
-  WpToast.show(context, message: message, type: type);
+void _defaultNotifier(
+  BuildContext context, {
+  required String? noteId,
+  required bool failed,
+  required String message,
+}) {
+  showWpPageNotice(
+    context,
+    page: WpNoticePage.notes,
+    notice: WpPageNotice(
+      id: failed ? 'notes-export-failed' : 'notes-export-done',
+      message: message,
+      tone: failed ? WpBannerTone.error : WpBannerTone.info,
+      area: noteId,
+      autoDismiss: failed ? null : const Duration(seconds: 4),
+    ),
+  );
 }

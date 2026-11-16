@@ -42,3 +42,22 @@ Future<void> activateWindow() async {
 final windowActivatorProvider = Provider<Future<void> Function()>(
   (ref) => activateWindow,
 );
+
+/// Reports whether the main window is hidden or minimized, so a caller can
+/// bring it forward only when it is out of sight. Overridden in tests.
+final mainWindowHiddenProvider = Provider<Future<bool> Function()>(
+  (ref) => _isMainWindowHidden,
+);
+
+/// A failed query counts as visible: the caller then shows nothing extra,
+/// which is the safe default for a window we could not inspect.
+Future<bool> _isMainWindowHidden() async {
+  try {
+    final visible = await windowManager.isVisible();
+    final minimized = await windowManager.isMinimized();
+    return !visible || minimized;
+  } on Exception catch (e) {
+    _log.warning('Could not read main window state: $e');
+    return false;
+  }
+}

@@ -7,36 +7,73 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../core/data/database.dart' show historyDatabaseProvider;
+import '../core/onboarding/onboarding_surface.dart'
+    show onboardingSurfaceActiveProvider;
 import '../core/navigation/page_state.dart'
     show activePageProvider, settingsScrollTargetProvider;
+import '../core/config/secure_key_store.dart'
+    show secureAccessGate, withSecureTrigger;
 import '../core/config/settings_provider.dart';
+import '../core/l10n/locale_provider.dart';
+import '../core/logging/app_logger.dart';
 import '../core/logging/ui_thread_watchdog.dart';
+import '../core/platform/macos_lifecycle_channel.dart';
+import '../core/recording/discard_confirmation.dart';
 import '../core/recording/recording_state.dart'
     show
         RecordingPhase,
         RecordingTarget,
+        handsFreeRecordingProvider,
+        recordingElapsedProvider,
         recordingPhaseProvider,
         recordingProvider;
+import '../services/audio/import/audio_import_providers.dart';
 import '../services/autostart_service.dart';
 import '../services/clipboard_history/clipboard_history_monitor_service.dart';
+import '../services/feedback_consent_store.dart';
+import '../services/snippets/system_variables.dart';
+import '../services/feedback_submission_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
+import '../services/hotkey_disturbance.dart';
+import '../services/hotkey_self_heal.dart';
 import '../services/hotkey_service.dart';
+import '../services/language_cycle_service.dart';
+import '../services/linux_desktop_shortcut.dart';
+import '../services/linux_file_selector.dart';
 import '../services/paste/paste_capability_notifier.dart';
+import '../services/permissions/tcc_entry_reset_confirm.dart';
 import '../services/recording_orchestrator.dart';
+import '../services/newsletter/newsletter_service.dart'
+    show newsletterSignupProvider;
+import '../services/modifier_key_monitor.dart'
+    show ModifierHotkey, kBusyKeyHoldStartDelay;
 import '../services/recording_trigger_handler.dart';
 import '../services/smart_mode/smart_mode_presets.dart';
+import '../services/paste/paste_result_notice.dart';
+import '../services/paste/repaste_service.dart';
+import '../services/replacements/learn_correction_hotkey.dart';
 import '../services/snippet_picker/snippet_picker_service.dart';
 import '../services/snippets/interactive_snippet_controller.dart';
 import '../services/side_panel/side_panel_service.dart';
+import '../services/app_profiles/profile_activation.dart';
+import '../services/app_profiles/profile_hotkey_sync.dart';
 import '../services/single_instance_service.dart';
+import '../features/history/widgets/audio_import_panel.dart'
+    show audioImportRejectionsProvider, importAudioFiles;
 import '../services/tray_service.dart';
+import '../services/paste/paster.dart' show PasteCapabilityStatus;
 
 /// Invisible wrapper that eagerly boots keepAlive service providers.
+final _log = AppLogger('ServiceBootstrap');
+
 class WpServiceBootstrap extends ConsumerStatefulWidget {
   const WpServiceBootstrap({super.key, required this.child});
 
@@ -47,7 +84,33 @@ class WpServiceBootstrap extends ConsumerStatefulWidget {
 }
 
 class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
+  AppSettings get _settings =>
+      ref.read(settingsProvider).value ?? AppSettings.defaults;
+
+  /// The single key that listens for dictation, or null while the
+  /// combination does (none chosen, or the key is not observable here).
+  ModifierHotkey? _listeningSingleKey() {
+    if (ref.read(doubleTapFallbackActiveProvider)) return null;
+    return ModifierHotkey.values
+        .asNameMap()[_settings.hotkey.hotkeyDoubleTapKey];
+  }
+
+  /// Keys also used for typing start a hold only after a moment alone.
+  Duration _holdStartDelay() => _listeningSingleKey()?.isBusy ?? false
+      ? kBusyKeyHoldStartDelay
+      : Duration.zero;
+
   bool _orchestratorInitialized = false;
+
+  /// The hotkey service this state wired, kept so [dispose] can release its
+  /// callbacks without `ref` (#439).
+  late final HotkeyService _hotkeySvc;
+
+  /// The stall handler this state gave the watchdog. A rebuilt bootstrap
+  /// (the shell is keyed by the colour set, so a settings import that changes
+  /// it builds a new one) installs its own before this one is disposed; the
+  /// old [dispose] must then leave the watchdog running.
+  late final void Function(Duration jank) _onSevereStall;
 
   /// The single [RecordingTriggerHandler] instance for this state's lifetime.
   ///
@@ -63,8 +126,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   /// (this action is always toggle-only) and its own recording target.
   late final RecordingTriggerHandler _quickNoteTriggerHandler;
 
-  /// Trigger handler for the Smart-Mode hotkey (ticket 04 of
-  /// `internal-notes`). Same held-for-lifetime rule as
+  /// Trigger handler for the Smart-Mode hotkey. Same held-for-lifetime rule as
   /// [_triggerHandler] — unlike the quick-note handler, this one DOES support
   /// push-to-talk (mirrors the main hotkey's behaviour per the ticket), so it
   /// needs its own instance to track its own keyDown/keyUp state
@@ -72,7 +134,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   late final RecordingTriggerHandler _smartModeTriggerHandler;
 
   /// Trigger handler for the edit-selection hotkey
-  /// (`internal-notes`) — push-to-talk and toggle like the
+  /// — push-to-talk and toggle like the
   /// Smart-Mode hotkey, recording into [RecordingTarget.selectionEdit].
   late final RecordingTriggerHandler _selectionEditTriggerHandler;
 
@@ -109,6 +171,21 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       phase == RecordingPhase.transcribing ||
       phase == RecordingPhase.refining;
 
+  /// Escape during a long recording only arms a confirmation (see
+  /// `discard_confirmation.dart`); every other cancel discards at once.
+  void _onCancelDictationPressed() {
+    final discardNow = cancelPressDiscardsNow(
+      ref.read(recordingPhaseProvider),
+      ref.read(recordingElapsedProvider),
+      ref.read(discardConfirmProvider.notifier),
+      cardOpen: ref.read(recordingCardOpenProvider),
+    );
+    if (!discardNow) return;
+    unawaited(
+      ref.read(recordingOrchestratorProvider.notifier).cancelRecording(),
+    );
+  }
+
   void _syncCancelDictationEscapeKey(RecordingPhase prev, RecordingPhase next) {
     if (_isInteractiveSnippetActive) return;
     final wasActive = _isCancelableDictationPhase(prev);
@@ -118,16 +195,43 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
         ref
             .read(hotkeyServiceProvider.notifier)
             .registerCancelDictationKey(
-              onCancel: () => ref
-                  .read(recordingOrchestratorProvider.notifier)
-                  .cancelRecording(),
+              key: logicalKeyForCancelDictation(
+                (ref.read(settingsProvider).value ?? AppSettings.defaults)
+                    .audioInput
+                    .cancelDictationKey,
+              ),
+              onCancel: _onCancelDictationPressed,
             ),
       );
     } else if (!isActive && wasActive) {
+      ref.read(discardConfirmProvider.notifier).disarm();
       unawaited(
         ref.read(hotkeyServiceProvider.notifier).unregisterCancelDictationKey(),
       );
     }
+  }
+
+  void Function()? _removeWithdrawalKick;
+
+  Future<void> _kickFeedbackWithdrawals() async {
+    final service = ref.read(feedbackSubmissionServiceProvider);
+    Future<void> kick(String trigger) =>
+        withSecureTrigger(trigger, () => feedbackWithdrawalRetry.kick(service));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mayHavePendingWithdrawal(prefs)) {
+        await kick('feedback withdrawal start');
+        return;
+      }
+    } on Object catch (e) {
+      _log.warning('Withdrawal check at start failed: ${e.runtimeType}');
+    }
+    if (!mounted) return;
+    _removeWithdrawalKick = secureAccessGate.addOpenListener(() {
+      _removeWithdrawalKick?.call();
+      _removeWithdrawalKick = null;
+      unawaited(kick('feedback withdrawal after consent'));
+    });
   }
 
   @override
@@ -136,10 +240,31 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     // Start UI thread jank detection.
     UiThreadWatchdog.instance.start();
 
+    // Withdrawals of the website-quote consent that were made offline are
+    // sent now and retried with backoff while any are pending. The consent
+    // state lives in the credential store; it is only read at start when the
+    // non-secret prefs mirror shows a pending withdrawal, otherwise once the
+    // user allowed the key store (#1161).
+    unawaited(_kickFeedbackWithdrawals());
+
+    // Linux file dialogs show their title and buttons in the app language
+    // and follow every language change (XP-5-13).
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      ref.listenManual<Locale>(
+        localeProvider,
+        (_, next) =>
+            LinuxFileSelector.install(l10nForLocaleCode(next.languageCode)),
+        fireImmediately: true,
+      );
+    }
+
     // ── Trigger handler — created once and kept for the state's lifetime ──
     // Reads (`ref.read`) stay closure-bound to the live `ref`, so settings
     // and orchestrator look-ups always see the current values, not a snapshot.
-    final hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
+    final hotkeySvc = _hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
+    // Claims the callbacks below; dispose releases them only while this
+    // state still owns them (#439).
+    hotkeySvc.bindCallbacks(this);
     _triggerHandler = RecordingTriggerHandler(
       // A no-op while an interactive-snippet sequence is running: each
       // field's recording is already started by InteractiveSnippetController
@@ -147,7 +272,14 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       // must not start a second, conflicting `clipboard`-target recording.
       startRecording: () => _isInteractiveSnippetActive
           ? Future<void>.value()
-          : ref.read(recordingOrchestratorProvider.notifier).startRecording(),
+          : ref
+                .read(recordingOrchestratorProvider.notifier)
+                .startRecording(
+                  // Hold + double tap: a short tap must not chime (#329).
+                  startToneNotBefore: _settings.hotkey.hotkeyDoubleTap
+                      ? kShortTapMaxDuration
+                      : Duration.zero,
+                ),
       stopRecording: () => _stopOrAdvance(),
       toggleRecording: () => _isInteractiveSnippetActive
           ? _stopOrAdvance()
@@ -159,10 +291,51 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .audioInput
               .holdOrTap,
+      holdOrTapThresholdMs: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTapThresholdMs,
+      // One trigger, combination or single key: hold to dictate, double tap
+      // for hands-free (maintainer 2026-10-30).
+      doubleTapEnabled: () => _settings.hotkey.hotkeyDoubleTap,
+      doubleTapLatches: () => true,
+      singleKey: () => _listeningSingleKey() != null,
+      holdStartDelay: _holdStartDelay,
       isRecording: () => ref.read(recordingProvider).isRecording,
+      recordingSessionId: () => ref.read(recordingProvider).sessionId,
+      cancelRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).cancelRecording(),
+      onHandsFreeChanged: (handsFree) =>
+          ref.read(handsFreeRecordingProvider.notifier).set(handsFree),
+      nativeEventAt: () => hotkeySvc.nativeEventAt,
+      nativePressed: () => hotkeySvc.nativePressed,
     );
-    hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
-    hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
+    // macOS (#775): after the press is handed on, name secure input or a
+    // slow keyboard tap of another app once. Never delays the trigger.
+    final disturbance = ref.read(hotkeyDisturbanceWatcherProvider);
+    // The recording hotkeys (main, quick note, Smart Mode, edit selection)
+    // share one registration path and so one cause (#870); one-shot hotkeys
+    // (snippets, language, repaste) are no dictation and stay out.
+    void Function() withDisturbance(void Function() onKeyDown) =>
+        disturbance == null
+        ? onKeyDown
+        : () {
+            onKeyDown();
+            unawaited(disturbance.onHotkeyPressed());
+          };
+    hotkeySvc.onHotkeyPressed = withDisturbance(_triggerHandler.onKeyDown);
+    hotkeySvc.onHotkeyReleased = () {
+      // #564: read the extra key at the release, before the stop runs.
+      unawaited(
+        ref.read(recordingOrchestratorProvider.notifier).armAutoSendOnRelease(),
+      );
+      _triggerHandler.onKeyUp();
+    };
+    hotkeySvc.onModifierOtherKey = _triggerHandler.onOtherKey;
+    // A severe UI stall (>1 s) may have cost the OS registration too.
+    _onSevereStall = (_) =>
+        unawaited(hotkeySvc.requestHotkeyHeal(HotkeyHealTrigger.uiStall));
+    UiThreadWatchdog.instance.onSevereStall = _onSevereStall;
 
     // ── Quick-note trigger handler (ticket 20) — toggle-only, no PTT ──
     _quickNoteTriggerHandler = RecordingTriggerHandler(
@@ -180,7 +353,9 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       pushToTalkEnabled: () => false,
       registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
     );
-    hotkeySvc.onQuickNoteHotkeyPressed = _quickNoteTriggerHandler.onKeyDown;
+    hotkeySvc.onQuickNoteHotkeyPressed = withDisturbance(
+      _quickNoteTriggerHandler.onKeyDown,
+    );
 
     // ── Snippet-Picker hotkey (ticket 26) — one-shot, no recording, so no
     // RecordingTriggerHandler needed: just a direct closure into the
@@ -188,6 +363,33 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     hotkeySvc.onSnippetPickerHotkeyPressed = () => ref
         .read(recordingOrchestratorProvider.notifier)
         .openSnippetPickerViaHotkey();
+
+    // ── "Next favorite language" hotkey — one-shot, switches the dictation
+    // language; the app shell shows the feedback toast. ──
+    hotkeySvc.onLanguageCycleHotkeyPressed = () =>
+        ref.read(languageCycleFeedbackProvider.notifier).cycle();
+
+    // ── "Paste the last dictation again" hotkey — one-shot, starts nothing,
+    // pastes through the shared paster. ──
+    hotkeySvc.onRepasteHotkeyPressed = () => unawaited(
+      ref.read(repasteServiceProvider).pasteLast().catchError((Object error) {
+        _log.warning('Repaste failed: $error');
+        return null;
+      }),
+    );
+
+    // ── "Learn correction" hotkey (#934) — copies the selection in the app
+    // in front and proposes the replacement; never throws. ──
+    hotkeySvc.onLearnCorrectionHotkeyPressed = () => unawaited(
+      ref.read(learnCorrectionHotkeyServiceProvider).learnFromSelection(),
+    );
+
+    // ── Profile hotkeys (ticket 13, part 2): one hotkey per profile switches
+    // to it; the sync keeps the registered set in step with the profiles. ──
+    hotkeySvc.onProfileHotkeyPressed = (profileId) =>
+        unawaited(ref.read(profileActivatorProvider).activateById(profileId));
+    ref.read(profileHotkeySyncProvider);
+    ref.read(profileMarkerProvider);
 
     // ── Smart-Mode trigger handler (ticket 04) — push-to-talk AND toggle,
     // identical to the main hotkey's behaviour, but always forces the bound
@@ -208,17 +410,24 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .toggleRecording(forcedSmartModePreset: boundSmartModePreset()),
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
-      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      registrarSupportsKeyUp: () => hotkeySvc.optionalActionsSupportKeyUp,
       holdOrTapEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .audioInput
               .holdOrTap,
+      holdOrTapThresholdMs: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTapThresholdMs,
       isRecording: () => ref.read(recordingProvider).isRecording,
+      recordingSessionId: () => ref.read(recordingProvider).sessionId,
     );
-    hotkeySvc.onSmartModeHotkeyPressed = _smartModeTriggerHandler.onKeyDown;
+    hotkeySvc.onSmartModeHotkeyPressed = withDisturbance(
+      _smartModeTriggerHandler.onKeyDown,
+    );
     hotkeySvc.onSmartModeHotkeyReleased = _smartModeTriggerHandler.onKeyUp;
 
-    // ── Edit-selection trigger handler (`internal-notes`) ──
+    // ── Edit-selection trigger handler ──
     _selectionEditTriggerHandler = RecordingTriggerHandler(
       startRecording: () => ref
           .read(recordingOrchestratorProvider.notifier)
@@ -230,17 +439,31 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .toggleRecording(target: RecordingTarget.selectionEdit),
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
-      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      registrarSupportsKeyUp: () => hotkeySvc.optionalActionsSupportKeyUp,
       holdOrTapEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .audioInput
               .holdOrTap,
+      holdOrTapThresholdMs: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTapThresholdMs,
       isRecording: () => ref.read(recordingProvider).isRecording,
+      recordingSessionId: () => ref.read(recordingProvider).sessionId,
     );
-    hotkeySvc.onSelectionEditHotkeyPressed =
-        _selectionEditTriggerHandler.onKeyDown;
+    hotkeySvc.onSelectionEditHotkeyPressed = withDisturbance(
+      _selectionEditTriggerHandler.onKeyDown,
+    );
     hotkeySvc.onSelectionEditHotkeyReleased =
         _selectionEditTriggerHandler.onKeyUp;
+
+    // A bootstrap rebuilt mid-dictation takes over the Escape cancel key:
+    // the phase listener only fires on a change, so the key would otherwise
+    // keep the torn-down state's callback (#439).
+    _syncCancelDictationEscapeKey(
+      RecordingPhase.idle,
+      ref.read(recordingPhaseProvider),
+    );
 
     // ── Interactive-snippet selection (interactive-snippets PRD) — wired
     // here, not inside SnippetPickerService itself, to avoid a file-level
@@ -254,7 +477,46 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           .readSnippetFields(snippet.id);
       await ref
           .read(interactiveSnippetControllerProvider.notifier)
-          .start(fields, template: snippet.body);
+          .start(
+            fields,
+            template: (await resolveSystemVariablesLive(
+              snippet.body,
+              title: snippet.title,
+            )).text,
+          );
+    };
+    ref
+        .read(snippetPickerServiceProvider.notifier)
+        .onSentenceSnippetSelected = (snippet) async {
+      final fields = await ref
+          .read(historyDatabaseProvider)
+          .readSnippetFields(snippet.id);
+      await ref
+          .read(interactiveSnippetControllerProvider.notifier)
+          .startSentence(
+            fields,
+            template: (await resolveSystemVariablesLive(
+              snippet.body,
+              title: snippet.title,
+            )).text,
+            title: snippet.title,
+          );
+    };
+    ref
+        .read(interactiveSnippetControllerProvider.notifier)
+        .onShowFieldPreview = (request) => ref
+        .read(snippetPickerServiceProvider.notifier)
+        .showFieldPreview(
+          title: request.title,
+          template: request.template,
+          fieldNames: request.fieldNames,
+          values: request.values,
+          modelReady: request.modelReady,
+        );
+    ref
+        .read(snippetPickerServiceProvider.notifier)
+        .onPasteResult = (outcome) async {
+      await ref.read(pasteResultReporterProvider).report(outcome);
     };
 
     // ── CLI remote control (`whispaste --toggle` / `--cancel`) — forwarded
@@ -266,6 +528,20 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SingleInstanceService.onRemoteCommand = _onRemoteCommand;
+      // Files from the file manager's "Transcribe with WhisPaste" entry
+      // (#1684), from this launch or handed over by a second one. While the
+      // onboarding is on top they wait in the queue (#1705): a first start
+      // with a file has no model yet, and the import would fail hidden
+      // behind the overlay. They run once it closes, without interrupting
+      // the setup and without downloading anything on their own.
+      _syncOpenFilesHandler();
+      ref.listenManual<bool>(
+        onboardingSurfaceActiveProvider,
+        (_, _) => _syncOpenFilesHandler(),
+      );
+      // macOS hands a `whispaste://` link to the running process instead of
+      // an argument; collect any that arrived before this point.
+      unawaited(MacOSLifecycleChannel.takeOpenUrls());
     });
 
     // ── Tray callbacks — stateless closures, safe to wire once ──
@@ -275,6 +551,13 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     };
     tray.onNavigate = (page) {
       ref.read(activePageProvider.notifier).setPage(page);
+    };
+    tray.onTranscribeFile = () {
+      ref.read(activePageProvider.notifier).setPage('history');
+      ref.read(audioImportPickRequestProvider.notifier).request();
+    };
+    tray.onOpenSidePanel = () {
+      unawaited(ref.read(sidePanelServiceProvider.notifier).open());
     };
     tray.onActionNeededTap = (key) {
       // A blocked Auto-Paste permission is handled where it broke, not in
@@ -288,7 +571,13 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
         unawaited(
           ref
               .read(pasteCapabilityNotifierProvider.notifier)
-              .runMissingPermissionRecovery(),
+              .runMissingPermissionRecovery(
+                confirmReset: () => confirmTccEntryReset(
+                  l10n: l10nForLocaleCode(
+                    ref.read(settingsProvider).value?.locale,
+                  ),
+                ),
+              ),
         );
         return;
       }
@@ -298,10 +587,40 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       if (key == kTrayPasteActionNeededKey) {
         ref
             .read(settingsScrollTargetProvider.notifier)
-            .set('afterTranscription');
+            .set('text-after-dictation-action');
         ref.read(activePageProvider.notifier).setPage('settings');
       }
     };
+  }
+
+  /// Shows or clears the tray's permission entry for a status transition.
+  /// Clearing is keyed, so an unrelated paste-failure entry is left alone.
+  void _syncPermissionTrayEntry(
+    PasteCapabilityStatus? previous,
+    PasteCapabilityStatus? next,
+  ) {
+    final tray = ref.read(trayServiceProvider.notifier);
+    switch (trayPermissionChangeFor(previous, next)) {
+      case TrayPermissionChange.show:
+        final l10n = l10nForLocaleCode(
+          ref.read(settingsProvider).value?.locale,
+        );
+        final entry = trayPermissionEntryFor(l10n, defaultTargetPlatform);
+        tray.setActionNeeded(
+          label: entry.label,
+          tooltip: 'WhisPaste — ${entry.label}',
+          menuItemKey: entry.key,
+        );
+      case TrayPermissionChange.clear:
+        tray.clearActionNeeded(
+          ifKey: trayPermissionEntryFor(
+            l10nForLocaleCode(ref.read(settingsProvider).value?.locale),
+            defaultTargetPlatform,
+          ).key,
+        );
+      case TrayPermissionChange.none:
+        break;
+    }
   }
 
   void _onRemoteCommand(InstanceCommand command) {
@@ -315,16 +634,85 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
         );
       case InstanceCommand.cancel:
         unawaited(orchestrator.cancelRecording());
+      case InstanceCommand.newsletterConfirmed:
+        unawaited(_showNewsletterStatus());
       case InstanceCommand.focus:
         // Handled by SingleInstanceService.onSecondInstanceLaunched.
+        break;
+      case InstanceCommand.openFiles:
+        // Handled by SingleInstanceService.onOpenFiles.
         break;
     }
   }
 
+  /// Hands opened files to [_transcribeOpenedFiles] only while no onboarding
+  /// is on top; until then [SingleInstanceService] keeps them (#1705).
+  void _syncOpenFilesHandler() {
+    if (!mounted) return;
+    SingleInstanceService.deliverOpenFilesWhen(
+      ready: !ref.read(onboardingSurfaceActiveProvider),
+      handler: (paths) => unawaited(_transcribeOpenedFiles(paths)),
+    );
+  }
+
+  /// The file manager asked to transcribe [paths] (#1684): bring the window
+  /// up on the history and run the normal file import, the same path as
+  /// "Add files" and a drop. Missing files and other types are refused there
+  /// with the import's notice above the list.
+  Future<void> _transcribeOpenedFiles(List<String> paths) async {
+    ref.read(activePageProvider.notifier).setPage('history');
+    try {
+      await MacOSLifecycleChannel.setRegular();
+      await windowManager.show();
+      await windowManager.focus();
+    } on Object catch (e) {
+      _log.warning('Bringing the window up for opened files failed', e);
+    }
+    if (!mounted) {
+      // The shell was rebuilt meanwhile (it is keyed by the colour set, which
+      // changes when the onboarding closes): the new one takes the files.
+      _log.info('Requeueing ${paths.length} opened file(s)');
+      SingleInstanceService.requeueOpenFiles(paths);
+      return;
+    }
+    // Counts only: paths are user content and stay out of the log.
+    _log.info('Transcribing ${paths.length} opened file(s)');
+    await importAudioFiles(ref, paths);
+    if (!mounted) return;
+    final refused = ref.read(audioImportRejectionsProvider).length;
+    _log.info('Opened files done, $refused refused');
+  }
+
+  /// The newsletter confirmation page handed the user back: bring the window
+  /// up on the Übersicht, where the newsletter card shows the answer, and
+  /// ask the server at once (the user waits for it).
+  ///
+  /// Runs unawaited from the instance command, so a window call that fails
+  /// is logged and the status is still asked (F17-5).
+  Future<void> _showNewsletterStatus() async {
+    ref.read(activePageProvider.notifier).setPage('overview');
+    try {
+      await MacOSLifecycleChannel.setRegular();
+      await windowManager.show();
+      await windowManager.focus();
+    } on Object catch (e) {
+      _log.warning('Bringing the window up for the newsletter failed', e);
+    }
+    await ref.read(newsletterSignupProvider.notifier).ask(immediate: true);
+  }
+
   @override
   void dispose() {
+    _removeWithdrawalKick?.call();
     SingleInstanceService.onRemoteCommand = null;
-    UiThreadWatchdog.instance.dispose();
+    SingleInstanceService.onOpenFiles = null;
+    _hotkeySvc.releaseCallbacks(this);
+    final watchdog = UiThreadWatchdog.instance;
+    if (identical(watchdog.onSevereStall, _onSevereStall)) {
+      watchdog.onSevereStall = null;
+      watchdog.dispose();
+    }
+    feedbackWithdrawalRetry.cancel();
     super.dispose();
   }
 
@@ -345,9 +733,31 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       _syncCancelDictationEscapeKey(prev ?? RecordingPhase.idle, next);
     });
 
+    // A permission that flips at runtime (revoked, or granted after a
+    // recheck) shows up in the tray entry without waiting for a paste.
+    ref.listen<PasteCapabilityState>(pasteCapabilityNotifierProvider, (
+      prev,
+      next,
+    ) {
+      _syncPermissionTrayEntry(
+        prev?.capability?.status,
+        next.capability?.status,
+      );
+    });
+
+    // The tray menu follows the app language on every change in Settings,
+    // not only with the next recording state change.
+    ref.listen<Locale>(localeProvider, (prev, next) {
+      ref
+          .read(trayServiceProvider.notifier)
+          .updateLocalizations(l10nForLocaleCode(next.languageCode));
+    });
+
     // ── Keep the keepAlive service providers alive for the app lifetime ──
     ref.watch(trayServiceProvider);
     ref.watch(hotkeyServiceProvider);
+    // Linux: an installed GNOME shortcut follows the hotkey setting.
+    ref.watch(desktopShortcutSyncProvider);
     ref.watch(autostartServiceProvider);
     ref.watch(floatingButtonServiceProvider);
     ref.watch(floatingOverlayServiceProvider);
@@ -363,14 +773,24 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     // tear down through the same disposeController -> controller.dispose()
     // path a hover-triggered auto-dispose already exercises; flipping the
     // setting back on re-runs build() and recreates the native host.
+    //
+    // Never during onboarding: an empty history panel sliding in from the
+    // screen edge before the first dictation only distracts (maintainer,
+    // 2026-10-30). It comes up once onboarding is completed.
     final sidePanelEnabled = ref.watch(
-      settingsProvider.select(
-        (s) => s.value?.interface_.sidePanelEnabled ?? true,
-      ),
+      settingsProvider.select((s) {
+        final settings = s.value;
+        return settings != null &&
+            settings.onboarding.onboardingCompleted &&
+            settings.interface_.sidePanelEnabled;
+      }),
     );
     if (sidePanelEnabled) {
       ref.watch(sidePanelServiceProvider);
     }
+    ref
+        .read(trayServiceProvider.notifier)
+        .setSidePanelAvailable(sidePanelEnabled);
     // Registers the clipEntryDetected method-call handler for the native
     // clipboard monitors (issues 04-06); same keepAlive rationale as above.
     ref.watch(clipboardHistoryMonitorServiceProvider);

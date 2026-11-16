@@ -18,9 +18,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../core/text/text_undo.dart';
 import 'find_replace.dart';
+import 'find_throttle.dart';
 import 'wp_text_field.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 /// Height-capped icon button used for the bar's five compact actions.
 ///
@@ -28,16 +31,22 @@ import 'wp_focus_ring.dart';
 /// accent hover tint) so the two rows read as one control, and given a real
 /// [Semantics] label rather than only a tooltip — a tooltip publishes a *hint*
 /// and leaves the button nameless to a screen reader (the lesson
-/// `WpSearchField` documents at length).
+/// `WpSearchField` documents at length). The tooltip stays out of the
+/// semantics tree so the name is read once, and the compact visual sits in a
+/// 48 dp [WpTouchTarget] so a shaky hand still hits it (#652).
 class _BarIconButton extends StatefulWidget {
   const _BarIconButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    required this.testId,
   });
 
   final IconData icon;
   final String label;
+
+  /// Accessibility identifier, `<screen>-find-<action>`.
+  final String testId;
 
   /// `null` disables the button — the glyph dims and the tap does nothing,
   /// which is what "replace" looks like while there is no match to replace.
@@ -71,36 +80,41 @@ class _BarIconButtonState extends State<_BarIconButton> {
         label: widget.label,
         button: true,
         enabled: enabled,
+        identifier: widget.testId,
         child: Tooltip(
           message: widget.label,
-          waitDuration: const Duration(milliseconds: 400),
+          waitDuration: WpMotion.tooltipWait,
+          excludeFromSemantics: true,
           child: MouseRegion(
             cursor: enabled
                 ? SystemMouseCursors.click
                 : SystemMouseCursors.basic,
             onEnter: (_) => setState(() => _hovered = true),
             onExit: (_) => setState(() => _hovered = false),
-            child: WpFocusRing(
-              focusNode: _focusNode,
-              radius: WpRadius.sm,
-              child: InkWell(
-                onTap: widget.onTap,
+            child: WpTouchTarget(
+              onTap: widget.onTap,
+              child: WpFocusRing(
                 focusNode: _focusNode,
-                borderRadius: WpRadius.borderSm,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: AnimatedContainer(
-                  duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-                  padding: const EdgeInsets.all(WpSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: _hovered && enabled
-                        ? WpColors.accent.withValues(alpha: 0.12)
-                        : null,
-                    borderRadius: WpRadius.borderSm,
+                radius: WpRadius.sm,
+                child: InkWell(
+                  onTap: widget.onTap,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderSm,
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: AnimatedContainer(
+                    duration: WpMotion.durationFor(context, WpMotion.hoverOut),
+                    padding: const EdgeInsets.all(WpSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: _hovered && enabled
+                          ? WpColors.accent.withValues(alpha: 0.12)
+                          : null,
+                      borderRadius: WpRadius.borderSm,
+                    ),
+                    child: Icon(widget.icon, size: WpIconSize.xs, color: color),
                   ),
-                  child: Icon(widget.icon, size: 14, color: color),
                 ),
               ),
             ),
@@ -124,7 +138,11 @@ class WpFindReplaceBar extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onClose,
+    this.testIdPrefix = 'editor',
   });
+
+  /// The `<screen>` half of the bar's identifiers (`notes-editor-find-next`).
+  final String testIdPrefix;
 
   /// The field being searched. Pass a [WpFindHighlightController] to get the
   /// hits tinted; a plain controller works too, minus the tint.
@@ -148,6 +166,9 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
 
   WpFindMatches _matches = WpFindMatches.none;
   int _active = -1;
+  final WpFindThrottle _throttle = WpFindThrottle();
+  String? _lastText;
+  String? _lastQuery;
 
   @override
   void initState() {
@@ -170,6 +191,7 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
   @override
   void dispose() {
     widget.controller.removeListener(_onEditedTextChanged);
+    _throttle.dispose();
     _clearHighlight();
     _findCtrl.dispose();
     _replaceCtrl.dispose();
@@ -204,34 +226,32 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
   /// buttons hang off this, and "nothing found either time" is a state change
   /// the row still has to render.
   void _recompute({int? preferred}) {
-    final matches = WpFindReplace.locate(
-      widget.controller.text,
-      _findCtrl.text,
-    );
-    final active = WpFindReplace.clampIndex(
-      preferred ?? _active,
-      matches.count,
-    );
-    void assign() {
-      _matches = matches;
-      _active = active;
-    }
+    final text = widget.controller.text;
+    final query = _findCtrl.text;
+    // The controller also notifies for caret moves and for this bar's own
+    // highlight push; only a changed text or query needs a new search (#640).
+    if (preferred == null && text == _lastText && query == _lastQuery) return;
+    _lastText = text;
+    _lastQuery = query;
+    _throttle.run(text, query, (matches) {
+      final active = WpFindReplace.clampIndex(
+        preferred ?? _active,
+        matches.count,
+      );
+      void assign() {
+        _matches = matches;
+        _active = active;
+      }
 
-    if (mounted) {
-      setState(assign);
-    } else {
-      assign();
-    }
-    _pushHighlight();
+      if (mounted) {
+        setState(assign);
+      } else {
+        assign();
+      }
+      _pushHighlight();
+    });
   }
 
-  /// The body was edited (or its selection moved) — the offsets are suspect.
-  ///
-  /// This is reached by our own [_pushHighlight] too, since that is a
-  /// controller notification like any other. The loop ends one hop later:
-  /// re-pushing an identical highlight is a no-op inside
-  /// [WpFindHighlightController.setFindHighlight], so no second notification
-  /// is emitted.
   void _onEditedTextChanged() => _recompute();
 
   void _onQueryChanged(String _) => _recompute(preferred: 0);
@@ -273,9 +293,11 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
       replacement,
     );
     final landedAt = _active;
-    widget.controller.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: start + replacement.length),
+    _apply(
+      TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: start + replacement.length),
+      ),
     );
     // One hit fewer, so the same index now points at what used to be the next
     // one — pressing "replace" repeatedly walks forward without re-selecting.
@@ -289,12 +311,20 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
       _matches,
       _replaceCtrl.text,
     );
-    widget.controller.value = TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
+    _apply(
+      TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      ),
     );
     _recompute(preferred: 0);
   }
+
+  /// Each replace, and a whole replace-all, is one undo step (#651).
+  void _apply(TextEditingValue value) => TextUndoController.command(
+    widget.controller,
+    () => widget.controller.value = value,
+  );
 
   // ── Keyboard ──────────────────────────────────────────────────────────
 
@@ -326,6 +356,7 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
     final l10n = L10n.of(context);
     final hasQuery = _findCtrl.text.isNotEmpty;
     final hasMatches = _matches.isNotEmpty;
+    final id = '${widget.testIdPrefix}-find';
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -345,16 +376,19 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
           Row(
             children: [
               Expanded(
-                child: WpTextField(
-                  controller: _findCtrl,
-                  focusNode: _findFocus,
-                  variant: WpTextFieldVariant.form,
-                  maxLines: 1,
-                  autofocus: true,
-                  autocorrect: false,
-                  hintText: l10n.findReplaceFindHint,
-                  semanticsLabel: l10n.findReplaceFindLabel,
-                  onChanged: _onQueryChanged,
+                child: Semantics(
+                  identifier: '$id-input',
+                  child: WpTextField(
+                    controller: _findCtrl,
+                    focusNode: _findFocus,
+                    variant: WpTextFieldVariant.form,
+                    maxLines: 1,
+                    autofocus: true,
+                    autocorrect: false,
+                    hintText: l10n.findReplaceFindHint,
+                    semanticsLabel: l10n.findReplaceFindLabel,
+                    onChanged: _onQueryChanged,
+                  ),
                 ),
               ),
               const SizedBox(width: WpSpacing.xs),
@@ -362,21 +396,25 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
                 total: _matches.count,
                 active: _active,
                 hasQuery: hasQuery,
+                testId: '$id-count',
               ),
               _BarIconButton(
                 icon: LucideIcons.chevronUp,
                 label: l10n.findReplacePrevious,
                 onTap: hasMatches ? _previous : null,
+                testId: '$id-previous',
               ),
               _BarIconButton(
                 icon: LucideIcons.chevronDown,
                 label: l10n.findReplaceNext,
                 onTap: hasMatches ? _next : null,
+                testId: '$id-next',
               ),
               _BarIconButton(
                 icon: LucideIcons.x,
                 label: l10n.findReplaceClose,
                 onTap: widget.onClose,
+                testId: '$id-close',
               ),
             ],
           ),
@@ -385,14 +423,17 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
           Row(
             children: [
               Expanded(
-                child: WpTextField(
-                  controller: _replaceCtrl,
-                  focusNode: _replaceFocus,
-                  variant: WpTextFieldVariant.form,
-                  maxLines: 1,
-                  autocorrect: false,
-                  hintText: l10n.findReplaceReplaceHint,
-                  semanticsLabel: l10n.findReplaceReplaceLabel,
+                child: Semantics(
+                  identifier: '${widget.testIdPrefix}-replace-input',
+                  child: WpTextField(
+                    controller: _replaceCtrl,
+                    focusNode: _replaceFocus,
+                    variant: WpTextFieldVariant.form,
+                    maxLines: 1,
+                    autocorrect: false,
+                    hintText: l10n.findReplaceReplaceHint,
+                    semanticsLabel: l10n.findReplaceReplaceLabel,
+                  ),
                 ),
               ),
               const SizedBox(width: WpSpacing.xs),
@@ -400,11 +441,13 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
                 icon: LucideIcons.replace,
                 label: l10n.findReplaceReplaceAction,
                 onTap: hasMatches ? _replaceCurrent : null,
+                testId: '${widget.testIdPrefix}-replace-one',
               ),
               _BarIconButton(
                 icon: LucideIcons.replaceAll,
                 label: l10n.findReplaceReplaceAllAction,
                 onTap: hasMatches ? _replaceAll : null,
+                testId: '${widget.testIdPrefix}-replace-all',
               ),
             ],
           ),
@@ -425,11 +468,13 @@ class _MatchCounter extends StatelessWidget {
     required this.total,
     required this.active,
     required this.hasQuery,
+    required this.testId,
   });
 
   final int total;
   final int active;
   final bool hasQuery;
+  final String testId;
 
   @override
   Widget build(BuildContext context) {
@@ -444,11 +489,12 @@ class _MatchCounter extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
         child: Semantics(
           liveRegion: true,
+          identifier: testId,
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: WpColors.textMuted),
+            style: TextStyle(fontSize: 12, color: WpColors.textMuted),
           ),
         ),
       ),

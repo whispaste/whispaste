@@ -1,15 +1,11 @@
 /// Session-scoped completion-gate state for the final onboarding page.
 ///
-/// The "Los geht's" CTA (owned by the onboarding shell) is gated on TWO
-/// independent conditions:
-///  1. no confirmed hotkey conflict ([hotkeyRegistrationStatusProvider] —
-///     pre-existing residual gate, untouched here), AND
-///  2. a successful test recording with recognised speech — proven by a
-///     non-empty transcript arriving at the sandbox sink — OR the explicit
-///     "continue without a microphone" escape hatch.
-///
-/// The escape hatch bypasses ONLY the microphone condition, never the
-/// hotkey-conflict condition (PRD: "Zwei Abschluss-Gates auf Schritt 5").
+/// Onboarding v6 (flow version 5): the completion CTA is gated ONLY by a
+/// confirmed hotkey conflict ([hotkeyRegistrationStatusProvider]). The
+/// microphone and test-recording providers below are no longer part of the
+/// gate; the test-recording step still reads them for its own status display
+/// until that page is rebuilt (ticket V08). ReadyStep, which read them before,
+/// was removed in v6.
 ///
 /// Both states live for the duration of the app session (plain
 /// [Notifier]s, no persistence) — a completed onboarding never reads them
@@ -32,18 +28,4 @@ class OnboardingTestRecordingSucceededNotifier extends Notifier<bool> {
 final onboardingTestRecordingSucceededProvider =
     NotifierProvider<OnboardingTestRecordingSucceededNotifier, bool>(
       OnboardingTestRecordingSucceededNotifier.new,
-    );
-
-/// Latches to `true` when the user takes the deliberately restrained
-/// "continue without a microphone" escape hatch on the final page.
-class OnboardingMicBypassNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void activate() => state = true;
-}
-
-final onboardingMicBypassProvider =
-    NotifierProvider<OnboardingMicBypassNotifier, bool>(
-      OnboardingMicBypassNotifier.new,
     );

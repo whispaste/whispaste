@@ -66,10 +66,13 @@ ModelManifest wav2vec2ModelManifest() => ModelManifest(
   entries: [
     ModelEntry(
       name: wav2vec2ModelSizeKey,
-      // PLACEHOLDER — confirm before live run.
+      // PLACEHOLDER — the file does not exist at any commit (HTTP 404,
+      // checked 2026-11-16); pinned so a later upload cannot slip in
+      // unreviewed.
       downloadUrl: Uri.parse(
         'https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-german'
-        '/resolve/main/wav2vec2-large-xlsr-53-german.onnx',
+        '/resolve/4b8a02957378d0f2da2ef74091156b032c485a89'
+        '/wav2vec2-large-xlsr-53-german.onnx',
       ),
       // PLACEHOLDER — compute SHA-256 of confirmed model file.
       sha256: '',

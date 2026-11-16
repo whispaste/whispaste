@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 
 // ---------------------------------------------------------------------------
@@ -20,32 +21,28 @@ import '../core/theme/tokens.dart';
 //
 // The split is not cosmetic — it follows the surface a list sits on:
 //
-//   * [WpListTileVariant.card] — full-width page lists (replacements,
-//     snippets) inside `WpSearchableListPage`. The row is a card on the page
-//     ground: it carries a visible resting border and a frost fill, because
-//     with nothing else on the page an invisible row edge would leave the list
-//     shapeless. No selection state — these rows open a dialog, they are never
-//     "the current one".
-//   * [WpListTileVariant.panel] — narrow split-view panels (history, notes).
-//     The row is transparent at rest so a dense list stays quiet
-//     (DESIGN.md "Quiet Signal"), and spends its ink on the states that
-//     matter in a panel with a detail pane: selection and the keyboard
-//     cursor, both drawn in accent.
-//   * [WpListTileVariant.overview] — a full-width list with no detail pane
-//     open (history overview). The row is a quiet card: frost fill, 1 px
-//     neutral edge, `md` radius, so a short list does not read as bare text.
+//   * [WpListTileVariant.card] — the item lists (recordings, notes,
+//     snippets), in every layout: full width or next to a detail pane
+//     (#1498). The row is a card on the page ground: a visible resting
+//     border and a frost fill, so a row reads as one object whether the list
+//     is long or holds two items. Selection (the open item, or a checked row
+//     in multi-select) swaps the edge for `controlEdge` at the same width.
+//     The list owns the gap between cards.
+//   * [WpListTileVariant.panel] — settings-like rows (replacements, the side
+//     panel lists). The row is transparent at rest with a hairline divider,
+//     so a dense list of short entries stays quiet (DESIGN.md "Quiet
+//     Signal"), and spends its ink on hover, selection and the keyboard
+//     cursor.
 //
 // Everything the variants share is fixed here and cannot drift again: the
-// hover-in/hover-out motion and the tile state rules. Radius and resting border
-// width are per variant (`overview` is the one that differs). Guarded by
-// `test/widgets/list_tile_surface_consistency_test.dart`, which compares the
-// four real call sites *against each other* rather than
-// against numbers.
+// hover-in/hover-out motion, the radius, the border width and the tile state
+// rules. A state change never changes the border width, so the label never
+// moves.
 //
 // ## Why there is no shadow (Ticket 08)
 //
 // Until the visual refresh the card variant lifted itself on hover with
-// `WpShadows.subtle` *on top of* a fill change — two depth cues on one
+// a resting shadow (since removed) *on top of* a fill change — two depth cues on one
 // element. On the app's single dark ground depth comes from the brightness
 // delta alone; a drop shadow under a row that sits *in* the plane rather than
 // above it only muddies the ambient gradient it is supposed to let through.
@@ -65,31 +62,24 @@ import '../core/theme/tokens.dart';
 // [actions] is a trailing slot at the *envelope* level: the row's content
 // gets the flexible remainder, the actions get their intrinsic width, and
 // `WpRowActions` reserves its own height so revealing them never reflows the
-// row. Replacements and snippets use it — their single action genuinely
-// belongs to the row as a whole.
+// row. Only replacements still use it.
 //
-// History and notes deliberately pass their actions inside [child] instead,
-// because theirs belong to one specific *line* of a multi-line tile:
-// history's three actions share the metadata line with the timestamp, and
-// notes' trash actions sit on the title line next to the relative date.
-// Hoisting them to the envelope would move them visually. The slot is an
-// offer, not an obligation.
+// Item rows (recordings, notes, snippets) pass their actions inside [child]
+// instead, through `WpListItemContent` (#1498): the dense actions sit at the
+// end of the *title line*, so preview and meta keep the full row width and
+// the three lists share one row layout. The slot is an offer, not an
+// obligation.
 // ---------------------------------------------------------------------------
 
 /// Which surface a list row sits on — see the library comment for why this
 /// is the only axis the tile envelope varies along.
 enum WpListTileVariant {
-  /// Opaque card on a full-width page (replacements, snippets).
+  /// Frost card with a resting edge: the item lists (recordings, notes,
+  /// snippets).
   card,
 
-  /// Transparent-at-rest row in a narrow split-view panel (history, notes).
+  /// Transparent-at-rest row with a divider (replacements, side panel).
   panel,
-
-  /// Quiet card row in a full-width list with no detail open (history
-  /// overview). It reads as a row on the page ground: frost fill, a 1 px
-  /// neutral edge and the smaller `md` radius, with the same tile state
-  /// rules as [card] (hover/focus brighten, selection tints).
-  overview,
 }
 
 /// The shared envelope of every list row: fill, radius, border, shadow fade
@@ -107,11 +97,7 @@ class WpListTileSurface extends StatelessWidget {
     this.isFocused = false,
     this.isSelected = false,
     this.actions,
-  }) : assert(
-         variant != WpListTileVariant.card || !isSelected,
-         'Card rows open a dialog and are never "the current one" — '
-         'selection is a panel-variant state.',
-       );
+  });
 
   final WpListTileVariant variant;
 
@@ -124,8 +110,7 @@ class WpListTileSurface extends StatelessWidget {
   /// [WpFocusRing] at the call site.
   final bool isFocused;
 
-  /// The row is the one shown in the detail pane (panel variant only). In the
-  /// overview variant it means "checked" (multi-select) and tints the fill.
+  /// The row is the one shown in the detail pane, or checked in multi-select.
   final bool isSelected;
 
   /// Optional trailing actions at the envelope level — typically a
@@ -144,38 +129,33 @@ class WpListTileSurface extends StatelessWidget {
   /// area's edge.
   static const double panelHorizontalMargin = 0.0;
 
+  /// Vertical padding of the panel row (spec §3: 16/14). Off the spacing scale
+  /// on purpose; 14 is the row's own rhythm, not a list gap.
+  static const double panelVerticalPadding = 14;
+
   /// Hairline gap between rows so adjacent selection borders never touch.
   /// Off-scale on purpose — `WpSpacing.xxs` would read as a list gap.
   static const double panelVerticalMargin = 1.0;
 
-  /// Resting border width, shared by the card and panel variants. The
-  /// dark-theme selection stroke is the single documented exception (2 px,
-  /// see [_border]). The overview variant draws a 1 px edge instead, see
-  /// [overviewBorderWidth].
+  /// Border width of every variant in every state.
   static const double borderWidth = 1.5;
-
-  /// Edge width of the [WpListTileVariant.overview] row.
-  static const double overviewBorderWidth = 1.0;
 
   bool get _isActive => isHovered || isFocused || isSelected;
 
   Color _fill() {
     switch (variant) {
       case WpListTileVariant.card:
-      case WpListTileVariant.overview:
         // Frost, not `surfaceElevated`/`hover`: a card row is a translucent
         // tinted plate over the one ambient gradient, so the ground keeps
         // running underneath the list instead of being cut into opaque bands.
         // The hover delta is deliberately quiet (~1.03:1) — it is carried
         // jointly by the fill and the tinted edge in [_border], and the row's
         // real hover affordance is the action slot it reveals.
-        if (variant == WpListTileVariant.overview && isSelected) {
-          return WpColors.accentSubtle;
-        }
         return _isActive ? WpColors.cardFillElevated : WpColors.cardFill;
       case WpListTileVariant.panel:
+        // Selected rows are white cards, never a cyan wash (ticket §3).
         if (isSelected) {
-          return WpColors.accentSubtle;
+          return WpColors.surfaceElevated;
         }
         if (isFocused || isHovered) {
           return WpColors.hover;
@@ -187,6 +167,9 @@ class WpListTileSurface extends StatelessWidget {
   Border _border() {
     switch (variant) {
       case WpListTileVariant.card:
+        if (isSelected) {
+          return Border.all(color: WpColors.controlEdge, width: borderWidth);
+        }
         // Active edge is the tinted `cardEdgeHighlight` rather than the
         // neutral `cardActiveBorder`: on a frost plate the rim is what carries
         // the shape, and a white rim over a chromatic fill is the exact
@@ -195,30 +178,13 @@ class WpListTileSurface extends StatelessWidget {
           color: _isActive ? WpColors.cardEdgeHighlight : WpColors.borderSubtle,
           width: borderWidth,
         );
-      case WpListTileVariant.overview:
-        if (isSelected) {
-          return Border.all(
-            color: WpColors.accent.withValues(alpha: 0.5),
-            width: overviewBorderWidth,
-          );
-        }
-        return Border.all(
-          color: _isActive ? WpColors.cardEdgeHighlight : WpColors.borderSubtle,
-          width: overviewBorderWidth,
-        );
       case WpListTileVariant.panel:
-        const accent = WpColors.accent;
+        final accent = WpColors.accent;
+        // One width in every state, the same resting width as the other list
+        // areas (see list_tile_surface_consistency_test): a state change must
+        // not move the label.
         if (isSelected) {
-          // Light-theme ink is deliberately reduced (history polish pass,
-          // 2026-07-28): the light accent #06678A is itself dark
-          // (rel. luminance ≈ 0.11), so a 2 px @ 0.7 stroke was the darkest
-          // ink in the whole list (≈ 3.4:1 against the 0.92-lum surface) and
-          // read as "much too dark". 1.5 px @ 0.6 keeps the stroke at
-          // ≈ 2.9:1 — still clearly visible on top of the tinted fill and the
-          // lifted shadow — with ~45 % less ink. Dark keeps the approved
-          // full-strength values, and is the one place the shared
-          // [borderWidth] is exceeded.
-          return Border.all(color: accent.withValues(alpha: 0.7), width: 2);
+          return Border.all(color: WpColors.controlEdge, width: borderWidth);
         }
         if (isFocused) {
           return Border.all(
@@ -242,50 +208,54 @@ class WpListTileSurface extends StatelessWidget {
         );
       case WpListTileVariant.panel:
         return const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.md,
-        );
-      case WpListTileVariant.overview:
-        return const EdgeInsets.symmetric(
           horizontal: WpSpacing.md,
-          vertical: WpSpacing.sm,
+          vertical: panelVerticalPadding,
         );
     }
   }
 
   BorderRadius _radius() {
     switch (variant) {
-      case WpListTileVariant.overview:
-        return WpRadius.borderMd;
+      // One radius for every row (ticket §3: selected row radius 10).
       case WpListTileVariant.card:
       case WpListTileVariant.panel:
-        return WpRadius.borderLg;
+        return BorderRadius.circular(WpRadiusTokens.control);
     }
   }
 
   EdgeInsets _margin() {
     switch (variant) {
       case WpListTileVariant.card:
-        // The list's `separatorBuilder` owns the gap between card rows.
+        // The list owns the gap between card rows (`WpSpacing.xs`).
         return EdgeInsets.zero;
       case WpListTileVariant.panel:
         return const EdgeInsets.symmetric(
           horizontal: panelHorizontalMargin,
           vertical: panelVerticalMargin,
         );
-      case WpListTileVariant.overview:
-        // 8 px between rows: each row carries 4 px above and below.
-        return const EdgeInsets.symmetric(vertical: WpSpacing.xxs);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final content = actions == null
+    final padding = _padding();
+    // With an actions slot the vertical padding moves from the envelope onto
+    // the content, next to the actions. The actions box (48 px, reserved by
+    // WpRowActions) is then the row's minimum height: a single-line row is
+    // 48 px at least, and a multi-line one keeps its full padding above and
+    // below to the divider. Callers must keep 48 px touch targets out of the
+    // content column, or the content's own floor would add to this padding.
+    final hasActions = actions != null;
+    final content = !hasActions
         ? child
         : Row(
             children: [
-              Expanded(child: child),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: padding.top),
+                  child: child,
+                ),
+              ),
               actions!,
             ],
           );
@@ -297,15 +267,33 @@ class WpListTileSurface extends StatelessWidget {
       ),
       curve: WpMotion.defaultCurve,
       margin: _margin(),
-      padding: _padding(),
+      padding: hasActions
+          ? EdgeInsets.symmetric(horizontal: padding.left)
+          : padding,
       decoration: BoxDecoration(
         color: _fill(),
         borderRadius: _radius(),
         border: _border(),
-        // No `boxShadow` at all — see the library comment. A row lives in the
-        // plane; its depth is the brightness delta.
       ),
-      child: content,
+      child: variant == WpListTileVariant.panel
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                content,
+                // The rule sits at the text start (inside the horizontal
+                // padding). It is transparent when selected so both states
+                // keep the same height and label position.
+                Container(
+                  key: const ValueKey('wp-list-tile-divider'),
+                  height: 1,
+                  color: isSelected
+                      ? Colors.transparent
+                      : WpColors.borderSubtle,
+                ),
+              ],
+            )
+          : content,
     );
   }
 }

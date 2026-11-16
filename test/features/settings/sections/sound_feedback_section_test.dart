@@ -27,11 +27,15 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
   AppSettings _settings;
 
+  /// Number of settings writes, for the drag-persistence test (UIA-SET-13).
+  int writes = 0;
+
   @override
   Future<AppSettings> build() async => _settings;
 
   @override
   Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    writes++;
     _settings = updater(state.value ?? _settings);
     state = AsyncData(_settings);
   }
@@ -59,10 +63,33 @@ void main() {
   ];
 
   group('SoundFeedbackSection', () {
+    testWidgets('dragging the volume writes settings only on release '
+        '(UIA-SET-13)', (tester) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SoundFeedbackSection()),
+          overrides: buildOverrides(notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(30);
+      await tester.pump();
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(40);
+      await tester.pump();
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 40);
+      expect(notifier.writes, 0);
+
+      tester.widget<Slider>(find.byType(Slider)).onChangeEnd!(40);
+      await tester.pump();
+      expect(notifier.writes, 1);
+    });
+
     // ── No master toggle ─────────────────────────────────────────────────────
 
     testWidgets(
-      'no "Sounds enabled" master toggle — no Switch widget rendered',
+      'no "Sounds enabled" master toggle — only the per-cue switches remain',
       (tester) async {
         final notifier = _FakeSettingsNotifier(AppSettings.defaults);
         await tester.pumpWidget(
@@ -73,7 +100,12 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(Switch), findsNothing);
+        // Six per-cue switches, none of them a master switch.
+        expect(find.byType(Switch), findsNWidgets(6));
+        expect(
+          find.byKey(const Key('settings-sound-enabled-toggle')),
+          findsNothing,
+        );
       },
     );
 

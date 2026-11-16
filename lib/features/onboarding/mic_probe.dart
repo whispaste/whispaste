@@ -15,12 +15,15 @@
 library;
 
 import 'dart:async';
+import 'dart:io' show ProcessException;
 
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 import '../../core/logging/app_logger.dart';
 import '../../services/audio/amplitude_from_pcm.dart';
+import '../../services/audio/level_smoother.dart';
+import '../../services/audio/speech_level_mapper.dart';
 
 /// Result of a single [OnboardingMicProbe.start] run.
 enum MicProbeOutcome {
@@ -36,6 +39,18 @@ enum MicProbeOutcome {
   /// The OS denied microphone access — handled separately from [error]
   /// because the UI shows TCC-specific instructions for it.
   permissionDenied,
+
+  /// The recorder could not start and the system lists no input device at
+  /// all: nothing is plugged in or enabled.
+  noDevice,
+
+  /// The stream ran and then broke off: the device was unplugged or switched
+  /// off mid-test.
+  disconnected,
+
+  /// Linux: the capture tool (`parecord`, package pulseaudio-utils) is not
+  /// installed, so no microphone can be opened at all (#85).
+  toolMissing,
 
   /// Anything else (recorder threw, stream errored, plugin crashed). The UI
   /// folds this into the same retry path as [silence] but with a generic
@@ -92,6 +107,9 @@ class _RealMicProbeRecorder implements MicProbeRecorder {
 ///
 /// `start` can be called again after `stop` — used by the retry / device-
 /// switch flow.
+PcmLevelMeter _defaultMeter({required Duration pollInterval}) =>
+    AmplitudeFromPcm(pollInterval: pollInterval);
+
 class OnboardingMicProbe {
   static final _log = AppLogger('MicProbe');
 
@@ -101,10 +119,15 @@ class OnboardingMicProbe {
     this.speechThresholdDbFs = -42.0,
     this.sustainedAbove = const Duration(milliseconds: 120),
     this._pollInterval = const Duration(milliseconds: 40),
-  }) : _recorder = recorder ?? _RealMicProbeRecorder();
+    PcmLevelMeter Function({required Duration pollInterval})? meterFactory,
+  }) : _recorder = recorder ?? _RealMicProbeRecorder(),
+       _meterFactory = meterFactory ?? _defaultMeter;
 
-  /// Wall-clock budget for detecting speech before the probe gives up.
-  final Duration timeout;
+  /// Wall-clock budget for detecting speech before the probe gives up with
+  /// [MicProbeOutcome.silence]. `null` listens without a budget: the caller
+  /// then owns the silence decision and the outcome future resolves only on
+  /// speech, permission denial or an error.
+  final Duration? timeout;
 
   /// Peak dBFS that has to be crossed to count as real signal. Set just above
   /// the noise floor of a typical built-in mic in a quiet room (~ −45 dBFS),
@@ -121,14 +144,32 @@ class OnboardingMicProbe {
 
   final ValueNotifier<double> _level = ValueNotifier<double>(0.0);
 
+  /// Same curve and smoothing as the recording overlay, so the first
+  /// waveform a user sees moves like the one they will dictate with.
+  static const _mapper = SpeechLevelMapper();
+  final LevelSmoother _smoother = LevelSmoother();
+  final ValueNotifier<bool> _capturing = ValueNotifier<bool>(false);
+
+  /// True while a stream is open and delivering audio. Lets the UI clear an
+  /// error as soon as an automatic retry gets the device back, without
+  /// waiting for speech.
+  ValueListenable<bool> get capturing => _capturing;
+
   /// Normalised amplitude in `[0.0, 1.0]`. Driven by the live PCM stream while
   /// the probe is running; stays at `0.0` before [start] and after [stop].
   ValueListenable<double> get level => _level;
 
+  /// Builds the level meter of each run. Tests inject a meter without timers.
+  final PcmLevelMeter Function({required Duration pollInterval}) _meterFactory;
+
   StreamSubscription<Uint8List>? _pcmSub;
   StreamSubscription<double>? _ampSub;
-  AmplitudeFromPcm? _amplitudeFromPcm;
+  PcmLevelMeter? _meter;
   Timer? _timeoutTimer;
+
+  /// Bumped by every start, stop and dispose. A run whose generation is no
+  /// longer current must not touch the shared fields after an await.
+  int _generation = 0;
   Completer<MicProbeOutcome>? _outcome;
   Duration _sustainedAccum = Duration.zero;
   bool _disposed = false;
@@ -145,11 +186,6 @@ class OnboardingMicProbe {
 
   /// Runs one probe cycle and resolves with the outcome.
   ///
-  /// [device] is forwarded into [RecordConfig.device]. On macOS the
-  /// underlying `record_macos` plugin ignores this field (see
-  /// [AudioRoutingService]); callers that need a non-default device on macOS
-  /// must flip the system default before calling and restore it on tear-down.
-  ///
   /// Idempotent against concurrent calls — if a probe is already running the
   /// in-flight future is returned. After [stop] the probe can be started
   /// again (retry / device-switch flow).
@@ -158,65 +194,119 @@ class OnboardingMicProbe {
     final existing = _outcome;
     if (existing != null && !existing.isCompleted) return existing.future;
 
+    final generation = ++_generation;
     final outcome = _outcome = Completer<MicProbeOutcome>();
     _sustainedAccum = Duration.zero;
+    _smoother.reset();
     _level.value = 0.0;
 
-    unawaited(_runStream(outcome, device));
+    unawaited(_runStream(generation, outcome, device));
     return outcome.future;
   }
 
   Future<void> _runStream(
+    int generation,
     Completer<MicProbeOutcome> outcome,
     InputDevice? device,
   ) async {
+    // What this run created. A superseded run releases exactly these objects
+    // and never the ones of a newer run.
+    PcmLevelMeter? meter;
+    StreamSubscription<double>? ampSub;
+    StreamSubscription<Uint8List>? pcmSub;
+    bool current() => generation == _generation && !outcome.isCompleted;
+
     try {
       final granted = await _recorder.hasPermission();
-      if (outcome.isCompleted) return;
+      if (!current()) return;
       if (!granted) {
         outcome.complete(MicProbeOutcome.permissionDenied);
         return;
       }
 
-      _amplitudeFromPcm = AmplitudeFromPcm(pollInterval: _pollInterval);
-      _ampSub = _amplitudeFromPcm!.stream.listen(_onDbFs);
+      final created = _meterFactory(pollInterval: _pollInterval);
+      meter = created;
+      ampSub = created.stream.listen((dbFs) {
+        if (generation == _generation) _onDbFs(dbFs);
+      });
+      _meter = created;
+      _ampSub = ampSub;
 
+      // Same capture as a dictation (#1611): no platform level control, the
+      // probe measures the raw signal the recording's silence and quiet
+      // checks also read.
       final pcmStream = await _recorder.startStream(
         RecordConfig(
           encoder: AudioEncoder.pcm16bits,
           sampleRate: 16000,
           numChannels: 1,
-          autoGain: true,
+          autoGain: false,
           echoCancel: false,
           noiseSuppress: true,
           device: device,
         ),
       );
-      if (outcome.isCompleted) {
-        await _teardownCapture();
+      if (!current()) {
+        // Superseded while starting. Stop the stream this run just opened,
+        // unless a newer run already owns the recorder.
+        await ampSub.cancel();
+        await _releaseRun(meter: meter, ampSub: ampSub, pcmSub: null);
+        final owned = _outcome != null && !_outcome!.isCompleted;
+        if (!owned) await _stopRecorderQuietly();
         return;
       }
-      _pcmSub = pcmStream.listen(
-        (bytes) => _amplitudeFromPcm?.addChunk(bytes),
-        onError: (Object _, StackTrace _) =>
-            _completeIfPending(MicProbeOutcome.error),
+      pcmSub = pcmStream.listen(
+        created.addChunk,
+        onError: (Object _, StackTrace _) {
+          _capturing.value = false;
+          if (!outcome.isCompleted) {
+            outcome.complete(MicProbeOutcome.disconnected);
+          }
+        },
+        // A stream that ends on its own while this run still listens lost
+        // its device.
+        onDone: () {
+          if (!current()) return;
+          _capturing.value = false;
+          outcome.complete(MicProbeOutcome.disconnected);
+        },
         cancelOnError: true,
       );
+      _pcmSub = pcmSub;
+      _capturing.value = true;
 
-      _timeoutTimer = Timer(timeout, () {
-        _completeIfPending(MicProbeOutcome.silence);
-      });
-    } catch (_) {
-      _completeIfPending(MicProbeOutcome.error);
+      final budget = timeout;
+      if (budget != null) {
+        _timeoutTimer = Timer(budget, () {
+          if (generation == _generation) {
+            _completeIfPending(MicProbeOutcome.silence);
+          }
+        });
+      }
+    } catch (e) {
+      if (!outcome.isCompleted && e is ProcessException) {
+        outcome.complete(MicProbeOutcome.toolMissing);
+      } else if (!outcome.isCompleted) {
+        // Without any listed input the cause is clear; otherwise the device
+        // is busy, exclusive or failed in a way the plugin does not tell.
+        final none = (await listInputDevices()).isEmpty;
+        if (!outcome.isCompleted) {
+          outcome.complete(
+            none ? MicProbeOutcome.noDevice : MicProbeOutcome.error,
+          );
+        }
+      }
+      await ampSub?.cancel();
+      await pcmSub?.cancel();
+      await _releaseRun(meter: meter, ampSub: ampSub, pcmSub: pcmSub);
     }
   }
 
   void _onDbFs(double dbFs) {
-    // dBFS → 0..1 mapping for waveform visualisation. -60..0 covers everything
-    // from a quiet room to clipping, which is enough headroom for an
-    // onboarding-grade meter.
-    final clamped = dbFs.isFinite ? dbFs.clamp(-60.0, 0.0) : -60.0;
-    _level.value = (clamped + 60.0) / 60.0;
+    _level.value = _smoother.step(
+      _mapper.map(dbFs),
+      _pollInterval.inMicroseconds / 1000.0,
+    );
 
     if (dbFs > speechThresholdDbFs) {
       _sustainedAccum += _pollInterval;
@@ -241,20 +331,28 @@ class OnboardingMicProbe {
 
   /// Stops the active stream but keeps the recorder alive for a retry.
   Future<void> stop() async {
+    _generation++;
     _completeIfPending(MicProbeOutcome.error);
     await _teardownCapture();
+    _smoother.reset();
     _level.value = 0.0;
   }
 
+  /// Releases the objects of the latest run. Their fields are detached
+  /// before the first await, so a start that begins meanwhile is not touched.
   Future<void> _teardownCapture() async {
+    _capturing.value = false;
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
-    await _pcmSub?.cancel();
+    final pcmCancel = _pcmSub?.cancel();
     _pcmSub = null;
-    await _ampSub?.cancel();
+    final ampCancel = _ampSub?.cancel();
     _ampSub = null;
-    await _amplitudeFromPcm?.dispose();
-    _amplitudeFromPcm = null;
+    final meter = _meter;
+    _meter = null;
+    await pcmCancel;
+    await ampCancel;
+    await meter?.dispose();
     try {
       if (await _recorder.isRecording()) {
         await _recorder.stop();
@@ -266,10 +364,33 @@ class OnboardingMicProbe {
     }
   }
 
+  Future<void> _stopRecorderQuietly() async {
+    try {
+      if (await _recorder.isRecording()) await _recorder.stop();
+    } catch (e) {
+      _log.debug('MicProbe recorder stop failed (non-fatal): $e');
+    }
+  }
+
+  /// Releases the meter of one run and clears the fields only while they still
+  /// hold that run's objects. The subscriptions are cancelled by the caller.
+  Future<void> _releaseRun({
+    required PcmLevelMeter? meter,
+    required StreamSubscription<double>? ampSub,
+    required StreamSubscription<Uint8List>? pcmSub,
+  }) async {
+    if (pcmSub != null && identical(_pcmSub, pcmSub)) _pcmSub = null;
+    if (ampSub != null && identical(_ampSub, ampSub)) _ampSub = null;
+    if (meter != null && identical(_meter, meter)) _meter = null;
+    await meter?.dispose();
+  }
+
   /// Releases the underlying recorder. Safe to call multiple times.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    _generation++;
+    _completeIfPending(MicProbeOutcome.error);
     await _teardownCapture();
     try {
       await _recorder.dispose();
@@ -277,5 +398,6 @@ class OnboardingMicProbe {
       _log.debug('MicProbe recorder dispose failed (non-fatal): $e');
     }
     _level.dispose();
+    _capturing.dispose();
   }
 }

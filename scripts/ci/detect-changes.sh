@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # detect-changes.sh <before-sha> <after-sha> <full:true|false>
-# Writes app/platform_full/website/golden=true|false to $GITHUB_OUTPUT so ci.yml can skip
+# Writes app/platform_full/native_windows/native_macos/website=true|false to $GITHUB_OUTPUT so ci.yml can skip
 # jobs a push cannot affect. Fails open: an unknown base (new branch,
 # force-push, shallow miss) or a non-push event runs everything.
 set -euo pipefail
@@ -9,8 +9,9 @@ before="$1"; after="$2"; full="$3"
 out="${GITHUB_OUTPUT:-/dev/stdout}"
 
 all_true() {
-  { echo "app=true"; echo "platform_full=true"; echo "website=true"; echo "golden=true"; } >> "$out"
-  echo "app=true platform_full=true website=true golden=true (full run)"
+  { echo "app=true"; echo "platform_full=true"; echo "native_windows=true"
+    echo "native_macos=true"; echo "website=true"; } >> "$out"
+  echo "app=true platform_full=true native_windows=true native_macos=true website=true (full run)"
   exit 0
 }
 
@@ -34,7 +35,7 @@ has() { echo "$files" | grep -qE "$1" && echo true || echo false; }
 
 # App: anything that is not website, prose docs, or another workflow.
 app=$(echo "$files" \
-  | grep -vE '^website/|^docs/|\.md$|^\.github/|^\.githooks/|^\internal-notes|^\.claude/' \
+  | grep -vE '^website/|^docs/|\.md$|^\.github/|^\.githooks/|^\.claude/' \
   | grep -q . && echo true || echo false)
 website=$(has '^website/')
 # Windows/macOS normally run only the tests that branch on the platform
@@ -51,12 +52,14 @@ else
       platform_full=true
       break
     fi
-  done <<< "$files"
+  done < <(printf '%s\n' "$files")
 fi
-# Golden baselines render widgets, theme, strings, fonts/assets and the
-# overlay. Deeper dependencies (providers, data layer) are left to the
-# weekly full run and the local pre-commit golden reminder.
-golden=$(has '^lib/(features|widgets|core/theme|core/l10n|l10n|services/floating_overlay)/|^lib/app\.dart$|^assets/|^fonts/|golden|^test/(screenshots|fixtures)/|^pubspec\.(yaml|lock)$|^l10n\.yaml$|^test/flutter_test_config\.dart$|^dart_test\.yaml$')
 
-{ echo "app=$app"; echo "platform_full=$platform_full"; echo "website=$website"; echo "golden=$golden"; } >> "$out"
-echo "app=$app platform_full=$platform_full website=$website golden=$golden"
+# Native code of one OS (runner, shared native sources, plugin packages,
+# dependency pins): only then does a dev push build that OS (decision 14a).
+native_windows=$(has '^pubspec\.(yaml|lock)$|^(windows|native|packages)/')
+native_macos=$(has '^pubspec\.(yaml|lock)$|^(macos|native|packages)/')
+
+{ echo "app=$app"; echo "platform_full=$platform_full"; echo "native_windows=$native_windows"
+  echo "native_macos=$native_macos"; echo "website=$website"; } >> "$out"
+echo "app=$app platform_full=$platform_full native_windows=$native_windows native_macos=$native_macos website=$website"

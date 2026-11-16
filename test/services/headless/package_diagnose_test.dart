@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'dart:ffi' as ffi;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -11,9 +13,29 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLibraryPathFor;
 import 'package:whispaste/services/stt/native_call_guard.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
-    show whisperLibraryPathFor;
+    show whisperLibraryPathFor, whisperVadModelFileName, whisperVadModelPathFor;
 
 String? _noCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) => null;
+
+/// Console stand-in: keeps what it is given, never takes it ([stall]) or
+/// fails ([fail]).
+class _Console implements StreamConsumer<List<int>> {
+  _Console({this.stall = false, this.fail = false});
+
+  final bool stall;
+  final bool fail;
+  final received = <int>[];
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) {
+    if (stall) return Completer<void>().future;
+    if (fail) return Future.error(const StdoutException('no handle'));
+    return stream.forEach(received.addAll);
+  }
+
+  @override
+  Future<void> close() async {}
+}
 
 void main() {
   group('PackageDiagnoseOptions', () {
@@ -58,6 +80,7 @@ void main() {
         ]);
         expect(libs[0].path, whisperLibraryPathFor(exe));
         expect(libs[0].symbols, contains('whisper_full'));
+        expect(libs[0].selfCheck, selfCheckWhisperVadModel);
         expect(
           libs[1].path,
           NativeCallGuard.pathNextTo(whisperLibraryPathFor(exe)),
@@ -67,6 +90,41 @@ void main() {
         expect(libs[2].symbols, contains('smart_mode_load'));
       },
     );
+  });
+
+  group('selfCheckWhisperVadModel', () {
+    late Directory dir;
+    late String library;
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('wp_diag_vad_');
+      library = p.join(dir.path, 'libwhisper.so');
+    });
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    test('fails when the VAD model is not next to libwhisper', () {
+      expect(
+        () => selfCheckWhisperVadModel(library),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(whisperVadModelFileName),
+          ),
+        ),
+      );
+    });
+
+    test('passes where the engine looks for the VAD model', () {
+      final exe = p.join(dir.path, 'whispaste');
+      File(whisperVadModelPathFor(exe))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([0]);
+      expect(
+        () => selfCheckWhisperVadModel(whisperLibraryPathFor(exe)),
+        returnsNormally,
+      );
+    });
   });
 
   group('runPackageDiagnose', () {
@@ -224,6 +282,55 @@ void main() {
         ),
         throwsA(anything),
       );
+    });
+  });
+
+  group('emitPackageDiagnoseReport', () {
+    test('with --out writes only the file, never the console', () async {
+      final dir = Directory.systemTemp.createTempSync('wp-diagnose-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final path = p.join(dir.path, 'r.json');
+      final console = _Console();
+      await emitPackageDiagnoseReport(
+        '{"ok":true}',
+        outPath: path,
+        console: IOSink(console),
+      );
+      expect(File(path).readAsStringSync(), '{"ok":true}\n');
+      expect(console.received, isEmpty);
+    });
+
+    test('without --out prints the report to the console', () async {
+      final console = _Console();
+      final delivered = await emitPackageDiagnoseReport(
+        '{"ok":true}',
+        console: IOSink(console),
+      );
+      expect(delivered, isTrue);
+      expect(utf8.decode(console.received), '{"ok":true}\n');
+    });
+
+    test('returns after the timeout when the console never takes it', () {
+      fakeAsync((async) {
+        bool? delivered;
+        emitPackageDiagnoseReport(
+          '{}',
+          console: IOSink(_Console(stall: true)),
+          timeout: const Duration(seconds: 2),
+        ).then((value) => delivered = value);
+        async.elapse(const Duration(seconds: 1));
+        expect(delivered, isNull);
+        async.elapse(const Duration(seconds: 1));
+        expect(delivered, isFalse);
+      });
+    });
+
+    test('returns when the console fails', () async {
+      final delivered = await emitPackageDiagnoseReport(
+        '{}',
+        console: IOSink(_Console(fail: true)),
+      );
+      expect(delivered, isFalse);
     });
   });
 }

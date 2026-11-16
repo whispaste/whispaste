@@ -1,4 +1,4 @@
-/// Visual card selector for the overlay-size setting (mini/compact/normal).
+/// Visual card selector for the overlay-size setting (nano/mini/compact/normal).
 ///
 /// Replaces the former text dropdown in [OverlaySection]
 /// (`lib/features/settings/sections/overlay_button_section.dart`) with three
@@ -41,12 +41,14 @@ class WpOverlaySizeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // Wrap, not Row: at large text scales the card labels grow and the three
+    // cards reflow onto a second line instead of overflowing the row (ticket).
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: WpSpacing.xs,
+      runSpacing: WpSpacing.xs,
       children: [
-        for (final size in FloatingOverlaySize.values) ...[
-          if (size != FloatingOverlaySize.values.first)
-            const SizedBox(width: WpSpacing.xs),
+        for (final size in FloatingOverlaySize.values)
           _OverlaySizeCard(
             key: ValueKey('overlay-size-card-${size.value}'),
             size: size,
@@ -54,7 +56,6 @@ class WpOverlaySizeSelector extends StatelessWidget {
             selected: size == value,
             onTap: () => onChanged(size),
           ),
-        ],
       ],
     );
   }
@@ -64,12 +65,14 @@ class WpOverlaySizeSelector extends StatelessWidget {
         FloatingOverlaySize.normal => l10n.settingsOverlaySizeNormal,
         FloatingOverlaySize.compact => l10n.settingsOverlaySizeCompact,
         FloatingOverlaySize.mini => l10n.settingsOverlaySizeMini,
+        FloatingOverlaySize.nano => l10n.settingsOverlaySizeNano,
       };
 
   static OverlaySizeSpec _specFor(FloatingOverlaySize size) => switch (size) {
     FloatingOverlaySize.normal => OverlaySizeSpec.normal,
     FloatingOverlaySize.compact => OverlaySizeSpec.compact,
     FloatingOverlaySize.mini => OverlaySizeSpec.mini,
+    FloatingOverlaySize.nano => OverlaySizeSpec.nano,
   };
 }
 

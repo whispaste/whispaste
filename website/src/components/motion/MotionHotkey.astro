@@ -28,16 +28,18 @@ const accentId = `hk-accent-${Math.random().toString(36).slice(2, 8)}`;
     </linearGradient>
   </defs>
 
-  <!-- keycaps: the app's default main hotkey, Ctrl+Shift+D (internal-notes §2.5) -->
+  <!-- keycaps: the app's default main hotkey, Ctrl+Shift+D (internal-notes §2.5).
+       Modifier labels follow the visitor's OS like the hero keycaps (#238):
+       data-os on <html> picks ⌘/⇧ on macOS; without it Ctrl/Shift show. -->
   <g class="key k1">
     <rect class="hk-core" x="40" y="196" width="80" height="80" rx="16" />
     <rect class="hk-node" x="40" y="186" width="80" height="80" rx="16" />
-    <text class="hk-label" x="80" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Ctrl</text>
+    <text class="hk-label" x="80" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22"><tspan class="hk-os-default">Ctrl</tspan><tspan class="hk-os-mac">⌘</tspan></text>
   </g>
   <g class="key k2">
     <rect class="hk-core" x="130" y="196" width="88" height="80" rx="16" />
     <rect class="hk-node" x="130" y="186" width="88" height="80" rx="16" />
-    <text class="hk-label" x="174" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Shift</text>
+    <text class="hk-label" x="174" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22"><tspan class="hk-os-default">Shift</tspan><tspan class="hk-os-mac">⇧</tspan></text>
   </g>
   <g class="key k3">
     <rect class="hk-core" x="228" y="196" width="76" height="80" rx="16" />
@@ -75,6 +77,9 @@ const accentId = `hk-accent-${Math.random().toString(36).slice(2, 8)}`;
   .motion-hk .hk-node { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
   .motion-hk .hk-pill { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
   .motion-hk .hk-label { fill: var(--wp-illustration-text-strong); }
+  .motion-hk .hk-os-mac { display: none; }
+  :global(html[data-os="macos"]) .motion-hk .hk-os-mac { display: inline; }
+  :global(html[data-os="macos"]) .motion-hk .hk-os-default { display: none; }
   .motion-hk .hk-accent-text { fill: var(--wp-illustration-accent); }
   .motion-hk .hk-dot { fill: var(--wp-illustration-accent-fill); }
   .motion-hk .hk-target { fill: var(--wp-illustration-fill); stroke: var(--wp-illustration-node-border); }

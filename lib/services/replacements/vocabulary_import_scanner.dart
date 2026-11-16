@@ -75,7 +75,7 @@ final RegExp _tokenPattern = RegExp(r'\b[A-Za-z_][A-Za-z0-9_]*\b');
 /// Anything past this length is far more likely a base64/minified/generated
 /// blob that happened to satisfy the shape checks below (post-mortem: a
 /// pre-fix scan of vendored build output imported thousands of such blobs
-/// as "vocabulary", see `internal-notes`).
+/// as "vocabulary").
 const int _maxIdentifierLength = 50;
 
 bool _looksLikeMultiSegmentIdentifier(String token) {

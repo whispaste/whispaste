@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../../core/logging/app_logger.dart';
-import '../../features/snippets/snippets_page.dart' show SnippetItem;
+import '../../core/text/markdown_plain_text.dart';
+import '../../features/snippets/snippets_page.dart'
+    show SnippetItem, snippetsProvider;
+import '../automation_api/multiline_paste_confirmation.dart';
 import '../floating_platform_service_base.dart';
 import '../paste/paster.dart';
+import '../snippets/system_variables.dart';
 import '../telemetry_service.dart';
 import 'snippet_picker_controller.dart';
 import 'snippet_picker_events.dart';
+import 'snippet_picker_protocol.dart';
 
 final _log = AppLogger('SnippetPickerService');
 
@@ -33,7 +38,7 @@ enum SnippetPickerShowResult {
 }
 
 /// Outcome of [SnippetPickerService.insertByName] — the automation-API
-/// insertion path (ticket 04, `internal-notes`).
+/// insertion path.
 enum SnippetInsertByNameResult {
   /// The snippet was found, is `static`, and its body was pasted.
   success,
@@ -51,6 +56,10 @@ enum SnippetInsertByNameResult {
   /// see the logged [PasteOutcome] for why (no captured target window,
   /// missing OS permission, blocklisted app, …).
   pasteFailed,
+
+  /// The body is multiline and the user did not confirm the preview (cancel,
+  /// timeout, or another preview was already open). Nothing was pasted.
+  previewCancelled,
 }
 
 /// Manages the native Snippet-Picker panel lifecycle (dictation-automations
@@ -100,6 +109,20 @@ class SnippetPickerService
   /// [Paster]/[SnippetItem] only).
   Future<void> Function(SnippetItem snippet)? onInteractiveSnippetSelected;
 
+  /// "In einem Satz" was chosen for an interactive snippet. Wired like
+  /// [onInteractiveSnippetSelected], for the same import-cycle reason.
+  Future<void> Function(SnippetItem snippet)? onSentenceSnippetSelected;
+
+  /// The open field preview ([showFieldPreview]), completed by the
+  /// confirm or cancel event.
+  Completer<List<String>?>? _preview;
+
+  /// Receives the outcome of each pasted snippet. Wired by the composition root
+  /// to the paste-result reporter, for the same reason as
+  /// [onInteractiveSnippetSelected]: the reporter reaches the tray, which
+  /// reaches back into this file.
+  Future<void> Function(PasteOutcome outcome)? onPasteResult;
+
   /// Whether the panel is currently open (a [show] call succeeded and
   /// neither a selection nor a cancellation event has arrived yet). Read by
   /// [RecordingOrchestrator.openSnippetPickerViaHotkey] (ticket 26) to avoid
@@ -117,6 +140,7 @@ class SnippetPickerService
   @override
   Future<void> disposeController(SnippetPickerController controller) {
     _isOpen = false;
+    _completePreview(null);
     return controller.dispose();
   }
 
@@ -125,10 +149,34 @@ class SnippetPickerService
     switch (event) {
       case SnippetPickerItemSelected(:final id):
         _isOpen = false;
-        unawaited(_insert(id));
+        switch (SnippetPickerSelection.parse(id)) {
+          case SnippetSelection(:final snippetId):
+            unawaited(_insert(snippetId));
+          case SentenceSelection(:final snippetId):
+            unawaited(_startSentence(snippetId));
+          case FillSelection(:final values):
+            _completePreview(values);
+        }
       case SnippetPickerCancelled():
         _isOpen = false;
+        _completePreview(null);
         _log.debug('Snippet-Picker cancelled without a selection');
+      case SnippetPickerFocusLost(:final cause):
+        // Several reports per leave are normal (the focus loss and the click
+        // that caused it); only the first one of an open panel counts.
+        if (!_isOpen) return;
+        if (!snippetPickerClosesOnFocusLoss(cause)) {
+          _log.debug('Snippet-Picker lost focus ($cause), stays open');
+          return;
+        }
+        _isOpen = false;
+        _completePreview(null);
+        _log.debug('Snippet-Picker closed on focus loss ($cause)');
+        unawaited(
+          controller?.hide(
+            outsideClick: cause == SnippetPickerFocusLossCause.outsideClick,
+          ),
+        );
       case SnippetPickerRenderEngineDiagnostic(:final message, :final isError):
         if (isError) {
           _log.error('Snippet-Picker render engine: $message');
@@ -149,8 +197,12 @@ class SnippetPickerService
   /// ([SnippetPickerShowResult.emptyList]) — the caller falls back to the
   /// normal dictation pipeline in both cases, never silently discarding the
   /// dictation.
+  /// [query] pre-fills the panel's search field (empty = unfiltered); the
+  /// direct-trigger path passes the name the user spoke after the trigger
+  /// word.
   Future<SnippetPickerShowResult> show({
     required List<SnippetItem> items,
+    String query = '',
   }) async {
     final c = controller;
     if (c == null) return SnippetPickerShowResult.unavailable;
@@ -164,11 +216,66 @@ class SnippetPickerService
             'id': item.id,
             'title': item.title,
             'body': item.isInteractive ? item.fields.join(' · ') : item.body,
+            kSnippetPickerKindKey: item.isInteractive
+                ? SnippetPickerItemKind.interactive.name
+                : SnippetPickerItemKind.snippet.name,
           },
       ],
+      query: query,
     );
     _isOpen = true;
     return SnippetPickerShowResult.shown;
+  }
+
+  /// Gives the open panel keyboard focus again (Snippet hotkey pressed while
+  /// it is open, #1680). No-op while it is closed.
+  Future<void> focus() async {
+    if (!_isOpen) return;
+    await controller?.focus();
+  }
+
+  /// Opens the panel as the field preview of "In einem Satz" and completes
+  /// with the values the user confirmed, or null on cancel (Escape, a click
+  /// outside) or when the platform has no panel. A newer preview cancels an
+  /// older one that is still open.
+  Future<List<String>?> showFieldPreview({
+    required String title,
+    required String template,
+    required List<String> fieldNames,
+    required List<String> values,
+    required bool modelReady,
+  }) async {
+    final c = controller;
+    if (c == null) return null;
+    _completePreview(null);
+    final preview = _preview = Completer<List<String>?>();
+    await c.show(
+      items: fieldPreviewItems(
+        title: title,
+        template: template,
+        fieldNames: fieldNames,
+        values: values,
+        speakFieldNamesHint: !modelReady && fieldNames.length > 1,
+      ),
+    );
+    _isOpen = true;
+    return preview.future;
+  }
+
+  void _completePreview(List<String>? values) {
+    final preview = _preview;
+    _preview = null;
+    if (preview != null && !preview.isCompleted) preview.complete(values);
+  }
+
+  Future<void> _startSentence(String id) async {
+    final snippet = _shown[id];
+    final onSelected = onSentenceSnippetSelected;
+    if (snippet == null || !snippet.isInteractive || onSelected == null) {
+      _log.warning('Sentence path chosen for an unknown or static snippet');
+      return;
+    }
+    await onSelected(snippet);
   }
 
   Future<void> _insert(String id) async {
@@ -177,7 +284,15 @@ class SnippetPickerService
       _log.warning('Snippet-Picker selected unknown id: $id');
       return;
     }
+    await _insertSnippet(snippet);
+  }
 
+  /// Inserts [snippet] without opening the panel — the direct-trigger path
+  /// (`trigger name` matched one title unambiguously). Same paste target
+  /// and same interactive/static handling as a picker pick.
+  Future<void> insertDirect(SnippetItem snippet) => _insertSnippet(snippet);
+
+  Future<void> _insertSnippet(SnippetItem snippet) async {
     if (snippet.isInteractive) {
       final onSelected = onInteractiveSnippetSelected;
       if (onSelected == null) {
@@ -185,17 +300,31 @@ class SnippetPickerService
         return;
       }
       await onSelected(snippet);
+      await _recordUse(snippet.id);
       return;
     }
 
-    await _paste(snippet.body);
+    final outcome = await _paste(snippet.body, title: snippet.title);
+    if (outcome == PasteOutcome.success) await _recordUse(snippet.id);
+    unawaited(onPasteResult?.call(outcome));
+  }
+
+  /// Counts one insertion for the usage sort and line (#865). Local, and a
+  /// failed write never disturbs the paste.
+  Future<void> _recordUse(String id) async {
+    if (!ref.mounted) return;
+    try {
+      await ref.read(snippetsProvider.notifier).recordUse(id);
+    } catch (e) {
+      _log.warning('Could not record snippet use: $e');
+    }
   }
 
   /// The actual "write this body to the target window" mechanics, shared by
   /// [_insert] (picker selection, resolved by id) and [insertByName]
   /// (automation API, resolved by title) so neither duplicates paste
   /// delay/blocklist/telemetry handling.
-  Future<PasteOutcome> _paste(String body) async {
+  Future<PasteOutcome> _paste(String body, {String title = ''}) async {
     final paster = ref.read(pasterProvider);
     if (paster == null) return PasteOutcome.platformUnavailable;
 
@@ -203,8 +332,18 @@ class SnippetPickerService
     final options = PasteOptions(
       autoPasteDelayMs: settings.behavior.autoPasteDelay,
       blocklist: settings.behavior.autoPasteBlocklist,
+      copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+      restoreClipboardAfterPaste: settings.behavior.restoreClipboardAfterPaste,
+      restoreClipboardWithoutReceipt:
+          settings.behavior.restoreClipboardWithoutReceipt,
     );
-    final outcome = await paster.paste(body, options);
+    // `{$name}` system variables (#663) are filled in right before pasting.
+    final resolved = await resolveSystemVariablesLive(body, title: title);
+    // Mail and chat fields show Markdown markers literally (#644).
+    final text = settings.behavior.pasteWithMarkdown
+        ? resolved.text
+        : markdownToPlainText(resolved.text);
+    final outcome = await paster.paste(text, options);
     // paste() may still be mid clipboard-restore delay (≥500ms) when the
     // panel/provider is disposed in the meantime — guard the post-await
     // ref use per Riverpod's own advice.
@@ -220,7 +359,9 @@ class SnippetPickerService
   }
 
   /// Looks up a **static** snippet by exact [title] match and pastes its
-  /// body — the automation-API insertion path (ticket 04). Reuses
+  /// body — the automation-API insertion path (ticket 04). A multiline body
+  /// is first passed to [confirmMultiline]; nothing is pasted unless that
+  /// resolves `true` (ticket / 8.5). Reuses
   /// [_paste] for the actual insertion, so the automation API shares every
   /// bit of paste behavior (delay, blocklist, telemetry) with the
   /// Snippet-Picker's own selection path; only the *lookup* differs (by
@@ -228,7 +369,10 @@ class SnippetPickerService
   ///
   /// `interactive` snippets are deliberately out of scope — see
   /// [SnippetInsertByNameResult.interactiveNotSupported].
-  Future<SnippetInsertByNameResult> insertByName(String title) async {
+  Future<SnippetInsertByNameResult> insertByName(
+    String title, {
+    required Future<bool> Function(String body) confirmMultiline,
+  }) async {
     final db = ref.read(historyDatabaseProvider);
     final rows = await db.readAllSnippetsWithFields();
     SnippetWithFields? match;
@@ -243,10 +387,17 @@ class SnippetPickerService
       return SnippetInsertByNameResult.interactiveNotSupported;
     }
 
-    final outcome = await _paste(match.row.body);
-    return outcome == PasteOutcome.success
-        ? SnippetInsertByNameResult.success
-        : SnippetInsertByNameResult.pasteFailed;
+    if (needsMultilinePreview(match.row.body)) {
+      final confirmed = await confirmMultiline(match.row.body);
+      if (!confirmed) return SnippetInsertByNameResult.previewCancelled;
+    }
+
+    final outcome = await _paste(match.row.body, title: match.row.title);
+    if (outcome != PasteOutcome.success) {
+      return SnippetInsertByNameResult.pasteFailed;
+    }
+    await _recordUse(match.row.id);
+    return SnippetInsertByNameResult.success;
   }
 }
 

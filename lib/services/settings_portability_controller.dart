@@ -5,7 +5,7 @@
 /// Mirrors the [HistoryExporter] pattern in
 /// `services/history/history_exporter.dart`: a plain class with injectable
 /// seams for the collaborators (gather/apply the bundle, resolve the target
-/// directory, show a toast) so tests can substitute fakes without touching
+/// directory, show a notice) so tests can substitute fakes without touching
 /// real platform channels or Riverpod.
 ///
 /// A native save/open file dialog (`package:file_selector` —
@@ -17,7 +17,7 @@
 /// remembered path turns out to be unusable (file/folder gone, access
 /// denied), at which point it is forgotten and the dialog opens again
 /// automatically. Cancelling the dialog is not an error: no write, no
-/// toast, no state change.
+/// notice, no state change.
 ///
 /// Under the Mac App Store sandbox, a remembered path alone does not
 /// survive an app restart — the `NSOpenPanel`/`NSSavePanel` grant that made
@@ -25,7 +25,7 @@
 /// persists an app-scoped security-scoped bookmark alongside the path so
 /// the same location keeps working after relaunch. Every bookmark failure
 /// (creation, resolution, access) falls back to the same dialog-based flow
-/// Ticket 03 established — never a new error toast.
+/// Ticket 03 established — never a new error notice.
 library;
 
 import 'dart:io' show Directory, FileSystemException;
@@ -37,7 +37,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
-import '../widgets/toast.dart';
+import '../features/settings/widgets/settings_notice.dart';
 import 'secure_bookmark_service.dart';
 import 'settings_portability_service.dart';
 
@@ -73,9 +73,21 @@ typedef PickPathFn =
       String? initialDirectory,
     });
 
-/// Toaster seam — shows a [WpToast] of the given [WpToastType].
-typedef ToasterFn =
-    void Function(BuildContext context, WpToastType type, String message);
+/// Notice seam — puts the outcome in the portability section's notice slot
+/// ([showSettingsNotice]); [failed] marks an error.
+typedef NoticeFn =
+    void Function(
+      BuildContext context, {
+      required bool failed,
+      required String message,
+    });
+
+/// Where the portability section shows its notices.
+const String kPortabilityNoticeArea = 'portability';
+
+/// A path in a notice takes longer to read than a confirmation, so it stays
+/// longer.
+const Duration _kPathNoticeTime = Duration(seconds: 10);
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -136,7 +148,7 @@ class SettingsPortabilityController {
     this.downloadsDirFn = getDownloadsDirectory,
     this.documentsDirFn = getApplicationDocumentsDirectory,
     this.pickPath = _defaultPickPath,
-    this.toaster = _defaultToaster,
+    this.notice = _defaultNotice,
   });
 
   final GatherBundleFn gather;
@@ -165,11 +177,11 @@ class SettingsPortabilityController {
   final PathResolverFn downloadsDirFn;
   final PathResolverFn documentsDirFn;
   final PickPathFn pickPath;
-  final ToasterFn toaster;
+  final NoticeFn notice;
 
   /// Resolves the export or import target path: the remembered location if
   /// still usable, otherwise the native dialog. Returns `null` if the user
-  /// cancels the dialog — not an error, callers must not show a toast for
+  /// cancels the dialog — not an error, callers must not show a notice for
   /// it.
   ///
   /// Used directly by the UI to preview the import path in the
@@ -203,17 +215,19 @@ class SettingsPortabilityController {
   }
 
   /// Gathers the current bundle and writes it to the resolved export path.
-  /// Shows a success or error toast; a cancelled dialog shows neither.
+  /// Shows a success or error notice; a cancelled dialog shows neither.
   Future<void> export(BuildContext context) async {
     final SettingsExportBundle bundle;
     try {
       bundle = await gather();
     } catch (e) {
       if (!context.mounted) return;
-      toaster(
+      notice(
         context,
-        WpToastType.error,
-        L10n.of(context).settingsPortabilityExportError(_message(e)),
+        failed: true,
+        message: L10n.of(
+          context,
+        ).settingsPortabilityExportError(_message(e, L10n.of(context))),
       );
       return;
     }
@@ -225,13 +239,14 @@ class SettingsPortabilityController {
       attempt: (path) => service.exportToFile(path, bundle),
       onSuccess: (path) =>
           L10n.of(context).settingsPortabilityExportSuccess(path),
-      onError: (e) =>
-          L10n.of(context).settingsPortabilityExportError(_message(e)),
+      onError: (e) => L10n.of(
+        context,
+      ).settingsPortabilityExportError(_message(e, L10n.of(context))),
     );
   }
 
   /// Reads the bundle from the resolved import path and applies it via
-  /// [apply]. Shows a success or error toast; a cancelled dialog shows
+  /// [apply]. Shows a success or error notice; a cancelled dialog shows
   /// neither.
   Future<void> import(BuildContext context) async {
     await _runFileOp(
@@ -247,10 +262,12 @@ class SettingsPortabilityController {
       // vanished again in the instant between picking it and reading it) is
       // the one case this dedicated, friendlier message still exists for —
       // any ordinary "the remembered path is stale" case is already caught
-      // and silently retried by `_runFileOp` below, never reaching a toast.
+      // and silently retried by `_runFileOp` below, never reaching a notice.
       onError: (e) => e is SettingsImportFileNotFoundException
           ? L10n.of(context).settingsPortabilityImportNotFound(e.path)
-          : L10n.of(context).settingsPortabilityImportError(_message(e)),
+          : L10n.of(
+              context,
+            ).settingsPortabilityImportError(_message(e, L10n.of(context))),
     );
   }
 
@@ -259,7 +276,7 @@ class SettingsPortabilityController {
   /// failure — the remembered path's file/folder disappeared, permissions
   /// changed, a volume was unmounted — forget it and retry exactly once
   /// against a freshly picked target. A dialog cancellation at any point
-  /// ends the operation silently (no write, no toast).
+  /// ends the operation silently (no write, no notice).
   Future<void> _runFileOp({
     required BuildContext context,
     required bool forExport,
@@ -274,7 +291,7 @@ class SettingsPortabilityController {
     if (error == null) {
       await _afterSuccessfulWrite(forExport: forExport, target: target);
       if (!context.mounted) return;
-      toaster(context, WpToastType.success, onSuccess(target.path));
+      notice(context, failed: false, message: onSuccess(target.path));
       return;
     }
 
@@ -283,7 +300,7 @@ class SettingsPortabilityController {
         error is SettingsImportFileNotFoundException;
     if (!isPathUnusable) {
       if (!context.mounted) return;
-      toaster(context, WpToastType.error, onError(error));
+      notice(context, failed: true, message: onError(error));
       return;
     }
 
@@ -297,12 +314,12 @@ class SettingsPortabilityController {
     final retryError = await _attemptWithTarget(retryTarget, attempt);
     if (retryError != null) {
       if (!context.mounted) return;
-      toaster(context, WpToastType.error, onError(retryError));
+      notice(context, failed: true, message: onError(retryError));
       return;
     }
     await _afterSuccessfulWrite(forExport: forExport, target: retryTarget);
     if (!context.mounted) return;
-    toaster(context, WpToastType.success, onSuccess(retryTarget.path));
+    notice(context, failed: false, message: onSuccess(retryTarget.path));
   }
 
   /// Resolves the export or import target: the remembered location if
@@ -467,16 +484,14 @@ class SettingsPortabilityController {
   }
 
   /// Best-effort extraction of a human-readable message from [error].
-  static String _message(Object error) {
-    if (error is SettingsImportFormatException) return error.message;
-    if (error is Exception) {
-      final s = error.toString();
-      const prefix = 'Exception: ';
-      if (s.startsWith(prefix)) return s.substring(prefix.length);
-      return s;
-    }
-    return error.toString();
-  }
+  /// User-facing reason for a failed export or import. The exception text is
+  /// developer English (and may carry file paths), so only the category is
+  /// shown.
+  static String _message(Object error, L10n l10n) => switch (error) {
+    SettingsImportTooLargeException() => l10n.settingsPortabilityErrorTooLarge,
+    SettingsImportFormatException() => l10n.settingsPortabilityErrorInvalidFile,
+    _ => l10n.settingsPortabilityErrorGeneric,
+  };
 }
 
 Future<String?> _defaultPickPath({
@@ -499,6 +514,17 @@ Future<String?> _defaultPickPath({
   return file?.path;
 }
 
-void _defaultToaster(BuildContext context, WpToastType type, String message) {
-  WpToast.show(context, message: message, type: type);
+void _defaultNotice(
+  BuildContext context, {
+  required bool failed,
+  required String message,
+}) {
+  showSettingsNotice(
+    context,
+    area: kPortabilityNoticeArea,
+    id: failed ? 'portability-failed' : 'portability-done',
+    message: message,
+    failed: failed,
+    confirmFor: _kPathNoticeTime,
+  );
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/features/smart_mode/smart_mode_page.dart';
 import 'package:whispaste/widgets/dialog.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -74,10 +76,11 @@ Widget _formDialogOpener() => Builder(
           Text('Body'),
           TextField(minLines: 3, maxLines: 6),
         ],
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+        actions: const [
+          WpDialogAction(
+            label: 'Cancel',
+            testId: 'form-cancel',
+            role: WpDialogActionRole.cancel,
           ),
         ],
       ),
@@ -87,6 +90,42 @@ Widget _formDialogOpener() => Builder(
 );
 
 void main() {
+  // The preset dialog's controllers must outlive the route's exit animation:
+  // disposing them right after showWpDialog returned asserted in the fields.
+  testWidgets('the smart mode preset dialog closes on Escape without error', (
+    tester,
+  ) async {
+    SmartModeCustomPreset? result = const SmartModeCustomPreset(
+      id: 'x',
+      name: 'x',
+      instruction: 'x',
+    );
+    await tester.pumpWidget(
+      makeTestable(
+        Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async => result =
+                await showSmartModeCustomPresetDialog(context: context),
+            child: const Text('Open dialog'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('smart-mode-custom-dialog-name')),
+      findsOneWidget,
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(result, isNull);
+  });
+
   testWidgets('confirm dialogs submit the primary action on Enter', (
     tester,
   ) async {
@@ -103,6 +142,51 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('result=true'), findsOneWidget);
+  });
+
+  // #277 keyboard acceptance: Tab and Shift+Tab cycle inside the open
+  // dialog (the page behind never takes focus), and Escape means cancel.
+  testWidgets('Tab stays inside a dialog and Escape cancels it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(makeTestable(const _ConfirmDialogHarness()));
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+    final dialogRoute = ModalRoute.of(tester.element(find.text('Merge')));
+
+    for (final shift in [false, true]) {
+      if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      for (var i = 0; i < 6; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        final focused = FocusManager.instance.primaryFocus?.context;
+        expect(focused, isNotNull);
+        expect(
+          ModalRoute.of(focused!),
+          same(dialogRoute),
+          reason: 'focus left the dialog after ${i + 1} Tab presses',
+        );
+      }
+      if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    }
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('Merge'), findsNothing);
+    expect(find.text('result=true'), findsNothing);
+  });
+
+  // Maintainer decision 12 (2026-10-20): no glass, no glow. The barrier behind
+  // a dialog is a flat scrim on every platform.
+  testWidgets('the dialog barrier is a flat scrim, not a backdrop blur', (
+    tester,
+  ) async {
+    await tester.pumpWidget(makeTestable(_contentDialogOpener()));
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resetting WhisPaste'), findsOneWidget);
+
+    expect(find.byType(BackdropFilter), findsNothing);
   });
 
   group('dismissible', () {

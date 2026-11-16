@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // WpRowAction — the one row-level icon action for every list in the app
@@ -22,8 +23,8 @@ import 'wp_focus_ring.dart';
 // the deciding argument is width, not taste:
 //
 //   The history list panel is user-resizable down to 240 px
-//   (`WpSplitView._minListWidth`). After tile margin, padding and the
-//   42 px avatar, a row has ~146 px left for title + timestamp + actions.
+//   (`WpCollectionSplit._minListWidth`). After tile margin, padding and the
+//   type glyph, a row has well under 200 px left for title + actions.
 //   Three permanently visible actions cost 84 px (dense) to 144 px
 //   (48 px targets) of that — the title would be squeezed to a few pixels or
 //   nothing at all. Permanent actions simply do not fit the narrow end of
@@ -45,52 +46,45 @@ import 'wp_focus_ring.dart';
 // keeps the group mounted while one of its own buttons holds focus. Focus is
 // drawn exclusively by `WpFocusRing` ("One Highlight Per State").
 //
-// Exception, deliberate: a *leading* glyph that is the row's only carrier of
-// a persistent state — the notes favourite star — stays visible in both
-// states. It is a state indicator that happens to be tappable, not a hidden
-// action. History carries the same state on the avatar badge instead.
+// Item rows (recordings, notes, snippets) share one action set in one order:
+// Copy, Star, Delete (#1498, `WpListItemActions`). At rest a favourite shows
+// a non-interactive star mark after the title (`WpListItemStarMark`), so the
+// state stays visible without a second always-on control. Anything else
+// (Duplicate, setting the quick-note mark) lives in the row's context menu
+// and as a screen-reader custom action, so a row never reveals more than
+// three actions.
 //
-// ## Sizes and the 48 px touch target
+// Exception, deliberate: the notes quick-note mark stays visible and
+// tappable in both states, after the title. It is the row's only carrier of
+// that state and has no resting mark of its own; it is a state indicator
+// that happens to be tappable, not a hidden action.
 //
-// `lib/DESIGN.md` asks for a 48 px minimum touch target and grants this
-// widget the single exception to it: *The Confirmed Dense-Row Exception*
-// (Layout → Named Rules), confirmed by the maintainer as decision E6 = (a)
-// on 2026-08-10 and scoped to exactly the `dense` variant below. The two
-// documents say the same thing on purpose — what follows is the measurement
-// that exception rests on, so neither side has to be believed on trust.
+// ## Sizes and the touch target
 //
-// Two areas run the 44 px standard variant (replacements, snippets) and two
-// run the 28 px dense one (history, notes), so it is worth naming what decides
-// which — the earlier wording here said "the row's resting height, roomy vs.
-// tight", and that is measurably the wrong quantity. Tile *envelopes* run the
-// other way: a history list tile is 127 px tall and a notes tile 106 px,
-// against 70 px for a replacements row, yet the tall ones are the dense ones.
+// Standard (48 px): the tap area is `WpLayout.minTouchTarget` square
+// (`WpTouchTarget`); the painted action stays 44 px. Used wherever a row has
+// room for it (replacements).
 //
-// What actually decides is the **line the action sits in, times how many
-// actions share it, against how narrow that line can get**:
+// Dense (28 px): the documented exception to the 48 px rule — DESIGN.md,
+// "The Confirmed Dense-Row Exception", decision E6 = (a), confirmed by the
+// maintainer on 2026-08-10. A dense action is its 28 px box and nothing more:
+// no enlarged tap surround, so the row is as tall as its icon needs.
 //
-//   * Replacements/snippets put **one** action on the row's only line, on a
-//     full-width page. Measured at 1280x800: the line is 718 px wide and
-//     44 px tall — the action *is* the line, and nothing competes with it.
-//     Standard is free here, and it is also the variant closest to the 48 px
-//     rule, so taking it is not a concession.
-//   * History puts **three** actions on the tile's metadata line inside a
-//     panel the user can drag down to 240 px (`HistorySplitView`). Measured
-//     at a 340 px panel that line is 237 px wide: three dense actions cost
-//     84 px of it, three standard ones would cost 132 px — more than half the
-//     line, before the title has had any. At the 240 px minimum the title
-//     would be left with nothing. Notes sits in the same narrow panel.
+// Why dense is a width budget, not a taste call: item rows put up to three
+// actions on the title line (`WpListItemContent`, the same layout on
+// recordings, notes and snippets), inside a panel the user can drag down to 240 px
+// (`WpCollectionSplit._minListWidth`). Measured at a 340 px panel that line is 237 px
+// wide. Three dense actions cost 84 px of it; three 48 px actions would cost
+// 144 px, more than half the line before the title has any room. At the 240 px
+// minimum the title would be left with nothing. Notes sits in the same narrow
+// panel. The compact history view is the honest shortfall: its rows are ~27 px
+// by design, so even 28 px only just fits, and it keeps the dense variant.
 //
-// So the split is a width budget, not a taste or a roominess judgement, and
-// it moves only if the action count or the panel's minimum width moves.
-// A revealed action must additionally never be taller than its line, or every
-// mouse move would reflow the list.
-//
-// The compact history view is the honest shortfall: its rows are ~27 px by
-// design ("dense power-user list"), so even the dense variant only just fits
-// and 48 px targets are out of the question. Density is the whole point of
-// that view, so it keeps the dense variant — DESIGN.md's exception names it
-// in its scope rather than treating it as a shortfall still to be repaid.
+// A revealed action must never be taller than its line, or every mouse move
+// would reflow the list. So the split moves only if the action count or the
+// panel's minimum width moves, and any new call site picks its variant by the
+// same budget.
+
 // ---------------------------------------------------------------------------
 
 class WpRowAction extends StatefulWidget {
@@ -103,24 +97,48 @@ class WpRowAction extends StatefulWidget {
     this.isDestructive = false,
     this.activeColor,
     this.dense = false,
+    this.testId,
+    this.toggled,
+    this.semanticsLabel,
   }) : assert(icon != null || faIcon != null, 'Provide icon or faIcon');
 
   final IconData? icon;
   final FaIconData? faIcon;
   final String tooltip;
-  final VoidCallback onTap;
+
+  /// Null disables the action: dimmed, no hover, reported as disabled. The
+  /// tooltip stays, so it can say why.
+  final VoidCallback? onTap;
   final bool isDestructive;
 
   /// When set, overrides the icon color regardless of hover/active state.
   final Color? activeColor;
 
   /// Compact variant for inline list rows where vertical space is tight.
-  /// Drops outer padding and shrinks the inner hit-area to ~28 px tall.
+  /// Drops the outer padding and the 48 px tap surround: the 28 px box is the
+  /// whole target. The documented exception to the 48 px rule, see the
+  /// library docs above.
   final bool dense;
 
-  /// Full extent a single action occupies, outer padding included. Callers
-  /// reserve this so a revealed action never changes the row's height.
-  static double extentFor({required bool dense}) => dense ? 28 : 44;
+  /// Stable id, exposed as the accessibility identifier (`<screen>-<element>`).
+  final String? testId;
+
+  /// Set for a state toggle (e.g. a favorite star): reported to screen
+  /// readers as on or off. Null for a plain action.
+  final bool? toggled;
+
+  /// Screen-reader name when it should differ from [tooltip], e.g. a toggle
+  /// named after its state instead of the action the tooltip describes.
+  final String? semanticsLabel;
+
+  /// Full extent a single action occupies, tap area included. Callers reserve
+  /// this so a revealed action never changes the row's height: 48 for the
+  /// standard variant, 28 for the dense exception.
+  static double extentFor({required bool dense}) =>
+      dense ? _denseExtent : WpLayout.minTouchTarget;
+
+  /// The dense box: a 16 px icon with 6 px padding on each side.
+  static const double _denseExtent = 28;
 
   @override
   State<WpRowAction> createState() => _WpRowActionState();
@@ -136,61 +154,98 @@ class _WpRowActionState extends State<WpRowAction> {
     super.dispose();
   }
 
+  /// The 48 px surround for the standard variant; dense is its own target.
+  Widget _maybeTouchTarget({required Widget child}) =>
+      // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+      widget.dense ? child : WpTouchTarget(onTap: widget.onTap, child: child);
+
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final hovered = enabled && _isHovered;
     final Color iconColor;
-    if (widget.activeColor != null) {
+    if (!enabled) {
+      // Dimmer than an idle action, so "not now" differs from "off".
+      iconColor = WpColors.textMuted.withValues(alpha: 0.5);
+    } else if (widget.activeColor != null) {
       iconColor = widget.activeColor!;
-    } else if (widget.isDestructive && _isHovered) {
+    } else if (widget.isDestructive && hovered) {
       iconColor = WpColors.error;
-    } else if (_isHovered) {
+    } else if (hovered) {
       iconColor = WpColors.textPrimary;
     } else {
       iconColor = WpColors.textMuted;
     }
 
     return Semantics(
-      label: widget.tooltip,
+      label: widget.semanticsLabel ?? widget.tooltip,
       button: true,
+      enabled: enabled,
+      toggled: widget.toggled,
+      identifier: widget.testId,
+      // The Semantics above names the action; the tooltip is visual only,
+      // otherwise screen readers announced the name twice (#1498).
       child: Tooltip(
         message: widget.tooltip,
+        excludeFromSemantics: true,
         preferBelow: false,
         child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.dense ? 0 : WpSpacing.xxs,
-              vertical: widget.dense ? 0 : WpSpacing.xxs,
-            ),
-            child: WpFocusRing(
-              focusNode: _focusNode,
-              radius: WpRadius.sm,
-              child: InkWell(
-                onTap: widget.onTap,
+          child: _maybeTouchTarget(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.dense ? 0 : WpSpacing.xxs,
+                vertical: widget.dense ? 0 : WpSpacing.xxs,
+              ),
+              child: WpFocusRing(
                 focusNode: _focusNode,
-                borderRadius: WpRadius.borderSm,
-                // WpFocusRing owns all focus visuals — suppress InkWell's own.
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: AnimatedContainer(
-                  duration: WpMotion.durationFor(context, WpMotion.fast),
-                  // Off-scale on purpose: icon-button padding tuned so the
-                  // dense/regular variants land on their intended hit sizes;
-                  // snapping to xxs/xs/sm would resize every row action.
-                  padding: EdgeInsets.all(widget.dense ? 6 : 10),
-                  decoration: BoxDecoration(
-                    color: _isHovered
-                        ? (WpColors.active)
-                        : (WpColors.hoverTransparent),
-                    borderRadius: WpRadius.borderSm,
+                radius: WpRadius.sm,
+                child: InkWell(
+                  onTap: widget.onTap,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderSm,
+                  // WpFocusRing owns all focus visuals — suppress InkWell's own.
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: AnimatedContainer(
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    // Off-scale on purpose: icon-button padding tuned so the
+                    // dense/regular variants land on their intended hit sizes;
+                    // snapping to xxs/xs/sm would resize every row action.
+                    padding: EdgeInsets.all(widget.dense ? 6 : 10),
+                    decoration: BoxDecoration(
+                      color: hovered
+                          ? (WpColors.active)
+                          : (WpColors.hoverTransparent),
+                      borderRadius: WpRadius.borderSm,
+                    ),
+                    // A fixed square: icon-font glyphs take their own advance
+                    // width (the solid star is 18 px at size 16), which made
+                    // the same action 28 or 30 px wide depending on the glyph
+                    // (#1498). The glyph stays centred and may overhang into
+                    // the padding; the hit area no longer follows it.
+                    child: SizedBox.square(
+                      dimension: WpIconSize.sm,
+                      child: OverflowBox(
+                        maxWidth: double.infinity,
+                        child: widget.faIcon != null
+                            ? FaIcon(
+                                widget.faIcon!,
+                                size: WpIconSize.sm,
+                                color: iconColor,
+                              )
+                            : Icon(
+                                widget.icon!,
+                                size: WpIconSize.sm,
+                                color: iconColor,
+                              ),
+                      ),
+                    ),
                   ),
-                  child: widget.faIcon != null
-                      ? FaIcon(widget.faIcon!, size: 16, color: iconColor)
-                      : Icon(widget.icon!, size: 16, color: iconColor),
                 ),
               ),
             ),
@@ -207,6 +262,10 @@ class _WpRowActionState extends State<WpRowAction> {
 /// actions never reflows the row (see the library comment above); the width
 /// collapses to zero while hidden, which is what buys the title its space
 /// back on narrow panels.
+///
+/// In a `WpListTileSurface` actions slot this reserved height is the row's
+/// minimum body: the surface pads the content around it, and the 48 px box
+/// sets the floor for single-line rows (see that widget's `actions` notes).
 ///
 /// Keeps itself revealed while one of its buttons holds keyboard focus, so
 /// tabbing through a row's actions cannot pull the ground out from under the
@@ -235,6 +294,33 @@ class WpRowActions extends StatefulWidget {
 class _WpRowActionsState extends State<WpRowActions> {
   bool _hasFocusWithin = false;
 
+  /// True while focus sits on [_entryNode] and is being handed on to the
+  /// first action. The entry stays focusable exactly for that hand-off.
+  bool _handingOff = false;
+
+  /// The group's single keyboard stop while the actions are hidden. Tab lands
+  /// here, the group reveals itself and focus moves on to the first action.
+  /// Each row therefore costs one Tab stop, not one per action, and no
+  /// [WpRowAction] is mounted while the group is hidden.
+  final FocusNode _entryNode = FocusNode(debugLabel: 'WpRowActions.entry');
+
+  @override
+  void dispose() {
+    _entryNode.dispose();
+    super.dispose();
+  }
+
+  void _onEntryFocusChange(bool hasFocus) {
+    if (hasFocus) {
+      setState(() => _handingOff = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _handingOff) _entryNode.nextFocus();
+      });
+    } else if (_handingOff) {
+      setState(() => _handingOff = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final show = widget.visible || _hasFocusWithin;
@@ -242,16 +328,31 @@ class _WpRowActionsState extends State<WpRowActions> {
       height: WpRowAction.extentFor(dense: widget.dense),
       child: Focus(
         // Not a tab stop of its own — it only listens for focus landing on
-        // one of the actions below it.
+        // the entry or on one of the actions below it.
         canRequestFocus: false,
         skipTraversal: true,
         onFocusChange: (hasFocus) {
           if (_hasFocusWithin == hasFocus) return;
           setState(() => _hasFocusWithin = hasFocus);
         },
-        child: show
-            ? Row(mainAxisSize: MainAxisSize.min, children: widget.children)
-            : const SizedBox.shrink(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Zero-width while hidden: the group keeps its width budget.
+            ExcludeSemantics(
+              child: Focus(
+                focusNode: _entryNode,
+                canRequestFocus: !show || _handingOff,
+                onFocusChange: _onEntryFocusChange,
+                child: SizedBox(
+                  width: 0,
+                  height: WpRowAction.extentFor(dense: widget.dense),
+                ),
+              ),
+            ),
+            if (show) ...widget.children,
+          ],
+        ),
       ),
     );
   }

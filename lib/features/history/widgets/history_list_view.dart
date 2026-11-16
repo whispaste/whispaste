@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/tokens.dart';
+
 import 'package:whispaste/core/data/database.dart';
+
 import '../data/providers.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
 import 'history_list_tile.dart';
+import '../../../widgets/wp_collection_list_pane.dart';
 
 // ---------------------------------------------------------------------------
 // Entry list with date groups
 // ---------------------------------------------------------------------------
 
 class HistoryEntryList extends StatelessWidget {
-  HistoryEntryList({
+  const HistoryEntryList({
     super.key,
+    this.leading,
     required this.groups,
     required this.selectedId,
     required this.onEntryTap,
@@ -25,11 +28,15 @@ class HistoryEntryList extends StatelessWidget {
     required this.multiSelectMode,
     required this.selectedIds,
     required this.isTrashView,
+    this.onRestore,
     this.focusedId,
     this.onTagTap,
   });
 
   final List<DateGroup> groups;
+
+  /// Shown above the first row, inside the same scroll owner.
+  final Widget? leading;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
@@ -39,57 +46,43 @@ class HistoryEntryList extends StatelessWidget {
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final bool isTrashView;
+  final ValueChanged<HistoryEntry>? onRestore;
   final String? focusedId;
   final void Function(String tag)? onTagTap;
-
-  /// Flattened index: each element is either a date header or an entry row.
-  late final List<HistoryFlatItem> _flatItems = buildHistoryFlatItems(groups);
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return ListView.builder(
-      // The list owns the horizontal page inset (rows and date headers carry
-      // none), so its left/right edge lands exactly on the search/filter
-      // bar's `xl` inset above it — same arrangement as NotesListView and
-      // WpSearchableListPage. History used to be the one area that broke it:
-      // the bar sat at 24 while its rows sat at 8 (ticket 03, point 5).
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.xs,
-        WpSpacing.xl,
-        WpSpacing.xxl,
+    return WpCollectionListPane<HistoryEntry>(
+      storageKey: 'history-scroll-list',
+      copyTargetPrefix: 'history',
+      leading: leading,
+      focusedId: focusedId,
+      rows: historyCollectionRows(
+        groups,
+        (labelKey) =>
+            HistoryDateHeader(label: resolveDateLabel(labelKey, l10n)),
       ),
-      itemCount: _flatItems.length,
-      itemBuilder: (_, i) {
-        final item = _flatItems[i];
-        if (item.headerLabel != null) {
-          return HistoryDateHeader(
-            label: resolveDateLabel(item.headerLabel!, l10n),
-          );
-        }
-        final entry = item.entry!;
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryRowState.build
-        return HistoryEntryRow(
-          key: ValueKey(entry.id),
-          entry: entry,
-          isSelected: multiSelectMode
-              ? selectedIds.contains(entry.id)
-              : entry.id == selectedId,
-          isFocused: !multiSelectMode && entry.id == focusedId,
-          // No selection means no detail pane beside the list: the overview.
-          inSplitView: selectedId != null,
-          onTap: () => onEntryTap(entry),
-          onCopy: () => onCopy(entry),
-          onPin: () => onPin(entry),
-          onDelete: () => onDelete(entry),
-          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
-          multiSelectMode: multiSelectMode,
-          isChecked: selectedIds.contains(entry.id),
-          isTrashView: isTrashView,
-          onTagTap: onTagTap,
-        );
-      },
+      itemBuilder: (_, entry) => HistoryEntryRow(
+        key: ValueKey(entry.id),
+        entry: entry,
+        isSelected: multiSelectMode
+            ? selectedIds.contains(entry.id)
+            : entry.id == selectedId,
+        isFocused: !multiSelectMode && entry.id == focusedId,
+        // No selection means no detail pane beside the list: the overview.
+        inSplitView: selectedId != null,
+        onTap: () => onEntryTap(entry),
+        onCopy: () => onCopy(entry),
+        onPin: () => onPin(entry),
+        onDelete: () => onDelete(entry),
+        onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
+        multiSelectMode: multiSelectMode,
+        isChecked: selectedIds.contains(entry.id),
+        isTrashView: isTrashView,
+        onRestore: onRestore != null ? () => onRestore!(entry) : null,
+        onTagTap: onTagTap,
+      ),
     );
   }
 }

@@ -24,13 +24,6 @@ void main() {
       expect(find.byType(WpWaveform), findsOneWidget);
     });
 
-    testWidgets('inactive state renders without animation', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const WpWaveform(audioLevel: 0.5, isActive: false)),
-      );
-      expect(find.byType(WpWaveform), findsOneWidget);
-    });
-
     testWidgets('custom colors are accepted', (tester) async {
       await tester.pumpWidget(
         makeTestable(

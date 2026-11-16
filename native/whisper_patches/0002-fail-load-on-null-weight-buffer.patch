@@ -1,0 +1,42 @@
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+index 1675f33..06d7382 100644
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -1862,6 +1862,13 @@ static bool whisper_model_load(struct whisper_model_loader * loader, whisper_con
+         ggml_backend_buffer_type_t buft = p.first;
+         ggml_context * ctx = p.second;
+         ggml_backend_buffer_t buf = ggml_backend_alloc_ctx_tensors_from_buft(ctx, buft);
++        // wpatch: every context here holds weights, so NULL means the device (or host) buffer
++        // could not be allocated, e.g. video memory held by other programs. Skipping it aborted
++        // the process later in ggml_backend_buffer_*(NULL); fail the load so whisper_init_* returns NULL
++        if (!buf) {
++            WHISPER_LOG_ERROR("%s: failed to allocate %s buffer for the model weights (out of memory)\n", __func__, ggml_backend_buft_name(buft));
++            return false;
++        }
+         if (buf) {
+             model.buffers.emplace_back(buf);
+ 
+@@ -3846,7 +3853,9 @@ struct whisper_context * whisper_init_with_params_no_state(struct whisper_model_
+     if (!model_loaded) {
+         loader->close(loader->context);
+         WHISPER_LOG_ERROR("%s: failed to load model\n", __func__);
+-        delete ctx;
++        // wpatch: release the weight buffers that were allocated before the failure (video
++        // memory), so a retry on another device in the same process does not inherit them
++        whisper_free(ctx);
+         return nullptr;
+     }
+ 
+@@ -5144,6 +5153,12 @@ struct whisper_vad_context * whisper_vad_init_with_params(
+         ggml_backend_buffer_type_t buft = p.first;
+         ggml_context * ctx = p.second;
+         ggml_backend_buffer_t buf = ggml_backend_alloc_ctx_tensors_from_buft(ctx, buft);
++        // wpatch: same as whisper_model_load, a NULL buffer fails the VAD load instead of aborting later
++        if (!buf) {
++            WHISPER_LOG_ERROR("%s: failed to allocate %s buffer for the VAD model (out of memory)\n", __func__, ggml_backend_buft_name(buft));
++            whisper_vad_free(vctx);
++            return nullptr;
++        }
+         if (buf) {
+             model.buffers.emplace_back(buf);
+ 

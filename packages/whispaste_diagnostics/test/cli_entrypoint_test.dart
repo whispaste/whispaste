@@ -148,7 +148,7 @@ void main() {
         environment: {'HOME': '/Users/test'},
         platformOverride: 'macos',
       );
-      expect(path, equals('/Users/test/Desktop'));
+      expect(path, equals(p.join('/Users/test', 'Desktop')));
     });
 
     test('on windows env uses USERPROFILE with Desktop appended', () {

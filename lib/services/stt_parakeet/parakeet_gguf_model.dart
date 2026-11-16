@@ -7,24 +7,23 @@
 /// The f16 file was also reproduced locally from the NeMo checkpoint and
 /// matches the upstream SHA-256 byte for byte.
 ///
-/// Integrity: [verifyParakeetGguf] checks the SHA-256 before every load. A
-/// truncated or corrupt GGUF makes ggml's Metal backend abort the process
-/// (`GGML_ASSERT ggml-metal-device.m`), so this check is mandatory and not an
-/// optimisation. The download also refuses any file whose size differs.
+/// Integrity: [verifyParakeetGguf] checks the exact size and the SHA-256 before
+/// every load. The hash is cached as a stamp per file version, so only the first
+/// load of a new file hashes it. A truncated or corrupt GGUF makes ggml's Metal
+/// backend abort the process (`GGML_ASSERT ggml-metal-device.m`), so this check
+/// is mandatory. The download also refuses any file whose size differs.
 library;
 
 import 'dart:io';
-import 'dart:isolate';
 
-import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../file_verification_service.dart';
 import '../http_model_fetcher.dart';
 import 'parakeet_model_registry.dart' show parakeetModelDir;
 
 /// Quantisation used for the GPU engine. q8_0 was the accuracy/size
-/// compromise in the M5 measurements (see the benchmark note in
-/// `internal-notes`). Change this constant to switch variants.
+/// compromise in the M5 measurements. Change this constant to switch variants.
 const ParakeetGgufQuant parakeetGgufDefaultQuant = ParakeetGgufQuant.q8Zero;
 
 /// The GGUF variants of Parakeet TDT 0.6B v3 that can be loaded.
@@ -46,6 +45,7 @@ class ParakeetGgufFile {
     required this.quant,
     required this.sizeBytes,
     required this.sha256,
+    this.mirrorUrls = const [],
   });
 
   final ParakeetGgufQuant quant;
@@ -53,6 +53,13 @@ class ParakeetGgufFile {
 
   /// Lower-case hex SHA-256 of the whole file.
   final String sha256;
+
+  /// Further sources of the identical file, tried in order after [url]
+  /// fails (`HttpModelFetcher.fetchVerified`), each checked against [sha256].
+  final List<String> mirrorUrls;
+
+  /// [url] followed by [mirrorUrls].
+  List<String> get sources => [url, ...mirrorUrls];
 
   String get filename => 'ggml-parakeet-tdt-0.6b-v3-${quant.tag}.bin';
 
@@ -89,48 +96,47 @@ String parakeetGgufPath([ParakeetGgufFile? file]) =>
 /// native loader.
 enum ParakeetGgufCheck { ok, missing, sizeMismatch, hashMismatch }
 
-/// Verifies the file at [path] against [expected]. The hash runs in a
-/// background isolate: `package:crypto` is pure Dart and needs seconds for
-/// the ~670 MB file, which must not block the UI isolate.
+/// Verifies the file at [path] against [expected]. The exact size is checked
+/// first; the SHA-256 is only computed once per file version (see
+/// [FileVerificationService.verifyStamped]), so later loads stay fast.
 Future<ParakeetGgufCheck> verifyParakeetGguf(
   String path,
   ParakeetGgufFile expected,
 ) async {
   final file = File(path);
-  if (!file.existsSync()) return ParakeetGgufCheck.missing;
-  if (file.lengthSync() != expected.sizeBytes) {
-    return ParakeetGgufCheck.sizeMismatch;
-  }
-  final digest = await Isolate.run(() => _sha256OfFile(path));
-  return digest == expected.sha256
-      ? ParakeetGgufCheck.ok
-      : ParakeetGgufCheck.hashMismatch;
+  final stat = await file.stat();
+  if (stat.type != FileSystemEntityType.file) return ParakeetGgufCheck.missing;
+  if (stat.size != expected.sizeBytes) return ParakeetGgufCheck.sizeMismatch;
+  final result = await const FileVerificationService().verifyStamped(
+    file,
+    expected.sha256,
+  );
+  return switch (result) {
+    VerificationOk() => ParakeetGgufCheck.ok,
+    VerificationMismatch() => ParakeetGgufCheck.hashMismatch,
+    VerificationIoError() => ParakeetGgufCheck.missing,
+  };
 }
 
-Future<String> _sha256OfFile(String path) async {
-  final digest = await sha256.bind(File(path).openRead()).first;
-  return digest.toString();
-}
-
-/// Downloads the active GGUF into the Parakeet model directory. A size
-/// mismatch after download deletes the file so a retry starts clean. The
-/// hash is checked by [verifyParakeetGguf] before each load, not here.
+/// Downloads the active GGUF into the Parakeet model directory, source after
+/// source, and checks size and SHA-256 right away
+/// ([HttpModelFetcher.fetchVerified]); a file that fails is deleted. The
+/// hash stamp it writes lets [verifyParakeetGguf] skip the hash on load.
 Future<void> downloadParakeetGguf({
   required HttpModelFetcher fetcher,
   void Function(FetchProgress)? onProgress,
+  void Function()? onVerifying,
   ParakeetGgufFile? file,
 }) async {
   final target = file ?? parakeetGgufActive;
   final dest = parakeetGgufPath(target);
   Directory(p.dirname(dest)).createSync(recursive: true);
-  await fetcher.fetch(
-    url: target.url,
+  await fetcher.fetchVerified(
+    sources: target.sources,
     destPath: dest,
     expectedSize: target.sizeBytes,
+    expectedSha256: target.sha256,
     onProgress: onProgress,
+    onVerifying: onVerifying,
   );
-  if (File(dest).lengthSync() != target.sizeBytes) {
-    File(dest).deleteSync();
-    throw StateError('parakeet_gguf_size_mismatch');
-  }
 }

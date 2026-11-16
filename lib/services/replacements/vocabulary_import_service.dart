@@ -1,5 +1,4 @@
-/// Orchestrates the vocabulary-import feature (PRD.md
-/// `internal-notes`): pick a folder, scan it
+/// Orchestrates the vocabulary-import feature: pick a folder, scan it
 /// locally and offline for probable identifiers, and add each new one as a
 /// fuzzy replacement entry (`origin: imported`).
 library;
@@ -12,7 +11,7 @@ import 'package:path/path.dart' as p;
 
 import '../../core/data/database.dart';
 import 'text_replacement_matcher.dart'
-    show fuzzyMinTriggerLength, fuzzyThresholdStrict;
+    show fuzzyMinTriggerLength, fuzzyThresholdStrict, newEntryMatch;
 import 'vocabulary_import_scanner.dart';
 
 /// Files above this size are skipped -- a vocabulary source file is source
@@ -26,8 +25,7 @@ const int vocabularyImportMaxFileSizeBytes = 2 * 1024 * 1024;
 /// it needs a wider safety margin than something a user typed in by hand.
 /// (Incident: a scan of vendored/generated build output imported thousands
 /// of noise tokens at the "Standard" threshold; several were one edit away
-/// from ordinary short words and silently corrupted unrelated dictation --
-/// see `internal-notes`.)
+/// from ordinary short words and silently corrupted unrelated dictation.)
 const double vocabularyImportDefaultFuzzyThreshold = fuzzyThresholdStrict;
 
 /// Identifiers shorter than this are never imported -- short tokens are
@@ -107,7 +105,8 @@ class VocabularyImportService {
     );
   }
 
-  /// Writes exactly the user-selected [terms] as fuzzy replacement entries
+  /// Writes exactly the user-selected [terms] as [newEntryMatch] entries,
+  /// strict similar for every identifier long enough to be imported
   /// (trigger == replacement == the identifier, so a mis-transcribed
   /// near-variant is corrected back to its exact spelling). Nothing here is
   /// re-checked against existing triggers -- that already happened in
@@ -121,8 +120,8 @@ class VocabularyImportService {
         triggers: [term],
         replacement: term,
         createdAt: now,
-        matchMode: 'fuzzy',
-        fuzzyThreshold: vocabularyImportDefaultFuzzyThreshold,
+        matchMode: newEntryMatch([term]).mode.name,
+        fuzzyThreshold: newEntryMatch([term]).fuzzyThreshold,
         origin: 'imported',
       );
     }

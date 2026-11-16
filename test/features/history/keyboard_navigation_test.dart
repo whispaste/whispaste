@@ -14,7 +14,7 @@ List<Object> _sampleOverrides() {
   final archived = all.where((e) => e.archived && e.deletedAt == null).toList();
   final trash = all.where((e) => e.deletedAt != null).toList();
   return [
-    historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
+    pagedHistoryProvider.overrideWith((ref) => Stream.value(active)),
     archivedEntriesProvider.overrideWith((ref) => Stream.value(archived)),
     trashEntriesProvider.overrideWith((ref) => Stream.value(trash)),
   ];

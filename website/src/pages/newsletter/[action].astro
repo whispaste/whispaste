@@ -1,0 +1,12 @@
+---
+import NewsletterLinkPage from "../../components/pages/NewsletterLinkPage.astro";
+import { NEWSLETTER_ACTIONS } from "../../scripts/newsletter-link.ts";
+
+export function getStaticPaths() {
+  return NEWSLETTER_ACTIONS.map((action) => ({ params: { action } }));
+}
+
+const current = Astro.params.action as (typeof NEWSLETTER_ACTIONS)[number];
+---
+
+<NewsletterLinkPage lang="de" action={current} />

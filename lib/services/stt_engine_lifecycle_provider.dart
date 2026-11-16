@@ -12,6 +12,7 @@ import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import 'stt/on_device_engine_lifecycle.dart';
 import 'stt_parakeet/parakeet_lifecycle_adapter.dart';
+import 'system_speech/system_speech_lifecycle_adapter.dart';
 
 final onDeviceEngineLifecycleProvider = Provider<OnDeviceEngineLifecycle>((
   ref,
@@ -22,5 +23,6 @@ final onDeviceEngineLifecycleProvider = Provider<OnDeviceEngineLifecycle>((
   return switch (engine) {
     OnDeviceEngine.whisper => WhisperEngineLifecycleAdapter(ref),
     OnDeviceEngine.parakeet => ParakeetEngineLifecycleAdapter(ref),
+    OnDeviceEngine.system => SystemSpeechLifecycleAdapter(ref),
   };
 });

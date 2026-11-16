@@ -21,11 +21,18 @@
 /// shared Dart painter.
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/widgets.dart';
 
+import 'core/accessibility/accessibility_reply_binding.dart';
 import 'core/l10n/generated/app_localizations.dart';
+import 'core/theme/overlay_customization.dart';
+import 'core/theme/overlay_design_spec.dart';
+import 'services/floating_button/floating_button_boot_state.dart';
 import 'services/floating_button/floating_button_controller_interface.dart';
 import 'services/floating_button/floating_button_render_channel.dart';
+import 'services/floating_button/idle_capsule.dart';
 import 'shared_render_engine_helpers.dart';
 import 'widgets/floating_button/floating_button_view.dart';
 
@@ -43,14 +50,25 @@ const String _renderChannelName = 'com.whispaste.floating_button_render';
 /// the entrypoint name only against the root library — it has no `libraryURI`
 /// variant. That thin entrypoint delegates here so the real wiring stays in
 /// this cohesive, unit-tested file.
-void runFloatingButtonEngine() {
-  WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('[button-engine] runFloatingButtonEngine booted');
-  runApp(const _ButtonRenderApp());
+///
+/// [args] are the entrypoint arguments; the shell passes the last known render
+/// state there ([FloatingButtonBootState], #977), so a re-booted engine paints
+/// it in its first frame instead of staying blank until `setTheme`.
+void runFloatingButtonEngine([List<String> args = const []]) {
+  WpRenderEngineBinding.ensureInitialized();
+  final boot = FloatingButtonBootState.parse(args);
+  debugPrint(
+    '[button-engine] runFloatingButtonEngine booted '
+    '(boot state: ${boot.state?.name ?? '-'}, '
+    'themed: ${boot.theme != null})',
+  );
+  runApp(_ButtonRenderApp(boot: boot));
 }
 
 class _ButtonRenderApp extends StatefulWidget {
-  const _ButtonRenderApp();
+  const _ButtonRenderApp({required this.boot});
+
+  final FloatingButtonBootState boot;
 
   @override
   State<_ButtonRenderApp> createState() => _ButtonRenderAppState();
@@ -63,12 +81,79 @@ class _ButtonRenderAppState
 
   FloatingButtonVisualState _state = FloatingButtonVisualState.idle;
   double _diameter = 56;
+  OverlayBackground _background = OverlayBackground.marine;
+  OverlayWave _wave = OverlayWave.cyan;
+  FloatingButtonLook _look = FloatingButtonLook.defaults;
+
+  /// False until the shell delivered a theme, either as boot state (#977) or
+  /// with the first `setTheme`. Until then the engine paints nothing: a frame
+  /// in the default colours (marine/cyan) could stay on screen when the next
+  /// frame is held up, which showed a blue recording button on an amber
+  /// setting after a re-boot (#369).
+  bool _themed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final boot = widget.boot;
+    if (boot.state case final state?) _state = state;
+    if (boot.diameter case final diameter?) _diameter = diameter;
+    if (boot.theme case final theme?) {
+      _themed = true;
+      _background = theme.background;
+      _wave = theme.wave;
+      _look = theme.look;
+    }
+  }
+
+  /// Pointer tracking for the idle capsule (see [IdleCapsuleHover]). Hover is
+  /// not tracked under Wayland, where the capsule stays at rest.
+  late final IdleCapsuleHover _capsuleHover = IdleCapsuleHover(
+    hoverSupported: IdleCapsule.hoverSupported(
+      isLinux: Platform.isLinux,
+      isWayland: IdleCapsule.isWaylandSession(Platform.environment),
+    ),
+    onExpandedChanged: (_) => setState(() {}),
+  );
+
+  /// The window content size last sent to the shell; null forces a resend.
+  Size? _sentWindowSize;
+
+  /// The edges the shell pinned for the open pill; null until the shell
+  /// reports them, which keeps the platform default corner.
+  CapsulePins? _pins;
+
+  /// The capsule stays on the edges the shell pinned, so the pill grows
+  /// toward the interior of the screen.
+  Alignment get _capsuleAlignment {
+    final pins =
+        _pins ??
+        CapsulePins(pinnedRight: false, pinnedBottom: Platform.isMacOS);
+    return Alignment(pins.pinnedRight ? 1 : -1, pins.pinnedBottom ? 1 : -1);
+  }
+
+  @override
+  void dispose() {
+    _capsuleHover.dispose();
+    super.dispose();
+  }
 
   @override
   FloatingButtonRenderChannel createChannel() => FloatingButtonRenderChannel(
     name: _renderChannelName,
     onState: _onState,
-    onDiameter: (d) => setState(() => _diameter = d),
+    // The shell resizes its window back to the disc on its own: resend the
+    // capsule size after it.
+    onDiameter: (d) => setState(() {
+      _sentWindowSize = null;
+      _diameter = d;
+    }),
+    onTheme: (background, wave) => setState(() {
+      _themed = true;
+      _background = background;
+      _wave = wave;
+    }),
+    onLook: (look) => setState(() => _look = look),
   );
 
   @override
@@ -91,7 +176,9 @@ class _ButtonRenderAppState
     return switch (s) {
       FloatingButtonVisualState.recording => l10n.statusBarRecording,
       FloatingButtonVisualState.transcribing => l10n.statusBarTranscribing,
-      FloatingButtonVisualState.done => l10n.statusBarDone,
+      // Neutral on purpose: this engine only receives the visual state, not
+      // the outcome, so it must not claim "Pasted" for a copy-only result.
+      FloatingButtonVisualState.done => l10n.overlayDoneReady,
       FloatingButtonVisualState.error => l10n.sttStatusError,
       FloatingButtonVisualState.idle => null,
       FloatingButtonVisualState.disabled => null,
@@ -108,12 +195,53 @@ class _ButtonRenderAppState
     return stateText == null ? semanticsLabel : '$semanticsLabel, $stateText';
   }
 
+  bool get _capsuleActive =>
+      WpFloatingButtonView.isCapsule(state: _state, look: _look);
+
+  /// Asks the shell for the window size of the current form, once per change.
+  /// Runs after the frame, so it never resizes during a layout pass.
+  void _syncWindowSize() {
+    if (!mounted) return;
+    _capsuleHover.setActive(_capsuleActive);
+    final size = WpFloatingButtonView.contentSizeFor(
+      state: _state,
+      diameter: _diameter,
+      look: _look,
+      expanded: _capsuleHover.expanded,
+    );
+    if (size == _sentWindowSize) return;
+    _sentWindowSize = size;
+    channel.setWindowSize(size, expanded: _capsuleHover.expanded).then((pins) {
+      if (mounted) setState(() => _pins = pins);
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => buildRenderEngineRoot(
-    semanticsLabel: _composedSemanticsLabel,
-    onTap: channel.clicked,
-    onPanStart: channel.startDrag,
-    onSecondaryOrLongPress: channel.showContextMenu,
-    child: WpFloatingButtonView(state: _state, diameter: _diameter),
-  );
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncWindowSize());
+    return buildRenderEngineRoot(
+      semanticsLabel: _composedSemanticsLabel,
+      onTap: channel.clicked,
+      onPanStart: channel.startDrag,
+      onSecondaryOrLongPress: channel.showContextMenu,
+      child: MouseRegion(
+        onEnter: (_) {
+          _capsuleHover.pointerEnter();
+        },
+        onHover: (_) => _capsuleHover.pointerEnter(),
+        onExit: (_) => _capsuleHover.pointerExit(),
+        child: _themed
+            ? WpFloatingButtonView(
+                state: _state,
+                diameter: _diameter,
+                background: _background,
+                wave: _wave,
+                look: _look,
+                capsuleExpanded: _capsuleHover.expanded,
+                capsuleAlignment: _capsuleAlignment,
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
 }

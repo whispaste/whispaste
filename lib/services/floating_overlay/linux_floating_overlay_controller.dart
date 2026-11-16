@@ -16,7 +16,7 @@ import 'floating_overlay_events.dart';
 class LinuxFloatingOverlayController
     extends MethodChannelPlatformHost<FloatingOverlayEvent>
     with FloatingOverlayControllerMixin
-    implements FloatingOverlayController {
+    implements FloatingOverlayController, RenderEngineRecovery {
   static const _channelName = 'com.whispaste.floating_overlay';
 
   LinuxFloatingOverlayController() : super(_channelName);
@@ -34,10 +34,16 @@ class LinuxFloatingOverlayController
       invokeMethod('setPosition', {'x': x, 'y': y, 'anchorMode': anchor.name});
 
   @override
-  Future<void> setContextMenuItems(List<({String id, String label})> items) =>
-      invokeMethod('setContextMenuItems', {
-        'items': items
-            .map((item) => {'id': item.id, 'label': item.label})
-            .toList(),
-      });
+  Future<void> setContextMenuItems(
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) => invokeMethod('setContextMenuItems', {
+    'items': items,
+    'appearance': appearance,
+  });
+
+  /// Asks the native shell to re-boot the render engine (frame heartbeat,
+  /// see [FloatingOverlayService]).
+  @override
+  Future<void> rebootRenderEngine() => invokeMethod('rebootRenderEngine');
 }

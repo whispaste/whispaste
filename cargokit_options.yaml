@@ -1,0 +1,7 @@
+# Cargokit (super_native_extensions via super_clipboard): use the signed
+# prebuilt library from the package's release instead of compiling the Rust
+# part on every machine that has rustup. Cargokit checks the signature
+# against the package's public key and builds from source only when no
+# signed prebuilt library exists for the crate or its signature fails. A
+# network error stops the build instead. See BUILD.md (#674).
+use_precompiled_binaries: true

@@ -13,6 +13,7 @@
 #include <winrt/Windows.Services.Store.h>
 
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <optional>
 #include <string>
@@ -76,7 +77,7 @@ std::optional<StoreContext> TryContext(HWND window) {
   if (!HasPackageIdentity()) return std::nullopt;
   try {
     return Context(window);
-  } catch (const winrt::hresult_error&) {
+  } catch (...) {
     return std::nullopt;
   }
 }
@@ -86,7 +87,10 @@ void PostToPlatformThread(HWND window, std::function<void()> work) {
   auto* boxed = new std::function<void()>(std::move(work));
   if (!::PostMessage(window, kPostedWorkMessage, 0,
                      reinterpret_cast<LPARAM>(boxed))) {
-    delete boxed;  // window is gone; nobody is waiting any more
+    // The window is gone (shutdown): the engine that awaited the reply is
+    // gone with it, and a reply from this thread would be unsafe.
+    delete boxed;
+    OutputDebugStringW(L"[SupportStore] Reply dropped: window gone\n");
   }
 }
 
@@ -342,6 +346,12 @@ void HandleMethodCall(HWND window, const flutter::MethodCall<EncodableValue>& ca
     reply->NotImplemented();
   } catch (const winrt::hresult_error& error) {
     reply->Error("store_error", HresultMessage(error));
+  } catch (const std::exception& error) {
+    // Argument decoding or a container can throw too; Dart awaits every call,
+    // so each one must end in a reply.
+    reply->Error("store_error", error.what());
+  } catch (...) {
+    reply->Error("store_error", "Unexpected Store failure.");
   }
 }
 

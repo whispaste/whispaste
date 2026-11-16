@@ -8,13 +8,25 @@
 /// woanders nachzubauen.
 library;
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../services/hotkey_service.dart';
 import '../../services/hotkey_conflicts.dart';
+import '../../services/hotkey_key_resolver.dart'
+    show resolveKey, resolveModifiers;
+import '../../services/hotkey_trigger.dart';
+import '../../services/floating_button/floating_button_support.dart'
+    show LinuxSessionType, linuxSessionTypeFrom;
+import '../../services/linux_desktop_shortcut.dart';
+import '../../services/modifier_key_monitor.dart';
 import '../../widgets/hotkey_recorder.dart';
+import 'modifier_only_flow.dart';
 
 /// Wie ein Belegungs-Versuch ausgegangen ist.
 enum HotkeyChange {
@@ -64,7 +76,9 @@ class HotkeyRecordResult {
 /// Liste bildet ab, was tatsächlich belegt ist, nicht was bedienbar angeboten
 /// wird.
 List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
-  if (settings.hotkeyEnabled)
+  // A double-tap trigger replaces the dictation combination (one trigger per
+  // action), so the stored combination then holds nothing.
+  if (settings.hotkeyEnabled && settings.hotkey.hotkeyDoubleTapKey.isEmpty)
     HotkeyBinding(
       actionId: 'global',
       actionLabel: l10n.settingsHotkeyActionRecording,
@@ -87,11 +101,35 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
       key: settings.snippetPickerHotkey.snippetPickerHotkeyKey,
       modifiers: settings.snippetPickerHotkey.snippetPickerHotkeyModifiers,
     ),
+  if (settings.stt.languageCycleHotkeyEnabled)
+    HotkeyBinding(
+      // Muss zeichengleich zur Action-ID in `HotkeyService` sein.
+      actionId: 'languageCycle',
+      actionLabel: l10n.settingsHotkeyActionLanguageCycle,
+      key: settings.stt.languageCycleHotkeyKey,
+      modifiers: settings.stt.languageCycleHotkeyModifiers,
+    ),
+  if (settings.behavior.repasteHotkeyEnabled)
+    HotkeyBinding(
+      // Muss zeichengleich zur Action-ID in `HotkeyService` sein.
+      actionId: 'repaste',
+      actionLabel: l10n.settingsHotkeyActionRepaste,
+      key: settings.behavior.repasteHotkeyKey,
+      modifiers: settings.behavior.repasteHotkeyModifiers,
+    ),
+  if (settings.behavior.learnCorrectionHotkeyEnabled)
+    HotkeyBinding(
+      // Muss zeichengleich zur Action-ID in `HotkeyService` sein.
+      actionId: 'learnCorrection',
+      actionLabel: l10n.settingsHotkeyActionLearnCorrection,
+      key: settings.behavior.learnCorrectionHotkeyKey,
+      modifiers: settings.behavior.learnCorrectionHotkeyModifiers,
+    ),
   if (settings.smartModeHotkey.smartModeHotkeyEnabled)
     HotkeyBinding(
       // Muss zeichengleich zur Action-ID in `HotkeyService`
       // (`_smartModeActionId`) sein — sonst schlösse `excludeActionId` den
-      // falschen Hotkey aus (ticket 04 of `internal-notes`).
+      // falschen Hotkey aus.
       actionId: 'smartMode',
       actionLabel: l10n.settingsHotkeyActionSmartMode,
       key: settings.smartModeHotkey.smartModeHotkeyKey,
@@ -100,13 +138,51 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
   if (settings.selectionEditHotkey.selectionEditHotkeyEnabled)
     HotkeyBinding(
       // Must match the action id in `HotkeyService`
-      // (`_selectionEditActionId`) exactly (`internal-notes`).
+      // (`_selectionEditActionId`) exactly.
       actionId: 'selectionEdit',
       actionLabel: l10n.settingsHotkeyActionSelectionEdit,
       key: settings.selectionEditHotkey.selectionEditHotkeyKey,
       modifiers: settings.selectionEditHotkey.selectionEditHotkeyModifiers,
     ),
 ];
+
+/// The action that already holds the combination under the one-trigger rule
+/// ([triggerHolder], hotkey_trigger.dart), named as the UI shows it. Null when
+/// [actionId] may take it. A stored key that cannot be resolved holds nothing.
+String? _comboHolderLabel({
+  required List<HotkeyBinding> bindings,
+  required String actionId,
+  required String modifiers,
+  required String key,
+}) {
+  final candidate = _comboTrigger(key, modifiers);
+  if (candidate == null) return null;
+  final assignments = <String, HotkeyTrigger>{};
+  final labels = <String, String>{};
+  for (final binding in bindings) {
+    final trigger = _comboTrigger(binding.key, binding.modifiers);
+    if (trigger == null) continue;
+    assignments[binding.actionId] = trigger;
+    labels[binding.actionId] = binding.actionLabel;
+  }
+  final holder = triggerHolder(
+    candidate,
+    forAction: actionId,
+    assignments: assignments,
+  );
+  return holder == null ? null : labels[holder];
+}
+
+HotkeyComboTrigger? _comboTrigger(String key, String modifiers) {
+  try {
+    return HotkeyComboTrigger(
+      key: resolveKey(key),
+      modifiers: resolveModifiers(modifiers).toSet(),
+    );
+  } on ArgumentError {
+    return null;
+  }
+}
 
 /// Der eine Ablauf hinter jedem Neu-Belegen: Dialog öffnen → Kollision prüfen
 /// → erst dann speichern.
@@ -131,6 +207,9 @@ Future<HotkeyRecordResult> recordHotkey({
   required String initialModifiers,
   required AppSettings Function(AppSettings settings, WpHotkeyResult result)
   apply,
+  Set<ModifierHotkey>? singleKeys,
+  String initialSingleKey = '',
+  Future<void> Function(ModifierHotkey key)? applySingleKey,
 }) async {
   // Vor dem `await` aufgelöst: danach ist [context] möglicherweise entsorgt,
   // und die Bindings brauchen die übersetzten Aktionsnamen für die Meldung.
@@ -141,26 +220,42 @@ Future<HotkeyRecordResult> recordHotkey({
     initialKey: initialKey,
     initialDisplayKey: initialDisplayKey,
     initialModifiers: initialModifiers,
+    holderOf: (modifiers, key) => _comboHolderLabel(
+      bindings: bindings,
+      actionId: actionId,
+      modifiers: modifiers,
+      key: key,
+    ),
+    onOpenSystemSettings: ref.read(appShortcutSettingsActionProvider),
+    singleKeys: singleKeys,
+    initialSingleKey: initialSingleKey,
   );
   if (result == null) return const HotkeyRecordResult.cancelled();
   // Der Dialog kann überlebt haben, was ihn geöffnet hat (Panel geschlossen,
   // Seite gewechselt). Dann gibt es niemanden mehr, dem ein Ergebnis gehört.
   if (!context.mounted) return const HotkeyRecordResult.cancelled();
 
+  // Eine einzelne Taste kollidiert mit keiner Kombination.
+  final single = ModifierHotkey.values
+      .where((k) => k.name == result.singleKey)
+      .firstOrNull;
+  if (single != null && applySingleKey != null) {
+    await applySingleKey(single);
+    return const HotkeyRecordResult.saved();
+  }
+
   // Vor dem Speichern, nicht danach: eine doppelt vergebene Kombination ließe
   // sich zwar speichern, aber einer der beiden Hotkeys löste danach still
   // nicht mehr aus — ohne dass irgendwo etwas sichtbar fehlschlüge. Gegen den
   // kanonischen Token geprüft, nicht gegen die Anzeige-Taste: beim OS
   // registriert wird der kanonische, also kollidiert auch nur der.
-  final collision = findHotkeyCollision(
+  final holder = _comboHolderLabel(
+    bindings: bindings,
+    actionId: actionId,
     modifiers: result.modifiers,
     key: result.key,
-    bindings: bindings,
-    excludeActionId: actionId,
   );
-  if (collision != null) {
-    return HotkeyRecordResult.collided(collision.actionLabel);
-  }
+  if (holder != null) return HotkeyRecordResult.collided(holder);
 
   await ref
       .read(settingsProvider.notifier)
@@ -200,4 +295,64 @@ mixin HotkeyCollisionNotice<T extends ConsumerStatefulWidget>
     if (result.change == HotkeyChange.cancelled) return;
     setState(() => _collidingAction = result.collidingActionLabel);
   }
+}
+
+/// Öffnet den Aufzeichnungs-Dialog für den Diktat-Hotkey und speichert das
+/// Ergebnis — sofern die Kombination frei ist. Derselbe Weg wie bei den
+/// übrigen Hotkeys (UIA-SET-02), damit eine doppelte Belegung nicht still
+/// einen der beiden Hotkeys abschaltet.
+///
+/// Der Diktat-Hotkey darf auch eine einzelne Taste sein (links und rechts
+/// getrennt): allein gedrückt und losgelassen nimmt der Dialog sie auf.
+///
+/// [requestInputMonitoring] false skips the immediate macOS prompt for a
+/// single key; the onboarding explains the grant first (#1199).
+Future<HotkeyRecordResult> recordDictationHotkey({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AppSettings settings,
+  bool requestInputMonitoring = true,
+}) {
+  final isWayland =
+      defaultTargetPlatform == TargetPlatform.linux &&
+      linuxSessionTypeFrom(Platform.environment) == LinuxSessionType.wayland;
+  return recordHotkey(
+    context: context,
+    ref: ref,
+    settings: settings,
+    actionId: 'global',
+    initialKey: settings.hotkeyKey,
+    initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
+    initialModifiers: settings.hotkeyModifiers,
+    singleKeys: {
+      for (final k in ModifierHotkey.values)
+        if (doubleTapSupported(
+          k,
+          isMacOS: defaultTargetPlatform == TargetPlatform.macOS,
+          isWayland: isWayland,
+        ))
+          k,
+    },
+    // The key in effect: a stored single key the device cannot observe yet
+    // (Input Monitoring missing) leaves the combination listening.
+    initialSingleKey: ref.read(doubleTapFallbackActiveProvider)
+        ? ''
+        : settings.hotkey.hotkeyDoubleTapKey,
+    applySingleKey: (key) => applyDictationSingleKey(
+      ref: ref,
+      key: key,
+      requestInputMonitoring: requestInputMonitoring,
+    ),
+    // A combination replaces any double-tap trigger: an action has one trigger.
+    apply: (s, result) {
+      final next = s.copyWith(
+        hotkeyKey: result.key,
+        hotkeyKeyDisplay: result.displayKey,
+        hotkeyModifiers: result.modifiers,
+      );
+      return next.copyWithSections(
+        hotkey: next.hotkey.copyWith(hotkeyDoubleTapKey: ''),
+      );
+    },
+  );
 }

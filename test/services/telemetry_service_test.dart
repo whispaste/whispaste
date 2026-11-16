@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -7,91 +8,52 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
-import 'package:whispaste/services/update_channel_service.dart';
+
+DateTime _testNow() => DateTime.utc(2026, 11, 11, 12);
 
 TelemetryService _makeService({
   required http.Client client,
   String endpointUrl = 'https://example.matomo.cloud',
   int siteId = 1,
   bool consentGranted = true,
-  bool dntActive = false,
   Map<String, String> dimensions = const {},
   String? sessionVisitorId,
+  DateTime Function() now = _testNow,
 }) {
   return TelemetryService(
     client: client,
     endpointUrl: endpointUrl,
     siteId: siteId,
     consentGranted: consentGranted,
-    dntActive: dntActive,
     dimensions: dimensions,
     sessionVisitorId: sessionVisitorId,
+    now: now,
   );
 }
 
 void main() {
-  group('updateChannelDimension — Dimension 6 discipline (categorical only)', () {
-    test('store deploy channel → n/a (no Sparkle feed in store builds)', () {
-      for (final update in UpdateChannel.values) {
-        expect(
-          updateChannelDimension(
-            deployChannel: DeployChannel.store,
-            updateChannel: update,
-          ),
-          'n/a',
-        );
-      }
-    });
-
-    test(
-      'packageManaged deploy channel → n/a (no Sparkle feed for Homebrew/Scoop)',
-      () {
-        for (final update in UpdateChannel.values) {
-          expect(
-            updateChannelDimension(
-              deployChannel: DeployChannel.packageManaged,
-              updateChannel: update,
-            ),
-            'n/a',
-          );
+  group(
+    'updateChannelDimension — Dimension 6 discipline (categorical only)',
+    () {
+      test('store and package-managed builds → n/a (no Sparkle feed)', () {
+        for (final deploy in [
+          DeployChannel.store,
+          DeployChannel.packageManaged,
+        ]) {
+          expect(updateChannelDimension(deployChannel: deploy), 'n/a');
         }
-      },
-    );
+      });
 
-    test('installer + stable → stable', () {
-      expect(
-        updateChannelDimension(
-          deployChannel: DeployChannel.installer,
-          updateChannel: UpdateChannel.stable,
-        ),
-        'stable',
-      );
-    });
-
-    test('portable + beta → beta', () {
-      expect(
-        updateChannelDimension(
-          deployChannel: DeployChannel.portable,
-          updateChannel: UpdateChannel.beta,
-        ),
-        'beta',
-      );
-    });
-
-    test('never emits free-form content — only the categorical tokens '
-        'stable/beta/n/a', () {
-      const allowed = {'stable', 'beta', 'n/a'};
-      for (final deploy in DeployChannel.values) {
-        for (final update in UpdateChannel.values) {
-          final value = updateChannelDimension(
-            deployChannel: deploy,
-            updateChannel: update,
-          );
-          expect(allowed, contains(value), reason: 'emitted: $value');
+      test('direct builds → stable (the only feed)', () {
+        for (final deploy in [
+          DeployChannel.installer,
+          DeployChannel.portable,
+        ]) {
+          expect(updateChannelDimension(deployChannel: deploy), 'stable');
         }
-      }
-    });
-  });
+      });
+    },
+  );
 
   group('TelemetryService', () {
     test('does not send HTTP request when consentGranted is false', () async {
@@ -104,28 +66,24 @@ void main() {
 
       service.trackPageView('/test');
 
-      await Future.delayed(Duration.zero);
+      await service.flush();
       expect(httpCallMade, false);
     });
 
     test(
-      'does not send HTTP request when DNT is active, even with consent',
+      'consent alone decides: the event is sent with consent and nothing else gating',
       () async {
         var httpCallMade = false;
         final client = MockClient((_) async {
           httpCallMade = true;
           return http.Response('', 200);
         });
-        final service = _makeService(
-          client: client,
-          consentGranted: true,
-          dntActive: true,
-        );
+        final service = _makeService(client: client, consentGranted: true);
 
         service.trackPageView('/test');
 
-        await Future.delayed(Duration.zero);
-        expect(httpCallMade, false);
+        await service.flush();
+        expect(httpCallMade, true);
       },
     );
 
@@ -141,7 +99,7 @@ void main() {
 
         service.trackPageView('/test');
 
-        await Future.delayed(Duration.zero);
+        await service.flush();
         expect(httpCallMade, false);
       },
     );
@@ -158,7 +116,7 @@ void main() {
 
         service.trackPageView('/test');
 
-        await Future.delayed(Duration.zero);
+        await service.flush();
         expect(httpCallMade, false);
       },
     );
@@ -333,24 +291,6 @@ void main() {
       expect(params['e_n'], 'stt_provider');
     });
 
-    test('beta_updates is whitelisted — it was previously missing, so the '
-        'Beta-Updates toggle in Settings silently sent nothing', () async {
-      expect(kTrackableSettingKeys, contains('beta_updates'));
-
-      final bodies = <String>[];
-      final client = MockClient((req) async {
-        bodies.add(req.body);
-        return http.Response('', 200);
-      });
-      final service = _makeService(client: client);
-      service.trackSettingChange('beta_updates');
-      await service.flush();
-
-      expect(bodies, hasLength(1));
-      final params = Uri.splitQueryString(bodies.single);
-      expect(params['e_n'], 'beta_updates');
-    });
-
     test(
       'event payloads can never carry transcript text, audio, or history',
       () async {
@@ -519,7 +459,7 @@ void main() {
         });
         final service = _makeService(client: client, consentGranted: false);
         service.trackSettingChange('share_usage_stats');
-        await Future.delayed(Duration.zero);
+        await service.flush();
 
         expect(
           dispatched,
@@ -601,7 +541,7 @@ void main() {
       final agg = TelemetrySessionAggregator();
       agg.count(category: 'pipeline', action: 'success', name: 'ok');
       agg.drainTo(service);
-      await Future<void>.delayed(Duration.zero);
+      await service.flush();
 
       expect(hits, 0);
     });
@@ -673,18 +613,20 @@ void main() {
     });
 
     test('a request that is never flushed does not surface as an unhandled '
-        'async error', () async {
-      final client = MockClient((_) async {
-        throw const SocketException('Failed host lookup');
+        'async error', () {
+      fakeAsync((time) {
+        final client = MockClient((_) async {
+          throw const SocketException('Failed host lookup');
+        });
+        final service = _makeService(client: client);
+
+        // Simulates a telemetryProvider rebuild discarding this instance
+        // before flush() ever runs. Without the fix, the orphaned future
+        // would surface as an uncaught async error in this test's zone.
+        service.trackPageView('/test');
+
+        time.flushMicrotasks();
       });
-      final service = _makeService(client: client);
-
-      // Simulates a telemetryProvider rebuild discarding this instance
-      // before flush() ever runs. Without the fix, the orphaned future
-      // would surface as an uncaught async error in this test's zone.
-      service.trackPageView('/test');
-
-      await Future<void>.delayed(Duration.zero);
     });
   });
 
@@ -761,12 +703,12 @@ void main() {
         await service.sendDailyAlivePingIfDue(prefs);
 
         expect(requestCount, 1);
-        expect(prefs.getString('telemetry_alive_ping_last_date'), isNotNull);
+        expect(prefs.getString('telemetry_alive_ping_last_date'), '2026-11-11');
       },
     );
 
-    test('does not send a second ping the same day', () async {
-      final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    test('sends again only after the UTC day changes', () async {
+      const today = '2026-11-11';
       SharedPreferences.setMockInitialValues({
         'telemetry_alive_ping_last_date': today,
       });
@@ -776,11 +718,16 @@ void main() {
         requestCount++;
         return http.Response('', 200);
       });
-      final service = _makeService(client: client);
+      var now = _testNow();
+      final service = _makeService(client: client, now: () => now);
 
       await service.sendDailyAlivePingIfDue(prefs);
 
       expect(requestCount, 0);
+      now = DateTime.utc(2026, 11, 12);
+      await service.sendDailyAlivePingIfDue(prefs);
+      expect(requestCount, 1);
+      expect(prefs.getString('telemetry_alive_ping_last_date'), '2026-11-12');
     });
 
     test(

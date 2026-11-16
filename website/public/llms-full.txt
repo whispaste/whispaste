@@ -6,7 +6,7 @@
 
 ## What WhisPaste does
 
-- You press a global hotkey in any application, speak, and press it again (or hold it while speaking).
+- You hold a global hotkey in any application while you speak and let go to stop, or tap it once to start and again to stop.
 - WhisPaste transcribes the recording on your computer and copies the text to the clipboard. With Auto-Paste switched on, it inserts the text at the cursor of the active application, in almost any app.
 - It is meant for people who write a lot at the desktop: emails, messages, documents, notes, prompts and code comments.
 
@@ -16,21 +16,32 @@
 - After a one-time model download, local recognition works offline.
 - A GPU is optional. Acceleration uses Metal on Apple Silicon and Vulkan on Windows and Linux; an optional CUDA pack is available for NVIDIA. Without a GPU, recognition runs on the CPU.
 - Optional cloud recognition through OpenAI or Deepgram with your own API key.
+- On Macs with macOS 26 or later, Apple’s on-device speech recognition is a third option.
 
 ## Smart Mode (optional, off by default)
 
 - Cleanup removes filler words and fixes punctuation, Concise shortens the text, Translate converts it into German, English, Spanish, French, Portuguese, Mandarin or Russian.
 - Runs locally (macOS and Windows; experimental on Linux) or through OpenAI with your own API key.
+- Your own presets with your own instruction (up to 500 characters); apply a preset later to an earlier recording, the original is kept. Instead of OpenAI, a compatible server of your own (for example LM Studio or Ollama) on your computer or network works too.
 
 ## Everyday features
 
-- Local history of transcripts and separate quick notes.
+- Local Recordings area with search, filters, automatic saving and version history, plus notes with titles, images, checklists, a reading view and a focus mode.
 - Snippets: saved text blocks inserted by hotkey or by a spoken trigger word; interactive snippets fill in a template.
-- File import: transcribe existing audio files.
+- File import: transcribe audio (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) and video files (MP4, MOV, MKV, WebM), up to 1 GB and 6 hours. Audio files can also be sent straight from the file manager: “Open With” on a Mac, on Linux and in the Microsoft Store version for Windows, right-click with the Windows installer from the website.
+- Optionally, WhisPaste pauses music and video on Windows and Linux while you dictate, and “Send after pasting” presses Enter after the text is pasted (hold Alt as you release the hotkey; on Linux X11 only).
+- “Even out volume automatically” (on by default) raises quiet speech before recognition without amplifying silence or noise.
+- Up to five favorite recognition languages, marked with a star, come first in the language menus; a shortcut switches between them.
+- The Dictionary holds names and specialist terms; replacements fix recurring spellings, and WhisPaste suggests new ones from your repeated corrections.
+- Profiles set language, speech model, Smart Mode, microphone and output for a specific app.
+- If a transcription fails, the audio is kept for 24 hours by default, even after a crash, so you can try again.
+- Accessibility: settings, notes and editor tools work by keyboard and screen reader; tap mode means you never have to hold a key.
 
 ## Privacy
 
 - With local recognition, audio stays on your computer and is discarded after transcription unless you turn on audio retention.
+- On macOS and Windows, WhisPaste does not auto-paste into password fields; the text stays on the clipboard.
+- Transcripts, notes, the Dictionary, snippets and kept audio are stored encrypted with a data key in the system key store (macOS keychain, Windows data protection, Linux Secret Service). You can back up the key as a recovery code or file.
 - No account is needed.
 - Usage statistics and crash reports contain no audio, transcripts or history and can be switched off in Settings → Privacy.
 - Cloud features send data only to the provider you chose and only when you use them.
@@ -65,7 +76,7 @@
 
 ## Was WhisPaste macht
 
-- Du drückst in einer beliebigen Anwendung ein globales Tastenkürzel, sprichst und drückst es erneut (oder hältst es beim Sprechen gedrückt).
+- Du hältst in einer beliebigen Anwendung ein globales Tastenkürzel, während du sprichst, und lässt zum Stoppen los, oder tippst es einmal zum Starten und noch einmal zum Stoppen.
 - WhisPaste schreibt die Aufnahme auf deinem Computer mit und kopiert den Text in die Zwischenablage. Mit eingeschaltetem Auto-Einfügen setzt es den Text am Cursor der aktiven Anwendung ein, in fast jeder App.
 - Gedacht für Menschen, die am Desktop viel schreiben: E-Mails, Nachrichten, Dokumente, Notizen, Prompts und Code-Kommentare.
 
@@ -75,23 +86,34 @@
 - Nach einem einmaligen Modell-Download funktioniert die lokale Erkennung offline.
 - Eine GPU ist optional. Beschleunigt wird mit Metal auf Apple Silicon und Vulkan unter Windows und Linux; für NVIDIA gibt es ein optionales CUDA-Paket. Ohne GPU läuft die Erkennung auf der CPU.
 - Optional Cloud-Erkennung über OpenAI oder Deepgram mit eigenem API-Schlüssel.
+- Auf Macs mit macOS 26 oder neuer steht die Apple-Spracherkennung auf dem Gerät als dritte Wahl bereit.
 
 ## Smart Mode (optional, standardmäßig aus)
 
 - Aufräumen entfernt Füllwörter und korrigiert die Zeichensetzung, Kürzen fasst den Text knapper, Übersetzen überträgt ihn ins Deutsche, Englische, Spanische, Französische, Portugiesische, Mandarin oder Russische.
 - Läuft lokal (macOS und Windows; unter Linux experimentell) oder über OpenAI mit eigenem API-Schlüssel.
+- Eigene Presets mit eigener Anweisung (bis 500 Zeichen); ein Preset lässt sich später auf eine frühere Aufnahme anwenden, das Original bleibt. Statt OpenAI funktioniert auch ein eigener kompatibler Server (etwa LM Studio oder Ollama) auf dem Rechner oder im lokalen Netz.
 
 ## Im Alltag
 
-- Lokaler Verlauf der Transkripte und getrennte Schnellnotizen.
+- Lokaler Bereich Aufnahmen mit Suche, Filtern, automatischem Speichern und Versionsverlauf, dazu Notizen mit Titeln, Bildern, Checklisten, Leseansicht und Fokusmodus.
 - Textbausteine: gespeicherte Texte, eingefügt per Tastenkürzel oder gesprochenem Auslösewort; interaktive Bausteine füllen eine Vorlage aus.
-- Datei-Import: vorhandene Audiodateien transkribieren.
+- Datei-Import: Audio- (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) und Videodateien (MP4, MOV, MKV, WebM) bis 1 GB und 6 Stunden transkribieren. Audiodateien gehen auch direkt aus dem Dateimanager an WhisPaste: auf dem Mac, unter Linux und in der Version aus dem Microsoft Store über „Öffnen mit“, mit dem Windows-Installer von der Website per Rechtsklick.
+- Optional pausiert WhisPaste unter Windows und Linux Musik und Videos während des Diktats, und „Nach dem Einfügen senden“ drückt nach dem Einfügen Enter (Alt beim Loslassen des Hotkeys halten; unter Linux nur X11).
+- „Lautstärke automatisch angleichen“ (standardmäßig an) hebt leise Sprache vor der Erkennung an, ohne Stille oder Rauschen zu verstärken.
+- Bis zu fünf Lieblings-Erkennungssprachen, mit dem Stern markiert, stehen in den Sprachmenüs oben; ein Tastenkürzel wechselt zwischen ihnen.
+- Das Wörterbuch hält Namen und Fachbegriffe; Ersetzungen korrigieren wiederkehrende Schreibweisen, und aus wiederholten Korrekturen schlägt WhisPaste neue vor.
+- Profile legen Sprache, Sprachmodell, Smart Mode, Mikrofon und Ausgabe für eine bestimmte App fest.
+- Scheitert eine Transkription, bleibt das Audio standardmäßig 24 Stunden erhalten, auch nach einem Absturz, und du kannst es erneut versuchen.
+- Barrierefreiheit: Einstellungen, Notizen und Editor-Werkzeuge funktionieren per Tastatur und Screenreader; im Tipp-Modus musst du nie eine Taste halten.
 
 ## Datenschutz
 
 - Bei lokaler Erkennung bleibt das Audio auf deinem Computer und wird nach der Transkription verworfen, außer du schaltest das Aufbewahren von Audio ein.
+- Unter macOS und Windows fügt WhisPaste nicht automatisch in Passwortfelder ein; der Text bleibt in der Zwischenablage.
+- Transkripte, Notizen, Wörterbuch, Textbausteine und aufbewahrtes Audio liegen verschlüsselt, mit einem Datenschlüssel im Schlüsselspeicher des Systems (macOS-Schlüsselbund, Windows-Datenschutz, Linux Secret Service). Den Schlüssel sicherst du als Wiederherstellungscode oder Datei.
 - Kein Konto nötig.
-- Nutzungsstatistik und Absturzberichte enthalten kein Audio, keine Transkripte und keinen Verlauf und lassen sich unter Einstellungen → Datenschutz ausschalten.
+- Nutzungsstatistik und Absturzberichte enthalten kein Audio, keine Transkripte und keine Einträge aus Aufnahmen und lassen sich unter Einstellungen → Datenschutz ausschalten.
 - Cloud-Funktionen senden Daten nur an den gewählten Anbieter und nur, wenn du sie nutzt.
 
 ## Plattformen und Voraussetzungen
@@ -124,7 +146,7 @@
 
 ## Qué hace WhisPaste
 
-- Pulsas un atajo global en cualquier aplicación, hablas y lo vuelves a pulsar (o lo mantienes pulsado mientras hablas).
+- Mantienes pulsado un atajo global en cualquier aplicación mientras hablas y lo sueltas para detener, o lo tocas una vez para empezar y otra para detener.
 - WhisPaste transcribe la grabación en tu ordenador y copia el texto al portapapeles. Con el pegado automático activado, lo inserta en el cursor de la aplicación activa, en casi cualquier app.
 - Pensado para quienes escriben mucho en el escritorio: correos, mensajes, documentos, notas, prompts y comentarios de código.
 
@@ -134,21 +156,32 @@
 - Tras una descarga única del modelo, el reconocimiento local funciona sin conexión.
 - La GPU es opcional. La aceleración usa Metal en Apple Silicon y Vulkan en Windows y Linux; para NVIDIA hay un paquete CUDA opcional. Sin GPU, el reconocimiento se ejecuta en la CPU.
 - Reconocimiento en la nube opcional a través de OpenAI o Deepgram con tu propia clave de API.
+- En Mac con macOS 26 o posterior, el reconocimiento de voz de Apple en el dispositivo es una tercera opción.
 
 ## Smart Mode (opcional, desactivado por defecto)
 
 - Limpiar elimina muletillas y corrige la puntuación, Resumir acorta el texto y Traducir lo convierte al alemán, inglés, español, francés, portugués, mandarín o ruso.
 - Funciona localmente (macOS y Windows; experimental en Linux) o a través de OpenAI con tu propia clave de API.
+- Presets propios con tu propia instrucción (hasta 500 caracteres); un preset se puede aplicar más tarde a una grabación anterior y el original se conserva. En lugar de OpenAI también funciona un servidor compatible propio (por ejemplo LM Studio u Ollama) en tu ordenador o tu red local.
 
 ## En el día a día
 
-- Historial local de transcripciones y notas rápidas aparte.
+- Área local Grabaciones con búsqueda, filtros, guardado automático e historial de versiones, además de notas con títulos, imágenes, listas de tareas, vista de lectura y modo concentración.
 - Fragmentos: bloques de texto guardados que se insertan con un atajo o una palabra clave dicha en voz alta; los fragmentos interactivos rellenan una plantilla.
-- Importación de archivos: transcribe archivos de audio existentes.
+- Importación de archivos: transcribe audio (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) y vídeo (MP4, MOV, MKV, WebM), hasta 1 GB y 6 horas. Los archivos de audio también se envían desde el explorador de archivos: con «Abrir con» en Mac, en Linux y en la versión de Microsoft Store para Windows, o con clic derecho con el instalador para Windows de la web.
+- Opcionalmente, WhisPaste pausa la música y los vídeos en Windows y Linux mientras dictas, y «Enviar tras pegar» pulsa Intro después de pegar (mantén Alt al soltar el atajo; en Linux solo X11).
+- «Igualar el volumen automáticamente» (activado por defecto) sube la voz baja antes del reconocimiento sin amplificar el silencio ni el ruido.
+- Hasta cinco idiomas de reconocimiento favoritos, marcados con una estrella, aparecen primero en los menús de idioma; un atajo cambia entre ellos.
+- El vocabulario guarda nombres y términos especializados; los reemplazos corrigen errores recurrentes y WhisPaste propone nuevos a partir de tus correcciones repetidas.
+- Los perfiles fijan idioma, modelo de voz, Smart Mode, micrófono y salida para una app concreta.
+- Si una transcripción falla, el audio se conserva 24 horas por defecto, incluso tras un cierre inesperado, para que puedas reintentarlo.
+- Accesibilidad: ajustes, notas y herramientas del editor funcionan con teclado y lector de pantalla; con el modo de toque nunca tienes que mantener pulsada una tecla.
 
 ## Privacidad
 
 - Con el reconocimiento local, el audio se queda en tu ordenador y se descarta tras la transcripción, salvo que actives su conservación.
+- En macOS y Windows, WhisPaste no pega automáticamente en campos de contraseña; el texto queda en el portapapeles.
+- Las transcripciones, las notas, el vocabulario, los snippets y el audio conservado se guardan cifrados con una clave de datos en el almacén de claves del sistema (llavero de macOS, protección de datos de Windows, Secret Service de Linux). Puedes hacer una copia de la clave como código de recuperación o archivo.
 - No hace falta ninguna cuenta.
 - Las estadísticas de uso y los informes de errores no contienen audio, transcripciones ni historial y se pueden desactivar en Ajustes → Privacidad.
 - Las funciones en la nube solo envían datos al proveedor elegido y solo cuando las usas.
@@ -183,7 +216,7 @@
 
 ## O que o WhisPaste faz
 
-- Você pressiona um atalho global em qualquer aplicativo, fala e pressiona de novo (ou mantém pressionado enquanto fala).
+- Você segura um atalho global em qualquer aplicativo enquanto fala e solta para parar, ou toca uma vez para começar e de novo para parar.
 - O WhisPaste transcreve a gravação no seu computador e copia o texto para a área de transferência. Com a colagem automática ativada, ele insere o texto no cursor do aplicativo ativo, em quase qualquer app.
 - Feito para quem escreve muito no computador: e-mails, mensagens, documentos, notas, prompts e comentários de código.
 
@@ -193,21 +226,32 @@
 - Depois de baixar o modelo uma vez, o reconhecimento local funciona offline.
 - A GPU é opcional. A aceleração usa Metal no Apple Silicon e Vulkan no Windows e no Linux; para NVIDIA há um pacote CUDA opcional. Sem GPU, o reconhecimento roda na CPU.
 - Reconhecimento na nuvem opcional via OpenAI ou Deepgram com sua própria chave de API.
+- Em Macs com macOS 26 ou posterior, o reconhecimento de voz da Apple no dispositivo é uma terceira opção.
 
 ## Smart Mode (opcional, desativado por padrão)
 
 - Limpar remove palavras de preenchimento e corrige a pontuação, Resumir encurta o texto e Traduzir o converte para alemão, inglês, espanhol, francês, português, mandarim ou russo.
 - Roda localmente (macOS e Windows; experimental no Linux) ou via OpenAI com sua própria chave de API.
+- Presets próprios com sua própria instrução (até 500 caracteres); um preset pode ser aplicado depois a uma gravação anterior e o original é mantido. Em vez da OpenAI, também funciona um servidor compatível próprio (por exemplo LM Studio ou Ollama) no computador ou na rede local.
 
 ## No dia a dia
 
-- Histórico local de transcrições e notas rápidas separadas.
+- Área local Gravações com busca, filtros, salvamento automático e histórico de versões, além de notas com títulos, imagens, listas de tarefas, modo de leitura e modo foco.
 - Snippets: blocos de texto salvos, inseridos por atalho ou por uma palavra-gatilho falada; snippets interativos preenchem um modelo.
-- Importação de arquivos: transcreva arquivos de áudio existentes.
+- Importação de arquivos: transcreva áudio (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) e vídeo (MP4, MOV, MKV, WebM), até 1 GB e 6 horas. Arquivos de áudio também podem ser enviados pelo gerenciador de arquivos: com “Abrir com” no Mac, no Linux e na versão da Microsoft Store para Windows, ou com o botão direito com o instalador para Windows do site.
+- Opcionalmente, o WhisPaste pausa músicas e vídeos no Windows e no Linux enquanto você dita, e “Enviar após colar” pressiona Enter depois de colar (segure Alt ao soltar o atalho; no Linux, só X11).
+- «Igualar o volume automaticamente» (ativado por padrão) aumenta a fala baixa antes do reconhecimento sem amplificar silêncio ou ruído.
+- Até cinco idiomas de reconhecimento favoritos, marcados com uma estrela, aparecem primeiro nos menus de idioma; um atalho alterna entre eles.
+- O vocabulário guarda nomes e termos técnicos; substituições corrigem grafias recorrentes, e o WhisPaste sugere novas a partir das suas correções repetidas.
+- Perfis definem idioma, modelo de voz, Smart Mode, microfone e saída para um app específico.
+- Se uma transcrição falhar, o áudio é mantido por 24 horas por padrão, mesmo após uma falha do app, para você tentar de novo.
+- Acessibilidade: configurações, notas e ferramentas do editor funcionam com teclado e leitor de tela; com o modo de toque você nunca precisa segurar uma tecla.
 
 ## Privacidade
 
 - Com o reconhecimento local, o áudio fica no seu computador e é descartado após a transcrição, a menos que você ative a retenção de áudio.
+- No macOS e no Windows, o WhisPaste não cola automaticamente em campos de senha; o texto fica na área de transferência.
+- Transcrições, notas, vocabulário, snippets e áudio guardado ficam salvos com criptografia, com uma chave de dados no armazenamento de chaves do sistema (Keychain do macOS, proteção de dados do Windows, Secret Service do Linux). Você pode fazer backup da chave como código de recuperação ou arquivo.
 - Não é preciso criar conta.
 - Estatísticas de uso e relatórios de falhas não contêm áudio, transcrições nem histórico e podem ser desativados em Configurações → Privacidade.
 - Os recursos na nuvem só enviam dados ao provedor escolhido e só quando você os usa.
@@ -242,7 +286,7 @@
 
 ## Cosa fa WhisPaste
 
-- Premi una scorciatoia globale in qualsiasi applicazione, parli e la premi di nuovo (oppure la tieni premuta mentre parli).
+- Tieni premuta una scorciatoia globale in qualsiasi applicazione mentre parli e la rilasci per fermare, oppure la tocchi una volta per iniziare e di nuovo per fermare.
 - WhisPaste trascrive la registrazione sul tuo computer e copia il testo negli appunti. Con l’incolla automatico attivo, lo inserisce nel punto del cursore dell’applicazione attiva, in quasi tutte le app.
 - Pensato per chi scrive molto al computer: e-mail, messaggi, documenti, note, prompt e commenti nel codice.
 
@@ -252,21 +296,32 @@
 - Dopo un unico download del modello, il riconoscimento locale funziona offline.
 - La GPU è facoltativa. L’accelerazione usa Metal su Apple Silicon e Vulkan su Windows e Linux; per NVIDIA è disponibile un pacchetto CUDA facoltativo. Senza GPU il riconoscimento gira sulla CPU.
 - Riconoscimento cloud facoltativo tramite OpenAI o Deepgram con la tua chiave API.
+- Sui Mac con macOS 26 o successivo, il riconoscimento vocale di Apple sul dispositivo è una terza opzione.
 
 ## Smart Mode (facoltativo, disattivato per impostazione predefinita)
 
 - Pulizia rimuove le parole riempitive e corregge la punteggiatura, Sintesi accorcia il testo, Traduci lo converte in tedesco, inglese, spagnolo, francese, portoghese, cinese mandarino o russo.
 - Funziona localmente (macOS e Windows; sperimentale su Linux) oppure tramite OpenAI con la tua chiave API.
+- Preset propri con una tua istruzione (fino a 500 caratteri); un preset si può applicare in seguito a una registrazione precedente e l’originale resta. Al posto di OpenAI funziona anche un tuo server compatibile (per esempio LM Studio o Ollama) sul computer o nella rete locale.
 
 ## Nell’uso quotidiano
 
-- Cronologia locale delle trascrizioni e note rapide separate.
+- Area locale Registrazioni con ricerca, filtri, salvataggio automatico e cronologia delle versioni, più note con titoli, immagini, liste di controllo, vista di lettura e modalità concentrazione.
 - Snippet: blocchi di testo salvati, inseriti con una scorciatoia o con una parola chiave pronunciata; gli snippet interattivi compilano un modello.
-- Importazione di file: trascrivi file audio esistenti.
+- Importazione di file: trascrivi audio (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) e video (MP4, MOV, MKV, WebM), fino a 1 GB e 6 ore. I file audio si possono inviare anche dal file manager: con «Apri con» su Mac, su Linux e nella versione Microsoft Store per Windows, oppure con il tasto destro con l’installer per Windows del sito.
+- Se vuoi, WhisPaste mette in pausa musica e video su Windows e Linux mentre detti, e l’invio dopo l’incolla preme Invio dopo aver incollato (tieni premuto Alt mentre rilasci la scorciatoia; su Linux solo X11).
+- “Even out volume automatically” (attivo per impostazione predefinita) alza la voce bassa prima del riconoscimento senza amplificare silenzio o rumore.
+- Fino a cinque lingue di riconoscimento preferite, contrassegnate con la stella, compaiono per prime nei menu della lingua; una scorciatoia passa dall’una all’altra.
+- Il vocabolario contiene nomi e termini specialistici; le sostituzioni correggono grafie ricorrenti e WhisPaste ne propone di nuove dalle tue correzioni ripetute.
+- I profili stabiliscono lingua, modello vocale, Smart Mode, microfono e uscita per un’app specifica.
+- Se una trascrizione non riesce, l’audio viene conservato per 24 ore per impostazione predefinita, anche dopo un crash, così puoi riprovare.
+- Accessibilità: impostazioni, note e strumenti dell’editor funzionano con tastiera e screen reader; con la modalità a tocco non devi mai tenere premuto un tasto.
 
 ## Privacy
 
 - Con il riconoscimento locale l’audio resta sul tuo computer e viene eliminato dopo la trascrizione, a meno che tu non attivi la conservazione dell’audio.
+- Su macOS e Windows WhisPaste non incolla automaticamente nei campi password; il testo resta negli appunti.
+- Trascrizioni, note, vocabolario, snippet e audio conservato sono salvati in forma cifrata con una chiave dati nell’archivio delle chiavi del sistema (portachiavi di macOS, protezione dati di Windows, Secret Service di Linux). Puoi fare un backup della chiave come codice di recupero o file.
 - Non serve alcun account.
 - Le statistiche d’uso e i rapporti sugli arresti anomali non contengono audio, trascrizioni né cronologia e si possono disattivare in Impostazioni → Privacy.
 - Le funzioni cloud inviano dati solo al fornitore scelto e solo quando le usi.
@@ -301,7 +356,7 @@
 
 ## Что делает WhisPaste
 
-- Вы нажимаете глобальное сочетание клавиш в любом приложении, говорите и нажимаете его снова (или удерживаете во время речи).
+- Вы удерживаете глобальное сочетание клавиш в любом приложении, пока говорите, и отпускаете для остановки, или нажимаете один раз для старта и ещё раз для остановки.
 - WhisPaste расшифровывает запись на вашем компьютере и копирует текст в буфер обмена. При включённой автовставке текст вставляется в позицию курсора активного приложения, почти в любом приложении.
 - Для тех, кто много пишет за компьютером: письма, сообщения, документы, заметки, промпты и комментарии в коде.
 
@@ -311,21 +366,32 @@
 - После однократной загрузки модели локальное распознавание работает без интернета.
 - GPU не обязателен. Ускорение использует Metal на Apple Silicon и Vulkan в Windows и Linux; для NVIDIA есть дополнительный пакет CUDA. Без GPU распознавание выполняется на CPU.
 - Дополнительно — облачное распознавание через OpenAI или Deepgram с вашим собственным API-ключом.
+- На Mac с macOS 26 или новее третьим вариантом служит распознавание речи Apple на устройстве.
 
 ## Smart Mode (дополнительно, по умолчанию выключен)
 
 - Очистка убирает слова-паразиты и исправляет пунктуацию, Сокращение делает текст короче, Перевод переводит его на немецкий, английский, испанский, французский, португальский, китайский (мандаринский) или русский.
 - Работает локально (macOS и Windows; в Linux экспериментально) или через OpenAI с вашим API-ключом.
+- Собственные пресеты со своей инструкцией (до 500 символов); пресет можно позже применить к прежней записи, оригинал сохраняется. Вместо OpenAI подойдёт и собственный совместимый сервер (например, LM Studio или Ollama) на компьютере или в локальной сети.
 
 ## В повседневной работе
 
-- Локальная история расшифровок и отдельные быстрые заметки.
+- Локальный раздел «Записи» с поиском, фильтрами, автосохранением и историей версий, а также заметки с заголовками, изображениями, чек-листами, режимом чтения и режимом фокусировки.
 - Фрагменты: сохранённые блоки текста, которые вставляются по сочетанию клавиш или по произнесённому ключевому слову; интерактивные фрагменты заполняют шаблон.
-- Импорт файлов: расшифровка существующих аудиофайлов.
+- Импорт файлов: расшифровка аудио (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) и видео (MP4, MOV, MKV, WebM) размером до 1 ГБ и длительностью до 6 часов. Аудиофайлы можно отправить и из файлового менеджера: через «Открыть в программе» на Mac, через «Открыть с помощью» в Linux и в версии для Windows из Microsoft Store или правой кнопкой мыши с установщиком для Windows с сайта.
+- По желанию WhisPaste ставит музыку и видео на паузу в Windows и Linux, пока вы диктуете, а «Отправка после вставки» нажимает Enter после вставки (удерживайте Alt, отпуская сочетание клавиш; в Linux только X11).
+- «Автоматически выравнивать громкость» (включено по умолчанию) поднимает тихую речь перед распознаванием, не усиливая тишину и шум.
+- До пяти избранных языков распознавания, отмеченных звёздочкой, стоят первыми в языковых меню; сочетание клавиш переключает между ними.
+- Словарь хранит имена и специальные термины; замены исправляют повторяющиеся варианты написания, а по вашим повторным исправлениям WhisPaste предлагает новые.
+- Профили задают язык, модель распознавания речи, Умный режим, микрофон и вывод для конкретного приложения.
+- Если расшифровка не удалась, аудио по умолчанию хранится 24 часа, даже после сбоя, чтобы можно было повторить попытку.
+- Доступность: настройки, заметки и инструменты редактора работают с клавиатуры и с экранным диктором; в режиме нажатия не нужно удерживать клавишу.
 
 ## Конфиденциальность
 
 - При локальном распознавании аудио остаётся на вашем компьютере и удаляется после расшифровки, если вы не включили его сохранение.
+- В macOS и Windows WhisPaste не вставляет текст автоматически в поля пароля; он остаётся в буфере обмена.
+- Расшифровки, заметки, словарь, сниппеты и сохранённое аудио хранятся в зашифрованном виде с ключом данных в системном хранилище ключей (связка ключей macOS, защита данных Windows, Secret Service в Linux). Ключ можно сохранить как код восстановления или файл.
 - Учётная запись не нужна.
 - Статистика использования и отчёты о сбоях не содержат аудио, расшифровок и истории и отключаются в разделе Настройки → Конфиденциальность.
 - Облачные функции отправляют данные только выбранному провайдеру и только тогда, когда вы ими пользуетесь.
@@ -360,7 +426,7 @@
 
 ## WhisPaste 能做什么
 
-- 在任意应用中按下全局快捷键，说话，再按一次（或说话时一直按住）。
+- 在任意应用中说话时按住全局快捷键，松开即停止；也可以按一下开始、再按一下停止。
 - WhisPaste 在你的电脑上转写录音，并把文字复制到剪贴板。开启自动粘贴后，它会把文字插入当前应用的光标处，几乎适用于任何应用。
 - 适合在电脑前大量书写的人：邮件、消息、文档、笔记、提示词和代码注释。
 
@@ -370,21 +436,32 @@
 - 一次性下载模型后，本地识别可离线使用。
 - GPU 不是必需的。在 Apple Silicon 上使用 Metal 加速，在 Windows 和 Linux 上使用 Vulkan；NVIDIA 显卡可选装 CUDA 包。没有 GPU 时，识别在 CPU 上运行。
 - 可选的云端识别：通过 OpenAI 或 Deepgram，使用你自己的 API 密钥。
+- 在 macOS 26 或更高版本的 Mac 上，还可以选择 Apple 的设备端语音识别作为第三种方案。
 
 ## Smart Mode（可选，默认关闭）
 
 - “整理”去除口头禅并修正标点，“精简”缩短文本，“翻译”将其译为德语、英语、西班牙语、法语、葡萄牙语、普通话或俄语。
 - 可在本地运行（macOS 和 Windows；Linux 上为实验性），也可通过 OpenAI 使用你自己的 API 密钥。
+- 可用自己的指令（最多 500 个字符）保存自定义预设，并在之后将预设应用到较早的录音上，原文会保留。除了 OpenAI，也可以使用本机或局域网中自己的兼容服务器（例如 LM Studio 或 Ollama）。
 
 ## 日常功能
 
-- 本地转写历史和独立的快速笔记。
+- 本地“录音”页面，支持搜索、筛选、自动保存和版本历史；笔记支持标题、图片、清单、阅读视图和专注模式。
 - 文本片段：保存的文本块，可通过快捷键或说出的触发词插入；交互式片段会引导你填写模板。
-- 文件导入：转写已有的音频文件。
+- 文件导入：转写音频（WAV、MP3、FLAC、M4A、AAC、Ogg、Opus）和视频文件（MP4、MOV、MKV、WebM），最大 1 GB、6 小时。也可以直接从文件管理器发送音频文件：在 Mac、Linux 和 Windows 的 Microsoft Store 版本中使用“打开方式”，使用网站上的 Windows 安装程序时右键点击。
+- 可选：WhisPaste 在 Windows 和 Linux 上于口述期间暂停音乐和视频；“粘贴后发送”会在粘贴后按下回车（松开快捷键时按住 Alt；Linux 上仅限 X11）。
+- “Even out volume automatically”（默认开启）会在识别前提升较轻的语音，不会放大静音或噪声。
+- 最多五种用星标收藏的识别语言排在语言菜单最前面，可用快捷键在它们之间切换。
+- 词汇表保存人名和专业术语；替换规则纠正常见拼写，WhisPaste 还会根据你的重复纠正给出新建议。
+- 配置文件可为特定应用设定语言、语音模型、智能模式、麦克风和输出方式。
+- 如果转写失败，音频默认保留 24 小时，即使应用崩溃也不例外，方便你重试。
+- 无障碍：设置、笔记和编辑器工具都能用键盘和屏幕阅读器操作；使用单击模式就无需按住按键。
 
 ## 隐私
 
 - 使用本地识别时，音频留在你的电脑上，转写后即被丢弃，除非你开启了音频保留。
+- 在 macOS 和 Windows 上，WhisPaste 不会自动粘贴到密码框中，文字会保留在剪贴板里。
+- 转写文本、笔记、词汇表、语音片段和保留的音频均加密保存，数据密钥存放在系统的密钥存储中（macOS 钥匙串、Windows 数据保护、Linux Secret Service）。你可以将密钥备份为恢复码或文件。
 - 无需账户。
 - 使用统计和崩溃报告不包含音频、转写内容或历史记录，可在“设置 → 隐私”中关闭。
 - 云端功能只会在你使用时，把数据发送给你选择的服务商。
@@ -419,7 +496,7 @@
 
 ## Ce que fait WhisPaste
 
-- Vous appuyez sur un raccourci global dans n’importe quelle application, vous parlez, puis vous appuyez à nouveau (ou vous le maintenez pendant que vous parlez).
+- Vous maintenez un raccourci global dans n’importe quelle application pendant que vous parlez et le relâchez pour arrêter, ou vous appuyez une fois pour démarrer et une seconde fois pour arrêter.
 - WhisPaste transcrit l’enregistrement sur votre ordinateur et copie le texte dans le presse-papiers. Avec le collage automatique activé, il insère le texte au curseur de l’application active, dans presque toutes les apps.
 - Conçu pour celles et ceux qui écrivent beaucoup sur ordinateur : e-mails, messages, documents, notes, prompts et commentaires de code.
 
@@ -429,21 +506,32 @@
 - Après un téléchargement unique du modèle, la reconnaissance locale fonctionne hors ligne.
 - Un GPU est facultatif. L’accélération utilise Metal sur Apple Silicon et Vulkan sous Windows et Linux ; un pack CUDA facultatif existe pour NVIDIA. Sans GPU, la reconnaissance s’exécute sur le processeur.
 - Reconnaissance dans le cloud facultative via OpenAI ou Deepgram avec votre propre clé API.
+- Sur les Mac sous macOS 26 ou plus récent, la reconnaissance vocale d’Apple sur l’appareil est une troisième option.
 
 ## Smart Mode (facultatif, désactivé par défaut)
 
 - Nettoyer supprime les mots de remplissage et corrige la ponctuation, Condenser raccourcit le texte, Traduire le convertit en allemand, anglais, espagnol, français, portugais, mandarin ou russe.
 - Fonctionne localement (macOS et Windows ; expérimental sous Linux) ou via OpenAI avec votre propre clé API.
+- Vos propres préréglages avec votre propre consigne (jusqu’à 500 caractères) ; un préréglage peut s’appliquer plus tard à un enregistrement antérieur, l’original est conservé. À la place d’OpenAI, votre propre serveur compatible (par exemple LM Studio ou Ollama) sur votre ordinateur ou votre réseau local fonctionne aussi.
 
 ## Au quotidien
 
-- Historique local des transcriptions et notes rapides séparées.
+- Section locale Enregistrements avec recherche, filtres, enregistrement automatique et historique des versions, plus des notes avec titres, images, cases à cocher, vue lecture et mode concentration.
 - Extraits : blocs de texte enregistrés, insérés par raccourci ou par un mot déclencheur prononcé ; les extraits interactifs remplissent un modèle.
-- Import de fichiers : transcrivez des fichiers audio existants.
+- Import de fichiers : transcrivez de l’audio (WAV, MP3, FLAC, M4A, AAC, Ogg, Opus) et de la vidéo (MP4, MOV, MKV, WebM), jusqu’à 1 Go et 6 heures. Un fichier audio peut aussi partir du gestionnaire de fichiers : « Ouvrir avec » sur Mac, sous Linux et dans la version Microsoft Store pour Windows, clic droit avec l’installateur Windows du site.
+- En option, WhisPaste met en pause la musique et les vidéos sous Windows et Linux pendant la dictée, et l’envoi après collage appuie sur Entrée une fois le texte collé (maintenir Alt en relâchant le raccourci ; sous Linux, X11 uniquement).
+- « Even out volume automatically » (activé par défaut) remonte la voix faible avant la reconnaissance sans amplifier le silence ni le bruit.
+- Jusqu’à cinq langues de reconnaissance favorites, marquées d’une étoile, apparaissent en premier dans les menus de langue ; un raccourci passe de l’une à l’autre.
+- Le vocabulaire contient noms propres et termes spécialisés ; les remplacements corrigent les graphies récurrentes, et WhisPaste en propose de nouveaux à partir de vos corrections répétées.
+- Les profils définissent langue, modèle vocal, Smart Mode, micro et sortie pour une application donnée.
+- Si une transcription échoue, l’audio est conservé 24 heures par défaut, même après un plantage, pour que vous puissiez réessayer.
+- Accessibilité : paramètres, notes et outils de l’éditeur fonctionnent au clavier et avec un lecteur d’écran ; avec le mode appui, vous n’avez jamais à maintenir une touche.
 
 ## Confidentialité
 
 - Avec la reconnaissance locale, l’audio reste sur votre ordinateur et est supprimé après la transcription, sauf si vous activez sa conservation.
+- Sous macOS et Windows, WhisPaste ne colle pas automatiquement dans les champs de mot de passe ; le texte reste dans le presse-papiers.
+- Transcriptions, notes, vocabulaire, snippets et audio conservé sont stockés chiffrés avec une clé de données dans le trousseau du système (trousseau macOS, protection des données de Windows, Secret Service de Linux). Vous pouvez sauvegarder la clé sous forme de code de récupération ou de fichier.
 - Aucun compte n’est nécessaire.
 - Les statistiques d’utilisation et les rapports de plantage ne contiennent ni audio, ni transcriptions, ni historique et se désactivent dans Réglages → Confidentialité.
 - Les fonctions cloud n’envoient des données qu’au fournisseur choisi, et seulement lorsque vous les utilisez.

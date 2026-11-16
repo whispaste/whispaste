@@ -1,5 +1,6 @@
 /// Real in-process [SmartModeEngine] backed by a bundled `libllama` +
-/// `libsmartmode_shim` via `dart:ffi` (llama.cpp b10150, Gemma-4-E2B-it).
+/// `libsmartmode_shim` via `dart:ffi` (llama.cpp per `scripts/llama-cpp.pin`,
+/// Gemma-4-E2B-it).
 /// Same bundling mechanism per platform as [WhisperFfiEngine] (macOS: Xcode
 /// "[WP] Embed & Sign libllama" phase, `../Frameworks/` resolution,
 /// `@loader_path`-relocatable dylibs, Apple Guideline 2.5.2
@@ -34,6 +35,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/utils/windows_dll_search_path.dart';
 import '../hardware_info_service.dart' as hw;
 import '../path_service.dart';
+import '../stt/idle_unload_policy.dart';
 import '../stt/isolate_shutdown_helper.dart';
 import '../stt/stt_idle_timer.dart';
 import 'smart_mode_engine.dart';
@@ -90,8 +92,7 @@ String? smartModeModelDirOverride;
 /// `models/smart_mode/<filename>` under [appDataDir] — a sibling of
 /// [sttDir], not reusing it, since Smart-Mode-v2 models are a distinct asset
 /// class (chat/instruct GGUF, not Whisper encoder-decoder GGML) with their
-/// own licensing/attribution surface (Apache 2.0, see
-/// `internal-notes`).
+/// own licensing/attribution surface (Apache 2.0).
 String smartModeModelPath({String filename = 'gemma-4-E2B-it-Q4_K_M.gguf'}) =>
     p.join(
       smartModeModelDirOverride ?? p.join(appDataDir(), 'models', 'smart_mode'),
@@ -214,7 +215,8 @@ class SmartModeAbortedException implements Exception {
 
 /// The blocking native surface [SmartModeFfiEngine] drives inside its worker
 /// isolate — production uses `libsmartmode_shim` via FFI, tests a fake.
-/// Every method is synchronous and only ever called from the worker.
+/// Calls run only in the worker. Production generation is synchronous; a
+/// test implementation may await an explicit cross-isolate handshake.
 abstract class SmartModeNative {
   /// Loads the model at [modelPath], offloading [gpuLayers] layers to the GPU
   /// (0 = CPU only). Throws on failure.
@@ -222,7 +224,7 @@ abstract class SmartModeNative {
 
   /// Generates one response on the loaded model. Must stop early once
   /// [abortFlag] holds a non-zero value (it is set from another isolate).
-  String generate({
+  FutureOr<String> generate({
     required String systemPrompt,
     required String userText,
     required ffi.Pointer<ffi.Int32> abortFlag,
@@ -249,6 +251,7 @@ class SmartModeRunStats {
   /// the resident one (warm).
   final bool loadedModel;
   final Duration loadTime;
+  // loam-ignore: unused-public-exports – consumed by benchmarks/services/smart_mode/smart_mode_shim_bench_test.dart (#1259), outside Loam's reference roots
   final Duration generateTime;
 }
 
@@ -444,10 +447,10 @@ class _ShutdownRequest {
   const _ShutdownRequest();
 }
 
-/// Worker entry point. Every handler is synchronous (the native calls block),
-/// so messages are processed strictly one at a time in arrival order — an
-/// unload/shutdown can never tear the model down under a running generation.
-void _smartModeIsolateMain(_WorkerInit init) {
+/// Worker entry point. Messages are processed one at a time in arrival order,
+/// including asynchronous test natives: unload/shutdown can never tear the
+/// model down under a running generation.
+Future<void> _smartModeIsolateMain(_WorkerInit init) async {
   final mainPort = init.mainPort;
   final workerPort = ReceivePort();
   mainPort.send(workerPort.sendPort);
@@ -482,7 +485,7 @@ void _smartModeIsolateMain(_WorkerInit init) {
     }
   }
 
-  void handleRun(_RunRequest req) {
+  Future<void> handleRun(_RunRequest req) async {
     final abortFlag = ffi.Pointer<ffi.Int32>.fromAddress(req.abortFlagAddress);
     if (abortFlag.value != 0) {
       mainPort.send(
@@ -520,7 +523,7 @@ void _smartModeIsolateMain(_WorkerInit init) {
     String? text;
     String? error;
     try {
-      text = native!.generate(
+      text = await native!.generate(
         systemPrompt: req.systemPrompt,
         userText: req.userText,
         abortFlag: abortFlag,
@@ -543,10 +546,10 @@ void _smartModeIsolateMain(_WorkerInit init) {
     );
   }
 
-  workerPort.listen((dynamic message) {
+  await for (final message in workerPort) {
     switch (message) {
       case final _RunRequest req:
-        handleRun(req);
+        await handleRun(req);
       case _UnloadRequest():
         unloadModel();
         mainPort.send(const _UnloadAck());
@@ -558,7 +561,7 @@ void _smartModeIsolateMain(_WorkerInit init) {
         // FLUTTER_WHISPASTE-BC reasoning as whisper_isolate_engine.dart).
         Isolate.exit(mainPort, const _UnloadAck());
     }
-  });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -573,12 +576,14 @@ class SmartModeFfiEngine implements SmartModeEngine {
     String? modelPath,
     SmartModeNativeFactory? nativeFactory,
     Duration Function()? idleTimeout,
+    SttIdleTimer? idleTimer,
     Future<int?> Function()? detectRamMB,
     int Function()? gpuLayers,
   }) : _modelPath = modelPath ?? smartModeModelPath(),
        _nativeFactory =
            nativeFactory ??
            _shimFactory(libraryPath ?? defaultSmartModeLibraryPath()),
+       _idleTimer = idleTimer ?? SttIdleTimer(),
        _idleTimeout = idleTimeout ?? (() => const Duration(minutes: 5)),
        _detectRamMB = detectRamMB ?? hw.detectRamMB,
        _gpuLayers = gpuLayers ?? (() => kSmartModeGpuLayersAuto);
@@ -602,7 +607,7 @@ class SmartModeFfiEngine implements SmartModeEngine {
   final List<Completer<void>> _unloadWaiters = [];
   int _nextRequestId = 0;
 
-  final SttIdleTimer _idleTimer = SttIdleTimer();
+  final SttIdleTimer _idleTimer;
   Future<bool>? _keepsResident;
   bool _resident = false;
   int _modelLoadCount = 0;
@@ -862,11 +867,17 @@ final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
   switch (providerType) {
     case SmartModeProviderType.local:
       final engine = SmartModeFfiEngine(
-        idleTimeout: () => Duration(
-          minutes: (ref.read(settingsProvider).value ?? AppSettings.defaults)
-              .stt
-              .idleTimeoutMinutes,
-        ),
+        idleTimeout: () {
+          final minutes =
+              (ref.read(settingsProvider).value ?? AppSettings.defaults)
+                  .stt
+                  .idleTimeoutMinutes;
+          return Duration(
+            minutes: minutes == kSttIdleAutomatic
+                ? kSttIdleFallbackMinutes
+                : minutes,
+          );
+        },
         gpuLayers: () => smartModeGpuLayersFor(
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .behavior
@@ -877,5 +888,7 @@ final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
       return engine;
     case SmartModeProviderType.openAI:
       return SmartModeOpenAiEngine(ref: ref);
+    case SmartModeProviderType.custom:
+      return SmartModeOpenAiEngine.customEndpoint(ref: ref);
   }
 });

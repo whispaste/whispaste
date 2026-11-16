@@ -38,8 +38,14 @@ import 'package:path/path.dart' as p;
 import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
+import '../../transcription/loop_rescue.dart' as loop_rescue;
+import '../../transcription/continuity_guard.dart' as continuity;
+import '../../transcription/transcript_seam.dart' as seam;
 import '../native_call_guard.dart';
+import '../tail_confidence.dart';
+import 'ggml_backend_registry.dart';
 import 'whisper_bindings.dart';
+import 'whisper_language_probe.dart';
 import 'whisper_engine.dart';
 
 final _log = AppLogger('WhisperFfi');
@@ -58,6 +64,49 @@ typedef WhisperNewSegmentCallbackNative =
       ffi.Pointer<ffi.Void> userData,
     );
 
+/// Native signature of `whisper_full_params.progress_callback` (IMP-PROG-2).
+/// whisper.cpp passes an integer percentage `0..100` of the current
+/// `whisper_full` call. Registered per call in [WhisperFfiEngine._decodeOnce]
+/// and closed only after `whisper_full` has returned (ticket).
+typedef WhisperProgressCallbackNative =
+    ffi.Void Function(
+      ffi.Pointer<whisper_context> ctx,
+      ffi.Pointer<whisper_state> state,
+      ffi.Int progress,
+      ffi.Pointer<ffi.Void> userData,
+    );
+
+/// One cut of a long recording (see `WhisperFfiEngine.findPauseSplits`): the
+/// cut at [sample], and whether it is a [hard] cut because no pause was found
+/// before the chunk limit. A hard cut's chunks overlap by 2 s, and the repeated
+/// words are removed from the text seam.
+class WhisperPauseSplit {
+  const WhisperPauseSplit(this.sample, {this.hard = false});
+
+  final int sample;
+  final bool hard;
+}
+
+/// Overlap at a hard cut: 2 s of audio, repeated at the start of the next chunk.
+const int _hardCutOverlapSamples = 2 * WHISPER_SAMPLE_RATE;
+
+/// Overall fraction `0..1` of a transcription split into [chunkCount] chunks,
+/// given the fraction [withinChunk] (`0..1`) of the chunk at [chunkIndex].
+/// Chunks are weighted equally, so the result rises monotonically from 0
+/// (first chunk, nothing done) to 1 (last chunk, complete). Inputs outside
+/// their range are clamped.
+@visibleForTesting
+double chunkedProgressFraction({
+  required int chunkIndex,
+  required int chunkCount,
+  required double withinChunk,
+}) {
+  if (chunkCount <= 0) return 0;
+  final index = chunkIndex.clamp(0, chunkCount - 1);
+  final within = withinChunk.isFinite ? withinChunk.clamp(0.0, 1.0) : 0.0;
+  return ((index + within) / chunkCount).clamp(0.0, 1.0);
+}
+
 /// Absolute path to the `libwhisper` shared library bundled next to the running
 /// app, per platform. `libwhisper` (plus its `ggml*` backends) is embedded and
 /// signed into each platform bundle at build time (ADR-01, Option C) — never
@@ -66,6 +115,60 @@ typedef WhisperNewSegmentCallbackNative =
 /// via each dylib's `@loader_path`/`$ORIGIN` rpath.
 String defaultWhisperLibraryPath() =>
     whisperLibraryPathFor(Platform.resolvedExecutable);
+
+/// Classifies a non-zero `whisper_full` return code.
+///
+/// `whisper_full_with_state` (whisper.cpp v1.8.4) returns -3 when language
+/// auto-detection failed (its encoder or decoder graph), -6 when the encoder
+/// graph failed, -7 when the self-attention KV cache could not be allocated on
+/// the backend, and -8/-9 when the prompt or token decoder graph failed. With
+/// language `auto` the first graph runs inside the auto-detection, so a broken
+/// backend shows up as -3, not -6. On a GPU backend these codes mean the
+/// backend refused the graph or its buffer — ggml-metal does so for every
+/// later graph once one command buffer failed (`has_error`, a sticky error
+/// that only a new context clears), so they map to
+/// [WhisperFailureKind.gpuBackendLost]. On CPU and for every other code there
+/// is no backend to recreate: the failure stays a retryable
+/// [WhisperFailureKind.transient].
+WhisperFailureKind whisperFullFailureKind(int rc, WhisperBackend backend) {
+  const backendFailureCodes = {-3, -6, -7, -8, -9};
+  final graphFailed = backendFailureCodes.contains(rc);
+  return graphFailed && backend != WhisperBackend.cpu
+      ? WhisperFailureKind.gpuBackendLost
+      : WhisperFailureKind.transient;
+}
+
+/// Whether `wp_ffi_guard` next to [libraryPath] can wrap whisper's calls:
+/// present, ABI-compatible and built against the bundled `whisper.h` struct
+/// layouts (Befund 28). Backend selection reads this before any load, see
+/// `selectWhisperBackend` and [WhisperFfiEngine.load].
+bool whisperGuardUsableFor(String libraryPath) =>
+    NativeCallGuard.nextTo(libraryPath)?.supportsWhisperStructs ?? false;
+
+/// The CPU module loaded without a guard (see `_loadBackendModules`). Without
+/// the guard nothing can be scored, and a higher variant (AVX2, apple_m4, ...)
+/// can die with SIGILL on an older CPU. So only the baseline variant that runs
+/// on every CPU of its architecture is named here. `null` = none present.
+String? cpuBaselineModuleFor(Iterable<String> fileNames, {required String os}) {
+  final prefix = switch (os) {
+    'macos' => 'libggml-cpu-apple_m1.',
+    'linux' => 'libggml-cpu-x64.',
+    'windows' => 'ggml-cpu-x64.',
+    _ => null,
+  };
+  if (prefix == null) return null;
+  for (final name in fileNames) {
+    if (name.startsWith(prefix)) return name;
+  }
+  return null;
+}
+
+/// `ggml_backend_load(const char * path)` (ggml-backend-reg.cpp), used only by
+/// the unguarded baseline CPU load in `_loadBaselineCpuWithoutGuard`.
+typedef _GgmlBackendLoadNative =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8> path);
+typedef _GgmlBackendLoad =
+    ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8> path);
 
 /// Pure resolver behind [defaultWhisperLibraryPath], split out for unit tests
 /// (the runtime path depends on [Platform.resolvedExecutable], which a test
@@ -102,8 +205,11 @@ String defaultWhisperVadModelPath() =>
 /// tests for the same reason as [whisperLibraryPathFor].
 String whisperVadModelPathFor(String executablePath) {
   final libraryDir = p.dirname(whisperLibraryPathFor(executablePath));
-  return p.join(libraryDir, 'ggml-silero-v5.1.2.bin');
+  return p.join(libraryDir, whisperVadModelFileName);
 }
+
+/// File name of the bundled Silero-VAD model, next to the whisper library.
+const String whisperVadModelFileName = 'ggml-silero-v5.1.2.bin';
 
 /// One segment whisper.cpp emitted for a [WhisperFfiEngine.transcribe] call.
 ///
@@ -120,6 +226,7 @@ class WhisperSegment {
     required this.endMs,
     required this.text,
     required this.noSpeechProb,
+    this.tokenProbs = const [],
   });
 
   final int index;
@@ -134,6 +241,11 @@ class WhisperSegment {
   /// `no_timestamps` in whisper.cpp. `null` only if the bundled `libwhisper`
   /// predates the symbol.
   final double? noSpeechProb;
+
+  /// Probabilities of this segment's text tokens (special and timestamp
+  /// tokens excluded), in order. Empty if the bundled `libwhisper` lacks the
+  /// symbols. Feeds the shadow-mode tail protocol (#573).
+  final List<double> tokenProbs;
 
   @override
   String toString() {
@@ -154,8 +266,11 @@ class WhisperFfiEngine
     implements
         WhisperEngine,
         PartialTranscriptSource,
+        DetectedLanguageSource,
+        TailConfidenceSource,
         LivePreviewEngine,
-        PromptTokenCounter {
+        PromptTokenCounter,
+        WavFileDecode {
   WhisperFfiEngine({
     String? libraryPath,
     WhisperBackend? backend,
@@ -183,9 +298,9 @@ class WhisperFfiEngine
   ffi.Pointer<whisper_context>? _ctx;
 
   /// `wp_ffi_guard` next to [_libraryPath], set by [load] — `null` when it
-  /// is missing or built against other struct layouts, in which case the
-  /// throwing entry points are called directly (pre-guard behaviour). See
-  /// `native_call_guard.dart`.
+  /// is missing or built against other struct layouts. The throwing entry
+  /// points are then called directly, and [load] runs CPU only (Befund 28,
+  /// see [backendAllowedByGuard]). See `native_call_guard.dart`.
   NativeCallGuard? _guard;
 
   /// Raw addresses of the entry points routed through [_guard].
@@ -223,6 +338,32 @@ class WhisperFfiEngine
   /// not-in-[WhisperBindings] situation as [_segmentT0]/[_segmentT1].
   double Function(ffi.Pointer<whisper_context>, int)? _segmentNoSpeechProb;
 
+  /// Raw lookups for `whisper_full_lang_id` and `whisper_lang_str`, same
+  /// not-in-[WhisperBindings] situation as [_segmentT0]. `null` on a build
+  /// without them; the detected language is then simply unknown.
+  int Function(ffi.Pointer<whisper_context>)? _fullLangId;
+  ffi.Pointer<ffi.Char> Function(int)? _langStr;
+
+  String? _lastDetectedLanguage;
+
+  @override
+  String? get lastDetectedLanguage => _lastDetectedLanguage;
+
+  /// Raw lookups for the token-level confidence of the shadow-mode tail
+  /// protocol (#573): `whisper_full_n_tokens`, `whisper_full_get_token_id`,
+  /// `whisper_full_get_token_p`, `whisper_token_eot`. All `null` on a build
+  /// without them; the tail sample is then simply absent.
+  int Function(ffi.Pointer<whisper_context>, int)? _fullNTokens;
+  int Function(ffi.Pointer<whisper_context>, int, int)? _tokenId;
+  double Function(ffi.Pointer<whisper_context>, int, int)? _tokenP;
+  int Function(ffi.Pointer<whisper_context>)? _tokenEot;
+
+  @override
+  TailConfidenceSample? get lastTailConfidence => tailConfidenceFromSegments(
+    _lastSegments.map((s) => s.tokenProbs).toList(),
+    _lastSegments.map((s) => s.noSpeechProb).toList(),
+  );
+
   /// Per-segment breakdown of the most recent [transcribe] call. Populated
   /// by [_logSegments]; empty before the first call or if the last call
   /// failed before segment assembly. Exposed (read-only) so diagnostic
@@ -238,7 +379,7 @@ class WhisperFfiEngine
   // params`, not globally like `whisper_log_set`) fires synchronously on
   // this same isolate's thread once for every newly completed segment
   // *during* a `whisper_full` call — see [_decodeOnce]. `.isolateLocal` (not
-  // `.listener`, unlike [_ensureLogCallbackRegistered]'s ggml log callback)
+  // `.listener`, unlike [installProcessLogForwarder]'s ggml log callback)
   // is correct and safe here because the callback only ever fires on the
   // thread that is blocked inside `whisper_full`, i.e. this isolate's own —
   // there is no cross-thread hazard to guard against.
@@ -303,26 +444,56 @@ class WhisperFfiEngine
     try {
       ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
-      _ensureBackendsLoaded(
+      final ggml = _registryFor(_libraryPath);
+      // Befund 28 (Maintainer 10a): without a usable guard no GPU module is
+      // loaded and no GPU device is initialised, because whisper_init would
+      // run that vendor code unguarded. The load is then CPU only; the CPU
+      // module itself is still loaded through the guard when one is present.
+      final guardUsable = whisperGuardUsableFor(_libraryPath);
+      final wanted = backendAllowedByGuard(_backend, guardUsable: guardUsable);
+      if (wanted != _backend) {
+        _log.warning(
+          'GPU backend ${_backend.name} not initialised: wp_ffi_guard is '
+          'missing or built against other whisper.h struct layouts, so a GPU '
+          'init could not be caught. Loading on CPU.',
+        );
+      }
+      // A backend module that throws (caught by the guard) must not take the
+      // process down: the load goes on with CPU and the reason in the log.
+      final backendFailure = _ensureBackendsLoaded(
         dylib,
         _libraryPath,
-        cpuOnly: _backend == WhisperBackend.cpu,
+        cpuOnly: wanted == WhisperBackend.cpu,
       );
+      if (backendFailure != null) {
+        _log.warning(
+          'GPU backend unavailable, loading on CPU: $backendFailure',
+        );
+      }
+      final requested = backendFailure == null ? wanted : WhisperBackend.cpu;
       final cudaPackDir = _cudaPackDir;
-      if (cudaPackDir != null && _backend != WhisperBackend.cpu) {
+      if (cudaPackDir != null && requested != WhisperBackend.cpu) {
         _ensureCudaPackLoaded(dylib, cudaPackDir, _libraryPath);
       }
       final (backend, gpuDevice, gpuIndex) = _confirmBackend(
         dylib,
-        _backend,
+        requested,
         preferCuda: cudaPackDir != null,
+        ggml: ggml,
       );
       _confirmedBackend = backend;
       _gpuDevice = gpuDevice;
+      if (!_hasCpuDevice(dylib, ggml)) {
+        // whisper_init would dereference the null CPU device and abort.
+        _errorMessage = 'whisper_no_cpu_backend';
+        throw StateError(
+          'whisper_no_cpu_backend: ggml registered no CPU device',
+        );
+      }
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
-      _ensureLogCallbackRegistered(bindings);
-      _cpuFeatures = _readCpuFeatures(bindings);
+      _cpuFeatures = _readCpuFeatures(dylib, ggml);
       _resolveSegmentTimestampLookups(dylib);
+      _resolveLanguageLookups(dylib);
       final guard = NativeCallGuard.nextTo(_libraryPath);
       _guard = guard != null && guard.supportsWhisperStructs ? guard : null;
       _initStateFn = dylib.lookup<ffi.Void>('whisper_init_state');
@@ -351,11 +522,18 @@ class WhisperFfiEngine
           // StateError lets SttServerStateNotifier retry the load on CPU.
           _log.warning('whisper_init threw natively: ${e.message}');
           _errorMessage = 'whisper_init_failed';
-          throw StateError('whisper_init_failed: ${e.message}');
+          throw StateError(
+            whisperInitErrorWithNativeLines(
+              'whisper_init_failed: ${e.message}',
+              drainNativeLog(_libraryPath),
+            ),
+          );
         }
         if (ctx == ffi.nullptr) {
           _errorMessage = 'whisper_init_failed';
-          throw StateError('whisper_init_from_file_with_params returned null');
+          throw StateError(
+            whisperInitReturnedNullError(drainNativeLog(_libraryPath)),
+          );
         }
         _bindings = bindings;
         _ctx = ctx;
@@ -368,6 +546,8 @@ class WhisperFfiEngine
     } catch (e) {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
+    } finally {
+      drainNativeLog(_libraryPath);
     }
   }
 
@@ -377,19 +557,23 @@ class WhisperFfiEngine
   /// `whispaste --diagnose` to prove a package's backend modules are found.
   static String? probeCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) {
     _ensureBackendsLoaded(dylib, libraryPath);
-    return _readCpuFeatures(WhisperBindings.fromLookup(dylib.lookup));
+    return _readCpuFeatures(dylib, _registryFor(libraryPath));
   }
 
   /// Reads which CPU backend variant ggml loaded (see
   /// [cpuBackendFeaturesFromSystemInfo]) and logs it once per load, so
   /// both the app log and the In-App-Diagnostik show it. Never throws —
   /// a library without the call just reports nothing.
-  static String? _readCpuFeatures(WhisperBindings bindings) {
+  static String? _readCpuFeatures(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
     try {
-      final info = bindings
-          .whisper_print_system_info()
-          .cast<Utf8>()
-          .toDartString();
+      final info = ggml.printSystemInfo(dylib);
+      if (info == null) {
+        _log.info('whisper_print_system_info is not exported');
+        return null;
+      }
       final features = cpuBackendFeaturesFromSystemInfo(info);
       _log.info('ggml CPU backend features: ${features ?? '(none reported)'}');
       return features;
@@ -399,61 +583,121 @@ class WhisperFfiEngine
     }
   }
 
-  static bool _logCallbackRegistered = false;
+  static bool _logForwarderInstalled = false;
 
-  // Never read — this reference exists solely to keep the NativeCallable
-  // (and the native function pointer ggml now holds via whisper_log_set)
-  // alive for the process lifetime. Letting it go out of scope would let
-  // the GC close the callable and invalidate that pointer while ggml still
-  // has it registered.
-  // ignore: unused_field
-  static ffi.NativeCallable<GgmlLogCallbackNative>? _logCallable;
-
-  /// Redirects ggml/whisper.cpp's internal logging away from its stderr
-  /// default (see `whisper_log_set`'s doc comment in ggml.h: "If this is
-  /// not called, or NULL is supplied, everything is output on stderr") — a
-  /// console-less Windows GUI/MSIX process has no guaranteed-valid stderr
-  /// handle for that default path (FLUTTER_WHISPASTE-BB).
+  /// Routes ggml/whisper.cpp's internal logging into the native ring buffer
+  /// of `wp_ffi_guard` (`wpg_log_sink`, `native/ffi_guard/ffi_guard.cpp`)
+  /// instead of its stderr default — a console-less Windows GUI/MSIX process
+  /// has no guaranteed-valid stderr handle (FLUTTER_WHISPASTE-BB).
   ///
-  /// Deliberately does NOT read the native `text` pointer: ggml formats each
-  /// log line into a buffer that is stack-local (or freed immediately after
-  /// the synchronous call) in `ggml_log_internal_v` — safe to read only
-  /// within that synchronous call, which `NativeCallable.listener` cannot
-  /// guarantee (it defers running the Dart callback body onto the isolate's
-  /// event loop, by which point the native buffer may already be gone).
-  /// `.listener` is required over `.isolateLocal` because ggml can log from
-  /// worker threads never registered with the Dart isolate. Only the `level`
-  /// (a plain int, always safe to read) is forwarded.
-  static void _ensureLogCallbackRegistered(WhisperBindings bindings) {
-    if (_logCallbackRegistered) return;
-    _logCallbackRegistered = true;
-    final callable = ffi.NativeCallable<GgmlLogCallbackNative>.listener(
-      _onGgmlLog,
-    );
-    _logCallable = callable;
-    bindings.whisper_log_set(callable.nativeFunction, ffi.nullptr);
-  }
-
-  static void _onGgmlLog(
-    int level,
-    ffi.Pointer<ffi.Char> text,
-    ffi.Pointer<ffi.Void> userData,
-  ) {
-    // level: 0=none 1=debug 2=info 3=warn 4=error 5=cont (ggml_log_level).
-    if (level >= 4) {
-      _log.warning('native ggml/whisper log (level=$level)');
-    } else {
-      _log.debug('native ggml/whisper log (level=$level)');
+  /// There is no Dart callback in this path any more. The earlier
+  /// `NativeCallable.listener` (ticket) was closed with its isolate: ggml kept
+  /// the pointer, and a line logged after a worker isolate had ended — or
+  /// logged from a backend module during a load in a fresh worker — called
+  /// into a dead Dart callback and aborted the VM (`dart::Assert::Fail`,
+  /// Sentry 153865283). The sink is plain C++ and cannot call into Dart; the
+  /// lines are fetched by [drainNativeLog] on whatever isolate runs a load.
+  ///
+  /// Idempotent per process. Without the guard library ggml keeps logging to
+  /// stderr (the pre-guard behaviour).
+  static void installProcessLogForwarder(String libraryPath) {
+    if (_logForwarderInstalled) return;
+    _logForwarderInstalled = true;
+    try {
+      ensureWindowsDllSearchPath(libraryPath);
+      final guard = NativeCallGuard.nextTo(libraryPath);
+      if (guard == null) {
+        _log.warning(
+          'ggml log forwarding not installed: wp_ffi_guard missing — '
+          'ggml logs to stderr',
+        );
+        return;
+      }
+      final dylib = ffi.DynamicLibrary.open(libraryPath);
+      guard.installLogSink(dylib.lookup<ffi.Void>('whisper_log_set'));
+    } catch (e) {
+      _log.warning('ggml log forwarding not installed: $e');
     }
   }
 
-  static bool _backendsLoaded = false;
+  /// Moves every ggml/whisper line buffered natively since the last drain
+  /// into the app log. Safe on any isolate (the buffer is process-wide) and
+  /// never throws. Called at the end of each [WhisperFfiEngine.load] and after
+  /// a failed `whisper_full`.
+  ///
+  /// Returns the error-level lines, so a caller on a worker isolate (whose
+  /// log does not reach the app log file) can carry them in its exception.
+  static List<String> drainNativeLog(String libraryPath) {
+    final errors = <String>[];
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    if (guard == null) return errors;
+    // These lines never carry dictated text. whisper.cpp prints segment text
+    // only under print_realtime, with printf, not through the log callback
+    // that fills this ring. Both whisper_full call sites in this file set
+    // print_realtime, print_progress, print_timestamps and print_special to
+    // false, so the callback carries model, backend and error metadata only.
+    // The allowlist entry for `text` in no_transcript_in_logs_test.dart
+    // refers to this reasoning.
+    try {
+      for (final line in guard.drainLog()) {
+        if (line.level >= 4) {
+          _log.warning('native ggml/whisper: ${line.text}');
+          errors.add(line.text.trim());
+        } else {
+          _log.debug('native ggml/whisper: ${line.text}');
+        }
+      }
+      final dropped = guard.takeDroppedLogLines();
+      if (dropped > 0) {
+        _log.warning('$dropped native ggml/whisper log lines dropped');
+      }
+    } on Object catch (e) {
+      _log.debug('native log drain failed: $e');
+    }
+    return errors;
+  }
 
-  /// Registers ggml's dynamically loaded backends exactly once per process —
-  /// see the file doc comment for why this is required at all with
-  /// `-DGGML_BACKEND_DL=ON`. Safe/idempotent to skip on repeat [load] calls;
-  /// ggml's own registry dedupes by backend name regardless, this guard just
-  /// avoids the redundant directory scan.
+  /// The [WhisperEngineException] for a non-zero return [rc] of [call]:
+  /// classified by [whisperFullFailureKind] for the backend this context runs
+  /// on, with the native error lines ggml logged for it (backend metadata
+  /// only, never dictated text, see [drainNativeLog]).
+  WhisperEngineException _whisperFullFailure(String call, int rc) {
+    final native = drainNativeLog(_libraryPath);
+    // The last few lines name the failing backend call; older ones are noise.
+    final last = native.skip(native.length > 3 ? native.length - 3 : 0);
+    final detail = native.isEmpty ? '' : ' — native: ${last.join(' | ')}';
+    return WhisperEngineException(
+      whisperFullFailureKind(rc, _confirmedBackend),
+      '$call failed with code $rc on ${_confirmedBackend.name}$detail',
+    );
+  }
+
+  /// Process-wide state of the backend registration, see [_ensureBackendsLoaded].
+  /// Read and written through `wp_ffi_guard` when it is present (a Dart static
+  /// is per isolate, and every worker isolate starts with it cleared); the
+  /// static is the fallback without the guard.
+  static const int _backendsNone = 0;
+  static const int _backendsCpuOnly = 1;
+  static const int _backendsAll = 2;
+  static const int _backendsFailed = 3;
+  static int _backendsState = _backendsNone;
+
+  static int _readBackendsState(NativeCallGuard? guard) =>
+      guard?.processFlag(WpgFlag.backends) ?? _backendsState;
+
+  static void _writeBackendsState(NativeCallGuard? guard, int state) {
+    guard?.setProcessFlag(WpgFlag.backends, state);
+    _backendsState = state;
+  }
+
+  /// The [GgmlBackendRegistry] for [libraryPath]: guarded when `wp_ffi_guard`
+  /// is bundled next to it.
+  static GgmlBackendRegistry _registryFor(String libraryPath) =>
+      GgmlBackendRegistry(NativeCallGuard.nextTo(libraryPath));
+
+  /// Registers ggml's dynamically loaded backends — once per PROCESS, not per
+  /// isolate — see the file doc comment for why this is required at all with
+  /// `-DGGML_BACKEND_DL=ON`.
   ///
   /// Scans [libraryPath]'s own directory via
   /// `ggml_backend_load_all_from_path` — that is where every build script
@@ -466,49 +710,51 @@ class WhisperFfiEngine
   /// null CPU device. `ggml_backend_load_all()` stays as the fallback for an
   /// older bundled library without the `_from_path` export.
   ///
-  /// Usually exported by a separate `ggml` shared library next to
-  /// [libraryPath] (confirmed via `dumpbin /exports` against the real
-  /// production DLLs on Windows: `ggml.dll` exports the full registry API —
-  /// `ggml_backend_load_all`, `ggml_backend_dev_by_type`, etc. — while
-  /// `ggml-base.dll` only exports lower-level per-device accessors like
-  /// `ggml_backend_dev_backend_reg`, which is where the crash this fixes
-  /// symbolicated via WinDbg) — but some bundles statically link ggml into
-  /// the main whisper library instead, so [dylib] itself is tried first.
+  /// The registry is process-wide, so a second isolate that loads again would
+  /// only re-scan the same modules. Each isolate still re-resolves the ggml
+  /// library handles it needs ([_resolvedGgmlLibrary], [_ggmlBaseLibrary]) —
+  /// those are per isolate.
   ///
   /// With [cpuOnly] (the user chose "Nur CPU") only the CPU module is loaded,
   /// see [_loadBestCpuModule]: loading the GPU modules would initialise GPU
   /// drivers (Vulkan/CUDA device enumeration) that a CPU-only run never uses.
   /// A full load still happens later if a GPU engine is needed in the same
   /// process; a CPU-only load never blocks it.
-  static void _ensureBackendsLoaded(
+  ///
+  /// Returns `null` when the backends this request needs are registered, or
+  /// the reason they are not. A backend module that throws is caught by the
+  /// guard, so the process survives; the caller then runs on CPU with the
+  /// reason in the log. The failure is recorded process-wide, so later
+  /// isolates do not retry the module that threw.
+  static String? _ensureBackendsLoaded(
     ffi.DynamicLibrary dylib,
     String libraryPath, {
     bool cpuOnly = false,
   }) {
-    if (_backendsLoadedFull || (_backendsLoaded && cpuOnly)) return;
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    final registry = GgmlBackendRegistry(guard);
     var resolved = dylib;
     if (!dylib.providesSymbol('ggml_backend_load_all')) {
       final ggmlName = Platform.isWindows
           ? 'ggml.dll'
           : (Platform.isMacOS ? 'libggml.dylib' : 'libggml.so');
       final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
-      if (!File(ggmlPath).existsSync()) return;
+      if (!File(ggmlPath).existsSync()) return null;
       resolved = ffi.DynamicLibrary.open(ggmlPath);
     }
-    final libraryDir = p.dirname(libraryPath);
-    if (cpuOnly && _loadBestCpuModule(resolved, libraryDir)) {
-      // Only the CPU backend is registered; the GPU modules stay unloaded.
-    } else {
-      if (cpuOnly) {
-        // Expected for a static CPU build (no module exists); otherwise it
-        // keeps whisper from aborting on a null CPU device.
-        _log.info(
-          'No ggml CPU backend module in $libraryDir (static CPU build?) — '
-          'loading all backends',
-        );
-      }
-      _loadAllBackends(resolved, libraryDir);
-      _backendsLoadedFull = true;
+    final state = _readBackendsState(guard);
+    String? failure;
+    if (state == _backendsFailed) {
+      failure = 'ggml backend load failed earlier in this process';
+    } else if (!(state == _backendsAll ||
+        (state == _backendsCpuOnly && cpuOnly))) {
+      failure = _loadBackendModules(
+        registry,
+        resolved,
+        p.dirname(libraryPath),
+        cpuOnly: cpuOnly,
+        guard: guard,
+      );
     }
     _resolvedGgmlLibrary = resolved;
     // The per-device accessors (`ggml_backend_dev_type`/`_name`) live in
@@ -518,37 +764,104 @@ class WhisperFfiEngine
     if (Platform.isWindows && File(basePath).existsSync()) {
       _ggmlBaseLibrary = ffi.DynamicLibrary.open(basePath);
     }
-    _backendsLoaded = true;
+    return failure;
+  }
+
+  /// Does the actual registration for [_ensureBackendsLoaded]; returns the
+  /// failure reason, or `null` on success.
+  static String? _loadBackendModules(
+    GgmlBackendRegistry registry,
+    ffi.DynamicLibrary lib,
+    String libraryDir, {
+    required bool cpuOnly,
+    required NativeCallGuard? guard,
+  }) {
+    // Without the guard no backend module is opened at all: loading one
+    // unguarded could abort the process (see ggml_backend_registry.dart).
+    // Maintainer decision 12a (2026-10-25): without the guard the baseline CPU
+    // module is still loaded, unguarded, so transcription runs on CPU. GPU
+    // modules stay out (only the CPU baseline is ever named here).
+    if (guard == null) {
+      return _loadBaselineCpuWithoutGuard(lib, libraryDir);
+    }
+    try {
+      if (cpuOnly && _loadBestCpuModule(registry, lib, libraryDir)) {
+        // Only the CPU backend is registered; the GPU modules stay unloaded.
+        _writeBackendsState(guard, _backendsCpuOnly);
+        return null;
+      }
+      if (cpuOnly) {
+        // Expected for a static CPU build (no module exists); otherwise it
+        // keeps whisper from aborting on a null CPU device.
+        _log.info(
+          'No ggml CPU backend module in $libraryDir (static CPU build?) — '
+          'loading all backends',
+        );
+      }
+      registry.loadAllFromPath(lib, libraryDir) || registry.loadAll(lib);
+      _writeBackendsState(guard, _backendsAll);
+      return null;
+    } on NativeCallException catch (e) {
+      // ggml-vulkan / a GPU driver threw while registering a module
+      // (Sentry 155114205). Keep the process; run on CPU and remember it.
+      _log.warning(
+        'ggml backend load threw natively: ${e.message} — running on CPU',
+      );
+      _writeBackendsState(guard, _backendsFailed);
+      try {
+        _loadBestCpuModule(registry, lib, libraryDir);
+      } on NativeCallException catch (cpuError) {
+        _log.warning('ggml CPU module load threw too: ${cpuError.message}');
+      }
+      return 'ggml backend load threw: ${e.message}';
+    }
+  }
+
+  /// No-guard path of [_loadBackendModules]: loads only the baseline CPU module
+  /// (see [cpuBaselineModuleFor]) through `ggml_backend_load`, without the
+  /// guard. Logs the reason. Returns `null` on success, else the failure reason.
+  static String? _loadBaselineCpuWithoutGuard(
+    ffi.DynamicLibrary lib,
+    String libraryDir,
+  ) {
+    final String? name;
+    try {
+      name = cpuBaselineModuleFor(
+        Directory(
+          libraryDir,
+        ).listSync().whereType<File>().map((f) => p.basename(f.path)),
+        os: Platform.operatingSystem,
+      );
+    } on FileSystemException catch (e) {
+      return 'cannot list $libraryDir: $e';
+    }
+    if (name == null || !lib.providesSymbol('ggml_backend_load')) {
+      _log.warning(
+        'wp_ffi_guard is not bundled next to $libraryDir and no baseline CPU '
+        'module is available: ggml backends are not loaded',
+      );
+      return 'wp_ffi_guard is not bundled and no baseline CPU module exists';
+    }
+    _log.warning(
+      'wp_ffi_guard is not bundled next to $libraryDir: loading the baseline '
+      'CPU module $name unguarded; GPU backends stay off',
+    );
+    final load = lib.lookupFunction<_GgmlBackendLoadNative, _GgmlBackendLoad>(
+      'ggml_backend_load',
+    );
+    final pathC = p.join(libraryDir, name).toNativeUtf8();
+    try {
+      if (load(pathC) == ffi.nullptr) {
+        return 'ggml_backend_load returned null for $name';
+      }
+    } finally {
+      malloc.free(pathC);
+    }
+    return null;
   }
 
   /// `ggml-base.dll` on Windows (see [_ensureBackendsLoaded]), else `null`.
   static ffi.DynamicLibrary? _ggmlBaseLibrary;
-
-  /// Whether [_ensureBackendsLoaded] has registered every backend module, not
-  /// just the CPU one. A full load satisfies any later request.
-  static bool _backendsLoadedFull = false;
-
-  /// `ggml_backend_load_all_from_path(dir)`, or the argument-less
-  /// `ggml_backend_load_all()` for a bundle without the `_from_path` export.
-  static void _loadAllBackends(ffi.DynamicLibrary lib, String dir) {
-    if (lib.providesSymbol('ggml_backend_load_all_from_path')) {
-      final loadAllFromPath = lib
-          .lookupFunction<
-            ffi.Void Function(ffi.Pointer<Utf8>),
-            void Function(ffi.Pointer<Utf8>)
-          >('ggml_backend_load_all_from_path');
-      final dirC = dir.toNativeUtf8();
-      try {
-        loadAllFromPath(dirC);
-      } finally {
-        malloc.free(dirC);
-      }
-    } else {
-      lib.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      )();
-    }
-  }
 
   /// Loads only the ggml CPU module that ggml itself would pick from [dir],
   /// returning `false` (nothing loaded) when there is none to load.
@@ -557,15 +870,19 @@ class WhisperFfiEngine
   /// this mirrors it: each `ggml-cpu-<level>` module exports
   /// `ggml_backend_score()` (0 = unsupported by this CPU), and the highest
   /// score wins. Candidates are only opened for their score here; the chosen
-  /// one is then registered with `ggml_backend_load`.
-  static bool _loadBestCpuModule(ffi.DynamicLibrary lib, String dir) {
+  /// one is then registered with `ggml_backend_load` through the guard.
+  static bool _loadBestCpuModule(
+    GgmlBackendRegistry registry,
+    ffi.DynamicLibrary lib,
+    String dir,
+  ) {
     if (!lib.providesSymbol('ggml_backend_load')) return false;
     final scores = <String, int>{};
     try {
       for (final entity in Directory(dir).listSync()) {
         if (entity is! File) continue;
         if (!_isCpuModuleFileName(p.basename(entity.path))) continue;
-        scores[entity.path] = _backendScore(entity.path);
+        scores[entity.path] = _scoreModule(registry, entity.path);
       }
     } on FileSystemException catch (e) {
       _log.warning('Cannot list backend modules in $dir: $e');
@@ -573,18 +890,8 @@ class WhisperFfiEngine
     }
     final best = pickBestCpuModule(scores);
     if (best == null) return false;
-    final load = lib
-        .lookupFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
-        >('ggml_backend_load');
-    final pathC = best.toNativeUtf8();
-    try {
-      final reg = load(pathC);
-      if (reg == ffi.nullptr) return false;
-    } finally {
-      malloc.free(pathC);
-    }
+    final reg = registry.loadModule(lib, best);
+    if (reg == null) return false;
     _log.info('CPU-only backend load: registered ${p.basename(best)}');
     return true;
   }
@@ -600,18 +907,16 @@ class WhisperFfiEngine
     return stem && lower.endsWith(ext);
   }
 
-  /// `ggml_backend_score()` of the module at [modulePath]. A module without
-  /// the export counts as supported (score 1); one that cannot be opened
-  /// counts as unsupported (0).
-  static int _backendScore(String modulePath) {
+  /// `ggml_backend_score()` of the module at [modulePath], opened and closed
+  /// inside the guard. A module that cannot be opened, or that threw while it
+  /// was opened or scored, counts as unsupported (0).
+  static int _scoreModule(GgmlBackendRegistry registry, String modulePath) {
     try {
-      final lib = ffi.DynamicLibrary.open(modulePath);
-      if (!lib.providesSymbol('ggml_backend_score')) return 1;
-      return lib.lookupFunction<ffi.Int32 Function(), int Function()>(
-        'ggml_backend_score',
-      )();
-    } on ArgumentError catch (e) {
-      _log.warning('Cannot open backend module $modulePath: $e');
+      return registry.backendScore(modulePath);
+    } on NativeCallException catch (e) {
+      _log.warning(
+        'Backend module $modulePath threw while scored: ${e.message}',
+      );
       return 0;
     }
   }
@@ -648,10 +953,32 @@ class WhisperFfiEngine
   /// library predates the registry API.
   static ({List<String?> names, List<int> types})? _gpuDevices(
     ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
   ) {
-    // A split Windows bundle spreads the registry API over ggml.dll
-    // (count/get) and ggml-base.dll (type/name); each symbol comes from the
-    // first library that exports it.
+    final all = _registryDevices(dylib, ggml);
+    if (all == null) return null;
+    // Same filter and order as whisper_backend_init_gpu: only GPU and IGPU
+    // devices count, and `gpu_device` indexes into exactly this list.
+    final names = <String?>[];
+    final types = <int>[];
+    for (final device in all) {
+      if (device.type == ggmlDeviceTypeGpu ||
+          device.type == ggmlDeviceTypeIgpu) {
+        names.add(device.name);
+        types.add(device.type);
+      }
+    }
+    return (names: names, types: types);
+  }
+
+  /// Every device in ggml's registry, in registry order, or `null` when the
+  /// library has no registry API. A split Windows bundle spreads the API over
+  /// ggml.dll (count/get) and ggml-base.dll (type/name); each symbol comes
+  /// from the first library that exports it.
+  static List<({String? name, int type})>? _registryDevices(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
     final candidates = <ffi.DynamicLibrary>[
       dylib,
       ?_resolvedGgmlLibrary,
@@ -669,33 +996,29 @@ class WhisperFfiEngine
     final typeLib = providing('ggml_backend_dev_type');
     final nameLib = providing('ggml_backend_dev_name');
     if (countLib == null || getLib == null || typeLib == null) return null;
-    final devCount = countLib
-        .lookupFunction<ffi.Size Function(), int Function()>(
-          'ggml_backend_dev_count',
-        );
-    final devGet = getLib
-        .lookupFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Size),
-          ffi.Pointer<ffi.Void> Function(int)
-        >('ggml_backend_dev_get');
-    final devType = typeLib
-        .lookupFunction<
-          ffi.Int32 Function(ffi.Pointer<ffi.Void>),
-          int Function(ffi.Pointer<ffi.Void>)
-        >('ggml_backend_dev_type');
-    // Same filter and order as whisper_backend_init_gpu: only GPU and IGPU
-    // devices count, and `gpu_device` indexes into exactly this list.
-    final names = <String?>[];
-    final types = <int>[];
-    for (var i = 0; i < devCount(); i++) {
-      final dev = devGet(i);
-      final type = devType(dev);
-      if (type == ggmlDeviceTypeGpu || type == ggmlDeviceTypeIgpu) {
-        names.add(nameLib == null ? null : _deviceName(nameLib, dev));
-        types.add(type);
-      }
+    final count = ggml.devCount(countLib) ?? 0;
+    final devices = <({String? name, int type})>[];
+    for (var i = 0; i < count; i++) {
+      final dev = ggml.devGet(getLib, i);
+      if (dev == null) continue;
+      final type = ggml.devType(typeLib, dev) ?? -1;
+      final name = nameLib == null ? null : ggml.devName(nameLib, dev);
+      devices.add((name: name, type: type));
     }
-    return (names: names, types: types);
+    return devices;
+  }
+
+  /// Whether ggml registered a CPU device. whisper.cpp dereferences the CPU
+  /// device without a null check (GGML_ASSERT → abort), so [load] refuses to
+  /// call into whisper when there is none. An old bundle without the
+  /// registry API reports `true` and keeps the pre-existing behaviour.
+  static bool _hasCpuDevice(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
+    final all = _registryDevices(dylib, ggml);
+    if (all == null) return true;
+    return all.any((device) => device.type == ggmlDeviceTypeCpu);
   }
 
   /// Lists the GPU devices in [dylib] for `whispaste --diagnose`, with the
@@ -705,7 +1028,8 @@ class WhisperFfiEngine
   static ({List<({String? name, int type})> devices, int? defaultIndex})?
   probeGpuDevices(ffi.DynamicLibrary dylib, String libraryPath) {
     _ensureBackendsLoaded(dylib, libraryPath);
-    final registry = _gpuDevices(dylib);
+    final ggml = _registryFor(libraryPath);
+    final registry = _gpuDevices(dylib, ggml);
     if (registry == null) return null;
     final devices = [
       for (var i = 0; i < registry.names.length; i++)
@@ -728,9 +1052,10 @@ class WhisperFfiEngine
     ffi.DynamicLibrary dylib,
     WhisperBackend requested, {
     bool preferCuda = false,
+    GgmlBackendRegistry ggml = const GgmlBackendRegistry(null),
   }) {
     if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null, 0);
-    final registry = _gpuDevices(dylib);
+    final registry = _gpuDevices(dylib, ggml);
     // Older bundled library without the registry API: trust [requested].
     if (registry == null) return (requested, null, 0);
     final gpuNames = registry.names;
@@ -773,6 +1098,13 @@ class WhisperFfiEngine
   /// not the process; the old module keeps working until the next launch).
   static String? _cudaPackLoadedFrom;
 
+  /// Whether the CUDA module was already attempted in this PROCESS. Read
+  /// through the guard so a worker isolate does not register it a second time
+  /// (ggml would list the CUDA devices twice and shift `gpu_device`).
+  static bool _cudaAttempted(NativeCallGuard? guard) => guard != null
+      ? guard.processFlag(WpgFlag.cudaPack) == 1
+      : _cudaPackLoadedFrom != null;
+
   /// Registers the optional CUDA module from [packDir] with ggml via
   /// `ggml_backend_load`, once per process. The module lives outside the
   /// app's own library folder (installed packages are read-only), so
@@ -788,14 +1120,16 @@ class WhisperFfiEngine
   ///
   /// Never throws: a missing, corrupt or driver-incompatible pack only means
   /// no `CUDA*` device gets registered, and [_confirmBackend] then keeps the
-  /// Vulkan device.
+  /// Vulkan device. A module that throws while registering is caught by the
+  /// guard and recorded as attempted, so it is not retried in this process.
   static void _ensureCudaPackLoaded(
     ffi.DynamicLibrary dylib,
     String packDir,
     String libraryPath,
   ) {
-    if (_cudaPackLoadedFrom != null) {
-      if (_cudaPackLoadedFrom != packDir) {
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    if (_cudaAttempted(guard)) {
+      if (_cudaPackLoadedFrom != null && _cudaPackLoadedFrom != packDir) {
         _log.warning(
           'CUDA module already loaded from $_cudaPackLoadedFrom; '
           'ignoring $packDir until the next launch',
@@ -809,46 +1143,31 @@ class WhisperFfiEngine
       return;
     }
     final lib = _resolvedGgmlLibrary ?? dylib;
+    guard?.setProcessFlag(WpgFlag.cudaPack, 1);
+    _cudaPackLoadedFrom = packDir;
     try {
-      final load = lib
-          .lookupFunction<
-            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
-            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
-          >('ggml_backend_load');
-      final pathC = modulePath.toNativeUtf8();
-      try {
-        ensureWindowsDllSearchPath(modulePath);
-        final reg = load(pathC);
-        _cudaPackLoadedFrom = packDir;
-        if (reg == ffi.nullptr) {
-          _log.warning('ggml_backend_load rejected the CUDA module');
-        } else {
-          _log.info('CUDA module registered from $packDir');
-        }
-      } finally {
-        ensureWindowsDllSearchPath(libraryPath);
-        malloc.free(pathC);
+      ensureWindowsDllSearchPath(modulePath);
+      final reg = GgmlBackendRegistry(guard).loadModule(lib, modulePath);
+      if (reg == null) {
+        // loadModule returns null for a missing guard as well as for a
+        // rejected module, and the log must name the real reason.
+        _log.warning(
+          guard == null
+              ? 'CUDA module not loaded: wp_ffi_guard is not bundled next to '
+                    '$libraryPath'
+              : 'ggml_backend_load did not register the CUDA module '
+                    '(rejected or export missing)',
+        );
+      } else {
+        _log.info('CUDA module registered from $packDir');
       }
-    } on ArgumentError {
-      _log.warning('ggml_backend_load is not exported — CUDA pack unusable');
-    }
-  }
-
-  /// `ggml_backend_dev_name(dev)`, or `null` if [lib] does not export it.
-  static String? _deviceName(
-    ffi.DynamicLibrary lib,
-    ffi.Pointer<ffi.Void> dev,
-  ) {
-    try {
-      final name = lib
-          .lookupFunction<
-            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
-            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
-          >('ggml_backend_dev_name');
-      final ptr = name(dev);
-      return ptr == ffi.nullptr ? null : ptr.toDartString();
-    } on ArgumentError {
-      return null;
+    } on NativeCallException catch (e) {
+      _log.warning(
+        'CUDA module threw while registering: ${e.message} — CUDA is not '
+        'used this session, Vulkan stays',
+      );
+    } finally {
+      ensureWindowsDllSearchPath(libraryPath);
     }
   }
 
@@ -858,6 +1177,41 @@ class WhisperFfiEngine
   /// these symbols just means segment logging falls back to count + text
   /// length, which is still a useful signal on its own.
   void _resolveSegmentTimestampLookups(ffi.DynamicLibrary dylib) {
+    try {
+      _fullNTokens = dylib
+          .lookupFunction<
+            ffi.Int32 Function(ffi.Pointer<whisper_context>, ffi.Int32),
+            int Function(ffi.Pointer<whisper_context>, int)
+          >('whisper_full_n_tokens');
+      _tokenId = dylib
+          .lookupFunction<
+            ffi.Int32 Function(
+              ffi.Pointer<whisper_context>,
+              ffi.Int32,
+              ffi.Int32,
+            ),
+            int Function(ffi.Pointer<whisper_context>, int, int)
+          >('whisper_full_get_token_id');
+      _tokenP = dylib
+          .lookupFunction<
+            ffi.Float Function(
+              ffi.Pointer<whisper_context>,
+              ffi.Int32,
+              ffi.Int32,
+            ),
+            double Function(ffi.Pointer<whisper_context>, int, int)
+          >('whisper_full_get_token_p');
+      _tokenEot = dylib
+          .lookupFunction<
+            ffi.Int32 Function(ffi.Pointer<whisper_context>),
+            int Function(ffi.Pointer<whisper_context>)
+          >('whisper_token_eot');
+    } on ArgumentError {
+      _fullNTokens = null;
+      _tokenId = null;
+      _tokenP = null;
+      _tokenEot = null;
+    }
     try {
       _segmentT0 = dylib
           .lookupFunction<
@@ -931,6 +1285,7 @@ class WhisperFfiEngine
       final textPtr = bindings.whisper_full_get_segment_text(ctx, i);
       final text = textPtr.cast<Utf8>().toDartString();
       final noSpeechProb = nsp?.call(ctx, i);
+      final tokenProbs = _readTextTokenProbs(ctx, i);
       final globalIndex = indexOffset + i;
       if (t0 != null && t1 != null) {
         // whisper.cpp reports t0/t1 in centiseconds (10 ms units).
@@ -943,6 +1298,7 @@ class WhisperFfiEngine
             endMs: endMs,
             text: text,
             noSpeechProb: noSpeechProb,
+            tokenProbs: tokenProbs,
           ),
         );
         _log.debug(
@@ -957,6 +1313,7 @@ class WhisperFfiEngine
             endMs: null,
             text: text,
             noSpeechProb: noSpeechProb,
+            tokenProbs: tokenProbs,
           ),
         );
         _log.debug(
@@ -965,6 +1322,29 @@ class WhisperFfiEngine
       }
     }
     _lastSegments = reset ? segments : [..._lastSegments, ...segments];
+  }
+
+  /// Probabilities of segment [segment]'s text tokens, special and timestamp
+  /// tokens (`id >= eot`) excluded. Empty when the lookups are missing.
+  List<double> _readTextTokenProbs(
+    ffi.Pointer<whisper_context> ctx,
+    int segment,
+  ) {
+    final nTokens = _fullNTokens;
+    final id = _tokenId;
+    final prob = _tokenP;
+    final eot = _tokenEot;
+    if (nTokens == null || id == null || prob == null || eot == null) {
+      return const [];
+    }
+    final eotId = eot(ctx);
+    final n = nTokens(ctx, segment);
+    final out = <double>[];
+    for (var j = 0; j < n; j++) {
+      if (id(ctx, segment, j) >= eotId) continue;
+      out.add(prob(ctx, segment, j));
+    }
+    return out;
   }
 
   /// Above this input duration, [transcribe] splits the audio at natural
@@ -985,6 +1365,66 @@ class WhisperFfiEngine
     bool includeTimestamps = false,
     bool vadEnabled = false,
     bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  }) async {
+    if (_bindings == null || _ctx == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    return _transcribePcm(
+      Pcm16WavView(wavBytes),
+      language: language,
+      prompt: prompt,
+      includeTimestamps: includeTimestamps,
+      vadEnabled: vadEnabled,
+      reducedThreads: reducedThreads,
+      onProgress: onProgress,
+    );
+  }
+
+  /// [transcribe] over the WAV file at [wavPath], read one decode window at
+  /// a time (#1665): the recording is never held whole in this isolate.
+  @override
+  Future<String> transcribeFile(
+    String wavPath, {
+    String? language,
+    String? prompt,
+    bool includeTimestamps = false,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  }) async {
+    if (_bindings == null || _ctx == null) {
+      throw StateError('whisper_engine_not_loaded');
+    }
+    try {
+      return await _transcribePcm(
+        Pcm16WavView.file(wavPath),
+        language: language,
+        prompt: prompt,
+        includeTimestamps: includeTimestamps,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+        onProgress: onProgress,
+      );
+    } on FileSystemException catch (e) {
+      // No path in the message: it names the user's folders and reaches
+      // the crash reports.
+      final cause = e.osError?.message ?? e.message;
+      throw WhisperEngineException(
+        WhisperFailureKind.other,
+        '$kWhisperWavFileUnreadable: $cause',
+      );
+    }
+  }
+
+  Future<String> _transcribePcm(
+    Pcm16WavView pcm, {
+    required String? language,
+    required String? prompt,
+    required bool includeTimestamps,
+    required bool vadEnabled,
+    required bool reducedThreads,
+    void Function(double fraction)? onProgress,
   }) async {
     final bindings = _bindings;
     final ctx = _ctx;
@@ -992,8 +1432,11 @@ class WhisperFfiEngine
       throw StateError('whisper_engine_not_loaded');
     }
 
-    final samples = pcm16WavBytesToFloat32(wavBytes);
-    if (samples.isEmpty) return '';
+    // The recording stays 16-bit PCM; float32 samples are made per decode
+    // call, never for the whole file at once (#1642). A 60-minute recording
+    // is 115 MB as PCM and would be 230 MB more as float32. Read from the
+    // WAV file ([transcribeFile]) the PCM is not held whole either (#1665).
+    if (pcm.sampleCount == 0) return '';
 
     // New call: no prior chunk's text to prefix live updates with.
     _partialPrefix = '';
@@ -1010,16 +1453,16 @@ class WhisperFfiEngine
     // the fixed `vad_params.threshold` of 0.5, see below, has no visibility
     // into). A duration far exceeding the last segment's `endMs` is the
     // signature to look for.
-    final totalDurationMs = (samples.length * 1000 / WHISPER_SAMPLE_RATE)
+    final totalDurationMs = (pcm.sampleCount * 1000 / WHISPER_SAMPLE_RATE)
         .round();
     _log.debug(
       'audio duration: ${totalDurationMs}ms '
-      '(${samples.length} samples @ ${WHISPER_SAMPLE_RATE}Hz)',
+      '(${pcm.sampleCount} samples @ ${WHISPER_SAMPLE_RATE}Hz)',
     );
 
     // ── Pause-based chunk segmentation (2026-08-27) ─────────────────────
     // The "größer/später" measure from the transcription-quality-under-load
-    // investigation (`internal-notes`):
+    // investigation:
     // whisper.cpp decodes a long recording as a sequence of internal ~30s
     // windows (`WHISPER_CHUNK_SIZE`) and conditions each window on the
     // previous window's own decoded text (see the "Long-dictation
@@ -1036,31 +1479,31 @@ class WhisperFfiEngine
     // every chunk instead of only conditioning whisper's own first internal
     // window.
     //
-    // Deliberately implemented in pure Dart over the already-decoded
-    // float32 sample buffer instead of binding whisper.cpp's standalone VAD
-    // segment API (`whisper_vad_segments_from_samples`) — the PRD's
-    // documented reason not to do that in this session still applies (new
-    // FFI struct/signature work, unverifiable here against all three
-    // bundled platform builds without new native crash risk). A
-    // pause/silence detector needs no native binding at all: it only reads
-    // memory this method already owns.
+    // Deliberately implemented in pure Dart over the 16-bit PCM instead of
+    // binding whisper.cpp's standalone VAD segment API
+    // (`whisper_vad_segments_from_samples`) — the PRD's documented reason not
+    // to do that in this session still applies (new FFI struct/signature
+    // work, unverifiable here against all three bundled platform builds
+    // without new native crash risk). A pause/silence detector needs no
+    // native binding at all: it only reads memory this method already owns.
     if (totalDurationMs > _pauseChunkingThresholdMs) {
       return _transcribeInChunks(
         bindings,
         ctx,
-        samples,
+        pcm,
         language: language,
         prompt: prompt,
         includeTimestamps: includeTimestamps,
         vadEnabled: vadEnabled,
         reducedThreads: reducedThreads,
+        onProgress: onProgress,
       );
     }
 
     return _decodeOnce(
       bindings,
       ctx,
-      samples,
+      pcm.toFloat32(0, pcm.sampleCount),
       language: language,
       prompt: prompt,
       includeTimestamps: includeTimestamps,
@@ -1069,6 +1512,7 @@ class WhisperFfiEngine
       segmentTimeOffsetMs: 0,
       segmentIndexOffset: 0,
       resetLastSegments: true,
+      onProgress: onProgress,
     );
   }
 
@@ -1094,15 +1538,34 @@ class WhisperFfiEngine
 
   static const _analysisFrameMs = 20;
 
-  /// Finds sample indices to split [samples] on, each a real pause of at
-  /// least [_minPauseDurationMs], such that no resulting chunk exceeds
-  /// [_maxChunkDurationMs]. Falls back to a hard cut at
+  /// Sample indices of [findPauseSplits], without the hard-cut flags.
+  @visibleForTesting
+  static List<int> findPauseSplitPoints(
+    Float32List samples, {
+    int sampleRate = WHISPER_SAMPLE_RATE,
+    int maxChunkDurationMs = _maxChunkDurationMs,
+    int minPauseDurationMs = _minPauseDurationMs,
+    double silenceRmsThreshold = _silenceRmsThreshold,
+  }) => [
+    for (final split in findPauseSplits(
+      samples,
+      sampleRate: sampleRate,
+      maxChunkDurationMs: maxChunkDurationMs,
+      minPauseDurationMs: minPauseDurationMs,
+      silenceRmsThreshold: silenceRmsThreshold,
+    ))
+      split.sample,
+  ];
+
+  /// Finds the cuts for [samples] (see [WhisperPauseSplit]): each one a real
+  /// pause of at least [_minPauseDurationMs], such that no resulting chunk
+  /// exceeds [_maxChunkDurationMs]. Falls back to a hard cut at
   /// [_maxChunkDurationMs] when no pause is found within that span (rare in
   /// natural speech, but must still be bounded to preserve the mechanism
   /// this exists for). Pure and allocation-light — safe to unit-test without
   /// the native library.
   @visibleForTesting
-  static List<int> findPauseSplitPoints(
+  static List<WhisperPauseSplit> findPauseSplits(
     Float32List samples, {
     int sampleRate = WHISPER_SAMPLE_RATE,
     int maxChunkDurationMs = _maxChunkDurationMs,
@@ -1123,7 +1586,65 @@ class WhisperFfiEngine
       final rms = math.sqrt(sumSquares / frameLen);
       silentFrame[f] = rms < silenceRmsThreshold;
     }
+    return _splitsFromSilentFrames(
+      silentFrame,
+      frameLen: frameLen,
+      maxChunkDurationMs: maxChunkDurationMs,
+      minPauseDurationMs: minPauseDurationMs,
+    );
+  }
 
+  /// [findPauseSplits] over 16-bit PCM (#1642): reads each sample as the
+  /// float32 decode would ([Pcm16WavView.sampleAt]), so the cuts are exactly
+  /// those of [findPauseSplits] on the decoded samples, without decoding the
+  /// whole recording first.
+  @visibleForTesting
+  static List<WhisperPauseSplit> findPauseSplitsInPcm(
+    Pcm16WavView pcm, {
+    int sampleRate = WHISPER_SAMPLE_RATE,
+    int maxChunkDurationMs = _maxChunkDurationMs,
+    int minPauseDurationMs = _minPauseDurationMs,
+    double silenceRmsThreshold = _silenceRmsThreshold,
+  }) {
+    final frameLen = (sampleRate * _analysisFrameMs / 1000).round();
+    if (frameLen <= 0 || pcm.sampleCount < frameLen) return const [];
+
+    final frameCount = pcm.sampleCount ~/ frameLen;
+    final silentFrame = List<bool>.filled(frameCount, false);
+    // The PCM is read in blocks of whole frames, about 1 MB each: a view
+    // over a file (#1665) reads only that much at a time. The arithmetic per
+    // sample is that of [Pcm16WavView.sampleAt].
+    final blockFrames = math.max(1, (1 << 20) ~/ (frameLen * 2));
+    for (var block = 0; block < frameCount; block += blockFrames) {
+      final blockEnd = math.min(frameCount, block + blockFrames);
+      final data = pcm.pcmBytes(block * frameLen, blockEnd * frameLen);
+      for (var f = block; f < blockEnd; f++) {
+        final start = (f - block) * frameLen;
+        var sumSquares = 0.0;
+        for (var i = start; i < start + frameLen; i++) {
+          final x = data.getInt16(i * 2, Endian.little) / 32768.0;
+          sumSquares += x * x;
+        }
+        final rms = math.sqrt(sumSquares / frameLen);
+        silentFrame[f] = rms < silenceRmsThreshold;
+      }
+    }
+    return _splitsFromSilentFrames(
+      silentFrame,
+      frameLen: frameLen,
+      maxChunkDurationMs: maxChunkDurationMs,
+      minPauseDurationMs: minPauseDurationMs,
+    );
+  }
+
+  /// The cut rule of [findPauseSplits] over per-frame silence flags.
+  static List<WhisperPauseSplit> _splitsFromSilentFrames(
+    List<bool> silentFrame, {
+    required int frameLen,
+    required int maxChunkDurationMs,
+    required int minPauseDurationMs,
+  }) {
+    final frameCount = silentFrame.length;
     final minPauseFrames = (minPauseDurationMs / _analysisFrameMs).ceil();
     final maxChunkFrames = (maxChunkDurationMs / _analysisFrameMs).floor();
 
@@ -1143,7 +1664,7 @@ class WhisperFfiEngine
       }
     }
 
-    final splitFrames = <int>[];
+    final splits = <WhisperPauseSplit>[];
     var lastSplitFrame = 0;
     var pauseIdx = 0;
     while (lastSplitFrame < frameCount) {
@@ -1161,16 +1682,18 @@ class WhisperFfiEngine
       }
       // A pause consumed above but before `lastSplitFrame` must not be
       // re-considered for the next chunk either.
+      var hard = false;
       if (chosen == -1) {
         // No natural pause in range — force a hard cut so the invariant
         // (no chunk exceeds maxChunkDurationMs) always holds.
         chosen = chunkLimitFrame;
+        hard = true;
       }
-      splitFrames.add(chosen);
+      splits.add(WhisperPauseSplit(chosen * frameLen, hard: hard));
       lastSplitFrame = chosen;
     }
 
-    return splitFrames.map((f) => f * frameLen).toList(growable: false);
+    return splits;
   }
 
   /// Trailing words of [text] to carry forward as extra continuity context
@@ -1178,28 +1701,25 @@ class WhisperFfiEngine
   /// `params.n_max_text_ctx = 64` bounds whisper's own internal
   /// window-to-window conditioning (see that comment below), so a degraded
   /// chunk's output can still poison at most this much of the next chunk's
-  /// prompt, never the whole rest of the recording.
-  static const _continuityContextChars = 200;
-
+  /// prompt, never the whole rest of the recording. Loop guard: see
+  /// `continuity_guard.dart`.
   @visibleForTesting
-  static String continuityContextFrom(String text) {
-    final trimmed = text.trim();
-    if (trimmed.length <= _continuityContextChars) return trimmed;
-    return trimmed.substring(trimmed.length - _continuityContextChars);
-  }
+  static String continuityContextFrom(String text) =>
+      continuity.continuityContextFrom(text);
 
   Future<String> _transcribeInChunks(
     WhisperBindings bindings,
     ffi.Pointer<whisper_context> ctx,
-    Float32List samples, {
+    Pcm16WavView pcm, {
     required String? language,
     required String? prompt,
     required bool includeTimestamps,
     required bool vadEnabled,
     required bool reducedThreads,
+    void Function(double fraction)? onProgress,
   }) async {
-    final splitPoints = findPauseSplitPoints(samples);
-    if (splitPoints.isEmpty) {
+    final splits = findPauseSplitsInPcm(pcm);
+    if (splits.isEmpty) {
       // No usable pause anywhere (e.g. one long unbroken utterance) — the
       // hard-cut fallback in [findPauseSplitPoints] only activates once a
       // chunk boundary is actually being searched for, so an entirely
@@ -1209,7 +1729,7 @@ class WhisperFfiEngine
       return _decodeOnce(
         bindings,
         ctx,
-        samples,
+        pcm.toFloat32(0, pcm.sampleCount),
         language: language,
         prompt: prompt,
         includeTimestamps: includeTimestamps,
@@ -1218,28 +1738,42 @@ class WhisperFfiEngine
         segmentTimeOffsetMs: 0,
         segmentIndexOffset: 0,
         resetLastSegments: true,
+        onProgress: onProgress,
       );
     }
 
     _log.debug(
-      'long dictation (${(samples.length * 1000 / WHISPER_SAMPLE_RATE).round()}ms) '
-      'split into ${splitPoints.length + 1} chunks at natural pauses',
+      'long dictation (${(pcm.sampleCount * 1000 / WHISPER_SAMPLE_RATE).round()}ms) '
+      'split into ${splits.length + 1} chunks at natural pauses',
     );
 
     final buffer = StringBuffer();
     String? carryPrompt = prompt;
+    // The continuity text this chunk's prompt carries, if any (not the
+    // vocabulary prompt): a copy of it at the start of the output is an echo.
+    String? carriedText;
+    var previousText = '';
     var chunkStart = 0;
     var segmentIndexOffset = 0;
-    final boundaries = [...splitPoints, samples.length];
+    final boundaries = [...splits.map((s) => s.sample), pcm.sampleCount];
+    // Only the current chunk is float32 (at most 25 s plus the 2 s overlap of
+    // a hard cut, under 2 MB), in one buffer reused for every chunk; see
+    // transcribe().
+    var window = Float32List(
+      math.min(
+        pcm.sampleCount,
+        _maxChunkDurationMs * WHISPER_SAMPLE_RATE ~/ 1000 +
+            _hardCutOverlapSamples,
+      ),
+    );
     for (var i = 0; i < boundaries.length; i++) {
       final chunkEnd = boundaries[i];
-      final chunkSamples = Float32List.sublistView(
-        samples,
-        chunkStart,
-        chunkEnd,
-      );
+      if (window.length < chunkEnd - chunkStart) {
+        window = Float32List(chunkEnd - chunkStart);
+      }
+      final chunkSamples = pcm.toFloat32Into(chunkStart, chunkEnd, window);
       final chunkStartMs = (chunkStart * 1000 / WHISPER_SAMPLE_RATE).round();
-      final chunkText = await _decodeOnce(
+      final rawText = await _decodeOnce(
         bindings,
         ctx,
         chunkSamples,
@@ -1251,20 +1785,46 @@ class WhisperFfiEngine
         segmentTimeOffsetMs: chunkStartMs,
         segmentIndexOffset: segmentIndexOffset,
         resetLastSegments: i == 0,
+        onProgress: onProgress == null
+            ? null
+            : (withinChunk) => onProgress(
+                chunkedProgressFraction(
+                  chunkIndex: i,
+                  chunkCount: boundaries.length,
+                  withinChunk: withinChunk,
+                ),
+              ),
       );
+      // A decoder that copied the carried text back is stripped of the copy;
+      // at a hard cut the overlap is removed from the seam (see WhisperPauseSplit).
+      var chunkText = rawText;
+      final echoed = carriedText;
+      if (echoed != null) {
+        chunkText = continuity.stripPromptEcho(echoed, chunkText);
+      }
+      final hardSeam = i > 0 && splits[i - 1].hard;
+      if (hardSeam) {
+        chunkText = seam.dropSeamRepeat(previousText, chunkText);
+      }
       buffer.write(chunkText);
+      previousText = chunkText;
       // Advance the live-transcript prefix so the next chunk's callback
       // firings report the whole transcript-so-far, not just its own text.
       _partialPrefix = buffer.toString();
       segmentIndexOffset = _lastSegments.length;
 
-      final tail = continuityContextFrom(chunkText);
+      // A looping chunk carries nothing forward (see continuity_guard.dart).
+      final carry = continuity.continuityCarryFor(chunkText);
       final hasOriginalPrompt = prompt != null && prompt.isNotEmpty;
-      carryPrompt = tail.isEmpty
+      carriedText = carry;
+      carryPrompt = carry == null
           ? prompt
-          : (hasOriginalPrompt ? '$prompt $tail' : tail);
+          : (hasOriginalPrompt ? '$prompt $carry' : carry);
 
-      chunkStart = chunkEnd;
+      final hardCut = i < splits.length && splits[i].hard;
+      // A hard cut repeats the last 2 s of audio at the start of the next
+      // chunk; the seam above removes the words that were heard twice.
+      chunkStart = hardCut ? chunkEnd - _hardCutOverlapSamples : chunkEnd;
     }
     return buffer.toString();
   }
@@ -1285,7 +1845,70 @@ class WhisperFfiEngine
     required int segmentTimeOffsetMs,
     required int segmentIndexOffset,
     required bool resetLastSegments,
+    void Function(double withinCall)? onProgress,
   }) async {
+    final first = await _decodeOnceRaw(
+      bindings,
+      ctx,
+      samples,
+      language: language,
+      prompt: prompt,
+      includeTimestamps: includeTimestamps,
+      vadEnabled: vadEnabled,
+      reducedThreads: reducedThreads,
+      segmentTimeOffsetMs: segmentTimeOffsetMs,
+      segmentIndexOffset: segmentIndexOffset,
+      resetLastSegments: resetLastSegments,
+      onProgress: onProgress,
+    );
+    if (!loop_rescue.shouldRescueLoop(first)) return first;
+
+    // Exactly one targeted second pass, no temperature ladder: same greedy
+    // decode, but without prompt and text context, which is what keeps a
+    // loop going. The first result stays unless the retry is clean.
+    _log.debug('decode looped; running one second pass without context');
+    final firstSegments = _lastSegments;
+    if (!resetLastSegments) {
+      _lastSegments = _lastSegments.sublist(0, segmentIndexOffset);
+    }
+    final retry = await _decodeOnceRaw(
+      bindings,
+      ctx,
+      samples,
+      language: language,
+      prompt: null,
+      includeTimestamps: includeTimestamps,
+      vadEnabled: vadEnabled,
+      reducedThreads: reducedThreads,
+      segmentTimeOffsetMs: segmentTimeOffsetMs,
+      segmentIndexOffset: segmentIndexOffset,
+      resetLastSegments: resetLastSegments,
+      noTextContext: true,
+    );
+    final kept = loop_rescue.pickRescued(first: first, retry: retry);
+    if (identical(kept, first)) _lastSegments = firstSegments;
+    return kept;
+  }
+
+  Future<String> _decodeOnceRaw(
+    WhisperBindings bindings,
+    ffi.Pointer<whisper_context> ctx,
+    Float32List samples, {
+    required String? language,
+    required String? prompt,
+    required bool includeTimestamps,
+    required bool vadEnabled,
+    required bool reducedThreads,
+    required int segmentTimeOffsetMs,
+    required int segmentIndexOffset,
+    required bool resetLastSegments,
+    void Function(double withinCall)? onProgress,
+    bool noTextContext = false,
+  }) async {
+    // Raised between two pause chunks (or before the loop-rescue pass): stop
+    // before the next native call instead of starting it (#1639).
+    final abortFlag = decodeAbortFlag;
+    if (abortFlag != null && abortFlag.value != 0) throw _decodeAborted();
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();
@@ -1416,7 +2039,7 @@ class WhisperFfiEngine
       // (mid-sentence carry across a window boundary) is still kept. `64`
       // matches the community-recommended value for this exact symptom
       // (ggml-org/whisper.cpp discussions #1490, #2286: `--context 64`).
-      params.n_max_text_ctx = 64;
+      params.n_max_text_ctx = noTextContext ? 0 : 64;
 
       // ── VAD-gated hallucination hardening (2026-07-29 follow-up) ───────
       // whisper.cpp's own internal `no_speech_prob`/`no_speech_thold` gate
@@ -1443,8 +2066,8 @@ class WhisperFfiEngine
         params.vad_model_path = vadModelPathC!.cast<ffi.Char>();
 
         // ── Noise-floor tolerance under system load (2026-08-27) ─────────
-        // Direct response to the transcription-quality-under-load feedback
-        // (`internal-notes`): the
+        // Direct response to the transcription-quality-under-load feedback:
+        // the
         // maintainer and a user both report words/phrases silently missing
         // specifically when the machine is under load (fan audibly
         // running). A running fan raises the *ambient noise floor* the
@@ -1499,6 +2122,38 @@ class WhisperFfiEngine
       params.new_segment_callback = segmentCallable.nativeFunction;
       params.new_segment_callback_user_data = ffi.nullptr;
 
+      // ── Progress callback (IMP-PROG-2) ─────────────────────────────────
+      // Same threading model as the segment callback above: whisper.cpp
+      // fires it on the thread blocked inside `whisper_full`, which is this
+      // isolate's own thread, so `.isolateLocal` is safe. It is closed only
+      // after `whisper_full` returned (ticket): native code may call it at
+      // any point before that. Absent when nobody listens.
+      final progressSink = onProgress;
+      final progressCallable = progressSink == null
+          ? null
+          : ffi.NativeCallable<WhisperProgressCallbackNative>.isolateLocal((
+              ffi.Pointer<whisper_context> progCtx,
+              ffi.Pointer<whisper_state> progState,
+              int progress,
+              ffi.Pointer<ffi.Void> userData,
+            ) {
+              progressSink((progress.clamp(0, 100)) / 100.0);
+            });
+      if (progressCallable != null) {
+        params.progress_callback = progressCallable.nativeFunction;
+        params.progress_callback_user_data = ffi.nullptr;
+      }
+
+      // ── Abort on budget overrun (#1639) ───────────────────────────────
+      // Same mechanism as the live preview: whisper.cpp polls the flag after
+      // the encoder and between decoder steps on every backend. Without the
+      // guard export only the check between chunks above applies.
+      final abortCallback = _guard?.abortFlagCallback;
+      if (abortFlag != null && abortCallback != null) {
+        params.abort_callback = abortCallback;
+        params.abort_callback_user_data = abortFlag.cast();
+      }
+
       final int rc;
       try {
         final guard = _guard;
@@ -1515,19 +2170,22 @@ class WhisperFfiEngine
         throw _nativeInferenceFailure('whisper_full', e);
       } finally {
         segmentCallable.close();
+        progressCallable?.close();
+      }
+      // An aborted run returns -6/-8/-9 like a failed graph; it is a budget
+      // overrun, never a lost GPU backend.
+      if (rc != 0 && abortFlag != null && abortFlag.value != 0) {
+        throw _decodeAborted();
       }
       if (rc != 0) {
-        // whisper.cpp reports decode failures as a generic non-zero return
-        // without a taxonomy that separates OOM / GPU-fault / transient. Map
-        // it to a retryable [WhisperFailureKind.transient] so the notifier's
-        // resilience wrapper gets a chance before surfacing. Finer native
-        // classification (reading GGML backend error signals for a real OOM
-        // vs. GPU abort) is deferred to the hardware-acceptance issues.
-        throw WhisperEngineException(
-          WhisperFailureKind.transient,
-          'whisper_full failed with code $rc',
-        );
+        // A failed encoder/decoder graph on a GPU backend means the backend
+        // is unusable until the context is recreated (gpuBackendLost); any
+        // other non-zero return stays a retryable transient failure. See
+        // [whisperFullFailureKind].
+        throw _whisperFullFailure('whisper_full', rc);
       }
+
+      _lastDetectedLanguage = _readDetectedLanguage(ctx);
 
       _logSegments(
         bindings,
@@ -1551,6 +2209,37 @@ class WhisperFfiEngine
       if (promptC != null) malloc.free(promptC);
       if (vadModelPathC != null) malloc.free(vadModelPathC);
     }
+  }
+
+  void _resolveLanguageLookups(ffi.DynamicLibrary dylib) {
+    try {
+      _fullLangId = dylib
+          .lookupFunction<
+            ffi.Int Function(ffi.Pointer<whisper_context>),
+            int Function(ffi.Pointer<whisper_context>)
+          >('whisper_full_lang_id');
+      _langStr = dylib
+          .lookupFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Int),
+            ffi.Pointer<ffi.Char> Function(int)
+          >('whisper_lang_str');
+    } on ArgumentError {
+      _fullLangId = null;
+      _langStr = null;
+    }
+  }
+
+  /// The language whisper decoded the last chunk in, or `null` when the
+  /// library lacks the lookups. Reads native state only after `whisper_full`
+  /// has returned successfully.
+  String? _readDetectedLanguage(ffi.Pointer<whisper_context> ctx) {
+    final fullLangId = _fullLangId;
+    final langStr = _langStr;
+    if (fullLangId == null || langStr == null) return null;
+    return detectedLanguageCode(fullLangId(ctx), (id) {
+      final ptr = langStr(id);
+      return ptr.address == 0 ? null : ptr.cast<Utf8>().toDartString();
+    });
   }
 
   @override
@@ -1589,6 +2278,19 @@ class WhisperFfiEngine
   /// the guard exports `wpg_abort_flag_cb`, otherwise previews run to the
   /// end as before.
   ffi.Pointer<ffi.Int32>? livePreviewAbortFlag;
+
+  /// Int32 that aborts the running final decode ([transcribe]) once non-zero
+  /// (#1639). Set per request by [WhisperIsolateEngine]'s worker and raised
+  /// from the main isolate when the decode runs out of its time budget. The
+  /// native abort needs the guard's `wpg_abort_flag_cb`; the check before
+  /// each pause chunk works without it.
+  ffi.Pointer<ffi.Int32>? decodeAbortFlag;
+
+  static WhisperEngineException _decodeAborted() =>
+      const WhisperEngineException(
+        WhisperFailureKind.timeout,
+        kWhisperDecodeAborted,
+      );
 
   /// Maps a C++ exception caught by `wp_ffi_guard` during inference to the
   /// notifier's resilience taxonomy: on a GPU backend it is treated like a
@@ -1699,10 +2401,7 @@ class WhisperFfiEngine
       // aborted run is not an error.
       if (abortFlag != null && abortFlag.value != 0) return '';
       if (rc != 0) {
-        throw WhisperEngineException(
-          WhisperFailureKind.transient,
-          'whisper_full_with_state failed with code $rc',
-        );
+        throw _whisperFullFailure('whisper_full_with_state', rc);
       }
 
       final buffer = StringBuffer();
@@ -1827,6 +2526,7 @@ class WhisperFfiEngine
   final (backend, device, _) = WhisperFfiEngine._confirmBackend(
     dylib,
     requested,
+    ggml: WhisperFfiEngine._registryFor(libraryPath),
   );
   return (backend, device);
 }
@@ -1900,20 +2600,6 @@ int pickGpuDeviceIndex(
   return integrated >= 0 ? integrated : 0;
 }
 
-/// Backend that actually runs on the registry device [deviceName] (as chosen
-/// by [pickGpuDeviceIndex]). The requested backend is only a guess: with CUDA
-/// requested but no CUDA device registered, whisper.cpp runs on a Vulkan
-/// device, and the status, diagnostics and crash recovery must say so.
-/// Falls back to [requested] for unknown or missing names.
-@visibleForTesting
-WhisperBackend backendForDevice(String? deviceName, WhisperBackend requested) {
-  final name = deviceName ?? '';
-  if (name.startsWith('CUDA')) return WhisperBackend.cuda;
-  if (name.startsWith('Vulkan')) return WhisperBackend.vulkan;
-  if (name.startsWith('MTL')) return WhisperBackend.metal;
-  return requested;
-}
-
 /// Pure mapping behind [WhisperFfiEngine._nativeInferenceFailure], split out
 /// for unit tests.
 @visibleForTesting
@@ -1927,3 +2613,29 @@ WhisperEngineException nativeInferenceFailure(
       : WhisperFailureKind.gpuCrash,
   '$call threw a native exception: ${e.message}',
 );
+
+/// The load error for a `whisper_init_from_file_with_params` that returned
+/// NULL, see [whisperInitErrorWithNativeLines].
+String whisperInitReturnedNullError(List<String> nativeErrors) =>
+    whisperInitErrorWithNativeLines(
+      'whisper_init_from_file_with_params returned null',
+      nativeErrors,
+    );
+
+/// [base] with the last native error lines ggml/whisper logged for a failed
+/// `whisper_init_*` ([WhisperFfiEngine.drainNativeLog], backend metadata
+/// only).
+///
+/// The lines carry the cause into the load triage (#1669): when memory runs
+/// out (video memory held by other programs, on Windows also the system
+/// memory the driver moves it into), the whisper.cpp patches
+/// `0002-fail-load-on-null-weight-buffer.patch` and
+/// `0003-fail-ggml-init-on-out-of-memory.patch` log "failed to allocate ...
+/// (out of memory)" instead of aborting the process, which
+/// `isTransientWhisperLoadFailure` treats as passing: the CPU takes over for
+/// this session only, and the GPU is not marked unusable.
+String whisperInitErrorWithNativeLines(String base, List<String> nativeErrors) {
+  if (nativeErrors.isEmpty) return base;
+  final last = nativeErrors.skip(math.max(0, nativeErrors.length - 4));
+  return '$base — native: ${last.join(' | ')}';
+}

@@ -29,7 +29,9 @@ flutter pub get
 
 ## macOS (Apple Silicon)
 
-**Toolchain:** Xcode with its command line tools, CMake.
+**Toolchain:** Xcode with its command line tools, CMake. Rust is only needed when Cargokit falls back to a source build: `cargokit_options.yaml` in the repo root sets `use_precompiled_binaries: true`, so `super_native_extensions` takes its signed prebuilt library even when `rustup` is installed (#674). For a source build use Rust stable **1.99.1 or newer** (`rustup update stable`).
+
+With Xcode 27.2 and an older Rust, a fresh source build fails with `error[E0463]: can't find crate for proc_macro_error_attr`. Xcode exports `MACOSX_DEPLOYMENT_TARGET=12.0`, which also applies to host proc-macros, and from 12.0 on its linker writes chained fixups that rustc before 1.99 cannot read. A warm build directory hides the problem, so only a fresh build counts as a check.
 
 ```bash
 flutter build macos --debug       # or: flutter run -d macos
@@ -44,6 +46,14 @@ bash scripts/build-smartmode-shim-macos.sh
 ```
 
 Both scripts build with `-DGGML_NATIVE=OFF`, so the libraries never contain instructions the oldest supported Mac (M1) lacks. `libwhisper` additionally uses `-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON`: Metal and one CPU module per Apple Silicon generation (`libggml-cpu-apple_m1.so`, `-apple_m2_m3.so`, `-apple_m4.so`) are staged next to `libwhisper.dylib`, and ggml loads the best CPU module at runtime. `macos/embed_libwhisper.sh` rebuilds automatically when the staged `WHISPER_PIN` no longer matches the pinned whisper.cpp version.
+
+`libllama` is stamped the same way: `build-libllama-macos.sh` writes `LLAMA_PIN` (tag and commit) into the stage, and `macos/embed_libllama.sh` and `scripts/ensure-libllama-macos.sh` rebuild a stage whose stamp is missing or differs from `scripts/llama-cpp.pin`. All three libllama build scripts (macOS, Linux, Windows) also discard their CMake build directory when its `CMakeCache.txt` points at another llama.cpp source tree, so a pin change never stops at cmake's "source does not match the source used to generate cache" error.
+
+### Build stamp
+
+The About page shows `Version 1.4.2 · a1b2c3d · 2026-11-06` (short commit, `+` when the tree was dirty, UTC build date). The values are compile-time `--dart-define=WP_BUILD_COMMIT` / `WP_BUILD_DATE`, printed by `bash scripts/build-stamp.sh` (empty without git). Every release path appends them next to `APP_VERSION`: `scripts/release/{mac-build.sh,linux-build.sh,win-build.ps1}`, `scripts/release-macos-local.sh`, the Fastfile (`build_stamp_flags`, both macOS builds incl. the Mac App Store) and `release.yml`. The macOS flags (MAS marker, release defines file, `APP_VERSION`, stamp) are assembled in one place, `scripts/macos-flutter-build.sh [--mas]`, which both Fastfile lanes (Mac App Store, Developer ID) and the local preview call; a missing release define (`WHISPASTE_MATOMO_URL`, `WHISPASTE_MATOMO_SITE_ID`, from the environment or `~/.config/whispaste/release.env`) stops it. The app logs the same line once at startup (`App build: 1.4.2 · a1b2c3d · 2026-11-06` in `whispaste.log`). The Xcode scheme `Runner (MAS)` has no define path of its own; it reads `macos/Flutter/ephemeral/Flutter-Generated.xcconfig`, which carries the defines of the last `flutter build macos`.
+
+**Local macOS preview (Mac App Store configuration):** `bash scripts/macos-preview.sh` builds with the flags above, runs `xcodebuild` for `Runner (MAS)` into the worktree's own `build/preview-derived` (gitignored; global DerivedData is never used or deleted) and installs exactly that `.app` with `.claude/skills/mas-local-test-install/install.sh` (default target `~/Applications/WhisPaste.app`, the previous copy is replaced without a backup; other `WhisPaste*.app` copies in `~/Applications`, the former `~/Applications/WhisPaste-Backups/` folder and the installed build output are removed so Spotlight shows only the installed copies, #1015). The installer refuses an app whose binary lacks this checkout's HEAD commit or the compiled-in release defines, refuses a dirty stamp (`abc1234+`) for `/Applications`, and after launch checks that the running process is the installed copy and started after the install, then prints version · commit · date (when macOS app data protection denies the shell read access to the sandbox container log, it says so once and relies on the binary check). `--no-install` builds only. The installer signs the preview like the release builds share their secrets (#1380, ADR 0036): `preview_sign_app` in `scripts/release/mac-devid-sign.sh` uses the Developer ID identity (override `WP_MAC_PREVIEW_IDENTITY`), embeds the "de.whispaste.app Developer ID" profile and adds the keychain access group `Q7V3X27S2U.de.whispaste.app` (plus application and team identifier) to the sandboxed MAS entitlements, so preview, Developer ID and Store builds read the same data-protection keychain entries (e.g. `wp_data_key`); signing stops if the group is missing. A build without them (IDE run, plain `flutter run`) shows only the version. A new build path must append `$(bash scripts/build-stamp.sh)`.
 
 ### Bundle identifiers
 
@@ -62,7 +72,7 @@ LaunchServices keeps a registration for every `.app` macOS has seen (a build, `o
 
 ### Swift unit tests
 
-The pure Swift logic of the macOS runner (paste key per keyboard layout, where the accessibility helper panel goes) has XCTest cases in `macos/RunnerTests/`. Run them on the Mac before merging a change to `macos/Runner/`, after one `flutter build macos --debug`:
+The pure Swift logic of the macOS runner (paste key per keyboard layout, where the accessibility helper panel goes and which way its arrow points) has XCTest cases in `macos/RunnerTests/`. Run them on the Mac before merging a change to `macos/Runner/`, after one `flutter build macos --debug`:
 
 ```bash
 cd macos && nice -n 19 xcodebuild test -workspace Runner.xcworkspace -scheme Runner \
@@ -70,6 +80,29 @@ cd macos && nice -n 19 xcodebuild test -workspace Runner.xcworkspace -scheme Run
 ```
 
 Delete `build/` afterwards.
+
+### Renderer
+
+The macOS app renders with Skia (`FLTEnableImpeller` is `false` in `macos/Runner/Info.plist`, for every engine and every build configuration). With Flutter 3.47.9, Impeller on Metal stages glyph uploads in a four-frame host buffer ring and does not wait for the GPU before it reuses a slot. If another GPU job delays the upload by more than four frames, the glyph atlas keeps foreign data: text and icons stay broken until restart, while surfaces repair themselves on the next frame. A single queue with 58 ms compute jobs was enough on an Apple M5 (102 of 110 text lines broken, 0 of 110 at 8 ms, 0 of 110 with Skia under the heaviest load). Upstream report with the same trigger: [flutter/flutter#193927](https://github.com/flutter/flutter/issues/193927).
+
+The failure is measured on Metal only; Windows and Linux keep the engine default (Flutter 3.47.9 draws with Impeller on OpenGLES/ANGLE on Windows).
+
+**Windows (checked 2026-11-10, #492):** hp840, Intel Iris Xe, release build of a throwaway Flutter app, Impeller OpenGLES (engine default). Steps 1, 3 and 4 below with 110 lines x 5 repeats (550 lines, fresh sizes and texts per pass, offscreen `toImage`, reference taken in a separate run without load). The load was a WebGL fragment shader in Edge at about 100 % on the 3D engine, so another process rather than a second queue of the same process. Result: 6 of 550 lines differ from the reference under load, and the same 6 count differ between two reference runs without any load (the last lines of the first two passes), so the load causes no difference; no broken atlas, no persistent damage. Note: the app must run in the interactive desktop session (a started-from-service shell fails with `0x887A0022`). Not shown on Windows; no renderer change.
+
+**Linux: not measured.** `tc-m93p` (host key `SHA256:z+plXC7v8iD0xMa47xFrosMic6BW9z0gY0uLUyCFDFQ`, verified) accepts no SSH key of the hp840 (`Permission denied (publickey)`). Open until a key is authorised there; the engine default stays until then.
+
+To lift the setting after a Flutter update, run this check with Impeller enabled (the key set to `true` in a throwaway Flutter macOS app on the new SDK, not in the repo). The test app is not kept in the repo; write it again from these steps:
+
+1. Draw a column of about 110 text lines, each with a new text and a new font size on every pass, so the glyph atlas needs fresh uploads.
+2. Start a second Metal command queue in the same process that submits compute jobs of about 60 ms each, back to back (40 to 60 ms is enough on an Apple M5; 8 ms jobs never failed).
+3. Pass A: draw the lines while the jobs run. Pass B: stop the jobs, wait until the GPU is idle, redraw the same lines. Pass C: the same two passes with no jobs at all, as reference.
+4. Compare the rendered lines of A and B with C pixel by pixel (offscreen `toImage`, no screenshots by hand).
+
+The setting can go when no line of A or B differs from C over at least 5 repeats. With the current SDK 102 of 110 lines differ. Check this before each release that raises Flutter.
+
+### Package lockfiles
+
+Every `packages/*/` package keeps its `pubspec.lock` (and the `analyzer: exclude` that `flutter pub get` writes into `packages/auto_updater_windows/analysis_options.yaml`) committed, so the `flutter pub get` of a test run (`wp-test.sh`) leaves the worktree clean; a dirty tree blocks the gate stamp. After a Flutter SDK bump (`.flutter-version`) run `flutter pub get` in each package and commit the changed lockfiles with the bump. `macos/Flutter/GeneratedPluginRegistrant.swift` is the exception: `flutter pub get` drops its `#if !MAS_BUILD` guard; the `mas-guard` filter (see "No noise" under macOS plugin files) hides that from git once `scripts/install-git-filters.sh` has run, otherwise the tree stays dirty.
 
 ### macOS plugin files
 
@@ -80,9 +113,32 @@ bash scripts/sync-macos-plugins.sh          # macOS: pub get + pod install, both
 ```
 
 - **Commit:** when `pubspec.yaml`, `pubspec.lock`, `.flutter-version`, `macos/Podfile` or `macos/.cocoapods-version` is in a commit, the pre-commit hook runs the sync on the Mac and stages both files into the same commit (only these two). It never blocks the commit. If the sync fails or takes longer than 120 s (offline, no CocoaPods, a stale spec repo, another sync holding the lock), the hook prints a warning and the fix command. Commits without these inputs do not touch pod.
-- **Push:** the pre-push hook compares the plugin names in both committed files with the macOS plugins `flutter pub get` resolved (`dart tool/macos_plugins.dart`, under a second). Real drift blocks on the Mac (after one more `flutter pub get`, in case the resolved list predates the last checkout) and only warns elsewhere. A check that cannot tell (no `pub get` yet, uncommitted pubspec changes) never blocks. Version-only changes are not part of this check: the commit hook takes them in with the pubspec change.
+- **Push:** the pre-push hook compares the plugin names in both committed files with the macOS plugins `flutter pub get` resolved (`dart tool/macos_plugins.dart`, under a second). Real drift blocks on the Mac (run `flutter pub get` explicitly if the resolved list predates the last checkout) and only warns elsewhere. A check that cannot tell (no `pub get` yet, uncommitted pubspec changes) never blocks. Version-only changes are not part of this check: the commit hook takes them in with the pubspec change.
+- **Fast push, required server gate:** `bash scripts/check.sh prepush [dev]` (also `push`) runs only the actual branch's pre-push protection checks: private-code/export and release guards, branch hygiene, secret scans over the pushed range, docs attestation, logging and workflow pin/timeout guards, and quick generated-file checks/self-healing. It runs no tests, builds, package downloads, upstream network queries or workflow lint, and writes no gate stamp. The target is under 10 seconds for an ordinary feature push; production release guards still apply separately.
+- **Before merge:** `.internal forge/workflows/gate.yml` is a quick check on the NAS light lane (`nas-gate-light`, #1403): repo guards, gitleaks over the changed range, `dart format` and shellcheck, without a Flutter SDK. The required status `gate/nas` reports failure if any check fails and blocks merging into `dev`. A push to `dev` whose SHA already carries a genuine `gate/nas=success` (the PR head before the fast-forward merge) reuses that status instead of a second run; test `scripts/ci/gate-reuse.test.py`.
+- **After merge:** the existing `.internal forge/workflows/lab.yml` runs `flutter analyze --no-pub --fatal-infos --fatal-warnings` over `lib test integration_test tool generators benchmarks` (only when one of these paths, `packages/`, pubspec or `analysis_options.yaml` changed since the last successful analysis, area `dart` of `scripts/ci/lab-changes.sh`), then unit/contract tests and hook helper tests on `dev`; `.internal forge/workflows/lab-full.yml` runs journeys, website E2E and desktop builds there. Both bundle queued merges without cancelling an active run; the full lane also retains its nightly/manual triggers. Tests/builds have no second pre-push or stamp path.
+- **Docs attestation and rebases:** the pre-push hook lets a commit through when `scripts/docs-attest.sh attested` names it, when its tree was attested on this machine, or when its docs fingerprint was (`attested-tree`). `docs-attest.sh attest` records the tree and the fingerprint, a hash over the files under `DOCS_PATHS` in the script (README, SECURITY, CONTRIBUTING, CHANGELOG, `store/`, `website/`, `pubspec.yaml`, `lib/core/app_urls.dart`; the public docs the checks read; the hook runs `docs-attest.sh check` on the working tree in addition, which also scans `lib/` for store URL literals). So a rebase of an attested PR branch (coordinator merge, `fj ready`) passes without a new attest as long as those files are byte-identical to an attested commit; if `dev` has changed those files meanwhile (about every second merge adds a `CHANGELOG.md` entry), the commit still counts when its docs diff is the attested one: `attest` also records a hash of the exact content of `git diff -U0 <merge-base with origin/dev>..<commit> -- DOCS_PATHS` (`docs-attest.sh diff-id`: file names and changed lines byte for byte, without line numbers, so the position of a line within its file is not part of it; for a commit that leaves the docs alone the diff id is the patch-id of its whole diff, so a code-only PR rebased over docs changes of `dev` stays attested, #741), and `attested-tree` accepts a commit whose diff id is on that list. For such a code-only commit the docs are the `dev` state's docs; that state is not attested again by this path. The base is an ancestor of `origin/dev` by construction, so a docs change that sits on no dev state shows up in the diff; without `origin/dev` the check fails closed. If the rebase changes the diff itself (e.g. a conflict in `CHANGELOG.md` resolved to different content), the push stays blocked until `scripts/docs-attest.sh attest` is run again. Logic test: `scripts/docs-attest.test.sh` (part of the existing Lab run on `dev`).
 - **No noise:** git clean filters normalize what is not a real change. `mas-guard` restores the `#if !MAS_BUILD` guard around the auto-updater, which every `flutter pub get/analyze/test` drops; a Mac App Store build without it crashes at launch. `podlock` pins the `COCOAPODS:` line to `macos/.cocoapods-version`, so another local CocoaPods version is no change. `scripts/install-git-filters.sh` sets both filters; the hooks and the sync call it.
 - `pod install` runs without `--repo-update`. Pods that only `Podfile.lock` pins (Sparkle) keep their version; raise them with `cd macos && pod update <pod>`, then run the sync. To move to a new CocoaPods, change `macos/.cocoapods-version`.
+
+### Worktrees
+
+`scripts/worktree-prepare.sh` waits (exit 3) only for real builds that share the flutter_soloud cache: `xcodebuild` build/archive/test runs, `flutter assemble` and soloud CMake. A pure `xcodebuild test-without-building` run (the long-lived iPhone runner of agent-device, #833) does not block it.
+
+## sherpa-onnx upstream binaries (ADR 0037, #1253)
+
+The pub packages `sherpa_onnx_{macos,linux,windows}` 2.0.1 already ship the
+upstream binaries. They are pinned by hash in `scripts/sherpa-upstream.pin`
+and checked with `scripts/verify-sherpa-upstream.sh <macos|linux|windows>`
+(lockfile version and archive hash, then every file; `--bundle DIR` on
+Linux/Windows also checks the staged bundle). Fetch with
+`flutter pub get --enforce-lockfile`. On macOS verify before slice selection
+and signing. The own build below stays the shipped path until the acceptance
+on all three platforms is done; only then it is removed.
+
+Known gap: the pub archives carry no Windows PDBs and Microsoft's PDBs belong
+to a different ORT build, so the upstream Windows DLLs are symbolised by export
+names only.
 
 ## sherpa-onnx without TTS (all desktop platforms)
 
@@ -128,7 +184,15 @@ Supply-chain controls:
 
 - **Pins**: `scripts/sherpa-onnx.pin` holds the sherpa-onnx tag and commit, the
   onnxruntime archive names and their SHA-256. The build asserts that sherpa's own
-  `cmake/onnxruntime-*.cmake` pins the same hash.
+  `cmake/onnxruntime-*.cmake` pins the same hash on macOS/Linux. Windows deliberately
+  verifies its own Microsoft archive pin instead: ORT 1.28.2 includes matching
+  DLL/PDB files for Sentry (#191), unlike sherpa's third-party archive.
+  `build-sherpa-onnx.ps1` configures the verified `include/` and `lib/` directories.
+  It explicitly sets `location_onnxruntime_lib2` to `lib/onnxruntime.lib` because
+  sherpa 2.0.1 leaves this import-library variable unset on its Windows CPU
+  preinstalled-runtime path. Remove the workaround once upstream fixes that path.
+  Microsoft PDBs stay in `.build/sherpa-onnx/windows-ort-pdb`, outside the app;
+  only the local release uploads them (see `internal-notes`).
 - **onnxruntime**: `scripts/fetch-onnxruntime.sh` (and the Windows script) download
   the archive and verify SHA-256 before cmake runs. cmake only sees the verified
   local file, so it never downloads an unverified archive.
@@ -196,6 +260,24 @@ to -60 dB on all three. Linux aarch64 is a cross build and not shipped
 either; on macOS it links onnxruntime statically (58 MB). Whether to keep the own
 build is an open decision.
 
+### Residual risk: prebuilt clipboard library from upstream (#674)
+
+`super_native_extensions` (used through `super_clipboard`) ships its Rust part as a
+signed prebuilt library from the package's GitHub releases; `cargokit_options.yaml`
+makes every build use it whenever one exists for the crate hash. Cargokit verifies the ed25519 signature against the public
+key in the pub.dev package (`rust/cargokit.yaml`) and discards a library whose signature
+fails. A missing library (HTTP 404) or a failed signature check falls back to a source
+build; a network error (no connection, DNS, TLS) does not and stops the build.
+
+- The signature proves the library comes from the upstream key, not that it was built
+  from the source we read. A compromised upstream key or release pipeline would pass.
+- The key ships in the same pub.dev package as the code that checks it, so the check
+  guards against tampered GitHub release assets, not against a tampered package.
+- We cannot rebuild the prebuilt library bit for bit.
+- Accepted by the maintainer (2026-11-05) for faster builds without Rust on every machine.
+- Lift it when a release needs source-built native code: delete
+  `cargokit_options.yaml` and install Rust on the build machines.
+
 ## Raising native dependencies
 
 whisper.cpp, sherpa-onnx and llama.cpp each have one pin: `scripts/whisper-cpp.pin` (tag + commit), `scripts/sherpa-onnx.pin` and `scripts/llama-cpp.pin` (tag + commit). Every build script, `scripts/ensure-libllama-macos.sh`, `scripts/release-macos-local.sh` and the release workflow read the tag from there; nothing else names the version.
@@ -213,7 +295,17 @@ Raising one, as its own work package:
 3. Engine tests on Linux and Windows, plus one real dictation per platform.
 4. CHANGELOG entry naming the new upstream version and anything users notice.
 
+Patches to whisper.cpp: `native/whisper_patches/*.patch` are applied to the pinned source by `scripts/apply-whisper-patches.sh` in every `build-libwhisper-*` script (idempotent; the commit check runs first, the patch hash is part of the macOS `WHISPER_PIN` stamp, so an old stage rebuilds). `0001-reuse-language-detect-encode.patch` (#570): with language `auto`, `whisper_full` encodes the first window once for the language detection and again for the decode; the patch lets the decode reuse that encoder output (same mel, offset 0, same `audio_ctx`; any other case encodes as before). When raising the pin, rebase or drop each patch as well, before step 2 (the build fails otherwise); `bash scripts/apply-whisper-patches.test.sh` checks that they apply (the existing Lab run on `dev` runs it with `--fetch`; a native build also fails if a patch no longer applies), the benchmark `benchmarks/tooling/stt_stage_bench/` must show `encodeRuns` 1 for `auto` (encode count, no timing). `0002-fail-load-on-null-weight-buffer.patch` (#1669): when a weight buffer cannot be allocated (video memory held by other programs), upstream skipped the NULL buffer and aborted the process later in `ggml_backend_buffer_*(NULL)` (0xC0000409 on Windows); the patch logs `failed to allocate <buft> buffer for the model weights (out of memory)` and fails the load, so `whisper_init_*` returns NULL and the app moves to the CPU (same for the VAD model). A failed model load also frees the buffers already allocated (`whisper_free` instead of `delete`). `0003-fail-ggml-init-on-out-of-memory.patch` (#1669): on Windows the driver moves video memory that other programs hold into system memory, so the same repro mostly ran out of system memory (commit limit) instead, and `ggml_init` aborted on `GGML_ASSERT(ctx->mem_buffer != NULL)` (`ggml.c:1644`); the patch logs `failed to allocate <n> bytes for the context (out of memory)` and returns NULL, and the two whisper.cpp callers that did not check it (model and VAD tensor context) fail the load. The lab build caches of libwhisper key on `native/whisper_patches/*.patch` too, so a patch change rebuilds there. The CUDA packs build only `libggml-cuda`, which uses the app's patched `ggml-base`, and need no patch.
+
 The CUDA packs (`scripts/build-cuda-pack-*.{sh,ps1}`) read `scripts/whisper-cpp.pin` too, but carry the whisper.cpp version in their pack id and move with their own pack revision: both scripts stop when the pack id does not name the pinned tag.
+
+### Linux/Windows compile check
+
+A macOS build never compiles the Linux and Windows branches of `native/smart_mode` and `native/ffi_guard`, so a break there stays invisible on the Mac. `scripts/native-compile-check.sh [<range>]` looks at the commit range (default `origin/dev...HEAD`); when it touches `native/smart_mode/`, `native/ffi_guard/` or a `scripts/*.pin`, it compiles the shim and `wp_ffi_guard` against the pinned headers on the lab VMs `ubu` and `win` in parallel (`scripts/native-compile-linux.sh`, `scripts/native-compile-windows.ps1`, about a minute, compile only). It runs in the fast lane after every merge into `dev`; `--force` compiles regardless of the paths. `.githooks/pre-push` no longer prints a note: the `lab/full-ubu` and `lab/full-win` jobs of `.internal forge/workflows/lab-full.yml` build the Linux and Windows app after merges to `dev`. Exit 1 means a real compile error. A busy lab, a lock timeout or a broken VM run is reported as unchecked (exit 3) and never counts as red.
+
+The runners are the second trigger, each on its own guest: `windows/runner/` or `windows/CMakeLists.txt` builds the Windows runner on `win` with `flutter build windows --debug` (`scripts/native-compile-windows-runner.ps1`), `linux/runner/` or `linux/CMakeLists.txt` the Linux runner on `ubu` with `flutter build linux --debug` (`scripts/native-compile-linux-runner.sh`), both incremental on the warm checkout. The Linux native tests (`scripts/ci/linux-native-tests.sh`) compile only the header-only helpers, so a runner source error used to surface only in a release build (#77). The `lab/full-ubu` job (`flutter build linux --release`) and the `lab/full-win` job (`flutter build windows --debug`) of `.internal forge/workflows/lab-full.yml` build the runners after merges to `dev` and fail on a compile error; `.githooks/pre-push` no longer runs these builds.
+
+The Windows backlog lives in `wp-pending-win.txt` inside the shared git directory of the main checkout (`.git/`; untracked, common to all worktrees). `WP_PENDING_WIN=<file>` overrides the location.
 
 ## Third-party notices
 
@@ -222,15 +314,60 @@ The CUDA packs (`scripts/build-cuda-pack-*.{sh,ps1}`) read `scripts/whisper-cpp.
 
 ## Windows (x64)
 
-**Toolchain:** Visual Studio 2022 with the "Desktop development with C++" workload (MSVC, Windows SDK), CMake, Ninja, PowerShell 7 (`pwsh`). For the Vulkan GPU backend, install the [Vulkan SDK](https://vulkan.lunarg.com/).
+Last verified on Windows on **2026-11-09** with **Flutter 3.47.9** (framework revision `c197ca5199`, reported by `flutter --version`), after a successful `flutter build windows --release --no-tree-shake-icons`.
 
-Build the app first. The staging scripts copy into its output folder.
+### Toolchain on a fresh machine
+
+| Tool | winget ID | Why |
+|---|---|---|
+| VS 2022 Build Tools: workload `VCTools` (MSVC, Windows SDK) **plus** component `VC.ATL` | `Microsoft.VisualStudio.2022.BuildTools` | compiler; `flutter_secure_storage_windows` includes `atlstr.h`, which `VCTools` does not bring, not even with `--includeRecommended` |
+| CMake | `Kitware.CMake` | native libraries |
+| Ninja | `Ninja-build.Ninja` | generator of the native build scripts |
+| Vulkan SDK | `KhronosGroup.VulkanSDK` | GPU backend; sets `VULKAN_SDK`, brings `glslc.exe` |
+| PowerShell 7 | `Microsoft.PowerShell` | the build scripts run under `pwsh` |
+| Git for Windows | `Git.Git` | sources, plus its `bash.exe` for the espeak-ng guard |
+| A JDK (tested: Microsoft OpenJDK 21), `JAVA_HOME` set | `Microsoft.OpenJDK.21` | `sentry_flutter` pulls in the `jni` plugin, whose CMake calls `find_package(JNI)`; without a JDK the configure stops with `Could NOT find JNI` |
+| Flutter 3.47.9 | – (`git clone`) | see [Common prerequisites](#common-prerequisites) |
+
+```powershell
+winget install -e --id Microsoft.VisualStudio.2022.BuildTools --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.VC.ATL"
+winget install -e --id Kitware.CMake
+winget install -e --id Ninja-build.Ninja
+winget install -e --id KhronosGroup.VulkanSDK
+winget install -e --id Microsoft.OpenJDK.21
+git clone --depth 1 --branch 3.47.9 https://github.com/flutter/flutter.git C:\tools\flutter
+```
+
+The Build Tools, the Vulkan SDK and the JDK ask for administrator rights. winget installs CMake and Ninja as portable packages into `%LOCALAPPDATA%\Microsoft\WinGet\Links`, which it adds to the user `PATH`. Put `C:\tools\flutter\bin` on the user `PATH` yourself, and set `JAVA_HOME` to the JDK folder if its installer did not (`[Environment]::SetEnvironmentVariable('JAVA_HOME', '<jdk folder>', 'User')`).
+
+Two more steps:
+
+- **Developer Mode** (`start ms-settings:developers`): Flutter plugins are linked as symlinks. Without it, `flutter pub get` stops with `Building with plugins requires symlink support`.
+- **Open a new terminal** after the installs. A shell started before them sees neither the new `PATH` entries nor `VULKAN_SDK` and `JAVA_HOME`.
+
+Rust is not needed. `super_native_extensions` builds its Rust part through Cargokit, which downloads a signed prebuilt library; `cargokit_options.yaml` (`use_precompiled_binaries: true`) keeps it that way even with `rustup` on the machine (#674). Cargokit compiles from source only when no signed prebuilt library exists for the crate or its signature fails (a network error stops the build instead); then keep Rust stable current (`rustup update stable`).
+
+When the VS Installer stops with exit code 8006 (`VSProcessesRunning`), MSBuild nodes from an earlier build are still running: `taskkill /IM MSBuild.exe /F`, or set `MSBUILDDISABLENODEREUSE=1` for your builds.
+
+### Build
+
+The steps below, in this order, from the repo root in `pwsh`. Rough times on an 8-thread laptop for a first build: sherpa-onnx 6 min, the app 9 min, `libwhisper` 5 min, `libllama` 7 min; warm rebuilds take seconds to a minute. The native build scripts activate the VS 2022 build tools themselves (`scripts/windows-msvc-env.ps1`) when `cl.exe` is not on `PATH`, so a normal terminal is enough.
+
+sherpa-onnx comes first: `windows/CMakeLists.txt` takes the staged build when the app is configured, and without it bundles the pub package's libraries, which contain espeak-ng (see [sherpa-onnx without TTS](#sherpa-onnx-without-tts-all-desktop-platforms)):
+
+```powershell
+pwsh -File scripts\build-sherpa-onnx.ps1
+```
+
+Then the app. The bundle scripts below copy into its output folder, so it has to exist before them:
 
 ```powershell
 flutter build windows --release --no-tree-shake-icons
 ```
 
-`libwhisper` (Vulkan + one CPU backend per x86-64 feature level, plus `wp_ffi_guard`). The script uses the same pin and cmake options as the release workflow. It needs the Vulkan SDK (`VULKAN_SDK`, `glslc.exe`) and activates the VS 2022 build tools itself when `cl.exe` is not on `PATH`:
+A later `flutter build windows` keeps what the bundle scripts copied: after a rebuild, all bundled DLLs are still there, byte for byte. Only `flutter clean` or deleting `build\windows` removes them; then run the bundle scripts again.
+
+`libwhisper` (Vulkan + one CPU backend per x86-64 feature level, plus `wp_ffi_guard`). The script uses the same pin and cmake options as the release workflow. It needs the Vulkan SDK (`VULKAN_SDK`, `glslc.exe`):
 
 ```powershell
 $tag = (Select-String '^WHISPER_TAG=(.*)' scripts/whisper-cpp.pin).Matches[0].Groups[1].Value
@@ -255,7 +392,47 @@ pwsh scripts/bundle-libllama-windows.ps1 -Source .build/libllama/windows
 
 The result is in `build\windows\x64\runner\Release\` (`whispaste.exe`, `whisper.dll`, `smart_mode\smartmode_shim.dll`).
 
+### Git hooks and local checks (Git Bash)
+
+The hooks and [local checks](#local-checks) are bash scripts; on Windows they run in Git Bash. They need a few tools beyond the build toolchain, all without administrator rights:
+
+```powershell
+winget install -e --id Python.Python.3.14 --scope user
+py -3 -m pip install --user pyyaml
+winget install -e --id rhysd.actionlint --scope user
+winget install -e --id Gitleaks.Gitleaks --scope user
+```
+
+Then, in Git Bash from the repo root:
+
+```bash
+bash scripts/install-hooks.sh
+```
+
+It sets `core.hooksPath` to the relative `.githooks`, so every worktree runs its own hooks. Keep it relative: with an absolute path to one checkout, every worktree pushes with that checkout's hooks.
+
+- **Python:** `python3` on Windows is often the Microsoft Store stub, which only prints an install hint. The hooks, the git filters and the workflow check find a real Python 3 themselves (`.githooks/python3.sh`: `python3`, then `py -3`, then `python`). Other scripts call `python3` directly: turn off the `python3.exe` alias (Settings > Apps > Advanced app settings > App execution aliases), or put a `python3` file with `exec py -3 "$@"` into a folder on your Git Bash `PATH`. Set `PYTHONUTF8=1` as well, since Python on Windows reads files as cp1252 by default.
+- **PyYAML** is required by the workflow check (`scripts/check-workflow-hygiene.sh`); without it the push stops.
+- **gitleaks:** without it the local hook warns; the required NAS gate still scans secrets. Workflow pin/timeout protection stays local; actionlint can be run explicitly while editing workflows. The scan uses gitleaks' default rules plus our own (`.gitleaks.toml` with `[extend] useDefault = true`); a reviewed false positive gets a narrow `[[allowlists]]` entry there (path plus `targetRules`, with the reason), never a blanket exemption (the one global exception matches only the fake value `sk-test-<digits>`, never a path).
+- **loam (ratchet gate):** the commit hook and the `lab/ubu` job (`.internal forge/workflows/lab.yml`) run `dart pub global activate loam 0.1.16` (pub.dev, network needed) and then `dart pub global run loam gate`, so no PATH entry is needed on any OS. If activation fails and no copy is installed, the hook stops with an environment error, not with a list of findings. Fix the network or the Dart SDK and run the hook again. In a fresh or throw-away worktree without `.dart_tool/package_config.json` (also the one the coordinator rebases in before a merge) both hooks first resolve the packages themselves (`.githooks/resolve-packages.sh`: `flutter pub get --offline`, then `flutter pub get`), because without them the ratchet reports false "new" findings (#537, #542). `macos/Flutter/GeneratedPluginRegistrant.swift` is restored byte for byte afterwards. If resolving fails, the commit hook warns and the push hook blocks (fail closed). Test: `.githooks/resolve-packages.test.sh` (run by the Lab workflow on `dev`).
+- **Optional on Windows:** semgrep and osv-scanner (they run in the `lab/ubu` job, no longer in the pre-push) and cppcheck (the pre-commit warns only when a commit touches `windows/runner/`). CI runs all three.
+
+### Starting a release build next to an installed WhisPaste
+
+A release build from source is not a [local build](#local-builds-keep-their-own-data): it uses the same data folder `%APPDATA%\WhisPaste` and the same single-instance lock as the installed app. While the installed app runs, starting the new `whispaste.exe` only hands over to it (`P ATTACH` on stdout) and exits, so you test the old version without noticing. The version number may well be the same as the installed one; tell the two apart by the path (`Get-Process whispaste | Select-Object Id, Path`).
+
+- Quit the installed app first. It keeps running in the tray on a plain close request, so `taskkill /IM whispaste.exe /F`.
+- The first start of the new build migrates the real settings, history and models in `%APPDATA%\WhisPaste`, and the installed version reads them afterwards. On a machine you work on, back that folder up first, use a separate Windows user, or test a `--debug`/`--profile` build, which keeps its own data.
+
 ## Linux (x86_64)
+
+The build copies SoLoud's bundled Vorbis libraries into the build tree and uses
+`patchelf` to normalize their SONAMEs and the Vorbisfile dependency to
+`libvorbis.so.0` / `libvorbisfile.so.3`. The plugin links these copies, which are
+bundled with an `$ORIGIN` RUNPATH. This lets the system audio stack reuse the
+same libraries instead of loading a second pair under the standard ABI names;
+the shared pub cache is never changed. `scripts/check-linux-bundled-codecs.sh`
+rejects full-version Vorbis SONAMEs and dependencies in release bundles.
 
 **Toolchain:** the packages the release job installs on Ubuntu:
 
@@ -269,8 +446,11 @@ sudo apt-get install -y \
   libflac-dev libogg-dev libopus-dev libopusfile-dev libvorbis-dev \
   default-jdk \
   g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers \
-  xvfb
+  xvfb pulseaudio-utils
 ```
+
+`pulseaudio-utils` is not needed for `flutter build`: the AppImage step copies its
+`parecord` and `pactl` into the AppImage (#1608, `packaging/appimage/README.md`).
 
 ```bash
 flutter build linux --release --no-tree-shake-icons
@@ -304,7 +484,7 @@ Secondary windows (floating overlay, floating button, quick-paste panel, snippet
 
 ### Packaging manifests
 
-`bash scripts/ci/packaging-validate.sh [check...]` validates the manifests under `packaging/` (Scoop, Homebrew, Flatpak, AppImage/.deb, Snap, GNOME Shell extension) in a few seconds. It is the one definition: the `packaging-validate` workflow runs it, and the pre-push hook runs it on the lab's Ubuntu guest whenever a push touches one of its inputs (`--inputs` lists them; the workflow's push filter must list the same paths, which `scripts/check-workflow-hygiene.sh` checks). On the Mac, `scoop homebrew flatpak snap` run directly; `appimage-deb` and `gnome-extension` build a `.deb` with Linux `install(1)` and need the guest. `--install-deps` installs missing validators with apt. winget validation needs Windows and stays in the workflow.
+`bash scripts/ci/packaging-validate.sh [check...]` validates the manifests under `packaging/` (Scoop, Homebrew, Flatpak, AppImage/.deb, Snap, GNOME Shell extension) in a few seconds. It is the one definition: the `packaging-validate` workflow runs it, and the `lab/ubu` job of `.internal forge/workflows/lab.yml` runs it on the lab's Ubuntu guest after merges to `dev` (the pre-push hook no longer does). On the Mac, `scoop homebrew flatpak snap` run directly; `appimage-deb` and `gnome-extension` build a `.deb` with Linux `install(1)` and need the guest. `--install-deps` installs missing validators with apt. winget validation needs Windows and stays in the workflow.
 
 ## Local builds keep their own data
 
@@ -348,14 +528,37 @@ Before opening a pull request, run the gates listed in [CONTRIBUTING.md](CONTRIB
 
 ### Local checks
 
-`scripts/check.sh` is the one entry point; it runs the commands CI runs:
+`bash scripts/check.sh prepush [dev]` and `push [dev]` run the protection-only hook without pushing. `commit` explicitly runs repo guards, format and analysis. The legacy `tests`, `full` and `pending-win` helpers are diagnostic commands, never called by a hook or a CI workflow; use the existing Lab workflows for automated suites and `labctl test <guest> -- <command>` only to reproduce a specific failure.
 
-| Tier | Runs | Used by |
-|---|---|---|
-| `commit` | repo gates (`scripts/ci-gates.sh`), `dart format`, `flutter analyze` with CI's scope | by hand |
-| `push [<range>]` | repo gates + the tests the range can break | by hand |
-| `tests [<range>]` | only those tests | per pushed branch |
-| `full` | the complete suite, plus the platform-branching files on Windows | integration round, before a release |
+**Where labctl is looked up (#460).** `scripts/check.sh`, `scripts/native-compile-check.sh`, `scripts/release.sh` and the stage wrappers `scripts/release/linux-stage.sh` and `scripts/release/win-stage.sh` find `labctl` through `scripts/labctl-path.sh`: `$LABCTL` first (an explicit override), then the shared `~/.claude/bin/labctl` (the same path on every worker device, Mac and Windows), then `labctl` on `PATH`; no project checkout path is searched. If none exists, `native-compile-check.sh` exits 2 and names the places it looked (the check stays closed), `check.sh` tries the Windows run as before; the push hook never invokes the lab. Test: `scripts/check.test.sh` §13.
 
-The default range is `origin/dev...HEAD`. `tool/affected_tests.dart` picks the tests: changed tests, tests that import a changed Dart file (also transitively), and guard tests that read a changed path, e.g. a guard over `scripts/whisper-cpp.pin`. Generated localizations (`lib/core/l10n/generated/`) pass nothing on through imports, since nearly every widget test imports them; the l10n and manual guards cover them. A range of only docs, `website/` or Markdown runs no Flutter tests; the website has its own gate.
+**Lab checks run in CI, not in the pre-push hook (#1024).** Fast lane `.internal forge/workflows/lab.yml` (`lab/ubu`, `lab/win`): `flutter analyze` (moved from `gate/nas`, #1403) plus unit and contract tests under `tool/test_guard.dart`, which enforces the hard limits (a passing test over 10 s is red, 20 s without a reporter event ends the run and names the running test, a run over 3 min is red) and lists the slowest tests; the Windows job runs only on Windows-relevant paths (`LAB_ONLY`), otherwise it is green as "not needed". Full lane `.internal forge/workflows/lab-full.yml` (`lab/full-ubu`, `lab/full-win`): journeys (also under `tool/test_guard.dart`, same hard limits, a hung test aborts the run red and names the running test; 5 min step timeout as backstop, 60 min job limit as outer bound for the whole run, #1434), website E2E and release builds, after merges to `dev`, nightly and by manual dispatch; a red run on `dev` opens an issue. Manual lab sessions use `labctl` and write only under `/tmp`.
 
+
+## Video import helper
+
+Desktop builds automatically stage an audio-only FFmpeg helper in
+`.build/video-decoder/<linux|macos|windows>`. The first build downloads a
+SHA-256-verified upstream source archive; subsequent builds reuse the helper.
+No system FFmpeg installation is required by users. The executable, LGPL text,
+complete matching source archive and build recipe are included in every app
+bundle. `scripts/build-video-decoder.py` is the source/version/build-option
+reference; update its pin and the FFmpeg entry in the third-party notices
+when updating the decoder.
+
+Build prerequisites: Python 3.12 or later, a C compiler and GNU make. macOS
+builds run on Apple Silicon with Xcode command-line tools. Windows builds use
+Visual Studio's x64 tools plus MSYS2 bash/make at `C:/msys64/usr/bin` (install
+`make` in MSYS2 with `pacman -S --needed make`); CMake supplies `vcvars64.bat`.
+The helper is a native Windows executable and does not ship an MSYS runtime.
+CMake and the Xcode embed phase fail rather than create a package without it.
+
+For an isolated Linux decoder build and fixture check:
+
+```sh
+python3 scripts/build-video-decoder.py --platform linux
+python3 test/scripts/video_audio_decode_test.py .build/video-decoder/linux/ffmpeg
+```
+
+The same fixture check accepts the macOS helper or Windows `ffmpeg.exe` path.
+The test fixture README records how the tiny video clips were produced.

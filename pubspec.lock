@@ -58,13 +58,12 @@ packages:
     source: hosted
     version: "1.0.0"
   auto_updater_macos:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: auto_updater_macos
-      sha256: ef9de0daf38d782d2243fe131503a9404d62df762f5386e5360020e43c01867f
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
+      path: "packages/auto_updater_macos"
+      relative: true
+    source: path
+    version: "1.0.1"
   auto_updater_platform_interface:
     dependency: transitive
     description:
@@ -248,6 +247,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.8"
+  dbus:
+    dependency: "direct main"
+    description:
+      name: dbus
+      sha256: a48d5da28e89bd02196e80d81ed8d7954923d00a0f4a68cc20b575038f023383
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.15"
+  desktop_drop:
+    dependency: "direct main"
+    description:
+      name: desktop_drop
+      sha256: "47ded09c85909edfed644fd4cbb5051b040d0aed5c79e7e062ea4b3b7156dbe4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.4"
+  device_info_plus:
+    dependency: transitive
+    description:
+      name: device_info_plus
+      sha256: "98f28b42168cc509abc92f88518882fd58061ea372d7999aecc424345c7bff6a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "11.5.0"
+  device_info_plus_platform_interface:
+    dependency: transitive
+    description:
+      name: device_info_plus_platform_interface
+      sha256: e1ea89119e34903dca74b883d0dd78eb762814f97fb6c76f35e9ff74d261a18f
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.3"
   dio:
     dependency: "direct main"
     description:
@@ -345,7 +376,7 @@ packages:
     source: hosted
     version: "0.9.5"
   file_selector_platform_interface:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: file_selector_platform_interface
       sha256: "35e0bd61ebcdb91a3505813b055b09b79dfdc7d0aee9c09a7ba59ae4bb13dc85"
@@ -510,14 +541,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  fuzzywuzzy:
-    dependency: "direct main"
-    description:
-      name: fuzzywuzzy
-      sha256: "3004379ffd6e7f476a0c2091f38f16588dc45f67de7adf7c41aa85dec06b432c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.2.0"
   get_it:
     dependency: transitive
     description:
@@ -575,21 +598,19 @@ packages:
     source: hosted
     version: "0.2.3"
   hotkey_manager_linux:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: hotkey_manager_linux
-      sha256: "83676bda8210a3377bc6f1977f193bc1dbdd4c46f1bdd02875f44b6eff9a8473"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/hotkey_manager_linux"
+      relative: true
+    source: path
     version: "0.2.0"
   hotkey_manager_macos:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: hotkey_manager_macos
-      sha256: "03b5967e64357b9ac05188ea4a5df6fe4ed4205762cb80aaccf8916ee1713c96"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.0"
+      path: "packages/hotkey_manager_macos"
+      relative: true
+    source: path
+    version: "0.2.0+whispaste.1"
   hotkey_manager_platform_interface:
     dependency: transitive
     description:
@@ -599,13 +620,12 @@ packages:
     source: hosted
     version: "0.2.0"
   hotkey_manager_windows:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: hotkey_manager_windows
-      sha256: "0d03ced9fe563ed0b68f0a0e1b22c9ffe26eb8053cb960e401f68a4f070e0117"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.0"
+      path: "packages/hotkey_manager_windows"
+      relative: true
+    source: path
+    version: "0.2.0+whispaste.1"
   http:
     dependency: "direct main"
     description:
@@ -655,10 +675,10 @@ packages:
     dependency: "direct main"
     description:
       name: intl
-      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
+      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
       url: "https://pub.dev"
     source: hosted
-    version: "0.20.2"
+    version: "0.20.3"
   io:
     dependency: transitive
     description:
@@ -667,6 +687,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.5"
+  irondash_engine_context:
+    dependency: transitive
+    description:
+      name: irondash_engine_context
+      sha256: "2bb0bc13dfda9f5aaef8dde06ecc5feb1379f5bb387d59716d799554f3f305d7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.5"
+  irondash_message_channel:
+    dependency: transitive
+    description:
+      name: irondash_message_channel
+      sha256: b4101669776509c76133b8917ab8cfc704d3ad92a8c450b92934dd8884a2f060
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.7.0"
   jni:
     dependency: transitive
     description:
@@ -751,10 +787,10 @@ packages:
     dependency: transitive
     description:
       name: matcher
-      sha256: dc0b7dc7651697ea4ff3e69ef44b0407ea32c487a39fff6a4004fa585e901861
+      sha256: "31bd099b47c10cd1aeb55146a2d46ce0277630ecef3f7dae54ad7873f36696cd"
       url: "https://pub.dev"
     source: hosted
-    version: "0.12.19"
+    version: "0.12.20"
   material_color_utilities:
     dependency: transitive
     description:
@@ -775,10 +811,10 @@ packages:
     dependency: transitive
     description:
       name: meta
-      sha256: "1741988757a65eb6b36abe716829688cf01910bbf91c34354ff7ec1c3de2b349"
+      sha256: "307249ce4ff29d58a18e97f6345f539382eb9c9c29ecda628900f31de0443dd9"
       url: "https://pub.dev"
     source: hosted
-    version: "1.18.0"
+    version: "1.19.0"
   mime:
     dependency: transitive
     description:
@@ -923,6 +959,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.2"
+  pixel_snap:
+    dependency: transitive
+    description:
+      name: pixel_snap
+      sha256: "677410ea37b07cd37ecb6d5e6c0d8d7615a7cf3bd92ba406fd1ac57e937d1fb0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.5"
   platform:
     dependency: transitive
     description:
@@ -939,6 +983,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
+  pointycastle:
+    dependency: "direct main"
+    description:
+      name: pointycastle
+      sha256: "92aa3841d083cc4b0f4709b5c74fd6409a3e6ba833ffc7dc6a8fee096366acf5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   pool:
     dependency: transitive
     description:
@@ -1028,13 +1080,12 @@ packages:
     source: hosted
     version: "2.1.1"
   record_macos:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: record_macos
-      sha256: ced7495abf3d683e8a7dbe8fc96df8ea5722837a26f922b7cb7c5de11661bb46
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.1"
+      path: "packages/record_macos"
+      relative: true
+    source: path
+    version: "2.1.1+whispaste.1"
   record_platform_interface:
     dependency: transitive
     description:
@@ -1247,74 +1298,82 @@ packages:
     dependency: "direct main"
     description:
       name: sherpa_onnx
-      sha256: "889c03cf7a8788795e3a6d35bf9f20b66d1862ea7a73a1b6aaf6e450715c870a"
+      sha256: fce38e628bacdd0ff9dd3e11011657b96611158685ef08985a3203cef6e0d171
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_android_arm64:
     dependency: transitive
     description:
       name: sherpa_onnx_android_arm64
-      sha256: "0337650bc2357f39b751f1b9ced37770de3b60026effe66473b557346b4e3f97"
+      sha256: eceb1fd5de24d07c5aa618f6fa913f3f950018e6c009b899d076ba08209d08ec
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_android_armeabi:
     dependency: transitive
     description:
       name: sherpa_onnx_android_armeabi
-      sha256: "9e96729d99567c3f64fc6f4c232ef04b57ae4ef3bf1b21364ee6e461103cb7cf"
+      sha256: "7ea0ed1d1964d124398239ea137ef4f901b8e6b79632279f85db7e2205b7c0a5"
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_android_x86:
     dependency: transitive
     description:
       name: sherpa_onnx_android_x86
-      sha256: "6eaa462a24bf881c8ee2b3ab5b9fad3d310b714fc9d3ac4b9f650d0a90c9d0ab"
+      sha256: "4535b5b7b9f319a25b723a3840c6edb0b377a027165c6f63fd6f0e7c7b6df900"
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_android_x86_64:
     dependency: transitive
     description:
       name: sherpa_onnx_android_x86_64
-      sha256: "181aa0f0968adf2cf2dcb369c879ea372653864538b82772877e22748a80254f"
+      sha256: c60af7c9332382c03239ff0ad9d473e6b802067f9a1f9fbf7f1e7df93eec0143
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_ios:
     dependency: transitive
     description:
       name: sherpa_onnx_ios
-      sha256: "9586b7ddae9a11fd10457367ff5e8a153e0993a8c588828bc31f6cf7afbaf2d2"
+      sha256: "1858f3710c1d9da2ed880a65d7524fa5748c4f51b99740d9ca86ee210f74cada"
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_linux:
     dependency: transitive
     description:
       name: sherpa_onnx_linux
-      sha256: eb2666480e48e002e0dd634c1bbe1ef52162a0821cd9eada39d40a3e12f76c48
+      sha256: "4424b09fd26ba79c970b4031d78e58e16f902cb9ef43eeb3809e2dff75246c27"
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   sherpa_onnx_macos:
     dependency: transitive
     description:
       name: sherpa_onnx_macos
-      sha256: "55164fa38db3de870dc834b855be6b6b5cc0acb7663d74cea76c3de4e7bd7a47"
+      sha256: bd3aafc3a8d767564aeb71ebd30547b1d69867f193d9dad73725dd68c88c3d42
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
+  sherpa_onnx_web:
+    dependency: transitive
+    description:
+      name: sherpa_onnx_web
+      sha256: "38dce9890b22227c4a18c35cd09205435efcad6bd3ef788f9065673385a967dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.1"
   sherpa_onnx_windows:
     dependency: transitive
     description:
       name: sherpa_onnx_windows
-      sha256: "9bbf2b43308446a894c685d5fe1a147df457b9e400afed7aefc271f72f9290b9"
+      sha256: "449b6ccb864713d454b771ebfe200d6e030e72cd1da9ae5bd1f079064550e435"
       url: "https://pub.dev"
     source: hosted
-    version: "1.13.4"
+    version: "2.0.1"
   shortid:
     dependency: transitive
     description:
@@ -1424,6 +1483,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  super_clipboard:
+    dependency: "direct main"
+    description:
+      name: super_clipboard
+      sha256: e73f3bb7e66cc9260efa1dc507f979138e7e106c3521e2dda2d0311f6d728a16
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.1"
+  super_native_extensions:
+    dependency: transitive
+    description:
+      name: super_native_extensions
+      sha256: b9611dcb68f1047d6f3ef11af25e4e68a21b1a705bbcc3eb8cb4e9f5c3148569
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.1"
   sync_http:
     dependency: transitive
     description:
@@ -1460,26 +1535,26 @@ packages:
     dependency: transitive
     description:
       name: test
-      sha256: "8d9ceddbab833f180fbefed08afa76d7c03513dfdba87ffcec2718b02bbcbf20"
+      sha256: ca578dc12bb8b2f40b67b7d3bd2fac4f31c01a6ff7130a14e2597b919934507f
       url: "https://pub.dev"
     source: hosted
-    version: "1.31.0"
+    version: "1.31.1"
   test_api:
     dependency: transitive
     description:
       name: test_api
-      sha256: "949a932224383300f01be9221c39180316445ecb8e7547f70a41a35bf421fb9e"
+      sha256: "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.11"
+    version: "0.7.12"
   test_core:
     dependency: transitive
     description:
       name: test_core
-      sha256: "1991d4cfe85d5043241acac92962c3977c8d2f2add1ee73130c7b286417d1d34"
+      sha256: d2e98ec12998368dc59ddd47ab709f2cd55acd6b66dc7db764455a44082f4bc5
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.17"
+    version: "0.6.18"
   tray_manager:
     dependency: "direct main"
     description:
@@ -1504,6 +1579,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.3"
+  universal_platform:
+    dependency: transitive
+    description:
+      name: universal_platform
+      sha256: "64e16458a0ea9b99260ceb5467a214c1f298d647c659af1bff6d3bf82536b1ec"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   url_launcher:
     dependency: "direct main"
     description:
@@ -1604,10 +1687,10 @@ packages:
     dependency: transitive
     description:
       name: vector_math
-      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
+      sha256: fa49e1674cb84acb900141714e6c6e1f9ae099827c24d141430ff6819db4e1bc
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.0"
+    version: "2.4.4"
   vm_service:
     dependency: transitive
     description:
@@ -1671,6 +1754,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  whispaste_gpu_probe:
+    dependency: "direct main"
+    description:
+      path: "packages/whispaste_gpu_probe"
+      relative: true
+    source: path
+    version: "0.1.0"
   win32:
     dependency: transitive
     description:
@@ -1704,7 +1794,7 @@ packages:
     source: hosted
     version: "1.1.0"
   xml:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: xml
       sha256: "67f0aff7be013d107995e9b75bf4e7f2c3ef2dfdb2c8e68024bba0a7fd5756a4"
@@ -1721,4 +1811,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.12.0 <4.0.0"
-  flutter: ">=3.44.0"
+  flutter: ">=3.47.0"

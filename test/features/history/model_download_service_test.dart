@@ -38,9 +38,9 @@ void main() {
     });
 
     test('findSttModel returns correct model by ID', () {
-      expect(findSttModel('whisper-small')?.label, 'Small');
-      expect(findSttModel('whisper-medium')?.label, 'Medium');
-      expect(findSttModel('whisper-large-v3-turbo')?.label, 'Large v3 Turbo');
+      expect(findSttModel('whisper-small')?.label, 'small');
+      expect(findSttModel('whisper-medium')?.label, 'medium');
+      expect(findSttModel('whisper-large-v3-turbo')?.label, 'large-v3-turbo');
       expect(findSttModel('nonexistent'), isNull);
     });
 
@@ -195,7 +195,7 @@ void main() {
     });
 
     test(
-      'recommendTierFromBenchmark returns compact when all tiers are fast',
+      'recommendTierFromBenchmark returns premium when all tiers are fast',
       () {
         final rtfMap = {
           QualityTier.compact: 0.1,
@@ -203,17 +203,17 @@ void main() {
           QualityTier.premium: 0.5,
         };
 
-        expect(recommendTierFromBenchmark(rtfMap), QualityTier.compact);
+        expect(recommendTierFromBenchmark(rtfMap), QualityTier.premium);
       },
     );
 
     test(
-      'recommendTierFromBenchmark skips compact if too slow, returns balanced',
+      'recommendTierFromBenchmark skips premium if too slow, returns balanced',
       () {
         final rtfMap = {
-          QualityTier.compact: 0.9, // too slow
+          QualityTier.compact: 0.2,
           QualityTier.balanced: 0.4,
-          QualityTier.premium: 0.6,
+          QualityTier.premium: 0.9, // too slow
         };
 
         expect(recommendTierFromBenchmark(rtfMap), QualityTier.balanced);
@@ -221,7 +221,7 @@ void main() {
     );
 
     test(
-      'recommendTierFromBenchmark returns premium when all tiers exceed RTF 0.8',
+      'recommendTierFromBenchmark returns the fastest tier when none is fluent',
       () {
         final rtfMap = {
           QualityTier.compact: 1.2,
@@ -229,7 +229,7 @@ void main() {
           QualityTier.premium: 2.0,
         };
 
-        expect(recommendTierFromBenchmark(rtfMap), QualityTier.premium);
+        expect(recommendTierFromBenchmark(rtfMap), QualityTier.compact);
       },
     );
 
@@ -301,14 +301,6 @@ void main() {
 
       dio.close();
     });
-
-    test(
-      'handles network timeout',
-      () async {
-        // Skip: Dio timeout behavior is environment-dependent in test environment
-      },
-      skip: 'Dio timeout behavior is environment-dependent',
-    );
 
     test('handles invalid URL format', () async {
       final dio = Dio();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,22 +7,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/text/markdown_plain_text.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+
 import 'package:whispaste/core/data/database.dart';
+
 import '../data/providers.dart';
 import '../data/history_detail_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../widgets/toast.dart';
+import '../../../widgets/wp_notice_bar.dart';
 import '../../../widgets/wp_discoverability_hint.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import 'voice_note_button.dart';
+import '../../../widgets/wp_copy_feedback.dart';
+import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_error_notice.dart';
+import 'history_write_failure.dart';
 
 // ---------------------------------------------------------------------------
 // Inline notes section (progressive disclosure)
 //
-// Mobile-first: actions always visible (reduced opacity), touch targets ≥ 48px,
+// Actions always visible (reduced opacity); hit areas ≥ 48px,
 // interactive icons ≥ 20px.
 // ---------------------------------------------------------------------------
 
@@ -53,51 +63,68 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     super.dispose();
   }
 
-  void _addNote() {
+  Future<void> _addNote() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
-    db.upsertNote(
-      EntryNotesCompanion(
-        id: Value(now.millisecondsSinceEpoch.toString()),
-        entryId: Value(widget.entryId),
-        content: Value(text),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-      ),
-    );
+    try {
+      await db.upsertNote(
+        EntryNotesCompanion(
+          id: Value(now.millisecondsSinceEpoch.toString()),
+          entryId: Value(widget.entryId),
+          content: Value(text),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    } catch (_) {
+      // Keep the text in the input so the user can retry (UIA-HIS-05).
+      if (mounted) {
+        showHistoryWriteFailed(context, entryId: widget.entryId);
+      }
+      return;
+    }
+    if (!mounted) return;
     _controller.clear();
     setState(() => _isAdding = false);
   }
 
-  Future<void> _deleteNote(String noteId, String noteContent) async {
+  Future<void> _deleteNote(
+    String noteId,
+    String noteContent,
+    DateTime noteCreatedAt,
+  ) async {
     final l10n = L10n.of(context);
     final savedNote = noteContent;
 
     await ref.read(historyDatabaseProvider).deleteNote(noteId);
 
     if (mounted) {
-      WpToast.show(
+      // Captured now: the undo can outlive this section (another entry
+      // selected), and a disposed ref must not be touched then.
+      final db = ref.read(historyDatabaseProvider);
+      final entryId = widget.entryId;
+      showWpNotice(
         context,
-        message: l10n.historyNoteDeleted,
-        type: WpToastType.info,
-        duration: const Duration(seconds: 4),
-        actionLabel: l10n.undo,
-        onAction: () {
-          ref
-              .read(historyDatabaseProvider)
-              .upsertNote(
-                EntryNotesCompanion(
-                  id: Value(noteId),
-                  entryId: Value(widget.entryId),
-                  content: Value(savedNote),
-                  createdAt: Value(DateTime.now()),
-                  updatedAt: Value(DateTime.now()),
-                ),
-              );
-        },
+        WpNotice(
+          id: 'history-note-deleted',
+          kind: WpNoticeKind.undo,
+          message: l10n.historyNoteDeleted,
+          actionLabel: l10n.undo,
+          onAction: () => db.upsertNote(
+            EntryNotesCompanion(
+              id: Value(noteId),
+              entryId: Value(entryId),
+              content: Value(savedNote),
+              // Keep the original date, so the note returns to its place
+              // in the timeline (UIA-HIS-24).
+              createdAt: Value(noteCreatedAt),
+              updatedAt: Value(DateTime.now()),
+            ),
+          ),
+        ),
       );
     }
   }
@@ -120,12 +147,14 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     setState(() => _editingNoteId = null);
   }
 
-  void _copyNote(String noteContent) {
-    copyToClipboardWithToast(
-      context: context,
-      ref: ref,
-      text: noteContent,
-      category: 'history_note',
+  void _copyNote(String id, String noteContent) {
+    unawaited(
+      copyWithFeedback(
+        context,
+        text: markdownToPlainText(noteContent),
+        target: 'history-note-$id',
+        category: 'history_note',
+      ),
     );
   }
 
@@ -133,18 +162,30 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final notes = ref.watch(entryNotesProvider(widget.entryId));
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
-    const borderColor = WpColors.borderSubtle;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final borderColor = WpColors.borderSubtle;
     // Card material for both the add-note row and every saved note below it
     // — the notes are plates inside the detail panel, and `surfaceElevated`
     // was the last opaque fill left in this panel.
-    const cardFill = WpColors.cardFill;
+    final cardFill = WpColors.cardFill;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+      // A failed load must not look like "no notes" (#1635): say so and
+      // offer to try again.
+      error: (_, _) => WpErrorNotice(
+        key: const ValueKey('history-notes-load-error'),
+        cause: l10n.historyNotesLoadFailed,
+        action: WpButton(
+          testId: 'history-notes-retry',
+          label: l10n.actionRetry,
+          variant: WpButtonVariant.secondary,
+          size: WpButtonSize.dense,
+          onPressed: () => ref.invalidate(entryNotesProvider(widget.entryId)),
+        ),
+      ),
       data: (noteList) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,8 +210,8 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                     child: InkWell(
                       onTap: () => setState(() => _isAdding = true),
                       borderRadius: WpRadius.borderSm,
-                      child: const Padding(
-                        padding: EdgeInsets.all(WpSpacing.xs),
+                      child: Padding(
+                        padding: const EdgeInsets.all(WpSpacing.xs),
                         child: Icon(
                           LucideIcons.plus,
                           size: WpIconSize.md,
@@ -219,36 +260,21 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                         ),
                       ),
                     ),
-                    Semantics(
-                      label: l10n.actionSave,
-                      button: true,
-                      child: IconButton(
-                        icon: const Icon(
-                          LucideIcons.check,
-                          size: WpIconSize.md,
-                          color: accent,
-                        ),
-                        onPressed: _addNote,
-                        padding: const EdgeInsets.all(WpSpacing.xs),
-                        tooltip: l10n.actionSave,
-                      ),
+                    WpIconButton.ghost(
+                      testId: 'history-note-add-save',
+                      icon: LucideIcons.check,
+                      color: accent,
+                      tooltip: l10n.actionSave,
+                      onPressed: _addNote,
                     ),
-                    Semantics(
-                      label: l10n.actionCancel,
-                      button: true,
-                      child: IconButton(
-                        icon: const Icon(
-                          LucideIcons.x,
-                          size: WpIconSize.md,
-                          color: textMuted,
-                        ),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() => _isAdding = false);
-                        },
-                        padding: const EdgeInsets.all(WpSpacing.xs),
-                        tooltip: l10n.actionCancel,
-                      ),
+                    WpIconButton.ghost(
+                      testId: 'history-note-add-cancel',
+                      icon: LucideIcons.x,
+                      tooltip: l10n.actionCancel,
+                      onPressed: () {
+                        _controller.clear();
+                        setState(() => _isAdding = false);
+                      },
                     ),
                     const SizedBox(width: WpSpacing.xxs),
                   ],
@@ -262,21 +288,25 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
             // Existing notes
             for (final note in noteList) ...[
               const SizedBox(height: WpSpacing.xs),
-              _NoteItem(
-                key: ValueKey(note.id),
-                note: note,
-                isEditing: _editingNoteId == note.id,
-                editController: _editController,
-                accent: accent,
-                textPrimary: textPrimary,
-                textMuted: textMuted,
-                cardFill: cardFill,
-                borderColor: borderColor,
-                onSave: () => _saveEditedNote(note.id),
-                onCancel: _cancelEditing,
-                onStartEdit: () => _startEditing(note.id, note.content),
-                onDelete: () => _deleteNote(note.id, note.content),
-                onCopy: () => _copyNote(note.content),
+              WpCopyAnchor(
+                target: 'history-note-${note.id}',
+                child: _NoteItem(
+                  key: ValueKey(note.id),
+                  note: note,
+                  isEditing: _editingNoteId == note.id,
+                  editController: _editController,
+                  accent: accent,
+                  textPrimary: textPrimary,
+                  textMuted: textMuted,
+                  cardFill: cardFill,
+                  borderColor: borderColor,
+                  onSave: () => _saveEditedNote(note.id),
+                  onCancel: _cancelEditing,
+                  onStartEdit: () => _startEditing(note.id, note.content),
+                  onDelete: () =>
+                      _deleteNote(note.id, note.content, note.createdAt),
+                  onCopy: () => _copyNote(note.id, note.content),
+                ),
               ),
             ],
           ],
@@ -351,7 +381,7 @@ class _NoteItemState extends State<_NoteItem> {
     // The card material's hover rung, the same one `WpListTileSurface`
     // lifts a card row to — not `surfaceVariant`, which was an opaque tile
     // colour from the old system.
-    const hoverBg = WpColors.cardFillElevated;
+    final hoverBg = WpColors.cardFillElevated;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -410,33 +440,18 @@ class _NoteItemState extends State<_NoteItem> {
                       ),
                     ),
                   ),
-                  Semantics(
-                    label: L10n.of(context).actionSave,
-                    button: true,
-                    child: IconButton(
-                      icon: Icon(
-                        LucideIcons.check,
-                        size: WpIconSize.md,
-                        color: widget.accent,
-                      ),
-                      onPressed: widget.onSave,
-                      padding: const EdgeInsets.all(WpSpacing.xxs),
-                      tooltip: L10n.of(context).actionSave,
-                    ),
+                  WpIconButton.ghost(
+                    testId: 'history-note-edit-save',
+                    icon: LucideIcons.check,
+                    color: widget.accent,
+                    tooltip: L10n.of(context).actionSave,
+                    onPressed: widget.onSave,
                   ),
-                  Semantics(
-                    label: L10n.of(context).actionCancel,
-                    button: true,
-                    child: IconButton(
-                      icon: Icon(
-                        LucideIcons.x,
-                        size: WpIconSize.md,
-                        color: widget.textMuted,
-                      ),
-                      onPressed: widget.onCancel,
-                      padding: const EdgeInsets.all(WpSpacing.xxs),
-                      tooltip: L10n.of(context).actionCancel,
-                    ),
+                  WpIconButton.ghost(
+                    testId: 'history-note-edit-cancel',
+                    icon: LucideIcons.x,
+                    tooltip: L10n.of(context).actionCancel,
+                    onPressed: widget.onCancel,
                   ),
                 ],
               )
@@ -454,7 +469,7 @@ class _NoteItemState extends State<_NoteItem> {
                             color: widget.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: WpSpacing.xxxs),
                         Text(
                           _formatNoteTimestamp(widget.note),
                           style: TextStyle(
@@ -480,6 +495,7 @@ class _NoteItemState extends State<_NoteItem> {
                           button: true,
                           child: Tooltip(
                             message: L10n.of(context).notesCopy,
+                            excludeFromSemantics: true,
                             child: InkWell(
                               onTap: widget.onCopy,
                               borderRadius: WpRadius.borderSm,
@@ -499,6 +515,7 @@ class _NoteItemState extends State<_NoteItem> {
                           button: true,
                           child: Tooltip(
                             message: L10n.of(context).actionEdit,
+                            excludeFromSemantics: true,
                             child: InkWell(
                               onTap: widget.onStartEdit,
                               borderRadius: WpRadius.borderSm,
@@ -518,6 +535,7 @@ class _NoteItemState extends State<_NoteItem> {
                           button: true,
                           child: Tooltip(
                             message: L10n.of(context).actionDelete,
+                            excludeFromSemantics: true,
                             child: InkWell(
                               onTap: widget.onDelete,
                               borderRadius: WpRadius.borderSm,
@@ -570,7 +588,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
 
     return MergeSemantics(
       child: Semantics(
@@ -594,7 +612,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
                 // the section label is inert, and the two controls that
                 // *are* operable (microphone, "+") sit on the same line and
                 // keep the accent to themselves.
-                const Icon(
+                Icon(
                   LucideIcons.stickyNote,
                   size: WpIconSize.sm,
                   color: textSecondary,
@@ -606,7 +624,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
                       widget.noteListLength == 0
                           ? l10n.historyAddNote
                           : '${l10n.historyNotes} (${widget.noteListLength})',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w600,
                         color: textSecondary,

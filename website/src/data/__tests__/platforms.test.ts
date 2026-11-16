@@ -14,6 +14,7 @@ import {
   detectOs,
   STORES,
   resolvePrimary,
+  downloadAnchor,
   PKG_MANAGERS,
   getLivePkgManagers,
   getLivePkgManagersGroupedByPlatform,
@@ -457,5 +458,26 @@ describe("SSoT: no literal package-manager commands in download pages", () => {
 
   it("DownloadPage.astro renders the pkg-managers block (data-testid)", () => {
     expect(downloadPage).toContain('data-testid="pkg-managers"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// downloadAnchor — Hero/Pricing link target on the download page (#245)
+// ---------------------------------------------------------------------------
+
+describe("downloadAnchor", () => {
+  const page = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), "../../components/pages/DownloadPage.astro"),
+    "utf8",
+  );
+
+  it.each([
+    ["macos", "#macos"],
+    ["windows", "#windows"],
+    ["linux", "#linux"],
+    ["unknown", ""],
+  ] as const)("%s -> %j, and the card with that id exists", (os, expected) => {
+    expect(downloadAnchor(os)).toBe(expected);
+    if (expected) expect(page).toContain(`id="${expected.slice(1)}"`);
   });
 });

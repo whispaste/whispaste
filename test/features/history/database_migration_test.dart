@@ -1057,15 +1057,123 @@ void main() {
       await db.resetDailyStats();
       await db.close();
 
-      // Reopen the same file: beforeOpen re-runs backfillDailyStats, this
-      // time with 5 real history entries and an empty DailyStats table —
-      // exactly the "reset stats, then relaunch" scenario the
-      // transaction-wrap fix targets. This exercises the loop with
-      // actual rows, not an empty transaction.
+      // Reopen the same file: beforeOpen re-runs backfillDailyStats. The
+      // reset is permanent (UIA-ANA-02): the persisted backfill flag survives
+      // it, so the statistics are not rebuilt from the history on relaunch.
       db = HistoryDatabase.forTesting(NativeDatabase(file));
-      expect(await db.analyticsEntryCount(), 5);
+      expect(await db.analyticsEntryCount(), 0);
 
       await db.close();
+    });
+
+    test('a database that never recorded the backfill flag backfills once, '
+        'then a reset stays reset (UIA-ANA-02)', () async {
+      final dir = await Directory.systemTemp.createTemp('wp_backfill_flag');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final file = File('${dir.path}/test.sqlite');
+
+      final db = HistoryDatabase.forTesting(NativeDatabase(file));
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'legacy',
+          timestamp: DateTime(2026, 1, 1),
+          content: const Value('hello world'),
+          model: const Value('whisper-small'),
+        ),
+      );
+      // Simulate a database from before the flag existed (the table stays,
+      // the flag row goes).
+      await db.customStatement(
+        "DELETE FROM app_meta WHERE key = 'daily_stats_backfilled'",
+      );
+      await db.backfillDailyStats();
+      expect(await db.analyticsEntryCount(), 1);
+
+      await db.resetDailyStats();
+      await db.backfillDailyStats();
+      expect(await db.analyticsEntryCount(), 0);
+      await db.close();
+    });
+  });
+
+  group('app_meta migration (v27 → v28, UIA-ANA-02)', () {
+    late Directory tmpDir;
+    late File dbFile;
+
+    setUp(() async {
+      tmpDir = await Directory.systemTemp.createTemp('wp_app_meta_v28_');
+      dbFile = File('${tmpDir.path}/history.db');
+    });
+
+    tearDown(() async {
+      if (await tmpDir.exists()) await tmpDir.delete(recursive: true);
+    });
+
+    Future<int> userVersion(HistoryDatabase db) async =>
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        );
+
+    Future<int> appMetaTables(HistoryDatabase db) async =>
+        (await db
+                .customSelect(
+                  "SELECT name FROM sqlite_master WHERE type = 'table' "
+                  "AND name = 'app_meta'",
+                )
+                .get())
+            .length;
+
+    test(
+      'a fresh database is created at the current schema version with app_meta',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase(dbFile));
+        addTearDown(db.close);
+
+        expect(await userVersion(db), db.schemaVersion);
+        expect(await appMetaTables(db), 1);
+      },
+    );
+
+    test('a v27 database without app_meta gains the table in the upgrade '
+        'step', () async {
+      final seed = HistoryDatabase.forTesting(NativeDatabase(dbFile));
+      await seed.customStatement('DROP TABLE IF EXISTS app_meta');
+      await seed.customStatement('PRAGMA user_version = 27');
+      await seed.close();
+
+      final upgraded = HistoryDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(upgraded.close);
+
+      expect(await userVersion(upgraded), upgraded.schemaVersion);
+      expect(await appMetaTables(upgraded), 1);
+    });
+
+    test('a v27 database that already has app_meta (created at runtime) '
+        'keeps its backfill flag and its reset', () async {
+      final seed = HistoryDatabase.forTesting(NativeDatabase(dbFile));
+      await seed.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'kept',
+          timestamp: DateTime(2026, 1, 1),
+          content: const Value('hello world'),
+          model: const Value('whisper-small'),
+        ),
+      );
+      await seed.customStatement('PRAGMA user_version = 27');
+      await seed.close();
+
+      final upgraded = HistoryDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(upgraded.close);
+
+      expect(await userVersion(upgraded), upgraded.schemaVersion);
+      final flags = await upgraded
+          .customSelect(
+            "SELECT value FROM app_meta WHERE key = 'daily_stats_backfilled'",
+          )
+          .get();
+      expect(flags, hasLength(1));
+      // The flag is set, so the existing entry is not backfilled again.
+      expect(await upgraded.analyticsEntryCount(), 0);
     });
   });
 }

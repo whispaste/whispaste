@@ -18,8 +18,13 @@
 /// 6. **Edge cases** — rapid concurrent calls, dispose without init, etc.
 library;
 
+import 'dart:typed_data';
+
+import 'package:fake_async/fake_async.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
@@ -437,6 +442,61 @@ void main() {
     });
   });
 
+  // #1154: one gate decides for every cue; a cue switched off never plays,
+  // volume 0 mutes all and leaves the per-cue choice untouched.
+  test(
+    'soundCuePlays: each cue follows only its own switch and the volume',
+    () {
+      // Every switch on (the paste cue is off by default, #1343); Bernstein
+      // has every cue.
+      var allOn = const SoundSettings();
+      for (final cue in SoundCue.values) {
+        allOn = withSoundCue(allOn, cue, true);
+      }
+      for (final off in SoundCue.values) {
+        final sound = withSoundCue(allOn, off, false);
+        for (final cue in SoundCue.values) {
+          expect(
+            soundCuePlays(sound, cue),
+            cue != off,
+            reason: '${off.name} off, asking ${cue.name}',
+          );
+          final muted = sound.copyWith(soundVolume: 0);
+          expect(soundCuePlays(muted, cue), isFalse);
+          expect(soundCueEnabled(muted, cue), cue != off);
+        }
+      }
+      var allOff = const SoundSettings();
+      for (final cue in SoundCue.values) {
+        allOff = withSoundCue(allOff, cue, false);
+      }
+      for (final set in selectableSoundSets) {
+        for (final cue in SoundCue.values) {
+          expect(soundCuePlays(allOff.copyWith(soundSet: set), cue), isFalse);
+        }
+      }
+    },
+  );
+
+  // #1343: the paste cue is off by default, and a profile without the tone
+  // (Classic) never plays it, even switched on.
+  test('the paste cue is off by default and only Bernstein has it', () {
+    expect(const SoundSettings().pasteSound, isFalse);
+    expect(soundCuePlays(const SoundSettings(), SoundCue.paste), isFalse);
+    final on = withSoundCue(const SoundSettings(), SoundCue.paste, true);
+    expect(soundCuePlays(on, SoundCue.paste), isTrue);
+    expect(soundCueAvailable(SoundSet.classic, SoundCue.paste), isFalse);
+    expect(
+      soundCuePlays(on.copyWith(soundSet: SoundSet.classic), SoundCue.paste),
+      isFalse,
+    );
+    for (final set in selectableSoundSets) {
+      for (final cue in SoundCue.values.where((c) => c != SoundCue.paste)) {
+        expect(soundCueAvailable(set, cue), isTrue, reason: '$set ${cue.name}');
+      }
+    }
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════
   // 6. Edge cases
   // ═══════════════════════════════════════════════════════════════════════════
@@ -553,41 +613,12 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('idle-release timer', () {
-    test(
-      'releaseEngineForIdle fires once idleReleaseTimeout elapses',
-      () async {
-        final container = ProviderContainer(
-          overrides: [
-            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
-            soundFeedbackProvider.overrideWith(
-              () => _RecordingSoundFeedbackService(),
-            ),
-          ],
-        );
-        addTearDown(container.dispose);
-        await container.read(settingsProvider.future);
-
-        final notifier =
-            container.read(soundFeedbackProvider.notifier)
-                as _RecordingSoundFeedbackService;
-        notifier.idleReleaseTimeout = const Duration(milliseconds: 20);
-
-        notifier.armIdleTimerForTesting();
-        expect(notifier.releaseCalls, 0);
-
-        await Future<void>.delayed(const Duration(milliseconds: 60));
-        expect(
-          notifier.releaseCalls,
-          1,
-          reason:
-              'the engine (and any Bluetooth route it holds) must be '
-              'released once the idle timeout elapses -- before this fix, '
-              'nothing ever released it short of the app exiting',
-        );
-      },
-    );
-
-    test('further activity before the timeout postpones the release', () async {
+    // The idle timer runs on a fake clock: elapse() fires it without a real
+    // wait.
+    _RecordingSoundFeedbackService armedNotifier(
+      FakeAsync async,
+      Duration timeout,
+    ) {
       final container = ProviderContainer(
         overrides: [
           settingsProvider.overrideWith(() => FakeSettingsNotifier()),
@@ -597,30 +628,57 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
-      await container.read(settingsProvider.future);
+      container.read(settingsProvider.future);
+      async.flushMicrotasks();
 
       final notifier =
           container.read(soundFeedbackProvider.notifier)
               as _RecordingSoundFeedbackService;
-      notifier.idleReleaseTimeout = const Duration(milliseconds: 60);
+      notifier.idleReleaseTimeout = timeout;
+      return notifier;
+    }
 
-      notifier.armIdleTimerForTesting();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
-      // Re-arm before the first timeout would have fired (mirrors a
-      // second cue playing mid-session).
-      notifier.armIdleTimerForTesting();
-      await Future<void>.delayed(const Duration(milliseconds: 30));
+    test('releaseEngineForIdle fires once idleReleaseTimeout elapses', () {
+      fakeAsync((async) {
+        final notifier = armedNotifier(async, const Duration(milliseconds: 20));
 
-      expect(
-        notifier.releaseCalls,
-        0,
-        reason:
-            'an active session (repeated cues) must not have its audio '
-            'route torn down mid-use',
-      );
+        notifier.armIdleTimerForTesting();
+        expect(notifier.releaseCalls, 0);
 
-      await Future<void>.delayed(const Duration(milliseconds: 40));
-      expect(notifier.releaseCalls, 1);
+        async.elapse(const Duration(milliseconds: 60));
+        expect(
+          notifier.releaseCalls,
+          1,
+          reason:
+              'the engine (and any Bluetooth route it holds) must be '
+              'released once the idle timeout elapses -- before this fix, '
+              'nothing ever released it short of the app exiting',
+        );
+      });
+    });
+
+    test('further activity before the timeout postpones the release', () {
+      fakeAsync((async) {
+        final notifier = armedNotifier(async, const Duration(milliseconds: 60));
+
+        notifier.armIdleTimerForTesting();
+        async.elapse(const Duration(milliseconds: 30));
+        // Re-arm before the first timeout would have fired (mirrors a
+        // second cue playing mid-session).
+        notifier.armIdleTimerForTesting();
+        async.elapse(const Duration(milliseconds: 30));
+
+        expect(
+          notifier.releaseCalls,
+          0,
+          reason:
+              'an active session (repeated cues) must not have its audio '
+              'route torn down mid-use',
+        );
+
+        async.elapse(const Duration(milliseconds: 40));
+        expect(notifier.releaseCalls, 1);
+      });
     });
   });
 
@@ -642,6 +700,137 @@ void main() {
 
       // Settings don't change mid-container in this test, but the service
       // re-reads on every call (verified by code inspection).
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // XP-2-07: cues load from memory, never through a temp file
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('loadSoundCues', () {
+    test('reads each cue asset and hands its bytes to the loader', () async {
+      final read = <String>[];
+      final loaded = <String, int>{};
+      final failures = <String>[];
+
+      final sources = await loadSoundCues<String>(
+        readAsset: (key) async {
+          read.add(key);
+          return Uint8List.fromList([1, 2, 3]);
+        },
+        load: (key, bytes) async {
+          loaded[key] = bytes.length;
+          return 'source:$key';
+        },
+        onFailure: (name, error) => failures.add(name),
+      );
+
+      expect(read, [for (final n in soundCueAssets) 'assets/sounds/$n']);
+      expect(loaded.values, everyElement(3));
+      expect(sources.keys, soundCueAssets);
+      expect(sources['start.wav'], 'source:assets/sounds/start.wav');
+      expect(failures, isEmpty);
+    });
+
+    test('one failing cue does not stop the others', () async {
+      final failures = <String>[];
+
+      final sources = await loadSoundCues<String>(
+        readAsset: (key) async => Uint8List(1),
+        load: (key, bytes) async {
+          if (key.endsWith('stop.wav')) throw StateError('broken');
+          return key;
+        },
+        onFailure: (name, error) => failures.add(name),
+      );
+
+      expect(failures, ['stop.wav']);
+      expect(sources.keys, hasLength(soundCueAssets.length - 1));
+      expect(sources.containsKey('stop.wav'), isFalse);
+    });
+
+    test('Bernstein reads its own cues, the warning stays the original, '
+        'and only the generated sets have a paste cue', () async {
+      final read = <String>[];
+      final sources = await loadSoundCues<String>(
+        readAsset: (key) async {
+          read.add(key);
+          return Uint8List(1);
+        },
+        load: (key, bytes) async => key,
+        onFailure: (name, error) {},
+        set: SoundSet.bernstein,
+      );
+      expect(sources['start.wav'], 'assets/sounds/bernstein/start.wav');
+      expect(sources['warning.wav'], 'assets/sounds/warning.wav');
+      expect(sources[pasteCueAsset], 'assets/sounds/bernstein/paste.wav');
+      expect(read, hasLength(soundCueAssets.length + 1));
+      expect(soundCueNames(SoundSet.classic), isNot(contains(pasteCueAsset)));
+    });
+
+    test('the default sound set is Bernstein', () {
+      expect(AppSettings.defaults.sound.soundSet, SoundSet.bernstein);
+    });
+
+    test('every cue of every set is a bundled WAV file', () async {
+      for (final set in SoundSet.values) {
+        for (final name in soundCueNames(set)) {
+          final key = soundCueAssetKey(set, name);
+          final data = await rootBundle.load(key);
+          final bytes = data.buffer.asUint8List(
+            data.offsetInBytes,
+            data.lengthInBytes,
+          );
+          expect(String.fromCharCodes(bytes.take(4)), 'RIFF', reason: key);
+        }
+      }
+    });
+
+    test('every original cue is a bundled WAV file', () async {
+      for (final name in soundCueAssets) {
+        final data = await rootBundle.load('assets/sounds/$name');
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        expect(String.fromCharCodes(bytes.take(4)), 'RIFF', reason: name);
+      }
+    });
+  });
+
+  group('sound profile choice', () {
+    test('only bundled sets are selectable', () {
+      expect(selectableSoundSets, [SoundSet.classic, SoundSet.bernstein]);
+      for (final set in selectableSoundSets) {
+        for (final name in soundCueNames(set)) {
+          expect(soundCueAssetKey(set, name), startsWith('assets/sounds/'));
+        }
+      }
+    });
+
+    test('a chosen set is persisted and selects its asset folder', () {
+      for (final set in selectableSoundSets) {
+        final stored = AppSettings.defaults
+            .copyWithSections(sound: SoundSettings(soundSet: set))
+            .toStorageMap();
+        final loaded = AppSettings.fromStorageMap(stored).sound.soundSet;
+        expect(loaded, set);
+      }
+      expect(
+        soundCueAssetKey(SoundSet.classic, 'start.wav'),
+        'assets/sounds/start.wav',
+      );
+      expect(
+        soundCueAssetKey(SoundSet.bernstein, 'start.wav'),
+        'assets/sounds/bernstein/start.wav',
+      );
+    });
+
+    test('missing or unknown stored values load the default', () {
+      expect(SoundSet.fromValue(null), SoundSet.bernstein);
+      expect(SoundSet.fromValue('nonsense'), SoundSet.bernstein);
+      expect(selectableSoundSetOf(SoundSet.atem), SoundSet.bernstein);
+      expect(selectableSoundSetOf(SoundSet.classic), SoundSet.classic);
     });
   });
 }

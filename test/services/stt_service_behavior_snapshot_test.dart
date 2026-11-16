@@ -17,6 +17,7 @@
 /// Fake helpers are redefined here so this file is self-contained.
 library;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -133,10 +134,13 @@ void main() {
 
         // Calling notifyRecordingStarted and notifyRecordingStopped while
         // the server is stopped must not throw and must leave state unchanged.
-        notifier.notifyRecordingStarted();
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        notifier.notifyRecordingStopped();
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+        // Time between the calls passes on simulated time.
+        fakeAsync((async) {
+          notifier.notifyRecordingStarted();
+          async.elapse(const Duration(milliseconds: 10));
+          notifier.notifyRecordingStopped();
+          async.elapse(const Duration(milliseconds: 10));
+        });
 
         expect(
           container.read(localSttBundleProvider).serverState,

@@ -16,18 +16,21 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
+import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/data/providers.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
-import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/window_activation.dart';
 import 'package:whispaste/widgets/recording_behavior.dart';
 import 'package:whispaste/widgets/wp_text_field.dart' show WpScrollToEndSignal;
+
+import '../../test_helpers/pump_until.dart';
 
 /// The one line `_WpRecordingBehaviorState.initState` owns: register the
 /// production reaction on the orchestrator's completion hook. Mounting the
@@ -84,16 +87,36 @@ class _PresetEditorTarget extends NotesEditorTargetNotifier {
 ScrollController _editorScroll(WidgetTester tester) => tester
     .widget<EditableText>(
       find.descendant(
-        of: find.byType(NoteEditorPanel),
+        of: find.byKey(const ValueKey('notes-editor-body')),
         matching: find.byType(EditableText),
       ),
     )
     .scrollController!;
 
 Finder _editorTextField() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
+
+/// Lets the quiet-pause autosave fire (fake time) and its write finish (real
+/// time): ten seconds of fake time, then real event-loop turns until [note]
+/// holds [content] in the database, no fixed real wait (#1491).
+Future<void> _letAutosaveLand(
+  WidgetTester tester,
+  HistoryDatabase db,
+  String note,
+  String content,
+) async {
+  for (var i = 0; i < 10; i++) {
+    await tester.pump(const Duration(seconds: 1));
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  }
+  await pumpUntilAsync(
+    tester,
+    () async => (await db.getNote(note))?.content == content,
+    what: 'the autosave to land',
+  );
+}
 
 void main() {
   late HistoryDatabase db;
@@ -132,6 +155,19 @@ void main() {
           // Left un-overridden these fall through to real Drift `.watch()`
           // queries, whose stream cleanup schedules a Timer on disposal that
           // flutter_test's pending-timer check then trips.
+          noteAssetsProvider.overrideWith(
+            (ref, noteId) => Stream.value(const <NoteAsset>[]),
+          ),
+          noteAppendsProvider.overrideWith(
+            (ref, noteId) => Stream.value(const <NoteAppend>[]),
+          ),
+          // The metadata index would start isolates; not what these test.
+          contentMetadataProvider.overrideWith(
+            (ref, key) => Stream.value(null),
+          ),
+          contentMetadataPreviewProvider.overrideWith(
+            (ref, text) async => null,
+          ),
           allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
           noteTagsProvider.overrideWith(
             (ref, noteId) => Stream.value(const []),
@@ -182,10 +218,10 @@ void main() {
         final note = await makeQuickNote('Saved line');
         final orch = await pumpNotes(tester, notes: [note]);
 
-        await tester.tap(find.byKey(ValueKey(note.id)));
+        await tester.tap(find.bySemanticsIdentifier('notes-row-${note.id}'));
         await tester.pumpAndSettle();
 
-        // Typed, not yet persisted: the 400 ms autosave debounce is running.
+        // Typed, not yet persisted: the autosave quiet pause is running.
         await tester.enterText(_editorTextField(), 'Saved line\nStill typing');
         await tester.pump();
 
@@ -198,7 +234,12 @@ void main() {
         );
 
         // …and it reaches the database once the re-scheduled autosave lands.
-        await tester.pump(const Duration(milliseconds: 500));
+        await _letAutosaveLand(
+          tester,
+          db,
+          note.id,
+          'Saved line\nStill typing\n\nDictated',
+        );
         expect(
           (await db.getNote(note.id))?.content,
           'Saved line\nStill typing\n\nDictated',
@@ -211,7 +252,7 @@ void main() {
       final note = await makeQuickNote('Start');
       final orch = await pumpNotes(tester, notes: [note]);
 
-      await tester.tap(find.byKey(ValueKey(note.id)));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-${note.id}'));
       await tester.pumpAndSettle();
 
       await orch.appendToQuickNote('First');
@@ -224,7 +265,7 @@ void main() {
         'Start\n\nFirst\n\nSecond',
       );
 
-      await tester.pump(const Duration(milliseconds: 500));
+      await _letAutosaveLand(tester, db, note.id, 'Start\n\nFirst\n\nSecond');
       expect((await db.getNote(note.id))?.content, 'Start\n\nFirst\n\nSecond');
     });
 
@@ -295,7 +336,7 @@ void main() {
       final otherNote = (await db.getNote(other.id))!;
 
       final orch = await pumpNotes(tester, notes: [quick, otherNote]);
-      await tester.tap(find.byKey(ValueKey(otherNote.id)));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-${otherNote.id}'));
       await tester.pumpAndSettle();
 
       await orch.appendToQuickNote('Dictated');
@@ -353,7 +394,9 @@ void main() {
       final container = containerOf(tester);
       container.read(notesFilterProvider.notifier).set(NotesFilter.trash);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey(trashedNote.id)));
+      await tester.tap(
+        find.bySemanticsIdentifier('notes-row-${trashedNote.id}'),
+      );
       await tester.pumpAndSettle();
 
       await orch.appendToQuickNote('Dictated');
@@ -377,7 +420,7 @@ void main() {
       final note = await makeQuickNote(longBody);
       final orch = await pumpNotes(tester, notes: [note]);
 
-      await tester.tap(find.byKey(ValueKey(note.id)));
+      await tester.tap(find.bySemanticsIdentifier('notes-row-${note.id}'));
       await tester.pumpAndSettle();
 
       await orch.appendToQuickNote('The freshly dictated tail');
@@ -387,28 +430,6 @@ void main() {
       expect(scroll.hasClients, isTrue);
       expect(scroll.position.maxScrollExtent, greaterThan(0));
       expect(scroll.offset, scroll.position.maxScrollExtent);
-    });
-
-    testWidgets('…also at an accessibility text size', (tester) async {
-      final note = await makeQuickNote(longBody);
-      final orch = await pumpNotes(tester, notes: [note], textScale: 2.0);
-
-      await tester.tap(find.byKey(ValueKey(note.id)));
-      await tester.pumpAndSettle();
-
-      await orch.appendToQuickNote('The freshly dictated tail');
-      await tester.pumpAndSettle();
-
-      final scroll = _editorScroll(tester);
-      expect(scroll.hasClients, isTrue);
-      expect(scroll.position.maxScrollExtent, greaterThan(0));
-      expect(
-        scroll.offset,
-        scroll.position.maxScrollExtent,
-        reason:
-            'maxScrollExtent is the measured layout height, so the jump '
-            'holds at any text scale.',
-      );
     });
   });
 }

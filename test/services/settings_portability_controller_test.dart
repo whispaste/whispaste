@@ -25,7 +25,6 @@ import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/services/secure_bookmark_service.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
-import 'package:whispaste/widgets/toast.dart';
 
 // SettingsPortabilityController resolves paths via the platform-default
 // `package:path` (correct for real production paths from path_provider /
@@ -42,17 +41,21 @@ final _documentsPath = Platform.isWindows ? r'C:\documents' : '/documents';
 
 // ─── Fakes ────────────────────────────────────────────────────────────────
 
-class _ToasterCall {
-  _ToasterCall(this.type, this.message);
-  final WpToastType type;
+class _NoticeCall {
+  _NoticeCall(this.failed, this.message);
+  final bool failed;
   final String message;
 }
 
 class _FakeToaster {
-  final List<_ToasterCall> calls = [];
+  final List<_NoticeCall> calls = [];
 
-  void call(BuildContext context, WpToastType type, String message) {
-    calls.add(_ToasterCall(type, message));
+  void call(
+    BuildContext context, {
+    required bool failed,
+    required String message,
+  }) {
+    calls.add(_NoticeCall(failed, message));
   }
 }
 
@@ -157,7 +160,7 @@ class _FakeBookmarks extends SecureBookmarkService {
   }
 }
 
-const _sampleBundle = SettingsExportBundle(
+final _sampleBundle = SettingsExportBundle(
   settings: {
     'custom_vocabulary': 'WhisPaste',
     'hotkey_enabled': 'true',
@@ -166,7 +169,12 @@ const _sampleBundle = SettingsExportBundle(
     'hotkey_modifiers': 'ctrl+alt',
   },
   replacements: [
-    Replacement(id: 'a', triggers: ['mfg'], replacement: 'MfG'),
+    Replacement(
+      createdAt: DateTime(2026),
+      id: 'a',
+      triggers: ['mfg'],
+      replacement: 'MfG',
+    ),
   ],
 );
 
@@ -272,7 +280,7 @@ SettingsPortabilityController _controller({
     setImportBookmark: paths.setImportBookmark,
     bookmarks: bookmarks ?? _FakeBookmarks(),
     pickPath: pickPath ?? _acceptSuggestion,
-    toaster: toaster.call,
+    notice: toaster.call,
   );
 }
 
@@ -316,7 +324,7 @@ void main() {
     expect(written, contains('mfg'));
 
     expect(toaster.calls, hasLength(1));
-    expect(toaster.calls.single.type, WpToastType.success);
+    expect(toaster.calls.single.failed, isFalse);
     expect(
       toaster.calls.single.message,
       l10n.settingsPortabilityExportSuccess(
@@ -362,10 +370,10 @@ void main() {
     });
 
     expect(toaster.calls, hasLength(1));
-    expect(toaster.calls.single.type, WpToastType.error);
+    expect(toaster.calls.single.failed, isTrue);
     expect(
       toaster.calls.single.message,
-      l10n.settingsPortabilityExportError('db unavailable'),
+      l10n.settingsPortabilityExportError(l10n.settingsPortabilityErrorGeneric),
     );
     // gather() fails before any path is resolved — the user should not be
     // made to pick a save location just to be shown an error afterwards.
@@ -406,7 +414,7 @@ void main() {
     expect(applied!.replacements.single.triggers, ['mfg']);
 
     expect(toaster.calls, hasLength(1));
-    expect(toaster.calls.single.type, WpToastType.success);
+    expect(toaster.calls.single.failed, isFalse);
     expect(
       toaster.calls.single.message,
       l10n.settingsPortabilityImportSuccess(
@@ -446,7 +454,7 @@ void main() {
       expect(applyCalled, isFalse);
       expect(picker.callCount, 2);
       expect(toaster.calls, hasLength(1));
-      expect(toaster.calls.single.type, WpToastType.error);
+      expect(toaster.calls.single.failed, isTrue);
       expect(
         toaster.calls.single.message,
         l10n.settingsPortabilityImportNotFound(
@@ -479,7 +487,39 @@ void main() {
 
     expect(applyCalled, isFalse);
     expect(toaster.calls, hasLength(1));
-    expect(toaster.calls.single.type, WpToastType.error);
+    expect(toaster.calls.single.failed, isTrue);
+  });
+
+  testWidgets('import names the size limit for an oversized file', (
+    tester,
+  ) async {
+    final toaster = _FakeToaster();
+    var applyCalled = false;
+    final sut = _controller(
+      fs: fs,
+      toaster: toaster,
+      downloads: Directory(_downloadsPath),
+      apply: (_) async => applyCalled = true,
+    );
+
+    await fs.directory(_downloadsPath).create(recursive: true);
+    await fs
+        .file(p.join(_downloadsPath, settingsExportFileName))
+        .writeAsString('x' * (settingsImportMaxBytes + 1));
+
+    await _withContext(tester, (ctx) async {
+      await sut.import(ctx);
+    });
+
+    expect(applyCalled, isFalse);
+    expect(toaster.calls, hasLength(1));
+    expect(toaster.calls.single.failed, isTrue);
+    expect(
+      toaster.calls.single.message,
+      l10n.settingsPortabilityImportError(
+        l10n.settingsPortabilityErrorTooLarge,
+      ),
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────
@@ -515,7 +555,7 @@ void main() {
           picked,
           reason: 'the picked path is remembered',
         );
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -540,7 +580,7 @@ void main() {
 
         expect(picker.callCount, 0);
         expect(await fs.file(remembered).exists(), isTrue);
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -603,7 +643,7 @@ void main() {
       expect(await fs.file(fresh).exists(), isTrue);
       expect(paths.exportPath, fresh);
       expect(toaster.calls, hasLength(1));
-      expect(toaster.calls.single.type, WpToastType.success);
+      expect(toaster.calls.single.failed, isFalse);
       expect(
         toaster.calls.single.message,
         l10n.settingsPortabilityExportSuccess(fresh),
@@ -644,7 +684,7 @@ void main() {
         expect(applied, isNotNull);
         expect(paths.importPath, fresh);
         expect(toaster.calls, hasLength(1));
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
   });
@@ -735,7 +775,7 @@ void main() {
 
       expect(bookmarks.createCalls, [fresh]);
       expect(paths.exportBookmark, 'export-bookmark-1');
-      expect(toaster.calls.single.type, WpToastType.success);
+      expect(toaster.calls.single.failed, isFalse);
     });
 
     testWidgets(
@@ -817,7 +857,7 @@ void main() {
           isEmpty,
           reason: 'a valid, non-stale bookmark must not be recreated',
         );
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -865,7 +905,7 @@ void main() {
         expect(bookmarks.startAccessCalls, ['bm-import-1']);
         expect(bookmarks.stopAccessCalls, ['bm-import-1']);
         expect(applied, isNotNull);
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -910,7 +950,7 @@ void main() {
         'bm-new',
         reason: 'the stale bookmark is replaced for next time',
       );
-      expect(toaster.calls.single.type, WpToastType.success);
+      expect(toaster.calls.single.failed, isFalse);
     });
 
     testWidgets(
@@ -950,8 +990,8 @@ void main() {
         );
         expect(toaster.calls, hasLength(1));
         expect(
-          toaster.calls.single.type,
-          WpToastType.success,
+          toaster.calls.single.failed,
+          isFalse,
           reason: 'a bookmark failure is not a user-facing error',
         );
       },
@@ -995,7 +1035,7 @@ void main() {
           isEmpty,
           reason: 'no session was ever started, nothing to balance',
         );
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -1041,7 +1081,7 @@ void main() {
               'target turned out unusable',
         );
         expect(picker.callCount, 1);
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -1080,18 +1120,16 @@ void main() {
         });
 
         expect(bookmarks.startAccessCalls, ['bm-1']);
-        expect(
-          bookmarks.stopAccessCalls,
-          ['bm-1'],
-          reason: 'balanced even though the write itself failed',
-        );
+        expect(bookmarks.stopAccessCalls, [
+          'bm-1',
+        ], reason: 'balanced even though the write itself failed');
         expect(
           paths.exportBookmark,
           'bm-fresh',
           reason: 'the fresh export creates its own bookmark after success',
         );
         expect(picker.callCount, 1);
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
 
@@ -1132,7 +1170,7 @@ void main() {
           reason:
               'the raw remembered path is used directly, Ticket 03 behaviour',
         );
-        expect(toaster.calls.single.type, WpToastType.success);
+        expect(toaster.calls.single.failed, isFalse);
       },
     );
   });

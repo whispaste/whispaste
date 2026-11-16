@@ -1,7 +1,10 @@
 import 'package:flutter/services.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'side_panel_snapshot.dart';
+
+final _log = AppLogger('SidePanelRenderChannel');
 
 /// The render-engine side of the side-panel shell seam, mirroring
 /// [OverlayRenderChannel]'s split between native-shell plumbing and the
@@ -37,7 +40,13 @@ class SidePanelRenderChannel implements RenderChannel {
       case 'updateSnapshot':
         final args = call.arguments;
         if (args is Map) {
-          onSnapshot(SidePanelSnapshot.fromMap(args));
+          // fromMap never throws for malformed fields; this guard only keeps
+          // a bug in the parser from failing the method-channel call.
+          try {
+            onSnapshot(SidePanelSnapshot.fromMap(args));
+          } on Object catch (e, st) {
+            _log.error('Dropped an unreadable side panel snapshot', e, st);
+          }
         }
         return null;
       default:
@@ -52,10 +61,12 @@ class SidePanelRenderChannel implements RenderChannel {
   }
 
   /// Starts a native OS drag-out for [row] (issue 11), reporting its full
-  /// insertable content (or image bytes) so the native host can begin an
-  /// `NSDraggingSession` without a round-trip back to the main engine.
-  /// Fire-and-forget: the native host answers with an actual drag, not a
-  /// method-channel reply this engine needs to react to.
+  /// insertable content (or image bytes) so the native host can begin the
+  /// drag (`NSDraggingSession` on macOS, OLE `DoDragDrop` on Windows,
+  /// `gtk_drag_begin` on Linux) without a round-trip back to the main
+  /// engine. The panel offers the drag only where [sidePanelOffersDragOut]
+  /// holds. Fire-and-forget: the native host answers with an actual drag,
+  /// not a method-channel reply this engine needs to react to.
   void beginDrag(SidePanelSection section, SidePanelRow row) {
     _channel.invokeMethod('beginDrag', {
       'section': section.name,
@@ -90,3 +101,13 @@ class SidePanelRenderChannel implements RenderChannel {
     _channel.setMethodCallHandler(null);
   }
 }
+
+/// Whether the side panel's rows can be dragged out into another app: on the
+/// desktop hosts, each with a native drag source (macOS, Windows OLE, Linux
+/// GTK). Elsewhere a drag that drops nothing would fail silently.
+bool sidePanelOffersDragOut(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.macOS ||
+  TargetPlatform.windows ||
+  TargetPlatform.linux => true,
+  _ => false,
+};

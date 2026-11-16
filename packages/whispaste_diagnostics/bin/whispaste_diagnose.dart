@@ -6,7 +6,7 @@
 /// Build commands:
 ///   Windows (on windows-latest runner):
 ///     dart compile exe bin/whispaste_diagnose.dart -o dist/WhisPaste-Diagnose.exe
-///   macOS (arm64, on macos-latest runner):
+///   macOS (arm64, on the Mac; scripts/release-macos-local.sh builds the release):
 ///     dart compile exe bin/whispaste_diagnose.dart -o dist/WhisPaste-Diagnose
 ///     (then wrapped into WhisPaste-Diagnose.app by tool/build_app_bundle.sh)
 ///

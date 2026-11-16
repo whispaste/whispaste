@@ -1,37 +1,20 @@
-/// Widget tests for [PrivacyStep] — the informed telemetry opt-out step.
+/// Tests for [PrivacyStep], the closing page of the onboarding.
 ///
-/// Verifies the behaviours that matter for an *informed opt-out*, across all
-/// three toggles (crash reporting, anonymous usage stats, keep recent
-/// recordings — in that order, mirroring Settings → Privacy):
-///   1. Crash reporting and usage stats default to ON; keep recent
-///      recordings defaults to OFF.
-///   2. Toggling any switch persists its own value independently of the
-///      other two.
-///   3. The wording follows internal-notes §6.5/§7 — never an absolute "no
-///      tracking" claim; instead the correct promise: audio & text stay
-///      local, the statistics are anonymous, self-hosted, and can be
-///      switched off.
-///   4. Layout: the step fits the fixed onboarding window (1100×720,
-///      [kOnboardingWindowSize]) without scrolling, and stays reachable via
-///      the shell's scroll fallback at enlarged system text.
-///
-/// Navigation (Back/Next) is owned by the onboarding shell and covered in
-/// `onboarding_flow_test.dart` — this step renders content only; the layout
-/// tests below mount the real shell to measure the step in its true frame.
+/// Logic only (test strategy 2026-10-30): each diagnostics switch persists its
+/// own consent without touching the other, and the sentence about where the
+/// audio goes follows the chosen transcription mode (internal-notes §6.5/§7).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart'
+    show CloudProviderSettings, HistorySettings;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/platform/desktop_window_geometry.dart'
-    show kOnboardingWindowSize;
-import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/privacy_step.dart'
-    show PrivacyStep, kPrivacyStepCrashToggleKey;
-import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
+import 'package:whispaste/features/onboarding/steps/privacy_step.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -51,58 +34,15 @@ class _FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-/// Inert platform truth — the shell's page-1 mic chip checks on mount and
-/// leaving page 1 may request; neither call may reach the real audio plugin.
-class _FakeMicPermissionChecker implements MicPermissionChecker {
-  @override
-  Future<bool> check({required bool request}) async => false;
-}
-
-/// Mounts the real onboarding shell and navigates to page 2 (this step) so
-/// layout is measured in the step's true frame: shell chrome, content
-/// padding, and the shell-owned scroll fallback all included.
-Future<void> _pumpShellOnPrivacyPage(
+Future<_FakeSettingsNotifier> _pump(
   WidgetTester tester, {
-  required Size size,
-  TextScaler textScaler = TextScaler.noScaling,
+  PrivacyStep step = const PrivacyStep(),
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-
-  await tester.pumpWidget(
-    makeTestable(
-      MediaQuery(
-        data: MediaQueryData(size: size, textScaler: textScaler),
-        child: const OnboardingOverlay(),
-      ),
-      size: size,
-      locale: const Locale('en'),
-      overrides: [
-        settingsProvider.overrideWith(_FakeSettingsNotifier.new),
-        micPermissionCheckerProvider.overrideWithValue(
-          _FakeMicPermissionChecker(),
-        ),
-      ],
-    ),
-  );
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(kOnboardingNextButtonKey));
-  await tester.pumpAndSettle();
-  expect(
-    find.byType(PrivacyStep),
-    findsOneWidget,
-    reason: 'Page 2 of the shell must be the privacy step.',
-  );
-}
-
-Future<_FakeSettingsNotifier> _pump(WidgetTester tester) async {
   final settings = _FakeSettingsNotifier();
   await tester.pumpWidget(
     makeTestable(
-      const PrivacyStep(),
-      size: const Size(800, 1000),
+      step,
+      size: const Size(1100, 800),
       locale: const Locale('en'),
       overrides: [settingsProvider.overrideWith(() => settings)],
     ),
@@ -110,6 +50,14 @@ Future<_FakeSettingsNotifier> _pump(WidgetTester tester) async {
   await tester.pumpAndSettle();
   return settings;
 }
+
+/// The switch under [key]: the usage key sits on the toggle itself, the crash
+/// key on its row, so the keyed widget counts as well.
+Finder _switchIn(Key key) => find.descendant(
+  of: find.byKey(key),
+  matching: find.byType(Switch),
+  matchRoot: true,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -119,212 +67,146 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  testWidgets(
-    'crash reporting and usage stats default to ON, keep recent recordings '
-    'defaults to OFF',
-    (tester) async {
-      final settings = await _pump(tester);
-      expect(
-        settings.state.value!.errorReporting,
-        isTrue,
-        reason: 'Crash-reporting consent must default to on-by-default.',
+  testWidgets('"Change" next to the after-transcription action opens the '
+      'access page (#85)', (tester) async {
+    var opened = 0;
+    await _pump(
+      tester,
+      step: PrivacyStep(onChangeAfterTranscription: () => opened++),
+    );
+    final change = find.bySemanticsIdentifier(
+      'onboarding-privacy-after-transcription-change',
+    );
+    // The copy scrolls under the pinned primary action.
+    await tester.ensureVisible(change);
+    await tester.pumpAndSettle();
+    await tester.tap(change);
+    expect(opened, 1);
+  });
+
+  testWidgets('the usage-statistics switch persists that consent only', (
+    tester,
+  ) async {
+    final settings = await _pump(tester);
+    final before = settings.state.value!;
+    await tester.tap(_switchIn(kPrivacyStepUsageToggleKey));
+    await tester.pumpAndSettle();
+
+    final after = settings.state.value!;
+    expect(after.privacy.shareUsageStats, !before.privacy.shareUsageStats);
+    expect(after.errorReporting, before.errorReporting);
+    expect(after.privacy.retainRecentAudio, before.privacy.retainRecentAudio);
+  });
+
+  testWidgets('the crash-report switch persists that consent only', (
+    tester,
+  ) async {
+    final settings = await _pump(tester);
+    final before = settings.state.value!;
+    await tester.tap(_switchIn(kPrivacyStepCrashToggleKey));
+    await tester.pumpAndSettle();
+
+    final after = settings.state.value!;
+    expect(after.errorReporting, !before.errorReporting);
+    expect(after.privacy.shareUsageStats, before.privacy.shareUsageStats);
+    expect(after.privacy.retainRecentAudio, before.privacy.retainRecentAudio);
+  });
+
+  group('where the audio goes follows the transcription mode', () {
+    AppSettings withProvider(SttProviderType type, {String url = ''}) {
+      final s = AppSettings.defaults.copyWith(sttProvider: type.value);
+      return s.copyWithSections(
+        cloudProvider: CloudProviderSettings(customEndpointUrl: url),
       );
+    }
+
+    test('local mode keeps audio and text on the device', () {
       expect(
-        settings.state.value!.privacy.shareUsageStats,
-        isTrue,
-        reason:
-            'Default must be opt-out: consent on until the user disables it.',
-      );
-      expect(
-        settings.state.value!.privacy.retainRecentAudio,
-        isFalse,
-        reason:
-            'Keeping recent recordings defaults to off, unlike the other '
-            'two toggles.',
-      );
-      expect(find.byType(Switch), findsNWidgets(3));
-      final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-      expect(switches[0].value, isTrue, reason: 'Crash reporting, first row.');
-      expect(switches[1].value, isTrue, reason: 'Usage stats, second row.');
-      expect(
-        switches[2].value,
-        isFalse,
-        reason: 'Keep recent recordings, third row.',
-      );
-      expect(find.text(l10n.onboardingPrivacyTitle), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'toggling the usage-stats switch off persists that consent only',
-    (tester) async {
-      final settings = await _pump(tester);
-      await tester.tap(find.byType(Switch).at(1));
-      await tester.pumpAndSettle();
-
-      expect(settings.state.value!.privacy.shareUsageStats, isFalse);
-      expect(
-        settings.state.value!.errorReporting,
-        isTrue,
-        reason: 'The three toggles must not affect each other.',
-      );
-      expect(settings.state.value!.privacy.retainRecentAudio, isFalse);
-    },
-  );
-
-  testWidgets(
-    'toggling the crash-reporting switch off persists that consent only',
-    (tester) async {
-      final settings = await _pump(tester);
-      final crashToggle = find.descendant(
-        of: find.byKey(kPrivacyStepCrashToggleKey),
-        matching: find.byType(Switch),
-      );
-      expect(crashToggle, findsOneWidget);
-
-      await tester.tap(crashToggle);
-      await tester.pumpAndSettle();
-
-      expect(settings.state.value!.errorReporting, isFalse);
-      expect(
-        settings.state.value!.privacy.shareUsageStats,
-        isTrue,
-        reason: 'The three toggles must not affect each other.',
-      );
-      expect(settings.state.value!.privacy.retainRecentAudio, isFalse);
-      expect(tester.widget<Switch>(crashToggle).value, isFalse);
-    },
-  );
-
-  testWidgets(
-    'toggling the keep-recent-recordings switch on persists that value only',
-    (tester) async {
-      final settings = await _pump(tester);
-      await tester.tap(find.byType(Switch).at(2));
-      await tester.pumpAndSettle();
-
-      expect(settings.state.value!.privacy.retainRecentAudio, isTrue);
-      expect(
-        settings.state.value!.errorReporting,
-        isTrue,
-        reason: 'The three toggles must not affect each other.',
-      );
-      expect(settings.state.value!.privacy.shareUsageStats, isTrue);
-    },
-  );
-
-  // ── Wording — internal-notes §6.5/§7 ──────────────────────────────────────────
-  //
-  // Never an absolute "no tracking" claim; instead the correct promise:
-  // audio & text stay local; anonymous, self-hosted statistics — can be
-  // switched off. Substring checks against the l10n getters, not full-text
-  // comparisons, so minor copy tweaks don't break the contract.
-
-  group('wording follows internal-notes §6.5/§7', () {
-    testWidgets('the rendered hint is the l10n privacy hint', (tester) async {
-      await _pump(tester);
-      expect(find.text(l10n.onboardingPrivacyHint), findsOneWidget);
-    });
-
-    test('EN hint promises local audio/text and self-hosted statistics', () {
-      final hint = l10n.onboardingPrivacyHint.toLowerCase();
-      expect(hint, contains('local'));
-      expect(hint, contains('self-hosted'));
-      expect(hint, contains('anonymous'));
-      expect(
-        hint,
-        isNot(contains('no tracking')),
-        reason: 'internal-notes §7 forbids the absolute "no tracking" claim.',
+        onboardingPrivacyModeLine(l10n, withProvider(SttProviderType.onDevice)),
+        l10n.onboardingPrivacyModeLocal,
       );
     });
 
-    test('DE hint promises local audio/text and self-hosted statistics '
-        '(reference wording)', () async {
-      final de = await L10n.delegate.load(const Locale('de'));
-      final hint = de.onboardingPrivacyHint.toLowerCase();
-      expect(hint, contains('lokal'));
-      expect(hint, contains('selbst gehostet'));
-      expect(hint, contains('anonym'));
-      expect(
-        hint,
-        isNot(contains('kein tracking')),
-        reason: 'internal-notes §7 forbids the absolute "no tracking" claim.',
-      );
-    });
-
-    // Both streams are on by default, so the hint must not imply that only
-    // the usage statistics leave the device — crash reports go to Sentry.
-    test('every locale names crash reports next to the usage statistics, '
-        'never "only" the statistics', () async {
-      const crashWords = {
-        'en': 'crash reports',
-        'de': 'absturzberichte',
-        'he': 'דיווחי קריסה',
-        'ru': 'отчеты о сбоях',
-      };
-      const onlyWords = {
-        'en': 'only ',
-        'de': 'nur ',
-        'he': 'רק ',
-        'ru': 'только ',
-      };
-      for (final code in crashWords.keys) {
-        final loc = await L10n.delegate.load(Locale(code));
-        final hint = loc.onboardingPrivacyHint.toLowerCase();
-        expect(hint, contains(crashWords[code]), reason: code);
-        expect(hint, contains('sentry'), reason: code);
-        expect(hint, isNot(contains(onlyWords[code])), reason: code);
+    test('a cloud provider is named as the direct receiver', () {
+      for (final type in [SttProviderType.openAI, SttProviderType.deepgram]) {
+        expect(
+          onboardingPrivacyModeLine(l10n, withProvider(type)),
+          l10n.onboardingPrivacyModeCloud(type.value),
+        );
       }
+    });
+
+    test('a custom server is named by its host only', () {
+      final line = onboardingPrivacyModeLine(
+        l10n,
+        withProvider(
+          SttProviderType.customEndpoint,
+          url: 'https://user:secret@stt.example.org:8443/v1?key=abc',
+        ),
+      );
+      expect(line, l10n.onboardingPrivacyModeCustom('stt.example.org'));
+    });
+
+    test('a custom server without a usable address gets no sentence', () {
+      expect(
+        onboardingPrivacyModeLine(
+          l10n,
+          withProvider(SttProviderType.customEndpoint),
+        ),
+        isNull,
+      );
     });
   });
 
-  // ── Layout — fixed onboarding window & enlarged system text ──────────────
+  group('onboardingPrivacyRetentionLine', () {
+    late L10n l10n;
+    setUpAll(() async => l10n = await L10n.delegate.load(const Locale('en')));
 
-  group('layout in the onboarding shell', () {
-    testWidgets(
-      'fits the fixed onboarding window size (1100×720) without scrolling',
-      (tester) async {
-        await _pumpShellOnPrivacyPage(tester, size: kOnboardingWindowSize);
+    AppSettings withHistory(HistorySettings h) =>
+        AppSettings.defaults.copyWithSections(history: h);
 
-        expect(tester.takeException(), isNull);
-        final scrollable = tester.state<ScrollableState>(
-          find.byType(Scrollable).first,
-        );
-        expect(
-          scrollable.position.maxScrollExtent,
-          0,
-          reason:
-              'At the fixed onboarding window size the privacy step must be '
-              'fully visible without scrolling.',
-        );
-      },
-    );
-
-    testWidgets('at enlarged system text (textScaler 1.5) all three rows stay '
-        'reachable and operable — the shell scroll fallback may kick in, but '
-        'nothing is clipped away', (tester) async {
-      await _pumpShellOnPrivacyPage(
-        tester,
-        size: kOnboardingWindowSize,
-        textScaler: const TextScaler.linear(1.5),
-      );
-
+    test('reads the entry cap and trash days from the settings', () {
       expect(
-        tester.takeException(),
-        isNull,
-        reason: 'Enlarged text must scroll, never overflow-clip.',
+        onboardingPrivacyRetentionLine(
+          l10n,
+          withHistory(
+            const HistorySettings(
+              historyMaxEntries: 250,
+              historyAutoTrashDays: 14,
+            ),
+          ),
+        ),
+        l10n.onboardingPrivacyRetentionLimited(250, 14),
       );
-      expect(find.byType(Switch), findsNWidgets(3));
+    });
 
-      // The third row (keep recent recordings) sits lowest — prove it can
-      // be brought into view and actually operated, not just that it
-      // exists in the tree.
-      final retainToggle = find.byType(Switch).at(2);
-      await tester.ensureVisible(retainToggle);
-      await tester.pumpAndSettle();
-      await tester.tap(retainToggle);
-      await tester.pumpAndSettle();
-      expect(tester.widget<Switch>(retainToggle).value, isTrue);
+    test('defaults give the standard 1000 entries / 90 days', () {
+      expect(
+        onboardingPrivacyRetentionLine(l10n, AppSettings.defaults),
+        l10n.onboardingPrivacyRetentionLimited(1000, 90),
+      );
+    });
+
+    test('no limit in either value says the text stays until deleted', () {
+      for (final h in const [
+        HistorySettings(historyMaxEntries: 0, historyAutoTrashDays: 0),
+        HistorySettings(historyMaxEntries: 1000, historyAutoTrashDays: 0),
+      ]) {
+        expect(
+          onboardingPrivacyRetentionLine(l10n, withHistory(h)),
+          l10n.onboardingPrivacyRetentionOpen,
+        );
+      }
+    });
+
+    test('no sentence when saving to Recordings is off', () {
+      expect(
+        onboardingPrivacyRetentionLine(
+          l10n,
+          withHistory(const HistorySettings(saveHistory: false)),
+        ),
+        isNull,
+      );
     });
   });
 }

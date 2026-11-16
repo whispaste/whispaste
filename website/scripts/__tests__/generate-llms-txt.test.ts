@@ -17,6 +17,7 @@ import {
   buildOutputs,
   defaultLlmsTxtInput,
   llmsSourcePath,
+  summaryOf,
 } from "../generate-llms-txt.mjs";
 import { antiVocabulary } from "../../src/data/brand-glossary.ts";
 import { scanHtml } from "../check-brand-vocabulary.mjs";
@@ -100,6 +101,12 @@ describe("format", () => {
       { locale: "de", markdown: "# WhisPaste\n\nDeutsch\n" },
     ]);
     expect(out).toBe("<!-- lang: en -->\n\n# WhisPaste\n\nEnglish\n\n---\n\n<!-- lang: de -->\n\n# WhisPaste\n\nDeutsch\n");
-    expect(defaultLlmsTxtInput().title).toBe("WhisPaste");
+    expect(defaultLlmsTxtInput("x").title).toBe("WhisPaste");
+  });
+
+  it("the llms.txt summary is the English source's summary, not a second copy", async () => {
+    const english = await readFile(llmsSourcePath("en"), "utf8");
+    const { "llms.txt": index } = await buildOutputs();
+    expect(index).toContain(`> ${summaryOf(english)}\n`);
   });
 });

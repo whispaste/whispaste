@@ -16,15 +16,20 @@
 # bundle-libllama-windows.ps1 stages the whole directory next to
 # whispaste.exe under smart_mode\).
 #
-# Requires: a Developer PowerShell / Developer Command Prompt for VS 2022 (so
-# `cl.exe`/`link.exe` are on PATH) — run this from that shell, or via
-# `vcvarsall.bat x64` first.
+# Requires: the VS 2022 C++ build tools; windows-msvc-env.ps1 activates them
+# when `cl.exe` is not on PATH.
 [CmdletBinding()]
 param()
 $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$LlamaTag = "b10150"
+# Pinned source: scripts\llama-cpp.pin (one pin for all platforms).
+$Pin = @{}
+Get-Content (Join-Path $RepoRoot 'scripts\llama-cpp.pin') | ForEach-Object {
+  if ($_ -match '^\s*([A-Z0-9_]+)=(.*)$') { $Pin[$Matches[1]] = $Matches[2].Trim() }
+}
+$LlamaTag = $Pin['LLAMA_TAG']
+if (-not $LlamaTag) { throw "scripts\llama-cpp.pin needs LLAMA_TAG" }
 $LlamaSrc = Join-Path $RepoRoot ".build\deps\llama.cpp\$LlamaTag"
 $StageDir = Join-Path $RepoRoot ".build\libllama\windows"
 $ShimSrc = Join-Path $RepoRoot "native\smart_mode\smart_mode_shim.cpp"
@@ -36,10 +41,7 @@ if (-not (Test-Path (Join-Path $StageDir "llama.dll"))) {
   exit 1
 }
 
-if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-  Write-Error "cl.exe not found on PATH - run this from a 'Developer PowerShell for VS 2022' (or call vcvarsall.bat x64 first)."
-  exit 1
-}
+. (Join-Path $PSScriptRoot 'windows-msvc-env.ps1')
 
 # Import libraries (.lib) for llama.dll + the DLLs it does NOT re-export
 # symbols from, produced alongside them by the same cmake build (MSVC always
@@ -70,15 +72,14 @@ cl.exe /std:c++17 /O2 /Z7 /EHsc /LD `
   /I "$LlamaSrc\include" /I "$LlamaSrc\ggml\include" /I "$LlamaSrc\common" /I "$LlamaSrc\vendor" `
   "$ShimSrc" `
   "$llamaImportLib" "$ggmlImportLib" "$llamaCommonImportLib" `
-  /Fe:"$StageDir\smartmode_shim.dll" `
+  /Fo:"$WindowsBuildDir\smart_mode_shim.obj" /Fe:"$StageDir\smartmode_shim.dll" `
   /link /MACHINE:X64 /DEBUG /OPT:REF /OPT:ICF /PDB:"$WindowsBuildDir\smartmode_shim.pdb"
 
 if ($LASTEXITCODE -ne 0) { throw "cl.exe failed with exit code $LASTEXITCODE" }
 
-# cl.exe /LD drops build byproducts (.obj/.exp/.lib for the shim itself) next
-# to the source file by default when no /Fo is given — clean those up so
-# repeated runs stay idempotent and the stage dir only holds DLLs.
-Remove-Item (Join-Path $RepoRoot "native\smart_mode\smart_mode_shim.obj") -ErrorAction SilentlyContinue
+# The object file goes to the build dir (/Fo; without it cl.exe drops it into
+# the current directory). /LD still puts the shim's own .exp/.lib next to the
+# DLL — clean those up so the stage dir only holds DLLs.
 Remove-Item (Join-Path $StageDir "smartmode_shim.exp") -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $StageDir "smartmode_shim.lib") -ErrorAction SilentlyContinue
 

@@ -6,15 +6,25 @@
 
 #include <memory>
 
+#include "app_identity_host.h"
 #include "attention_host.h"
+#include "audio_file_decode_host.h"
+#include "field_type_host.h"
+#include "inserted_span_host.h"
 #include "clipboard_monitor_host.h"
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
+#include "hang_watchdog_host.h"
 #include "keyboard_monitor_host.h"
+#include "power_event_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
+#include "tray_panel_host.h"
 #include "support_store_channel.h"
+#include "media_pause_host.h"
+#include "system_languages_host.h"
+#include "audio_routing_host.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -58,6 +68,7 @@ class FlutterWindow : public Win32Window {
   // Native Snippet-Picker panel (runner-owned, destroyed before engine
   // teardown — visual-refresh-2026 ticket 29).
   std::unique_ptr<SnippetPickerHost> snippet_picker_host_;
+  std::unique_ptr<TrayPanelHost> tray_panel_host_;
 
   // Native clipboard quick-paste side panel (runner-owned, destroyed before
   // engine teardown — issue 04/09 Windows port).
@@ -72,6 +83,15 @@ class FlutterWindow : public Win32Window {
   // main window is hidden.
   std::unique_ptr<AttentionHost> attention_host_;
 
+  // Name and icon of target apps for the recording rows.
+  std::unique_ptr<AppIdentityHost> app_identity_host_;
+
+  // System sleep/resume source for the recording safety net (ticket, 9.5).
+  std::unique_ptr<PowerEventHost> power_event_host_;
+
+  // Hang watchdog (#338): restarts the app when the main thread stops.
+  std::unique_ptr<HangWatchdogHost> hang_watchdog_host_;
+
   // RawInput key-up source for global hotkeys, enabling push-to-talk on
   // Windows (RegisterHotKey is key-down only). See keyboard_monitor_host.h.
   std::unique_ptr<KeyboardMonitorHost> keyboard_monitor_host_;
@@ -79,6 +99,14 @@ class FlutterWindow : public Win32Window {
   // Microsoft Store sponsoring channel (runner-owned, destroyed before engine
   // teardown). Replies are posted back to this window's message loop.
   std::unique_ptr<SupportStoreChannel> support_store_channel_;
+  std::unique_ptr<MediaPauseHost> media_pause_host_;
+  // Decodes imported MP3, FLAC and M4A files for ticket.
+  std::unique_ptr<AudioFileDecodeHost> audio_file_decode_host_;
+  std::unique_ptr<InsertedSpanHost> inserted_span_host_;
+  std::unique_ptr<FieldTypeHost> field_type_host_;
+  // Preferred UI languages for the first start (whispaste/system_languages).
+  std::unique_ptr<SystemLanguagesHost> system_languages_host_;
+  std::unique_ptr<AudioRoutingHost> audio_routing_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Multi-utterance runner for the engine-benchmark data on `/engine-benchmarks/`
- * (website/internal-notes).
+ * Multi-utterance runner for the engine-benchmark data on `/engine-benchmarks/`.
  *
  * Unlike `benchmark-engines-run.mjs` (single clip, sampleSize 1), this runs a
  * whisper.cpp `whisper-cli` transcription over every utterance in

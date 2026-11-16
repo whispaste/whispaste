@@ -14,28 +14,31 @@ interface Props {
   readonly title: string;
   readonly description: string;
   readonly ogImage?: string;
+  /** Secret-bearing address: see Layout `isPrivate`. */
+  readonly isPrivate?: boolean;
 }
 
-const { lang, title, description, ogImage } = Astro.props;
+const { lang, title, description, ogImage, isPrivate } = Astro.props;
 ---
 
-<Layout title={title} description={description} lang={lang} ogImage={ogImage}>
+<Layout title={title} description={description} lang={lang} ogImage={ogImage} isPrivate={isPrivate}>
   <slot name="head" slot="head" />
   <div class="min-h-screen flex flex-col">
-    <Nav variant="subpage" />
+    <Nav variant="subpage" lang={lang} noLanguageSwitcher={isPrivate} />
     <main id="main-content" class="flex-1">
       <slot />
     </main>
-    <Footer />
+    <Footer lang={lang} />
   </div>
   <script>
     import { applyLang } from '../scripts/lang-switch';
+    import { closestFromTarget } from '../scripts/event-target';
     applyLang();
 
     // Same pointer spotlight as the landing cards (global.css `.wp-spot`).
     if (matchMedia('(hover: hover)').matches) {
       document.addEventListener('pointermove', (e) => {
-        const card = (e.target as Element | null)?.closest<HTMLElement>('.wp-spot');
+        const card = closestFromTarget<HTMLElement>(e.target, '.wp-spot');
         if (!card) return;
         const r = card.getBoundingClientRect();
         card.style.setProperty('--mx', `${e.clientX - r.left}px`);

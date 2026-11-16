@@ -31,11 +31,59 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show ValueChanged, visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/logging/app_logger.dart';
+import 'hotkey_observer_health.dart';
+import 'modifier_key_monitor.dart';
+
+/// Who owns the global hotkey in a Linux Wayland session (XP-2-06).
+///
+/// There the X11 grab only fires while an XWayland window has focus, so the
+/// hotkey works system-wide only once the compositor binds it through the
+/// GlobalShortcuts portal. Everywhere else the registrar owns the hotkey and
+/// this stays [notApplicable].
+enum WaylandHotkeyBinding {
+  /// Not a Wayland session (X11, Windows, macOS, or an older runner).
+  notApplicable,
+
+  /// Portal found, binding requested — the desktop may still be asking the
+  /// user to confirm it.
+  pending,
+
+  /// The compositor owns the hotkey.
+  bound,
+
+  /// The portal could not identify WhisPaste (no installed desktop entry).
+  noAppId,
+
+  /// The session has no GlobalShortcuts portal.
+  unavailable,
+
+  /// The user or the desktop declined the binding.
+  declined;
+
+  /// Whether the hotkey does not work outside WhisPaste in this session.
+  bool get isUnbound =>
+      this == noAppId || this == unavailable || this == declined;
+}
+
+/// Maps a Linux host report (`start` reply or `onCapabilities` push) to a
+/// [WaylandHotkeyBinding].
+WaylandHotkeyBinding waylandHotkeyBindingFrom(Object? report) {
+  if (report is! Map || report['wayland'] != true) {
+    return WaylandHotkeyBinding.notApplicable;
+  }
+  if (report['bound'] == true) return WaylandHotkeyBinding.bound;
+  if (report['portal'] == true) return WaylandHotkeyBinding.pending;
+  return switch (report['reason']) {
+    'no-app-id' => WaylandHotkeyBinding.noAppId,
+    'declined' => WaylandHotkeyBinding.declined,
+    _ => WaylandHotkeyBinding.unavailable,
+  };
+}
 
 /// Observes key-up for the registered global hotkey on platforms whose hotkey
 /// registrar is key-down only. Swap with a fake in unit tests.
@@ -48,16 +96,30 @@ abstract class KeyboardUpMonitor {
   /// Begins observing [hotKey] for the release (break) of its main key.
   ///
   /// Safe to call repeatedly; the latest [hotKey] replaces any previous watch.
-  /// No-op when [supportsKeyUp] is `false`.
-  Future<void> start(HotKey hotKey);
+  /// No-op when [supportsKeyUp] is `false`. [description] names the hotkey
+  /// in the desktop's GlobalShortcuts dialog (Linux Wayland only).
+  Future<void> start(HotKey hotKey, {String? description});
 
   /// Arms the release-watch — call when the hotkey fires (key-down). The native
   /// side snapshots the currently-held main key so its release ends the hold.
   ///
   /// Required because `RegisterHotKey` suppresses the hotkey key's DOWN from
   /// the RawInput stream, so the main key cannot be detected by observation
-  /// alone (#39). No-op when [supportsKeyUp] is `false`.
-  Future<void> armRelease();
+  /// alone (#39). [modifiers] are the hotkey's own modifiers: the native side
+  /// keeps them as the combination that must stay intact, even when one was
+  /// released before this call. No-op when [supportsKeyUp] is `false`.
+  ///
+  /// Resolves to whether the watched main key is still held at the snapshot.
+  /// `false` means the press was already over before the arm, for example a
+  /// click on an on-screen keyboard (down and up within milliseconds): no
+  /// release event will follow. Unknown or unsupported reports `true`.
+  Future<bool> armRelease({Iterable<HotKeyModifier> modifiers = const []});
+
+  /// Whether the watched key is physically down right now (#774), read from
+  /// the hardware state instead of from release events. `null` when the host
+  /// cannot tell (nothing watched, a Wayland portal session, an older runner,
+  /// macOS): the caller then keeps waiting for the release event.
+  Future<bool?> isHeld();
 
   /// Stops observing. No-op when not started.
   Future<void> stop();
@@ -67,13 +129,33 @@ abstract class KeyboardUpMonitor {
   /// push-to-talk option accordingly.
   bool get experimental;
 
-  /// Called when the watched hotkey's main key is released.
-  set onKeyUp(VoidCallback? handler);
+  /// Called when the watched hotkey's main key is released. The argument is
+  /// how long the key was held, timed by the native host from the event
+  /// timestamps (so a UI stall does not stretch it); null when the host cannot
+  /// tell.
+  set onKeyUp(ValueChanged<Duration?>? handler);
 
   /// Called when the monitor itself observes the hotkey press — only the
   /// Linux portal path does, since the compositor (not the X11 grab) owns the
   /// shortcut there.
   set onKeyDown(VoidCallback? handler);
+
+  /// Who owns the global hotkey in a Linux Wayland session; see
+  /// [WaylandHotkeyBinding]. Kept across [stop], like the key-up capability.
+  WaylandHotkeyBinding get waylandBinding;
+
+  /// Called whenever [waylandBinding], [waylandTrigger] or
+  /// [waylandSettingsAppId] changes.
+  set onWaylandBindingChanged(VoidCallback? handler);
+
+  /// The shortcut the desktop reported for the bound hotkey (XDG
+  /// `trigger_description`), or null when it did not say.
+  String? get waylandTrigger;
+
+  /// The desktop ID under which the desktop's settings app lists WhisPaste
+  /// while the hotkey is bound, read by the host from the installed desktop
+  /// entry; null when there is no such page to open.
+  String? get waylandSettingsAppId;
 }
 
 /// No-op monitor for platforms that already have key-up (macOS) or have no
@@ -86,19 +168,36 @@ class NoopKeyboardUpMonitor implements KeyboardUpMonitor {
   bool get experimental => false;
 
   @override
-  Future<void> start(HotKey hotKey) async {}
+  Future<void> start(HotKey hotKey, {String? description}) async {}
 
   @override
-  Future<void> armRelease() async {}
+  Future<bool> armRelease({
+    Iterable<HotKeyModifier> modifiers = const [],
+  }) async => true;
+
+  @override
+  Future<bool?> isHeld() async => null;
 
   @override
   Future<void> stop() async {}
 
   @override
-  set onKeyUp(VoidCallback? handler) {}
+  set onKeyUp(ValueChanged<Duration?>? handler) {}
 
   @override
   set onKeyDown(VoidCallback? handler) {}
+
+  @override
+  WaylandHotkeyBinding get waylandBinding => WaylandHotkeyBinding.notApplicable;
+
+  @override
+  String? get waylandTrigger => null;
+
+  @override
+  String? get waylandSettingsAppId => null;
+
+  @override
+  set onWaylandBindingChanged(VoidCallback? handler) {}
 }
 
 /// Production monitor backed by the native `com.whispaste.keyboard_monitor`
@@ -127,14 +226,80 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     'com.whispaste.keyboard_monitor',
   );
 
-  VoidCallback? _onKeyUp;
+  WaylandHotkeyBinding _waylandBinding = WaylandHotkeyBinding.notApplicable;
+  String? _waylandTrigger;
+
+  ValueChanged<Duration?>? _onKeyUp;
   VoidCallback? _onKeyDown;
+  VoidCallback? _onWaylandBindingChanged;
 
   @override
-  set onKeyUp(VoidCallback? handler) => _onKeyUp = handler;
+  set onKeyUp(ValueChanged<Duration?>? handler) => _onKeyUp = handler;
 
   @override
   set onKeyDown(VoidCallback? handler) => _onKeyDown = handler;
+
+  /// Receives modifier-only inputs from the Windows and Linux hosts.
+  ModifierInputHandler? _onModifierInput;
+  set onModifierInput(ModifierInputHandler? handler) =>
+      _onModifierInput = handler;
+
+  /// Asks the native host to pass [key] through as `onModifierDown`,
+  /// `onModifierUp` and `onOtherKey`. Returns false when the host cannot see
+  /// that key (Wayland, Fn off macOS), so the caller keeps the combination.
+  Future<bool> watchModifier(ModifierHotkey key) async {
+    if (!_isWindows && !_isLinux) return false;
+    if (!modifierHotkeySupported(key, isMacOS: false)) return false;
+    try {
+      final watching =
+          await _channel.invokeMethod<bool>('watchModifier', {
+            'key': key.name,
+          }) ??
+          false;
+      // The Linux X11 watch reports both press and release, so it gives the
+      // key-up capability on its own (start() may not have set it).
+      if (watching && _isLinux) _linuxKeyUp = true;
+      return watching;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// The health of the modifier-only watch (#773), asked of the native host:
+  /// `active` is false once the hook or XInput2 watch no longer delivers. A
+  /// host without the call, a failed call and a platform without the watch
+  /// all read as [ObserverHealth.unknown], which is never acted upon.
+  Future<ObserverHealth> modifierHealth() async {
+    if (!_isWindows && !_isLinux) return ObserverHealth.unknown;
+    try {
+      return observerHealthFromReply(
+        await _channel.invokeMapMethod<String, Object?>('modifierHealth'),
+      );
+    } on PlatformException {
+      return ObserverHealth.unknown;
+    } on MissingPluginException {
+      return ObserverHealth.unknown;
+    } on Object {
+      return ObserverHealth.unknown;
+    }
+  }
+
+  @override
+  WaylandHotkeyBinding get waylandBinding => _waylandBinding;
+
+  @override
+  String? get waylandTrigger => _waylandTrigger;
+
+  String? _waylandSettingsAppId;
+
+  @override
+  String? get waylandSettingsAppId => _waylandSettingsAppId;
+
+  @override
+  set onWaylandBindingChanged(VoidCallback? handler) =>
+      _onWaylandBindingChanged = handler;
 
   // Windows always ships the RawInput host; on Linux it depends on the
   // session (X11 vs. Wayland with/without portal) and is probed by [start].
@@ -145,8 +310,8 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
   bool get experimental => _isLinux && _linuxKeyUp;
 
   @override
-  Future<void> start(HotKey hotKey) async {
-    if (_isLinux) return _startLinux(hotKey);
+  Future<void> start(HotKey hotKey, {String? description}) async {
+    if (_isLinux) return _startLinux(hotKey, description);
     if (!supportsKeyUp) return;
     try {
       await _channel.invokeMethod<void>('start');
@@ -157,10 +322,11 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     }
   }
 
-  Future<void> _startLinux(HotKey hotKey) async {
+  Future<void> _startLinux(HotKey hotKey, String? description) async {
     try {
       final reply = await _channel.invokeMethod<Object?>('start', {
         'trigger': xdgShortcutTrigger(hotKey),
+        'description': ?description,
       });
       _applyLinuxCapabilities(reply);
     } on Object catch (e) {
@@ -175,22 +341,64 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     final x11 = reply is Map && reply['x11'] == true;
     final portal = reply is Map && reply['portal'] == true;
     _linuxKeyUp = x11 || portal;
-    _log.info('Linux key-up capability: x11=$x11 portal=$portal');
+    final binding = waylandHotkeyBindingFrom(reply);
+    _log.info(
+      'Linux key-up capability: x11=$x11 portal=$portal '
+      'wayland=${binding.name}',
+    );
+    final trigger = _nonEmpty(reply, 'triggerDescription');
+    final settingsAppId = _nonEmpty(reply, 'settingsAppId');
+    if (binding == _waylandBinding &&
+        trigger == _waylandTrigger &&
+        settingsAppId == _waylandSettingsAppId) {
+      return;
+    }
+    _waylandBinding = binding;
+    _waylandTrigger = trigger;
+    _waylandSettingsAppId = settingsAppId;
+    _onWaylandBindingChanged?.call();
+  }
+
+  static String? _nonEmpty(Object? reply, String key) {
+    final raw = reply is Map ? reply[key] : null;
+    return raw is String && raw.isNotEmpty ? raw : null;
   }
 
   @override
-  Future<void> armRelease() async {
-    if (!supportsKeyUp) return;
+  Future<bool> armRelease({
+    Iterable<HotKeyModifier> modifiers = const [],
+  }) async {
+    if (!supportsKeyUp) return true;
     try {
-      await _channel.invokeMethod<void>('armRelease');
+      // Hosts that predate the reply send nothing; treat that as "held".
+      return await _channel.invokeMethod<bool>('armRelease', {
+            'modifiers': armedModifierMask(modifiers),
+          }) ??
+          true;
     } on Object catch (e) {
       _log.debug('Keyboard monitor armRelease failed (non-fatal): $e');
+      return true;
+    }
+  }
+
+  @override
+  Future<bool?> isHeld() async {
+    if (!supportsKeyUp) return null;
+    try {
+      return await _channel.invokeMethod<bool>('isHeld');
+    } on Object catch (e) {
+      // An older runner has no such call: the release event stays the only
+      // way to end the hold, as before.
+      _log.debug('Keyboard monitor isHeld failed (non-fatal): $e');
+      return null;
     }
   }
 
   @override
   Future<void> stop() async {
-    if (!supportsKeyUp) return;
+    // Linux always forwards the stop: a native watch started by watchModifier
+    // runs without key-up capability too and must not outlive the hotkey.
+    if (!supportsKeyUp && !_isLinux) return;
     try {
       await _channel.invokeMethod<void>('stop');
     } on Object catch (e) {
@@ -198,16 +406,86 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     }
   }
 
+  /// The press length a native `onKeyUp` carries (`pressMs`), or null when the
+  /// host could not time the press.
+  @visibleForTesting
+  static Duration? pressedForKeyUp(Object? arguments) {
+    if (arguments is! Map) return null;
+    final ms = arguments['pressMs'];
+    return ms is int ? Duration(milliseconds: ms) : null;
+  }
+
+  /// The native event time of the callback being delivered right now, or null
+  /// outside a callback and for hosts that send no stamp (the portal path; the
+  /// Carbon registrar combination on macOS stamps through `HotKeyEventTimes`). Monotonic and only
+  /// meaningful as a difference to another stamp; see [eventAtFromArgs].
+  Duration? get lastEventAt => _lastEventAt;
+  Duration? _lastEventAt;
+
+  /// The press length of the key-up being delivered right now, or null.
+  Duration? get lastPressed => _lastPressed;
+  Duration? _lastPressed;
+
+  /// The native event time (`atMs`, a monotonic clock of the host) a native
+  /// event carries, or null when the host sent none. Hold, tap and double tap
+  /// are decided from these stamps, so a UI thread that stalls between the
+  /// key event and its arrival here cannot turn a hold into a tap.
+  @visibleForTesting
+  static Duration? eventAtFromArgs(Object? arguments) {
+    if (arguments is! Map) return null;
+    final ms = arguments['atMs'];
+    return ms is int && ms >= 0 ? Duration(milliseconds: ms) : null;
+  }
+
   Future<void> _handleNativeCall(MethodCall call) async {
+    _lastEventAt = eventAtFromArgs(call.arguments);
+    _lastPressed = call.method == 'onKeyUp' || call.method == 'onModifierUp'
+        ? pressedForKeyUp(call.arguments)
+        : null;
+    try {
+      _dispatchNativeCall(call);
+    } finally {
+      _lastEventAt = null;
+      _lastPressed = null;
+    }
+  }
+
+  void _dispatchNativeCall(MethodCall call) {
     switch (call.method) {
       case 'onKeyUp':
-        _onKeyUp?.call();
+        _onKeyUp?.call(pressedForKeyUp(call.arguments));
       case 'onKeyDown':
         _onKeyDown?.call();
       case 'onCapabilities':
         if (_isLinux) _applyLinuxCapabilities(call.arguments);
+      default:
+        final input = modifierInputForNativeCall(call.method);
+        if (input == null) return;
+        _onModifierInput?.call(
+          input,
+          input == ModifierInput.up
+              ? modifierPressedFromArgs(call.arguments)
+              : null,
+        );
     }
   }
+}
+
+/// The modifier bits the Windows host reads in `armRelease` (kArmedCtrl,
+/// kArmedAlt, kArmedShift, kArmedWin in keyboard_monitor_host.cpp). Other
+/// modifiers have no bit and count as none.
+int armedModifierMask(Iterable<HotKeyModifier> modifiers) {
+  var mask = 0;
+  for (final modifier in modifiers) {
+    mask |= switch (modifier) {
+      HotKeyModifier.control => 0x1,
+      HotKeyModifier.alt => 0x2,
+      HotKeyModifier.shift => 0x4,
+      HotKeyModifier.meta => 0x8,
+      _ => 0,
+    };
+  }
+  return mask;
 }
 
 const _xdgModifierOrder = <(HotKeyModifier, String)>[

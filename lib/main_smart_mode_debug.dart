@@ -79,9 +79,8 @@ class _SmartModeDebugApp extends StatelessWidget {
 
 enum _Preset { cleanup, concise, translate }
 
-// Identical wording to the already spike-tested presets
-// (internal-notes) — same prompts, same config,
-// so trying it here is representative of the real feature, not a rewrite.
+// Same prompts and config as the already spike-tested presets, so trying it
+// here is representative of the real feature, not a rewrite.
 const _systemPrompts = {
   _Preset.cleanup:
       'Bereinige diesen diktierten deutschen Text: entferne Füllwörter (äh, '
@@ -146,19 +145,23 @@ class _SmartModeDebugScreenState extends State<_SmartModeDebugScreen> {
         systemPrompt: _systemPrompts[_preset]!,
         userText: userText,
       );
+      if (!mounted) return;
       setState(() {
         _output = result;
         _elapsedMs = stopwatch.elapsedMilliseconds;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = '$e';
         _elapsedMs = stopwatch.elapsedMilliseconds;
       });
     } finally {
-      setState(() {
-        _running = false;
-      });
+      if (mounted) {
+        setState(() {
+          _running = false;
+        });
+      }
     }
   }
 

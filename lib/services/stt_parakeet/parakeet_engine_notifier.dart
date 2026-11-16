@@ -16,11 +16,15 @@ import 'dart:io' show File, Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:ffi/ffi.dart' show calloc;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/recording/transcription_budget.dart'
+    show kLocalBudgetMaxBoost;
 import '../audio/pcm_wav_codec.dart';
 import '../stt/isolate_shutdown_helper.dart';
 import '../stt/native_call_guard.dart';
@@ -64,13 +68,26 @@ class _InitResult {
 class _TranscribeRequest {
   const _TranscribeRequest({
     required this.requestId,
-    required this.samples,
+    required this.audio,
     required this.sampleRate,
+    this.abortFlagAddress = 0,
   });
   final int requestId;
-  final Float32List samples;
+
+  /// The WAV file's path or its bytes (#1665). The worker turns one chunk at
+  /// a time into float32, never the whole recording.
+  final Pcm16WavSource audio;
   final int sampleRate;
+
+  /// Address of this request's abort flag (#1639), 0 for none. Raised by the
+  /// main isolate on a budget overrun; the worker checks it before each
+  /// slice. sherpa-onnx has no abort hook inside one decode, so the current
+  /// slice (at most 25 s of audio) still runs to its end.
+  final int abortFlagAddress;
 }
+
+/// Worker reply of a decode that stopped at its abort flag.
+const String _parakeetDecodeAborted = 'parakeet_decode_aborted';
 
 class _TranscribeResult {
   const _TranscribeResult({required this.requestId, this.text, this.error});
@@ -143,21 +160,22 @@ void _parakeetIsolateMain(SendPort mainSendPort) {
         }
         try {
           // One encoder pass per chunk — see parakeet_audio_chunker.dart.
-          final texts = <String>[];
-          for (final chunk in splitForParakeet(
-            req.samples,
+          final abortFlag = req.abortFlagAddress == 0
+              ? null
+              : ffi.Pointer<ffi.Int32>.fromAddress(req.abortFlagAddress);
+          final text = transcribePcmInParakeetChunks(
+            req.audio.open(),
             sampleRate: req.sampleRate,
-          )) {
-            final text = _decodeChunk(
-              r,
-              chunk,
-              req.sampleRate,
-              guardedDecode,
-            ).trim();
-            if (text.isNotEmpty) texts.add(text);
-          }
+            beforeChunk: () {
+              if (abortFlag != null && abortFlag.value != 0) {
+                throw StateError(_parakeetDecodeAborted);
+              }
+            },
+            decode: (chunk) =>
+                _decodeChunk(r, chunk, req.sampleRate, guardedDecode),
+          );
           mainSendPort.send(
-            _TranscribeResult(requestId: req.requestId, text: texts.join(' ')),
+            _TranscribeResult(requestId: req.requestId, text: text),
           );
         } catch (e) {
           mainSendPort.send(
@@ -294,6 +312,29 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
+  /// Abort flags of sherpa decodes the worker has not answered yet (#1639).
+  /// Freed on the reply only; a killed worker leaks them rather than risk a
+  /// read of freed memory.
+  final Map<int, ffi.Pointer<ffi.Int32>> _abortFlags = {};
+
+  /// Multiplier on the local budget after decodes that ran out of it (1, 2,
+  /// 4), reset by a decode that finished (#1639).
+  int _budgetBoost = 1;
+
+  /// Current budget multiplier, for tests.
+  @visibleForTesting
+  int get debugBudgetBoost => _budgetBoost;
+
+  Duration _budgetFor(Duration audio) => parakeetTranscribeTimeout(
+    audio,
+    measuredRtf: state.benchmarkRtf,
+    boost: _budgetBoost,
+  );
+
+  void _noteBudgetOverrun() {
+    _budgetBoost = math.min(_budgetBoost * 2, kLocalBudgetMaxBoost);
+  }
+
   /// Bumped by [stop]; a request that started before a stop must not bring
   /// the engine back up behind the caller's back.
   int _stopGeneration = 0;
@@ -302,7 +343,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   ParakeetGpuEngine? _gpu;
 
   /// Speech check in front of both backends; fail-open (see parakeet_speech_gate.dart).
-  final ParakeetSpeechGate _speechGate = ParakeetSpeechGate.bundled();
+  ParakeetSpeechGate _speechGate = ParakeetSpeechGate.bundled();
 
   /// Crash marker for GPU loads; checked once per app session.
   ParakeetGpuCrashMarker? _marker;
@@ -445,19 +486,19 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   }
 
   /// Measures the real-time factor (RTF = processing_time_ms /
-  /// audio_duration_ms) against a 3 s silent WAV — the same benchmark input
-  /// whisper's [SttBenchmark] uses, so the two engines' RTF numbers are
-  /// directly comparable. Non-fatal: logs and leaves [ParakeetStatus.benchmarkRtf]
+  /// audio_duration_ms) against the spoken reference clip — the same input
+  /// whisper's benchmark uses, so the two engines' RTF numbers are directly
+  /// comparable. Non-fatal: logs and leaves [ParakeetStatus.benchmarkRtf]
   /// unchanged on failure.
   Future<void> runBenchmark() async {
     try {
       await ensureRunning();
-      final benchmarkWav = SttBenchmark.generateBenchmarkWav();
+      final benchmarkWav = await SttBenchmark.referenceWav();
       final sw = Stopwatch()..start();
       await transcribeWavBytes(benchmarkWav);
       sw.stop();
-      const audioDurationMs = 3000;
-      final rtf = sw.elapsedMilliseconds / audioDurationMs;
+      final rtf =
+          sw.elapsedMilliseconds / SttBenchmark.durationMs(benchmarkWav);
       state = state.copyWith(benchmarkRtf: rtf);
       _log.info('Parakeet benchmark: RTF=${rtf.toStringAsFixed(2)}x');
     } on Exception catch (e) {
@@ -467,32 +508,43 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
 
   /// Transcribes raw WAV bytes (WhisPaste's own 16 kHz mono 16-bit PCM
   /// format — see `wav_file_writer.dart`) to text.
-  Future<String> transcribeWavBytes(List<int> wavBytes) async {
+  ///
+  /// The recording is never turned into float32 as a whole (#1665): the
+  /// speech gate checks it a window at a time, and the worker converts one
+  /// encoder chunk at a time. [wavPath] names the file [wavBytes] were read
+  /// from; when it still holds the same samples ([wavFileMatches]) the worker
+  /// reads it itself and gets no copy of the bytes. Without it, or when the
+  /// file is gone or changed size, the bytes are sent.
+  Future<String> transcribeWavBytes(
+    List<int> wavBytes, {
+    String? wavPath,
+  }) async {
     if (!state.isReady) {
       throw StateError(state.errorMessage ?? 'parakeet_not_ready');
     }
     final generation = _stopGeneration;
-    final samples = _pcm16WavBytesToFloat32(wavBytes);
-    if (samples.isEmpty) return '';
+    final pcm = Pcm16WavView(wavBytes);
+    if (pcm.sampleCount == 0) return '';
     // No speech found: the same empty transcript as for empty audio.
-    if (!await _speechGate.hasSpeech(samples)) {
+    if (!await _speechGate.hasSpeechIn(pcm)) {
       _log.info('no speech detected, skipping Parakeet transcription');
       return '';
     }
     if (generation != _stopGeneration) throw StateError('parakeet_not_ready');
 
+    final audioSource = Pcm16WavSource.preferFile(wavBytes, wavPath);
+    final audio = Duration(
+      microseconds: pcm.sampleCount * Duration.microsecondsPerSecond ~/ 16000,
+    );
     final gpu = _gpu;
     if (gpu != null) {
       try {
-        return await gpu.transcribe(
-          samples,
-          timeout: parakeetTranscribeTimeout(
-            Duration(
-              microseconds:
-                  samples.length * Duration.microsecondsPerSecond ~/ 16000,
-            ),
-          ),
+        final text = await gpu.transcribePcm(
+          audioSource,
+          timeout: _budgetFor(audio),
         );
+        _budgetBoost = 1;
+        return text;
       } on ParakeetGpuException catch (e) {
         // Runtime failure on the GPU: this request is retried on sherpa-onnx,
         // and the GPU engine stays off for the rest of the session.
@@ -510,27 +562,34 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     final requestId = _nextRequestId++;
     final completer = Completer<_TranscribeResult>();
     _pending[requestId] = completer;
+    final abortFlag = _abortFlags[requestId] = calloc<ffi.Int32>();
     port.send(
       _TranscribeRequest(
         requestId: requestId,
-        samples: samples,
+        audio: audioSource,
         sampleRate: 16000,
+        abortFlagAddress: abortFlag.address,
       ),
     );
 
-    final audio = Duration(
-      microseconds: samples.length * Duration.microsecondsPerSecond ~/ 16000,
-    );
+    // A Dart-side timeout fails only this caller. The worker keeps running
+    // the native decode, so the entry stays until its reply arrives (see
+    // [_handleWorkerMessage]); [hasNativeCallRunning] depends on it.
+    // On timeout the abort flag stops the worker before its next slice, so
+    // a following dictation does not queue behind the rest of this one.
     final result = await completer.future.timeout(
-      parakeetTranscribeTimeout(audio),
+      _budgetFor(audio),
       onTimeout: () {
-        _pending.remove(requestId);
+        _log.warning('Parakeet transcription exceeded its budget — aborting');
+        abortFlag.value = 1;
+        _noteBudgetOverrun();
         throw StateError('parakeet_transcribe_timeout');
       },
     );
     if (result.error != null) {
       throw StateError(result.error!);
     }
+    _budgetBoost = 1;
     return result.text ?? '';
   }
 
@@ -547,6 +606,61 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     await _shutdown();
     state = const ParakeetStatus();
   }
+
+  /// App quit: never waits. The worker is killed at once instead of the
+  /// bounded graceful handshake in [stop], because a decode can hang (the
+  /// Dart-side transcribe timeout fails only the caller, not the native call),
+  /// and a quit must not sit behind it. [hasNativeCallRunning] tells the quit
+  /// path to end the process without static destructors (GS-117).
+  Future<void> stopForQuit() async {
+    _stopGeneration++;
+    final gpu = _takeGpu();
+    gpu?.abandon();
+    final isolate = _isolate;
+    _sub?.cancel();
+    _sub = null;
+    _isolate = null;
+    _workerPort = null;
+    isolate?.kill(priority: Isolate.immediate);
+    state = const ParakeetStatus();
+  }
+
+  /// True while a native decode is still in flight in the worker, on either
+  /// engine, including a GPU engine that was already taken out of service.
+  bool get hasNativeCallRunning =>
+      _pending.isNotEmpty ||
+      (_gpu?.hasNativeCallRunning ?? false) ||
+      _retiredGpus.any((gpu) => gpu.hasNativeCallRunning);
+
+  /// GPU engines taken out of service while a decode may still run in them.
+  /// They stay listed until their worker answers, so the quit guard does not
+  /// lose a native call that outlived its Dart-side timeout.
+  final List<ParakeetGpuEngine> _retiredGpus = [];
+
+  /// Detaches the GPU engine (if any) and remembers it while it is busy.
+  ParakeetGpuEngine? _takeGpu() {
+    final gpu = _gpu;
+    _gpu = null;
+    _retiredGpus.removeWhere((retired) => !retired.hasNativeCallRunning);
+    if (gpu != null && gpu.hasNativeCallRunning) _retiredGpus.add(gpu);
+    return gpu;
+  }
+
+  /// Test seam: marks the engine ready on a stand-in worker [port]. Nothing
+  /// is spawned, so [transcribeWavBytes] can be driven under fake time.
+  @visibleForTesting
+  void debugAttachWorkerForTest(SendPort port) {
+    _workerPort = port;
+    state = state.copyWith(
+      state: ParakeetEngineState.ready,
+      errorMessage: null,
+    );
+  }
+
+  /// Test seam: replaces the speech gate, so a test does not depend on the
+  /// bundled VAD library.
+  @visibleForTesting
+  set debugSpeechGate(ParakeetSpeechGate gate) => _speechGate = gate;
 
   /// Chooses the GPU backend and starts it. Returns `true` when the GPU engine
   /// is ready; `false` leaves the sherpa-onnx path to run.
@@ -644,8 +758,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
 
   Future<void> _dropGpu() async {
     _gpuDisabledForSession = true;
-    final gpu = _gpu;
-    _gpu = null;
+    final gpu = _takeGpu();
     state = state.copyWith(
       state: ParakeetEngineState.stopped,
       backend: ParakeetBackend.sherpaCpu,
@@ -656,7 +769,6 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   // Structurally similar to WhisperIsolateEngine._handleWorkerMessage, but
   // switches over a distinct sealed message hierarchy for an independent
   // isolate worker; a shared dispatcher would couple the two STT engines.
-  // loam-ignore: code-duplicates – see comment above
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       // isCompleted guards: a reply that arrives after its waiter already
@@ -665,17 +777,28 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
         final c = _initCompleter;
         if (c != null && !c.isCompleted) c.complete(r);
       case final _TranscribeResult r:
+        // The worker answered after its native calls returned: nothing reads
+        // the abort flag any more.
+        final flag = _abortFlags.remove(r.requestId);
+        if (flag != null) calloc.free(flag);
         final c = _pending.remove(r.requestId);
         if (c != null && !c.isCompleted) c.complete(r);
       case _ShutdownAck():
+        // The worker handles messages in order, so its ack comes after every
+        // earlier decode reply: any entry still pending is orphaned now.
+        _pending.clear();
+        // The worker has exited, so no native call reads a flag any more.
+        for (final flag in _abortFlags.values) {
+          calloc.free(flag);
+        }
+        _abortFlags.clear();
         final c = _shutdownCompleter;
         if (c != null && !c.isCompleted) c.complete();
     }
   }
 
   Future<void> _shutdown() async {
-    final gpu = _gpu;
-    _gpu = null;
+    final gpu = _takeGpu();
     await gpu?.close();
 
     final isolate = _isolate;
@@ -715,15 +838,3 @@ final parakeetEngineProvider =
     NotifierProvider<ParakeetEngineNotifier, ParakeetStatus>(
       ParakeetEngineNotifier.new,
     );
-
-// ---------------------------------------------------------------------------
-// WAV → Float32 PCM decoding
-// ---------------------------------------------------------------------------
-
-/// Decodes WhisPaste's canonical 44-byte-header, 16 kHz mono, 16-bit PCM WAV
-/// bytes (see `wav_file_writer.dart`) into normalized `[-1, 1]` float samples
-/// for `sherpa_onnx`'s `OfflineStream.acceptWaveform`. Delegates to the shared
-/// codec so there is a single WAV-decode implementation across on-device
-/// engines (whisper + Parakeet).
-Float32List _pcm16WavBytesToFloat32(List<int> wavBytes) =>
-    pcm16WavBytesToFloat32(wavBytes);

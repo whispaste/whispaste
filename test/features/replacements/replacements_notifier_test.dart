@@ -36,13 +36,15 @@ void main() {
       // Wait for the initial build (which auto-inserts sample data).
       await container.read(replacementsProvider.future);
 
-      await notifier.replaceAll(const [
+      await notifier.replaceAll([
         Replacement(
+          createdAt: DateTime(2026),
           id: 'ignored',
           triggers: ['tel'],
           replacement: '+49 123 456789',
         ),
         Replacement(
+          createdAt: DateTime(2026),
           id: 'ignored2',
           triggers: ['addr', 'anschrift'],
           replacement: 'Musterstraße 1',

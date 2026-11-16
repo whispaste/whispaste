@@ -1,7 +1,10 @@
 #!/bin/sh
 # Installs the udev rule that lets WhisPaste's Auto-Paste type Ctrl+V through
-# /dev/uinput. Shipped next to the rule in the Linux tarball; the .deb does the
-# same in its postinst. Run once: sudo ./install-uinput-rule.sh
+# /dev/uinput. While it is installed, every program in the desktop session can
+# create virtual input; the app explains that before it shows this command
+# (R-02). Shipped next to the rule in the Linux tarball; the .deb uses its
+# polkit helper instead. Undo with uninstall-uinput-rule.sh.
+# Run once: sudo ./install-uinput-rule.sh
 set -eu
 
 RULE="71-whispaste-uinput.rules"

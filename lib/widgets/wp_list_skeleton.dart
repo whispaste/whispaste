@@ -20,6 +20,7 @@ class WpListSkeleton extends StatelessWidget {
     super.key,
     required this.rowHeight,
     this.count = 6,
+    this.embedded = false,
     this.padding = const EdgeInsets.symmetric(
       horizontal: WpSpacing.md,
       vertical: WpSpacing.sm,
@@ -39,12 +40,19 @@ class WpListSkeleton extends StatelessWidget {
   /// skeleton reading as a scrollable list in its own right.
   final int count;
 
+  /// True when the skeleton sits inside a list that already scrolls (the
+  /// suggestions tab): it then takes only its own height and does not
+  /// scroll by itself.
+  final bool embedded;
+
   @override
   Widget build(BuildContext context) {
-    const boxColor = WpColors.borderSubtle;
+    final boxColor = WpColors.borderSubtle;
 
     return ListView.separated(
       padding: padding,
+      shrinkWrap: embedded,
+      physics: embedded ? const NeverScrollableScrollPhysics() : null,
       itemCount: count,
       separatorBuilder: (_, _) => const SizedBox(height: WpSpacing.xs),
       itemBuilder: (_, _) => Container(

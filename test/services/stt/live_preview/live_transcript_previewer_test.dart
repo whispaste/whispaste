@@ -8,7 +8,19 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/stt/live_preview/live_transcript_previewer.dart';
 
-Uint8List _pcmChunk(int bytes) => Uint8List(bytes);
+/// 400 ms at 16 kHz: longer than the shortest run that counts as speech.
+const _speechBytes = 12800;
+
+/// A chunk of 16-bit mono PCM as a square wave of [amplitude] (default: a
+/// clear speech level). Silence is `Uint8List(bytes)`.
+Uint8List _pcmChunk(int bytes, {int amplitude = 8000}) {
+  final out = Uint8List(bytes);
+  final view = ByteData.sublistView(out);
+  for (var i = 0; i + 1 < bytes; i += 2) {
+    view.setInt16(i, (i ~/ 2).isEven ? amplitude : -amplitude, Endian.little);
+  }
+  return out;
+}
 
 void main() {
   group('LiveTranscriptPreviewer', () {
@@ -25,7 +37,7 @@ void main() {
 
         expect(previewer.isActive, isFalse);
 
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
         await previewer.onTriggerTick();
 
         expect(decodeCalls, 0);
@@ -46,7 +58,7 @@ void main() {
 
         previewer.start();
         expect(previewer.isActive, isTrue);
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
 
         final events = <String>[];
         final sub = previewer.preview.listen(events.add);
@@ -77,14 +89,14 @@ void main() {
         );
 
         previewer.start();
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
 
         await previewer.onTriggerTick();
         expect(decodeCalls, 1);
 
         // Advance less than minDecodeInterval -> throttled, no new decode.
         now = now.add(const Duration(milliseconds: 500));
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
         await previewer.onTriggerTick();
         expect(
           decodeCalls,
@@ -121,7 +133,7 @@ void main() {
         final sub = previewer.preview.listen(events.add);
 
         previewer.start();
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
         await previewer.onTriggerTick();
         // The broadcast stream's onData dispatch is scheduled one
         // microtask turn after `add()`, so it can still be pending when
@@ -130,7 +142,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         now = now.add(const Duration(milliseconds: 200));
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
         await previewer.onTriggerTick();
         await Future<void>.delayed(Duration.zero);
 
@@ -151,7 +163,7 @@ void main() {
       );
 
       previewer.start();
-      previewer.addPcmChunk(_pcmChunk(1000));
+      previewer.addPcmChunk(_pcmChunk(_speechBytes));
       previewer.stop();
 
       expect(previewer.isActive, isFalse);
@@ -172,7 +184,7 @@ void main() {
         final sub = previewer.preview.listen(events.add);
 
         previewer.start();
-        previewer.addPcmChunk(_pcmChunk(1000));
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
         await previewer.onTriggerTick();
         await Future<void>.delayed(Duration.zero);
 
@@ -182,5 +194,107 @@ void main() {
         previewer.dispose();
       },
     );
+    group('LiveTranscriptPreviewer speech gate', () {
+      late DateTime clock;
+      late int decodeCalls;
+      late LiveTranscriptPreviewer previewer;
+
+      setUp(() {
+        clock = DateTime(2026, 10, 30);
+        decodeCalls = 0;
+        previewer = LiveTranscriptPreviewer(
+          decode: (samples) async {
+            decodeCalls++;
+            return 'text';
+          },
+          now: () => clock,
+        )..start(armTimer: false);
+      });
+
+      tearDown(() => previewer.dispose());
+
+      Future<void> tickLater() async {
+        clock = clock.add(const Duration(seconds: 2));
+        await previewer.onTriggerTick();
+      }
+
+      test('a tick over silence only does not decode', () async {
+        previewer.addPcmChunk(Uint8List(1280));
+        await tickLater();
+        expect(decodeCalls, 0);
+      });
+
+      test('speech since the last decode lets the next tick decode', () async {
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
+        await tickLater();
+        expect(decodeCalls, 1);
+      });
+
+      test(
+        'a decode consumes the speech; silence after it skips the tick',
+        () async {
+          previewer.addPcmChunk(_pcmChunk(_speechBytes));
+          await tickLater();
+          previewer.addPcmChunk(Uint8List(1280));
+          await tickLater();
+          expect(decodeCalls, 1);
+        },
+      );
+
+      test('speech after a silent stretch decodes again', () async {
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
+        await tickLater();
+        previewer.addPcmChunk(Uint8List(12800));
+        await tickLater();
+        previewer.addPcmChunk(_pcmChunk(_speechBytes));
+        await tickLater();
+        expect(decodeCalls, 2);
+      });
+
+      test('a quiet microphone (-45 dBFS peak) gets a preview', () async {
+        previewer.addPcmChunk(_pcmChunk(_speechBytes, amplitude: 184));
+        await tickLater();
+        expect(decodeCalls, 1);
+      });
+
+      test('room tone (-52 dBFS peak) starts no decode', () async {
+        previewer.addPcmChunk(_pcmChunk(32000, amplitude: 82));
+        await tickLater();
+        expect(decodeCalls, 0);
+      });
+
+      test('a click shorter than the speech run starts no decode', () async {
+        previewer.addPcmChunk(_pcmChunk(1280));
+        previewer.addPcmChunk(Uint8List(12800));
+        await tickLater();
+        expect(decodeCalls, 0);
+      });
+
+      test('speech split into uneven chunks still counts', () async {
+        final speech = _pcmChunk(_speechBytes);
+        for (var i = 0; i < speech.length; i += 1000) {
+          previewer.addPcmChunk(
+            Uint8List.sublistView(
+              speech,
+              i,
+              (i + 1000).clamp(0, speech.length),
+            ),
+          );
+        }
+        await tickLater();
+        expect(decodeCalls, 1);
+      });
+
+      test(
+        'stop() clears the gate, so a restarted session starts closed',
+        () async {
+          previewer.addPcmChunk(_pcmChunk(_speechBytes));
+          previewer.stop();
+          previewer.start(armTimer: false);
+          await tickLater();
+          expect(decodeCalls, 0);
+        },
+      );
+    });
   });
 }

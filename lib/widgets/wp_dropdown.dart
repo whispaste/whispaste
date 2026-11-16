@@ -16,13 +16,11 @@
 /// ## Why there is no size variant
 ///
 /// Merging the two wrappers left a `WpDropdownSize` enum behind, and the
-/// 32px `dense` trigger it offered made every settings row shorter than the
-/// search fields, form fields and buttons on the pages around it. There is
-/// now exactly one trigger, and it carries the app's single control
-/// geometry: [WpLayout.minTouchTarget] tall, [WpRadius.borderSm] round,
-/// [WpTypography.body] text — the same three values `WpButton`,
-/// `WpTextFieldVariant.form` and `WpSearchField` settle at, so a dropdown
-/// lines up with any of them on a shared line.
+/// 32px `dense` trigger it offered made every settings row shorter than its
+/// neighbours. There is now exactly one trigger: [WpLayout.controlHeight]
+/// (48) tall, [WpRadiusTokens.sm] round, [WpTypography.body] text — the
+/// height of the field and the button it shares a line with (UX-131; it was
+/// 40 and stood 8 px short beside them).
 ///
 /// ## What it fixes in the opened menu
 ///
@@ -50,21 +48,22 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Geometry
 // ---------------------------------------------------------------------------
 //
-// One trigger, one geometry — see the library docs. These four values are the
-// app's control family, not this widget's private taste: `WpButton`,
-// `WpTextFieldVariant.form` and `WpSearchField` all resolve to the same
-// height, radius and text size, which is what lets a dropdown share a line
-// with any of them.
+// One trigger, one geometry — see the library docs. The closed trigger's
+// visible box is the shared control height with an 8 px radius, which is
+// also the 48 px touch target (`WpLayout.minTouchTarget`); the
+// `WpTouchTarget` around it only still pads a box that came out narrower.
 
-/// Resting height of the closed trigger.
-const double _kTriggerHeight = WpLayout.minTouchTarget;
+/// Resting height of the closed trigger (UX-131).
+const double _kTriggerHeight = WpLayout.controlHeight;
 
 /// Chevron glyph — the same [WpIconSize.sm] every other 48px control puts in
 /// its icon slot.
@@ -81,6 +80,37 @@ const FontWeight _kActiveWeight = FontWeight.w600;
 /// glyph, and compensated for by [_WpDropdownState._menuWidth] so reserving
 /// it never costs label width.
 const double _kCheckGutter = WpIconSize.sm + WpSpacing.xs;
+
+/// Width of the trigger's outline. It sits inside the box, so it takes space
+/// from the label on each side.
+const double _kTriggerBorderWidth = 1;
+
+/// Width a trigger needs to show its widest of [labels] in one piece.
+///
+/// Measures every label in the trigger's own text style at the ambient text
+/// scaler, adds the trigger chrome (the horizontal inset, the gap before the
+/// chevron and the chevron itself) and rounds up to the 4 px grid. It is not
+/// capped: a caller caps it by the space its row has. Used by settings groups,
+/// where all dropdowns of one group must share one width.
+double wpDropdownFitWidth(BuildContext context, Iterable<String> labels) {
+  final style = Theme.of(context).textTheme.bodyLarge ?? const TextStyle();
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  var widest = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    widest = math.max(widest, painter.width);
+    painter.dispose();
+  }
+  const chrome =
+      (WpSpacing.sm + _kTriggerBorderWidth) * 2 + WpSpacing.xs + _kChevronSize;
+  return ((widest + chrome) / 4).ceil() * 4.0;
+}
 
 // ---------------------------------------------------------------------------
 // Item model
@@ -131,6 +161,9 @@ class WpDropdown<T> extends StatefulWidget {
     this.hint,
     this.expanded = false,
     this.menuMinWidth,
+    this.testId,
+    this.focusNode,
+    this.onLockedTap,
   });
 
   /// Currently selected value, or `null` for an unset picker (see [hint]).
@@ -138,7 +171,8 @@ class WpDropdown<T> extends StatefulWidget {
 
   final List<WpDropdownItem<T>> items;
 
-  /// `null` disables the control.
+  /// `null` disables the control. A list whose items are all disabled
+  /// disables it as well (see [wpDropdownCanOpen]).
   final ValueChanged<T?>? onChanged;
 
   /// Muted placeholder shown while [value] is `null`.
@@ -153,15 +187,36 @@ class WpDropdown<T> extends StatefulWidget {
   /// is already wider.
   final double? menuMinWidth;
 
+  /// Stable id, exposed as the accessibility identifier of the trigger.
+  final String? testId;
+
+  /// Optional external focus node, so a caller can move focus onto the
+  /// dropdown. When null the dropdown owns a private node.
+  final FocusNode? focusNode;
+
+  /// Called instead of [onChanged] when the user picks an entry that is not
+  /// enabled (#1686). Without it such entries ignore a click, which reads as
+  /// "nothing happens"; with it the caller answers, e.g. by leading to what
+  /// unlocks the entry. The value stays unchanged either way.
+  final ValueChanged<T>? onLockedTap;
+
   @override
   State<WpDropdown<T>> createState() => _WpDropdownState<T>();
 }
+
+/// Whether a dropdown with these [items] may open its menu: only when at
+/// least one item can be picked. A menu of nothing but locked entries reads
+/// as a defect (#1156), so such a dropdown shows as disabled and stays shut.
+bool wpDropdownCanOpen<T>(List<WpDropdownItem<T>> items) =>
+    items.any((item) => item.enabled);
 
 class _WpDropdownState<T> extends State<WpDropdown<T>> {
   /// Shared with [WpFocusRing] in external-node mode: the ring only *listens*,
   /// so the dropdown keeps its single focus stop and its built-in keyboard
   /// handling (space/enter to open, arrows to move, enter to pick).
-  final FocusNode _focusNode = FocusNode(debugLabel: 'WpDropdown');
+  final FocusNode _ownFocusNode = FocusNode(debugLabel: 'WpDropdown');
+
+  FocusNode get _focusNode => widget.focusNode ?? _ownFocusNode;
 
   final GlobalKey _buttonKey = GlobalKey();
 
@@ -178,7 +233,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _ownFocusNode.dispose();
     super.dispose();
   }
 
@@ -197,7 +252,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     });
 
     final theme = Theme.of(context);
-    const palette = _WpDropdownPalette._palette;
+    final palette = _WpDropdownPalette.current();
 
     // `bodyLarge`, not `titleMedium`: the trigger shows a *value*, exactly as
     // a text field does, and 13/w400 is what `WpTextFieldVariant.form` and
@@ -216,7 +271,14 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     final menuSurface = palette.menuSurface;
     final focusWash = palette.focusWash;
     final hoverWash = palette.hoverWash;
-    final radius = WpRadius.borderSm;
+    final radius = BorderRadius.circular(WpRadiusTokens.sm);
+
+    final onChanged = wpDropdownCanOpen(widget.items) ? widget.onChanged : null;
+    final onLockedTap = widget.onLockedTap;
+    final locked = {
+      for (final item in widget.items)
+        if (!item.enabled) item.value,
+    };
 
     final dropdown = DropdownButton<T>(
       key: _buttonKey,
@@ -226,7 +288,8 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
           DropdownMenuItem<T>(
             key: item.itemKey,
             value: item.value,
-            enabled: item.enabled,
+            // A locked entry stays tappable when the caller answers the tap.
+            enabled: item.enabled || onLockedTap != null,
             child: _WpDropdownRow(
               key: item.value == widget.value ? item.activeKey : null,
               label: item.label,
@@ -254,11 +317,15 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
             ),
           ),
       ],
-      onChanged: widget.onChanged == null
+      onChanged: onChanged == null
           ? null
           : (value) {
+              if (onLockedTap != null && locked.contains(value)) {
+                onLockedTap(value as T);
+                return;
+              }
               HapticFeedback.selectionClick();
-              widget.onChanged!(value);
+              onChanged(value);
             },
       hint: widget.hint == null
           ? null
@@ -295,27 +362,50 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
       ),
     );
 
-    return WpFocusRing(
-      focusNode: _focusNode,
-      radius: WpRadius.sm,
-      child: Container(
-        height: _kTriggerHeight,
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: radius,
-          border: Border.all(color: border),
-        ),
-        child: DropdownButtonHideUnderline(
-          // Re-tints the row washes of the opened menu (Material captures the
-          // themes from this context for the menu route) as well as the
-          // trigger's own hover ink.
-          child: Theme(
-            data: theme.copyWith(focusColor: focusWash, hoverColor: hoverWash),
-            child: dropdown,
+    // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+    final trigger = WpTouchTarget(
+      onTap: onChanged == null ? null : _openMenu,
+      child: WpFocusRing(
+        focusNode: _focusNode,
+        radius: WpRadiusTokens.sm,
+        child: Container(
+          height: _kTriggerHeight,
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: radius,
+            border: Border.all(color: border, width: _kTriggerBorderWidth),
+          ),
+          child: DropdownButtonHideUnderline(
+            // Re-tints the row washes of the opened menu (Material captures the
+            // themes from this context for the menu route) as well as the
+            // trigger's own hover ink.
+            child: Theme(
+              data: theme.copyWith(
+                focusColor: focusWash,
+                hoverColor: hoverWash,
+              ),
+              child: dropdown,
+            ),
           ),
         ),
       ),
     );
+    final testId = widget.testId;
+    if (testId == null) return trigger;
+    // MergeSemantics: the identifier must share a node with the label and the
+    // tap action (same idiom as WpButton).
+    return MergeSemantics(
+      child: Semantics(identifier: testId, child: trigger),
+    );
+  }
+
+  /// Opens the menu from the hit area around the trigger. It runs the same
+  /// action the trigger's own InkWell runs for Enter and Space, so the ring
+  /// and the trigger cannot drift apart.
+  void _openMenu() {
+    final context = _focusNode.context;
+    if (context == null) return;
+    Actions.maybeInvoke<ActivateIntent>(context, const ActivateIntent());
   }
 }
 
@@ -366,7 +456,7 @@ class _WpDropdownPalette {
   /// carries the control's shape. The **menu** is a route overlay floating
   /// over arbitrary content with no ambient underneath, so it takes the
   /// pre-composited [WpColors.floatingSurface] instead.
-  static const _palette = _WpDropdownPalette(
+  static _WpDropdownPalette current() => _WpDropdownPalette(
     surface: WpColors.cardFillElevated,
     border: WpColors.cardEdgeHighlight,
     textPrimary: WpColors.textPrimary,
@@ -441,11 +531,20 @@ class _WpDropdownRow extends StatelessWidget {
             ),
           ),
         ),
+        // A lock, so a locked entry reads as locked at first glance, not only
+        // on hover (#1686).
+        if (!enabled) ...[
+          const SizedBox(width: WpSpacing.xs),
+          Icon(LucideIcons.lock, size: WpIconSize.sm, color: textMuted),
+        ],
       ],
     );
 
     if (!enabled && disabledTooltip != null) {
-      return Tooltip(message: disabledTooltip!, child: row);
+      return Tooltip(
+        message: disabledTooltip!,
+        child: Semantics(hint: disabledTooltip, child: row),
+      );
     }
     return row;
   }

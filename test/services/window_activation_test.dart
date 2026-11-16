@@ -5,6 +5,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/tray_panel/tray_panel_controller.dart';
 import 'package:whispaste/services/tray_service.dart';
 import 'package:whispaste/services/window_activation.dart';
 
@@ -22,6 +23,8 @@ void main() {
     var activations = 0;
     final container = ProviderContainer(
       overrides: [
+        // macOS hosts have a panel shell that a click opens instead.
+        trayPanelControllerProvider.overrideWithValue(null),
         windowActivatorProvider.overrideWithValue(() async => activations++),
       ],
     );

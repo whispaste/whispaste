@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/model_download_service.dart'
     show QualityTier;
 
@@ -84,9 +85,9 @@ void main() {
       expect(_roundtrip(s).inputGain, 1.5);
     });
 
-    test('inputGain 0.0 (silence) survives roundtrip', () {
+    test('inputGain 0.0 (silence) reads back as the minimum (#1611)', () {
       final s = AppSettings.defaults.copyWith(inputGain: 0.0);
-      expect(_roundtrip(s).inputGain, 0.0);
+      expect(_roundtrip(s).inputGain, closeTo(0.2512, 0.0001));
     });
 
     test('inputGain missing key falls back to 1.0', () {
@@ -232,9 +233,13 @@ void main() {
       expect(_roundtrip(s).overlaySize, 'compact');
     });
 
-    test('overlayStyle solid survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(overlayStyle: 'solid');
-      expect(_roundtrip(s).overlayStyle, 'solid');
+    test('overlay theme presets survive roundtrip', () {
+      final s = AppSettings.defaults.copyWith(
+        overlayBackground: 'gletscher',
+        overlayWave: 'violett',
+      );
+      expect(_roundtrip(s).overlay.overlayBackground, 'gletscher');
+      expect(_roundtrip(s).overlay.overlayWave, 'violett');
     });
 
     test('showFloatingButton true survives roundtrip', () {
@@ -521,6 +526,44 @@ void main() {
       expect(r.inputGain, 1.75);
     });
 
+    test('hold-or-tap threshold defaults to 250 ms and roundtrips', () {
+      expect(AppSettings.defaults.audioInput.holdOrTapThresholdMs, 250);
+      final s = AppSettings.defaults.copyWithSections(
+        audioInput: const AudioInputSettings(
+          pushToTalk: true,
+          holdOrTap: true,
+          holdOrTapThresholdMs: 600,
+        ),
+      );
+      expect(s.toStorageMap()['hold_or_tap_threshold_ms'], '600');
+      expect(_roundtrip(s).audioInput.holdOrTapThresholdMs, 600);
+    });
+
+    test(
+      'existing install (onboarding done, key missing) keeps the old 1000 ms '
+      'threshold; a new install gets 250 ms',
+      () {
+        final existing = AppSettings.fromStorageMap({
+          'onboarding_completed': 'true',
+        });
+        expect(existing.audioInput.holdOrTapThresholdMs, 1000);
+        final fresh = AppSettings.fromStorageMap({});
+        expect(fresh.audioInput.holdOrTapThresholdMs, 250);
+        final onboardingOpen = AppSettings.fromStorageMap({
+          'onboarding_completed': 'false',
+        });
+        expect(onboardingOpen.audioInput.holdOrTapThresholdMs, 250);
+      },
+    );
+
+    test('a stored threshold is never overridden by the legacy migration', () {
+      final s = AppSettings.fromStorageMap({
+        'onboarding_completed': 'true',
+        'hold_or_tap_threshold_ms': '400',
+      });
+      expect(s.audioInput.holdOrTapThresholdMs, 400);
+    });
+
     test('holdOrTap defaults to off and roundtrips under hold_or_tap', () {
       // Default for new installs stays plain Toggle (ticket catchup/07).
       expect(AppSettings.defaults.audioInput.holdOrTap, isFalse);
@@ -639,6 +682,18 @@ void main() {
       expect(map['transcription_complete_sound'], 'false');
       expect(map['duration_warning_sound'], 'false');
       expect(map['sound_volume'], '40.0');
+      expect(map['sound_set'], 'bernstein');
+      expect(map['paste_cue_sound'], 'false');
+      expect(map.containsKey('paste_sound'), isFalse);
+    });
+
+    test('sound set and paste cue roundtrip', () {
+      final s = AppSettings.defaults.copyWithSections(
+        sound: const SoundSettings(soundSet: SoundSet.atem, pasteSound: true),
+      );
+      final r = _roundtrip(s);
+      expect(r.sound.soundSet, SoundSet.atem);
+      expect(r.sound.pasteSound, isTrue);
     });
 
     test('sound cluster full roundtrip', () {
@@ -671,7 +726,8 @@ void main() {
         overlayMode: 'floating',
         overlayStartPosition: 'last-position',
         overlaySize: 'compact',
-        overlayStyle: 'solid',
+        overlayBackground: 'graphit',
+        overlayWave: 'ink',
         showFloatingButton: true,
       );
       final map = s.toStorageMap();
@@ -679,7 +735,9 @@ void main() {
       expect(map['overlay_mode'], 'floating');
       expect(map['overlay_start_position'], 'last-position');
       expect(map['overlay_size'], 'compact');
-      expect(map['overlay_style'], 'solid');
+      expect(map['overlay_background'], 'graphit');
+      expect(map['overlay_wave'], 'ink');
+      expect(map.containsKey('overlay_style'), isFalse);
       expect(map['show_floating_button'], 'true');
       // Size and opacity keys are no longer written (issue 11).
       expect(map.containsKey('floating_button_size'), isFalse);
@@ -693,7 +751,8 @@ void main() {
         overlayMode: OverlayMode.floating.value,
         overlayStartPosition: OverlayStartPosition.lastPosition.value,
         overlaySize: FloatingOverlaySize.compact.value,
-        overlayStyle: OverlayStyle.solid.value,
+        overlayBackground: OverlayBackground.gletscher.value,
+        overlayWave: OverlayWave.violett.value,
         showFloatingButton: true,
       );
       final r = _roundtrip(s);
@@ -701,7 +760,8 @@ void main() {
       expect(r.overlayMode, OverlayMode.floating.value);
       expect(r.overlayStartPosition, OverlayStartPosition.lastPosition.value);
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
-      expect(r.overlayStyle, OverlayStyle.solid.value);
+      expect(r.overlay.overlayBackground, OverlayBackground.gletscher.value);
+      expect(r.overlay.overlayWave, OverlayWave.violett.value);
       expect(r.showFloatingButton, isTrue);
     });
 
@@ -868,6 +928,20 @@ void main() {
       final map = AppSettings.defaults.toStorageMap();
       expect(map.containsKey('text_replacements_enabled'), isTrue);
     });
+
+    test('textReplacementsEnabled is on by default', () {
+      expect(AppSettings.defaults.behavior.textReplacementsEnabled, isTrue);
+    });
+
+    test(
+      'a stored off value is kept, the new default does not override it',
+      () {
+        final stored = AppSettings.defaults.toStorageMap()
+          ..['text_replacements_enabled'] = 'false';
+        final loaded = AppSettings.fromStorageMap(stored);
+        expect(loaded.behavior.textReplacementsEnabled, isFalse);
+      },
+    );
 
     test('textReplacementsEnabled true survives roundtrip', () {
       final s = AppSettings.defaults.copyWith(textReplacementsEnabled: true);
@@ -1093,6 +1167,25 @@ void main() {
         expect(restored.onboarding.autoPasteOffHintDismissed, isFalse);
       },
     );
+
+    test('exactTriggerHintDismissed is shown once: false, then kept', () {
+      // Legacy storage (no key) still shows the hint; a dismissal persists.
+      final legacy = AppSettings.defaults.toStorageMap()
+        ..remove('exact_trigger_hint_dismissed');
+      expect(
+        AppSettings.fromStorageMap(legacy).onboarding.exactTriggerHintDismissed,
+        isFalse,
+      );
+      final dismissed = AppSettings.defaults.copyWithSections(
+        onboarding: AppSettings.defaults.onboarding.copyWith(
+          exactTriggerHintDismissed: true,
+        ),
+      );
+      expect(
+        _roundtrip(dismissed).onboarding.exactTriggerHintDismissed,
+        isTrue,
+      );
+    });
 
     test('onboardingCurrentStep storage key is present', () {
       final map = AppSettings.defaults.toStorageMap();

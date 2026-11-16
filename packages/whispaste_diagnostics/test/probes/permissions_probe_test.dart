@@ -1,6 +1,8 @@
 /// Unit tests for permissions_probe.dart (AC2).
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:test/test.dart';
 import 'package:whispaste_diagnostics/src/probes/permissions_probe.dart';
 
@@ -155,5 +157,5 @@ HKCU\\...\\microphone
       final result = await gatherPermissionsProbe();
       expect(result.macosMicGranted, isFalse);
     });
-  });
+  }, skip: Platform.isMacOS ? false : 'seams drive the macOS branch only');
 }

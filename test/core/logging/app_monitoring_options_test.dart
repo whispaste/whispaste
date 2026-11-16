@@ -43,8 +43,30 @@ void main() {
       expect(options.tracesSampler, same(CrashReporter.tracesSampler));
     });
 
+    test('scrubs breadcrumbs as they are recorded, not only in events', () {
+      expect(options.beforeBreadcrumb, same(CrashReporter.beforeBreadcrumb));
+    });
+
+    test('native app-hang reports start at 5 s, not the SDK default 2 s '
+        '(shared Sentry error quota, rule 2026-10-27)', () {
+      expect(options.appHangTimeoutInterval, const Duration(seconds: 5));
+    });
+
+    test('sends crashes and errors only: no performance traces, no '
+        'session tracking', () {
+      expect(options.tracesSampleRate, 0.0);
+      expect(options.enableAutoPerformanceTracing, isFalse);
+      expect(options.enableAutoSessionTracking, isFalse);
+    });
+
     test('never propagates trace headers to any host', () {
       expect(options.tracePropagationTargets, isEmpty);
+    });
+
+    test('debug builds skip the native SDK, which crashes when a hot '
+        'restart initialises it a second time', () {
+      // Tests run in debug mode; release builds keep native capture.
+      expect(options.autoInitializeNativeSdk, isFalse);
     });
   });
 }

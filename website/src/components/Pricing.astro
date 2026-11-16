@@ -12,7 +12,7 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
 
 ---
 
-<!-- Pricing: two routes to the same app, side by side (another app principle:
+<!-- Pricing: two routes to the same app, side by side (principle:
      parallel option cards, a small tilted label on each, one action per
      card, then what is included). The OS store button stays the primary
      action (maintainer decision), the free GitHub route is the second card;
@@ -49,7 +49,7 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
             <li><span data-i18n={`pricing.${k}`}>{t(lang, `pricing.${k}`)}</span></li>
           ))}
         </ul>
-        <a href={localePath(lang, "download")} class="price-free__link" data-testid="pricing-free">
+        <a href={localePath(lang, "download")} class="price-free__link" data-testid="pricing-free" data-download-anchor>
           <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
         </a>

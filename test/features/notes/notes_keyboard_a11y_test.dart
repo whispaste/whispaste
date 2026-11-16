@@ -2,18 +2,19 @@
 /// `history_keyboard_a11y_test.dart` + `keyboard_navigation_test.dart`.
 library;
 
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
+import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
+import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import 'package:whispaste/widgets/find_replace_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -37,6 +38,11 @@ class _RecordingActions extends NotesActions {
 }
 
 List<Object> get _noTagOverrides => [
+  // The metadata index would start isolates; these tests are not about it.
+  contentMetadataProvider.overrideWith((ref, key) => Stream.value(null)),
+  contentMetadataPreviewProvider.overrideWith((ref, text) async => null),
+  // The fixture notes carry their full text; no database read for search hits.
+  noteTextHitsProvider.overrideWith((ref, query) async => const {}),
   allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
   noteTagsProvider.overrideWith((ref, noteId) => Stream.value(const [])),
 ];
@@ -59,7 +65,7 @@ Note _sampleNote({
 }
 
 Finder _editorTextField() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -110,6 +116,58 @@ void main() {
       },
     );
 
+    testWidgets('Arrow Down/Up move the highlighted row one note at a time and '
+        'stop at both ends (UIA-R-NOT-025)', (tester) async {
+      final notes = [
+        _sampleNote(id: 'n1', content: 'First note'),
+        _sampleNote(id: 'n2', content: 'Second note'),
+        _sampleNote(id: 'n3', content: 'Third note'),
+      ];
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+
+      String? highlighted() {
+        final tiles = tester.widgetList<NotesListTile>(
+          find.byType(NotesListTile),
+        );
+        final focused = tiles.where((t) => t.isFocused).toList();
+        return focused.length == 1 ? focused.single.note.id : null;
+      }
+
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        await _settle(tester);
+      }
+
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n1');
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n2');
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n3');
+      // Clamps at the last row instead of wrapping to the first.
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n3');
+      await press(LogicalKeyboardKey.arrowUp);
+      expect(highlighted(), 'n2');
+
+      // J/K step like the arrows — the same keys as every other list (#277).
+      await press(LogicalKeyboardKey.keyJ);
+      expect(highlighted(), 'n3');
+      await press(LogicalKeyboardKey.keyK);
+      await press(LogicalKeyboardKey.keyK);
+      expect(highlighted(), 'n1');
+    });
+
     testWidgets('Enter opens the focused note in the editor', (tester) async {
       final notes = [_sampleNote(id: 'n1', content: 'First note')];
       await tester.pumpWidget(
@@ -139,6 +197,7 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const NotesPage(),
+          noticeBar: true,
           overrides: [
             notesProvider.overrideWith((ref) => Stream.value(notes)),
             trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
@@ -156,8 +215,10 @@ void main() {
 
       expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
 
-      // Drain the toast's 4s auto-dismiss timer so no Timer outlives the test.
-      await tester.pumpAndSettle(const Duration(seconds: 5));
+      // Drain the undo toast's 10 s auto-dismiss timer (actionable minimum)
+      // so no Timer outlives the test.
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
     });
 
     testWidgets(
@@ -167,6 +228,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             const NotesPage(),
+            noticeBar: true,
             overrides: [
               notesProvider.overrideWith((ref) => Stream.value(notes)),
               trashNotesProvider.overrideWith((ref) => Stream.value(const [])),
@@ -183,7 +245,8 @@ void main() {
         await _settle(tester);
 
         expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
-        await tester.pumpAndSettle(const Duration(seconds: 5));
+        await tester.pump(const Duration(seconds: 11));
+        await tester.pumpAndSettle();
       },
     );
 
@@ -205,7 +268,11 @@ void main() {
         );
         await _settle(tester);
 
-        await tester.tap(find.text(l10n.notesTrash));
+        await tester.tap(find.bySemanticsIdentifier('notes-filter-menu'));
+        await _settle(tester);
+        await tester.tap(find.bySemanticsIdentifier('notes-filter-trash'));
+        await _settle(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await _settle(tester);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -318,7 +385,12 @@ void main() {
       await tester.tap(find.text('First note'));
       await _settle(tester);
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      // The toolbar scrolls sideways when the panel is narrow; bring the
+      // toggle into reach the way a user would before pressing it.
+      final findToggle = find.bySemanticsLabel(l10n.findReplaceToggle);
+      await tester.ensureVisible(findToggle);
+      await _settle(tester);
+      await tester.tap(findToggle);
       await _settle(tester);
       expect(find.byType(WpFindReplaceBar), findsOneWidget);
 
@@ -351,6 +423,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             const NotesPage(),
+            noticeBar: true,
             overrides: [
               notesProvider.overrideWith((ref) => Stream.value(notes)),
               ..._noTagOverrides,
@@ -392,6 +465,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             const NotesPage(),
+            noticeBar: true,
             overrides: [
               notesProvider.overrideWith((ref) => Stream.value(notes)),
               ..._noTagOverrides,
@@ -428,6 +502,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             const NotesPage(),
+            noticeBar: true,
             overrides: [
               notesProvider.overrideWith((ref) => Stream.value(notes)),
               ..._noTagOverrides,
@@ -474,7 +549,7 @@ void main() {
       );
       await _settle(tester);
 
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
@@ -488,7 +563,7 @@ void main() {
       await _settle(tester);
 
       expect(actions.createCalled, isTrue);
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets('Ctrl/Cmd+N creates a note even while the editor is focused', (
       tester,
@@ -526,7 +601,7 @@ void main() {
       await tester.tap(_editorTextField());
       await _settle(tester);
 
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
@@ -540,7 +615,7 @@ void main() {
       await _settle(tester);
 
       expect(actions.createCalled, isTrue);
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets('Ctrl/Cmd+N creates a new note from the empty state', (
       tester,
@@ -566,7 +641,7 @@ void main() {
       );
       await _settle(tester);
 
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyN);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyN);
@@ -580,7 +655,7 @@ void main() {
       await _settle(tester);
 
       expect(actions.createCalled, isTrue);
-    });
+    }, variant: TargetPlatformVariant.desktop());
 
     testWidgets('Ctrl/Cmd+C copies the focused note\'s content', (
       tester,
@@ -615,7 +690,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await _settle(tester);
 
-      if (Platform.isMacOS) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
@@ -629,9 +704,201 @@ void main() {
       await tester.pump();
 
       expect(clipboardText, 'Copy me please');
-      expect(find.text(l10n.notesCopied), findsOneWidget);
+      expect(find.text(l10n.copyDone), findsOneWidget);
 
       await tester.pumpAndSettle(const Duration(seconds: 3));
+    }, variant: TargetPlatformVariant.desktop());
+  });
+
+  group('Ctrl/Cmd+C inside the editor', () {
+    testWidgets('copies the selected text, not the whole note', (tester) async {
+      String? clipboardText;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              final args = Map<String, dynamic>.from(call.arguments as Map);
+              clipboardText = args['text'] as String?;
+            }
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith(
+              (ref) => Stream.value([
+                _sampleNote(id: 'n1', content: 'one two three'),
+              ]),
+            ),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await _settle(tester);
+
+      final field = tester.widget<TextField>(_editorTextField());
+      expect(field.focusNode!.hasPrimaryFocus, isTrue);
+      field.controller!.selection = const TextSelection(
+        baseOffset: 4,
+        extentOffset: 7,
+      );
+      await tester.pump();
+
+      final command = defaultTargetPlatform == TargetPlatform.macOS
+          ? LogicalKeyboardKey.meta
+          : LogicalKeyboardKey.control;
+      await tester.sendKeyDownEvent(command);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(command);
+      await tester.pump();
+
+      expect(clipboardText, 'two');
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+    }, variant: TargetPlatformVariant.desktop());
+  });
+
+  // ---------------------------------------------------------------------------
+  // Keyboard path search → list → editor → list (#853)
+  // ---------------------------------------------------------------------------
+  group('keyboard path search → list → editor', () {
+    Future<void> pumpPage(WidgetTester tester, List<Note> notes) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+    }
+
+    String? highlighted(WidgetTester tester) {
+      final focused = tester
+          .widgetList<NotesListTile>(find.byType(NotesListTile))
+          .where((t) => t.isFocused)
+          .toList();
+      return focused.length == 1 ? focused.single.note.id : null;
+    }
+
+    Future<void> press(WidgetTester tester, LogicalKeyboardKey key) async {
+      await tester.sendKeyEvent(key);
+      await _settle(tester);
+    }
+
+    bool editorFocused(WidgetTester tester) =>
+        tester.widget<TextField>(_editorTextField()).focusNode!.hasPrimaryFocus;
+
+    testWidgets('Enter focuses the body; Escape returns to the list with the '
+        'note still open and its text intact; a second Escape closes it', (
+      tester,
+    ) async {
+      await pumpPage(tester, [
+        _sampleNote(id: 'n1', content: 'First note'),
+        _sampleNote(id: 'n2', content: 'Second note'),
+      ]);
+
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      await press(tester, LogicalKeyboardKey.enter);
+      expect(find.byType(NoteEditorPanel), findsOneWidget);
+      expect(editorFocused(tester), isTrue);
+
+      await tester.enterText(_editorTextField(), 'Second note edited');
+      await _settle(tester);
+
+      await press(tester, LogicalKeyboardKey.escape);
+      expect(find.byType(NoteEditorPanel), findsOneWidget);
+      expect(editorFocused(tester), isFalse);
+      expect(highlighted(tester), 'n2');
+      expect(
+        tester.widget<TextField>(_editorTextField()).controller!.text,
+        'Second note edited',
+      );
+
+      // Enter on the note that is already open only moves focus back: the
+      // text is not reloaded from the stored note.
+      await press(tester, LogicalKeyboardKey.enter);
+      expect(editorFocused(tester), isTrue);
+      expect(
+        tester.widget<TextField>(_editorTextField()).controller!.text,
+        'Second note edited',
+      );
+
+      await press(tester, LogicalKeyboardKey.escape);
+      await press(tester, LogicalKeyboardKey.escape);
+      expect(find.byType(NoteEditorPanel), findsNothing);
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+    }, variant: TargetPlatformVariant.desktop());
+
+    testWidgets('↓ from the search field puts the cursor on the first note, '
+        '↑ on the last', (tester) async {
+      await pumpPage(tester, [
+        _sampleNote(id: 'n1', content: 'First note'),
+        _sampleNote(id: 'n2', content: 'Second note'),
+        _sampleNote(id: 'n3', content: 'Third note'),
+      ]);
+
+      await tester.tap(find.byType(TextField).first);
+      await _settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      expect(highlighted(tester), 'n1');
+      // The list holds focus now, so the next ↓ steps on.
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      expect(highlighted(tester), 'n2');
+
+      await tester.tap(find.byType(TextField).first);
+      await _settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowUp);
+      expect(highlighted(tester), 'n3');
+    });
+
+    testWidgets('↓ from the search field does nothing on an empty list', (
+      tester,
+    ) async {
+      await pumpPage(tester, const []);
+
+      await tester.tap(find.byType(TextField).first);
+      await _settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowDown);
+
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).first)
+            .focusNode!
+            .hasPrimaryFocus,
+        isTrue,
+      );
+    });
+
+    testWidgets('Escape in the search field clears a running search first', (
+      tester,
+    ) async {
+      await pumpPage(tester, [_sampleNote(id: 'n1', content: 'First note')]);
+
+      final search = find.byType(TextField).first;
+      await tester.enterText(search, 'first');
+      await _settle(tester);
+      await press(tester, LogicalKeyboardKey.escape);
+
+      final field = tester.widget<TextField>(search);
+      expect(field.controller!.text, isEmpty);
+      expect(field.focusNode!.hasPrimaryFocus, isTrue);
+
+      await press(tester, LogicalKeyboardKey.escape);
+      expect(field.focusNode!.hasPrimaryFocus, isFalse);
     });
   });
 }

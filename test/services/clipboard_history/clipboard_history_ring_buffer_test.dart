@@ -8,9 +8,9 @@ import 'package:whispaste/services/clipboard_history/clipboard_history_ring_buff
 ClipboardHistoryEntry _textEntry(String text, {DateTime? at}) =>
     ClipboardHistoryEntry.text(text, capturedAt: at ?? DateTime(2026, 1, 1));
 
-ClipboardHistoryEntry _imageEntry(int bytes, {DateTime? at}) =>
+ClipboardHistoryEntry _imageEntry(int bytes, {int fill = 0, DateTime? at}) =>
     ClipboardHistoryEntry.image(
-      List<int>.filled(bytes, 0),
+      List<int>.filled(bytes, fill),
       capturedAt: at ?? DateTime(2026, 1, 1),
     );
 
@@ -24,6 +24,28 @@ void main() {
       buffer.add(_textEntry('first'));
       buffer.add(_textEntry('second'));
       expect(buffer.entries.map((e) => e.textValue), ['second', 'first']);
+    });
+
+    test('unchanged content is not added twice in a row', () {
+      // Linux reads the clipboard on every panel open, and a paste restores
+      // the image that was there before.
+      final buffer = ClipboardHistoryRingBuffer(
+        maxEntries: 10,
+        maxTotalBytes: 1000,
+      );
+      final first = DateTime(2026, 10, 31, 9);
+      buffer.add(_imageEntry(10, at: first));
+      buffer.add(_imageEntry(10, at: DateTime(2026, 10, 31, 10)));
+      buffer.add(_textEntry('a'));
+      buffer.add(_textEntry('a'));
+      buffer.add(_imageEntry(10));
+
+      expect(buffer.entries.map((e) => e.kind), [
+        ClipboardEntryKind.image,
+        ClipboardEntryKind.text,
+        ClipboardEntryKind.image,
+      ]);
+      expect(buffer.entries.last.capturedAt, first);
     });
 
     test('evicts oldest entries once the entry cap is exceeded', () {
@@ -42,9 +64,9 @@ void main() {
         maxEntries: 100,
         maxTotalBytes: 1500,
       );
-      buffer.add(_imageEntry(1000));
-      buffer.add(_imageEntry(1000));
-      expect(buffer.entries, hasLength(1));
+      buffer.add(_imageEntry(1000, fill: 1));
+      buffer.add(_imageEntry(1000, fill: 2));
+      expect(buffer.entries.single.imageBytes!.first, 2);
     });
 
     test('a single entry larger than the byte cap is still kept alone', () {

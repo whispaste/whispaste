@@ -8,10 +8,9 @@
 /// probes when the section renders in paste mode.
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -180,11 +179,10 @@ void main() {
       },
     );
 
-    // ── Blocklist removed from this section ─────────────────────────────────
-    // The blocklist TextField was moved to AdvancedSection. It must not appear
-    // in AfterTranscriptionSection even when paste mode is active.
+    // ── Blocklist in this section ───────────────────────────────────────────
+    // The auto-paste blocklist moved here from Erweitert (spec #69).
 
-    testWidgets('blocklist TextField not in this section — paste mode', (
+    testWidgets('blocklist is an app list with an add button (spec #69)', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(
@@ -204,6 +202,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The auto-paste blocklist lives here as an app list; apps are added via
+      // the picker, so no inline text field is shown.
+      expect(
+        find.byKey(const ValueKey('settings-paste-blocklist-add')),
+        findsOneWidget,
+      );
       expect(find.byType(TextField), findsNothing);
     });
 
@@ -276,7 +280,7 @@ void main() {
     testWidgets(
       'selecting Auto-Paste requests the permission grant when not yet '
       'ready (macOS only — see AfterTranscriptionSection.build\'s '
-      'Platform.isMacOS gate: Windows\' checkCapability always reports '
+      'macOS gate: Windows\' checkCapability always reports '
       '"ready"/canPrompt:false, see windows/runner/desktop_paste_host.cpp, '
       'so it can never actually be in this permissionMissing/canPrompt '
       'state in production, and Linux has no native paste controller at '
@@ -318,8 +322,12 @@ void main() {
         // native desktop-paste controller wired up at all (see
         // desktopPasteControllerProvider), so requestGrant firing there
         // would just arm a 30s polling loop that can never succeed.
-        expect(capability.requestGrantCalls, Platform.isMacOS ? 1 : 0);
+        expect(
+          capability.requestGrantCalls,
+          defaultTargetPlatform == TargetPlatform.macOS ? 1 : 0,
+        );
       },
+      variant: TargetPlatformVariant.desktop(),
     );
 
     testWidgets(
@@ -455,5 +463,65 @@ void main() {
         expect(pasteItem.enabled, isTrue);
       },
     );
+
+    // PAR-032: Wayland gives the paste host no focused window, so a window
+    // switch during processing cannot be caught; the section says so.
+    group('Wayland focus hint', () {
+      Future<void> pump(
+        WidgetTester tester, {
+        required AfterTranscriptionAction action,
+        required bool focusCheck,
+      }) async {
+        final notifier = _FakeSettingsNotifier(_settingsWithAction(action));
+        await tester.pumpWidget(
+          makeTestable(
+            SingleChildScrollView(
+              child: AfterTranscriptionSection(
+                pasteFocusCheckAvailable: focusCheck,
+              ),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => notifier),
+              pasteCapabilityNotifierProvider.overrideWith(
+                () => _FakePasteCapabilityNotifier(),
+              ),
+            ],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      const hint = Key('text-paste-wayland-focus-hint');
+
+      testWidgets('shown for auto-paste without a focus check', (tester) async {
+        for (final action in [
+          AfterTranscriptionAction.paste,
+          AfterTranscriptionAction.clipboardAndPaste,
+        ]) {
+          await pump(tester, action: action, focusCheck: false);
+          expect(find.byKey(hint), findsOneWidget, reason: action.name);
+          expect(find.text(l10n.settingsPasteWaylandFocusHint), findsOneWidget);
+        }
+      });
+
+      testWidgets('hidden where the focus is checked', (tester) async {
+        await pump(
+          tester,
+          action: AfterTranscriptionAction.paste,
+          focusCheck: true,
+        );
+        expect(find.byKey(hint), findsNothing);
+      });
+
+      testWidgets('hidden without auto-paste', (tester) async {
+        await pump(
+          tester,
+          action: AfterTranscriptionAction.clipboard,
+          focusCheck: false,
+        );
+        expect(find.byKey(hint), findsNothing);
+      });
+    });
   });
 }

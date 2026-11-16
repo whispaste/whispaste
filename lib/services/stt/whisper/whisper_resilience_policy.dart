@@ -15,10 +15,19 @@ class WhisperResiliencePolicy {
   /// Returns `true` when [kind] is a GPU fault the app can recover from by
   /// re-running the transcription on CPU.
   ///
-  /// Only [WhisperFailureKind.gpuCrash] degrades to CPU. [WhisperFailureKind.oom]
+  /// [WhisperFailureKind.gpuCrash] and [WhisperFailureKind.gpuBackendLost]
+  /// (once rebuilding the backend did not help) degrade to CPU.
+  /// [WhisperFailureKind.oom]
   /// is deliberately excluded — out-of-memory is recovered by the orchestrator's
   /// `OomRecoveryHandler` (smaller model / cloud), not by a same-hardware CPU
   /// retry that would still not fit.
   bool shouldRetryOnCpu(WhisperFailureKind kind) =>
-      kind == WhisperFailureKind.gpuCrash;
+      kind == WhisperFailureKind.gpuCrash ||
+      kind == WhisperFailureKind.gpuBackendLost;
+
+  /// Returns `true` when [kind] means the GPU backend itself is unusable but a
+  /// fresh context on the same hardware recovers it. The notifier then
+  /// reloads the model on the same engine once before degrading to CPU.
+  bool shouldRebuildBackend(WhisperFailureKind kind) =>
+      kind == WhisperFailureKind.gpuBackendLost;
 }

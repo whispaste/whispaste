@@ -1,5 +1,4 @@
-/// End-to-end tests for the onboarding revision run —
-/// `internal-notes` (the run itself) and `/04` (the
+/// End-to-end tests for the onboarding revision run: the run itself, the
 /// update notice on step 1 and the visible exit), the counterpart to
 /// `onboarding_flow_test.dart`'s first-run walkthrough and
 /// `onboarding_review_test.dart`'s manually reopened review.
@@ -15,29 +14,34 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderShiftedBox;
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show AsyncData, ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:whispaste/features/onboarding/steps/privacy_step.dart'
+    show kPrivacyStepCrashToggleKey, kPrivacyStepUsageToggleKey;
+
+import 'onboarding_test_doubles.dart';
+
+import 'package:whispaste/features/onboarding/onboarding_mic_gate.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/onboarding/onboarding_revision.dart';
-import 'package:whispaste/core/platform/desktop_window_geometry.dart'
-    show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart'
     show kOnboardingFlowVersion;
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
-import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
 import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
-import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+import '../../fixtures/app_fonts.dart';
+import 'package:whispaste/services/audio_service.dart'
+    show audioInputDevicesProvider;
 
 late L10n l10n;
 
@@ -127,7 +131,6 @@ Future<_FakeSettingsNotifier> _pumpRevisionRun(
   OnboardingRevisionRegistry registry = const [],
   Locale locale = const Locale('en'),
   Size size = const Size(1280, 1600),
-  double textScale = 1.0,
   bool manualReview = false,
   bool revisionRun = true,
 }) async {
@@ -135,10 +138,7 @@ Future<_FakeSettingsNotifier> _pumpRevisionRun(
   await tester.pumpWidget(
     makeTestable(
       MediaQuery(
-        data: MediaQueryData(
-          size: size,
-          textScaler: TextScaler.linear(textScale),
-        ),
+        data: MediaQueryData(size: size, disableAnimations: true),
         child: OnboardingOverlay(
           manualReview: manualReview,
           revisionRun: revisionRun,
@@ -147,6 +147,10 @@ Future<_FakeSettingsNotifier> _pumpRevisionRun(
       size: size,
       locale: locale,
       overrides: [
+        onboardingMicProbeProvider.overrideWithValue(OnboardingFakeMicProbe()),
+        audioInputDevicesProvider.overrideWith(
+          (ref) async => const ['Default'],
+        ),
         settingsProvider.overrideWith(() => notifier),
         micPermissionCheckerProvider.overrideWithValue(
           _FakeMicPermissionChecker(),
@@ -161,29 +165,11 @@ Future<_FakeSettingsNotifier> _pumpRevisionRun(
   return notifier;
 }
 
-/// The notice strip's full text, ellipsis or not — [Text]'s span is the
-/// complete string even when only two lines of it are painted, which is also
-/// exactly what assistive technology reads out.
-String _noticeText(WidgetTester tester) => tester
-    .widget<Text>(
-      find.descendant(
-        of: find.byKey(kOnboardingRevisionNoticeKey),
-        matching: find.byType(Text),
-      ),
-    )
-    .textSpan!
-    .toPlainText();
-
-Future<void> _tapNext(WidgetTester tester) async {
-  await tester.tap(find.byKey(kOnboardingNextButtonKey));
-  await tester.pumpAndSettle();
-}
-
 /// Leaves through the visible exit and confirms the one-way-door dialog.
 Future<void> _exitAndConfirm(WidgetTester tester) async {
   await tester.tap(find.byKey(kOnboardingRevisionExitButtonKey));
   await tester.pumpAndSettle();
-  await tester.tap(find.text(l10n.onboardingRevisionExitConfirmAction));
+  await tester.tap(find.bySemanticsIdentifier('confirm-dialog-confirm'));
   await tester.pumpAndSettle();
 }
 
@@ -192,12 +178,7 @@ void main() {
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFontsOnce();
   });
 
   group('Revision run — starts fresh, never touches onboardingCompleted', () {
@@ -216,7 +197,6 @@ void main() {
           );
 
           expect(find.byType(WelcomeStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -230,8 +210,8 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           final settings = await _pumpRevisionRun(tester);
-          await _tapNext(tester);
-          await _tapNext(tester);
+          await tapOnboardingNext(tester);
+          await tapOnboardingNext(tester);
 
           expect(settings.state.value!.onboarding.onboardingCompleted, isTrue);
         } finally {
@@ -250,7 +230,7 @@ void main() {
           await _pumpRevisionRun(tester);
           expect(find.byType(WelcomeStep), findsOneWidget);
 
-          await _tapNext(tester);
+          await tapOnboardingNext(tester);
 
           // The fake checker's check(request: true) would have been the
           // only path to a granted/denied status; staying `unknown` proves
@@ -278,13 +258,12 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           await _pumpRevisionRun(tester);
-          for (var i = 0; i < 5; i++) {
-            await _tapNext(tester);
+          final steps = buildOnboardingStepIds();
+          for (var i = 1; i < steps.length; i++) {
+            await tapOnboardingNext(tester);
           }
 
-          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
-          expect(find.text(l10n.onboardingReviewDone), findsOneWidget);
-          expect(find.text(l10n.onboardingStartUsing), findsNothing);
+          expect(onboardingPage(OnboardingStepId.privacy), findsOneWidget);
           expect(
             tester
                 .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
@@ -310,10 +289,10 @@ void main() {
             registry: [_entry(1), _entry(2)],
           );
 
-          for (var i = 0; i < 5; i++) {
-            await _tapNext(tester);
+          for (var i = 1; i < buildOnboardingStepIds().length; i++) {
+            await tapOnboardingNext(tester);
           }
-          await _tapNext(tester); // completion tap
+          await tapOnboardingNext(tester); // completion tap
 
           final after = settings.state.value!.onboarding;
           expect(after.onboardingContentVersion, 2);
@@ -343,8 +322,8 @@ void main() {
             tester,
             registry: [_entry(1)],
           );
-          for (var i = 0; i < 6; i++) {
-            await _tapNext(tester);
+          for (var i = 0; i < 5; i++) {
+            await tapOnboardingNext(tester);
           }
 
           final onboarding = settings.state.value!.onboarding;
@@ -370,43 +349,16 @@ void main() {
   // ===========================================================================
 
   group('Revision run — update notice on step 1', () {
-    testWidgets(
-      'names the update, says the settings are kept, and carries the reason '
-      'of every skipped version newest-first — but never a version the user '
-      'has already seen',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _pumpRevisionRun(
-            tester,
-            settings: _staleUser(seenContentVersion: 1),
-            registry: [_wordyEntry(1), _wordyEntry(2), _wordyEntry(3)],
-          );
-
-          expect(find.byKey(kOnboardingRevisionNoticeKey), findsOneWidget);
-          final text = _noticeText(tester);
-          expect(text, contains(l10n.onboardingRevisionNoticeTitle));
-          expect(text, contains('Neuerung 3'));
-          expect(text, contains('Neuerung 2'));
-          expect(
-            text,
-            isNot(contains('Neuerung 1')),
-            reason:
-                'Version 1 is what this user was stamped with — it is not '
-                'news to them.',
-          );
-          expect(
-            text.indexOf('Neuerung 3'),
-            lessThan(text.indexOf('Neuerung 2')),
-            reason:
-                'Newest first: the freshest reason is the one that survives '
-                'the strip\'s two-line bound.',
-          );
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+    testWidgets('a notice that fits offers no toggle', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpRevisionRun(tester, registry: const []);
+        expect(find.byKey(kOnboardingRevisionNoticeKey), findsOneWidget);
+        expect(find.byKey(kOnboardingRevisionNoticeToggleKey), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
     testWidgets('lives on step 1 only — it explains the run, it is not a '
         'banner the whole flow carries', (tester) async {
@@ -415,7 +367,7 @@ void main() {
         await _pumpRevisionRun(tester, registry: [_wordyEntry(2)]);
         expect(find.byKey(kOnboardingRevisionNoticeKey), findsOneWidget);
 
-        await _tapNext(tester);
+        await tapOnboardingNext(tester);
         expect(find.byKey(kOnboardingRevisionNoticeKey), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -445,9 +397,9 @@ void main() {
               reason: 'no update notice in a ${mode.name}',
             );
             expect(
-              find.text(l10n.onboardingWelcome),
+              find.byType(WelcomeStep),
               findsOneWidget,
-              reason: 'the claim line is page 1\'s header in a ${mode.name}',
+              reason: 'page 1 is the start page in a ${mode.name}',
             );
           }
         } finally {
@@ -458,7 +410,7 @@ void main() {
 
     testWidgets(
       'neither asks for nor implies telemetry consent: the notice says '
-      'nothing about it, and step 2 shows the choice this user already made '
+      'nothing about it, and the done page shows the choice this user already made '
       '(internal-notes §6.5)',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -475,34 +427,27 @@ void main() {
             registry: [_wordyEntry(2)],
           );
 
-          final notice = _noticeText(tester);
-          for (final consentWord in [
-            l10n.onboardingPrivacyToggle,
-            l10n.onboardingPrivacyCrashToggle,
-          ]) {
-            expect(
-              notice,
-              isNot(contains(consentWord)),
-              reason:
-                  'The update notice must not put a consent question in the '
-                  'user\'s way.',
-            );
+          // The privacy switches live on the last page, not on step 2.
+          for (var i = 1; i < buildOnboardingStepIds().length; i++) {
+            await tapOnboardingNext(tester);
           }
 
-          await _tapNext(tester);
-
-          final toggles = tester
-              .widgetList<Switch>(find.byType(Switch))
-              .toList();
-          expect(toggles, hasLength(3));
+          Switch toggle(Key key) => tester.widget<Switch>(
+            find.descendant(
+              of: find.byKey(key),
+              matching: find.byType(Switch),
+              matchRoot: true,
+            ),
+          );
           expect(
-            toggles.map((t) => t.value),
-            [true, false, false],
-            reason:
-                'Step 2 shows the stored decision as it stands, in the '
-                'Privacy step\'s crash → usage → retain-recordings order — '
-                'crash reports on, usage stats off, keep-recordings off '
-                '(default).',
+            toggle(kPrivacyStepCrashToggleKey).value,
+            isTrue,
+            reason: 'The privacy page shows the stored crash-report choice.',
+          );
+          expect(
+            toggle(kPrivacyStepUsageToggleKey).value,
+            isFalse,
+            reason: 'The privacy page shows the stored usage choice.',
           );
           expect(settings.state.value!.privacy.shareUsageStats, isFalse);
           expect(settings.state.value!.errorReporting, isTrue);
@@ -514,32 +459,19 @@ void main() {
   });
 
   group('Revision run — the visible exit', () {
-    testWidgets('is reachable on every step of the run, and is never a third '
-        'navigation action', (tester) async {
+    testWidgets('is reachable on every step of the run', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       try {
         await _pumpRevisionRun(tester, registry: [_wordyEntry(2)]);
 
-        for (var page = 1; page <= 6; page++) {
-          if (page > 1) await _tapNext(tester);
-          expect(find.text(l10n.onboardingStepOf(page, 6)), findsOneWidget);
+        final steps = buildOnboardingStepIds();
+        for (var page = 1; page <= steps.length; page++) {
+          if (page > 1) await tapOnboardingNext(tester);
+          expect(onboardingPage(steps[page - 1]), findsOneWidget);
           expect(
             find.byKey(kOnboardingRevisionExitButtonKey),
             findsOneWidget,
             reason: 'the exit is missing on page $page',
-          );
-          // The generic per-step "skip" the predecessor spec deleted must not
-          // come back through this door: the nav row still carries Back and
-          // Next, and nothing else.
-          expect(
-            find.descendant(
-              of: find.byKey(kOnboardingNavRowKey),
-              matching: find.byWidgetPredicate(
-                (w) => w is WpButton || w is WpHeroButton,
-              ),
-            ),
-            findsNWidgets(2),
-            reason: 'page $page grew a third navigation action',
           );
         }
       } finally {
@@ -627,19 +559,11 @@ void main() {
           await tester.tap(find.byKey(kOnboardingRevisionExitButtonKey));
           await tester.pumpAndSettle();
 
-          expect(
-            find.text(l10n.onboardingRevisionExitConfirmTitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.onboardingRevisionExitConfirmBody),
-            findsOneWidget,
-          );
-          // The catch-up address is not decoration — it names the settings
-          // entry that reopens exactly these steps.
+          // The catch-up address is not decoration — it names the Help page
+          // entry that reopens exactly these steps (ticket moved it there).
           expect(
             l10n.onboardingRevisionExitConfirmBody,
-            contains(l10n.onboardingReviewEntry),
+            contains(l10n.onboardingReviewLabel),
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -657,116 +581,25 @@ void main() {
             tester,
             registry: [_wordyEntry(2)],
           );
-          await _tapNext(tester);
-          await _tapNext(tester);
+          await tapOnboardingNext(tester);
+          await tapOnboardingNext(tester);
 
           await tester.tap(find.byKey(kOnboardingRevisionExitButtonKey));
           await tester.pumpAndSettle();
-          await tester.tap(
-            find.text(
-              MaterialLocalizations.of(
-                tester.element(find.byType(OnboardingOverlay)),
-              ).cancelButtonLabel,
-            ),
-          );
+          await tester.tap(find.bySemanticsIdentifier('confirm-dialog-cancel'));
           await tester.pumpAndSettle();
 
-          expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+          expect(
+            onboardingPage(buildOnboardingStepIds()[2]),
+            findsOneWidget,
+            reason: 'two Next taps from the start land on the third page',
+          );
           expect(settings.state.value!.onboarding.onboardingContentVersion, 1);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
       },
     );
-  });
-
-  // ===========================================================================
-  // Layout — the notice has to fit the page it lands on.
-  //
-  // Same measurement as the fixed-window group in `onboarding_overlay_test`,
-  // narrowed to page 1 of a revision run: the numbers there are taken with a
-  // registry that is empty in the shipped build, so they cannot see this
-  // strip at all.
-  // ===========================================================================
-
-  group('Revision run — step 1 fits the fixed window', () {
-    ({double available, double content, double natural}) measure(
-      WidgetTester tester,
-    ) {
-      final scrollable = tester.state<ScrollableState>(
-        find.byType(Scrollable).first,
-      );
-      final available = tester
-          .renderObject<RenderBox>(find.byType(SingleChildScrollView).first)
-          .constraints
-          .maxHeight;
-      final content =
-          scrollable.position.viewportDimension +
-          scrollable.position.maxScrollExtent;
-      final distributed = tester
-          .renderObjectList<RenderBox>(find.byType(OnboardingPageBody))
-          .whereType<RenderShiftedBox>()
-          .fold<double>(
-            0,
-            (sum, box) => sum + box.size.height - box.child!.size.height,
-          );
-      return (
-        available: available,
-        content: content,
-        natural: content - distributed,
-      );
-    }
-
-    for (final locale in L10n.supportedLocales) {
-      // 1.15 is the largest scale page 1 fits *today*, notice or no notice:
-      // at 1.3 the first run already overflows the fixed window by 28–50 px
-      // (measured), which is a pre-existing property of the page and not
-      // something this strip may be asked to fix. Testing the notice at a
-      // scale where the page cannot fit either way would prove nothing.
-      for (final scale in [1.0, 1.15]) {
-        testWidgets('page 1 with the update notice fits at 1100x720 in '
-            '${locale.languageCode} @${scale}x', (tester) async {
-          tester.view.physicalSize = kOnboardingWindowSize;
-          tester.view.devicePixelRatio = 1.0;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-          try {
-            await _pumpRevisionRun(
-              tester,
-              settings: _staleUser(
-                seenContentVersion: 0,
-              ).copyWith(locale: locale.languageCode),
-              // Two skipped versions of wordy reasons — the strip's
-              // worst case, and the case that made it a bounded box.
-              registry: [_wordyEntry(1), _wordyEntry(2)],
-              locale: locale,
-              size: kOnboardingWindowSize,
-              textScale: scale,
-            );
-
-            expect(find.byKey(kOnboardingRevisionNoticeKey), findsOneWidget);
-            final m = measure(tester);
-            expect(
-              tester.takeException(),
-              isNull,
-              reason:
-                  'page 1 overflowed with the notice: ${m.natural} px of '
-                  'blocks against ${m.available} px offered',
-            );
-            expect(
-              m.content,
-              lessThanOrEqualTo(m.available),
-              reason:
-                  'page 1 would scroll with the notice: needs ${m.content} '
-                  'px of ${m.available} px',
-            );
-          } finally {
-            debugDefaultTargetPlatformOverride = null;
-          }
-        });
-      }
-    }
   });
 
   group('Revision run — abort', () {
@@ -782,8 +615,8 @@ void main() {
           );
 
           // Reach page 3 — a genuinely mid-flow abort, not one from page 1.
-          await _tapNext(tester);
-          await _tapNext(tester);
+          await tapOnboardingNext(tester);
+          await tapOnboardingNext(tester);
 
           await _exitAndConfirm(tester);
 

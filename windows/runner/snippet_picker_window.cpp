@@ -69,10 +69,9 @@ bool SnippetPickerWindow::Create(HWND owner, int px, int py, int pwidth,
     return false;
   }
 
-  // DWM sheet-of-glass transparency, same rationale as
-  // FloatingButtonWindow::Create — composites the Flutter render engine's
-  // own glass/blur painter over a transparent Win32 background instead of
-  // opaque black.
+  // DWM transparency, same rationale as FloatingButtonWindow::Create — keeps
+  // the background behind the panel's rounded corners transparent instead of
+  // opaque black. The panel itself is a flat fill painted by Flutter.
   MARGINS m = {-1, -1, -1, -1};
   DwmExtendFrameIntoClientArea(hwnd_, &m);
 
@@ -92,7 +91,8 @@ void SnippetPickerWindow::Destroy() {
   if (shutting_down_) return;
   shutting_down_ = true;
 
-  on_deactivate_cancel = nullptr;
+  StopClickPoll();
+  on_focus_lost = nullptr;
   on_navigate = nullptr;
 
   // Un-parent the Flutter child before destroying the shell so the Flutter
@@ -153,12 +153,60 @@ void SnippetPickerWindow::Show() {
   }
 
   visible_ = true;
+  StartClickPoll();
 }
 
 void SnippetPickerWindow::Hide() {
   if (!hwnd_ || shutting_down_) return;
-  ShowWindow(hwnd_, SW_HIDE);
+  StopClickPoll();
+  // Not visible before SW_HIDE: hiding deactivates the shell, and that
+  // WA_INACTIVE is no focus loss to report.
   visible_ = false;
+  ShowWindow(hwnd_, SW_HIDE);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Click outside (#1680)
+// ══════════════════════════════════════════════════════════════════════
+
+namespace {
+constexpr UINT_PTR kClickPollTimerId = 1680;
+// Short enough to catch an ordinary click (a press lasts ~80-150 ms).
+constexpr UINT kClickPollMs = 30;
+}  // namespace
+
+// static
+bool SnippetPickerWindow::AnyMouseButtonDown() {
+  // Physical buttons (GetAsyncKeyState ignores the left/right swap), all of
+  // them, so a swapped mouse still counts.
+  for (int vk : {VK_LBUTTON, VK_RBUTTON, VK_MBUTTON, VK_XBUTTON1,
+                 VK_XBUTTON2}) {
+    if ((::GetAsyncKeyState(vk) & 0x8000) != 0) return true;
+  }
+  return false;
+}
+
+bool SnippetPickerWindow::CursorOutside() const {
+  if (!hwnd_) return false;
+  POINT cursor;
+  RECT rect;
+  if (!::GetCursorPos(&cursor) || !::GetWindowRect(hwnd_, &rect)) {
+    return false;
+  }
+  return !::PtInRect(&rect, cursor);
+}
+
+void SnippetPickerWindow::StartClickPoll() {
+  if (!hwnd_ || !poll_outside_clicks) return;
+  // A press already held while the picker opens (the click that opened it)
+  // is not a click outside.
+  button_was_down_ = AnyMouseButtonDown();
+  ::SetTimer(hwnd_, kClickPollTimerId, kClickPollMs, nullptr);
+}
+
+void SnippetPickerWindow::StopClickPoll() {
+  if (hwnd_) ::KillTimer(hwnd_, kClickPollTimerId);
+  button_was_down_ = false;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -217,16 +265,30 @@ LRESULT SnippetPickerWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
   }
 
   switch (msg) {
-    // ── Click-outside detection ───────────────────────────────────────
+    // ── Focus loss (#1680) ────────────────────────────────────────────
     // WA_INACTIVE fires when some other top-level window (outside this
     // process, or WhisPaste's own non-picker windows) takes activation
-    // away. Only meaningful while shown — the shell also receives
-    // WM_ACTIVATE/WA_INACTIVE as part of its own Hide()/Destroy(), which
-    // on_deactivate_cancel's caller (SnippetPickerHost) is documented to
-    // tolerate via its own re-entrancy guard, so no extra suppression here.
+    // away. A click into another window activates it on the button press,
+    // so a button still down with the cursor outside means "clicked
+    // outside"; anything else is a focus change the user may not have made.
+    // Hide() clears visible_ first, so its own deactivation is not reported.
     case WM_ACTIVATE:
-      if (LOWORD(wp) == WA_INACTIVE && visible_ && on_deactivate_cancel) {
-        on_deactivate_cancel();
+      if (LOWORD(wp) == WA_INACTIVE && visible_ && on_focus_lost) {
+        on_focus_lost(AnyMouseButtonDown() && CursorOutside());
+      }
+      return DefWindowProcW(hwnd_, msg, wp, lp);
+
+    case WM_TIMER:
+      if (wp == kClickPollTimerId) {
+        if (visible_) {
+          const bool down = AnyMouseButtonDown();
+          // Only a new press counts, and only outside the shell.
+          if (down && !button_was_down_ && CursorOutside() && on_focus_lost) {
+            on_focus_lost(true);
+          }
+          button_was_down_ = down;
+        }
+        return 0;
       }
       return DefWindowProcW(hwnd_, msg, wp, lp);
 

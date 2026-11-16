@@ -11,6 +11,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:path/path.dart' as p;
 
 import 'model_manifest.dart';
@@ -37,15 +38,20 @@ class BundleFile {
     required this.url,
     required this.filename,
     required this.sizeBytes,
+    this.sha256 = '',
   });
 
-  /// Source URL.
+  /// Source URL, pinned to one repository commit.
   final Uri url;
+
+  /// Lower-case hex SHA-256 the downloaded file must match; empty skips the
+  /// check (only for files whose upstream has no pinned copy).
+  final String sha256;
 
   /// Target filename inside the model's bundle directory.
   final String filename;
 
-  /// Approximate size in bytes (display + progress-bar fallback).
+  /// Exact size in bytes at the pinned commit (display + progress fallback).
   final int sizeBytes;
 }
 
@@ -102,34 +108,51 @@ class CatalogModel {
 ///
 /// Sizes are approximate on-disk sizes for display + download progress.
 List<CatalogModel> defaultModelCatalog() {
+  // Every repository is pinned to one commit, sizes and SHA-256 are the
+  // values at that commit (HF tree API `lfs.oid`, small non-LFS files hashed
+  // after download; 2026-11-16). `resolve/main` would follow whatever the
+  // upstream pushes next, which broke the app's Parakeet download once.
   CatalogModel make(
     String id,
     String family,
     Uri url,
     String file,
     int bytes,
-    String label,
-  ) => CatalogModel(
+    String label, {
+    String sha256 = '',
+  }) => CatalogModel(
     id: id,
     label: label,
     family: family,
     entry: ModelEntry(
       name: id,
       downloadUrl: url,
-      sha256: '', // checksum optional; empty = verify by presence only
+      sha256: sha256,
       targetFilename: file,
       sizeBytes: bytes,
     ),
   );
   Uri ggmlUrl(String file) => Uri.parse(
-    'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$file',
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/'
+    '5359861c739e955e79d9a303bcbc70fb988958b1/$file',
   );
   // sherpa-onnx Whisper bundle: encoder + decoder + tokens (int8) downloaded
   // into models/<id>/. Sizes are the real Hugging Face file sizes.
-  CatalogModel sherpa(String size, int enc, int dec, String label) {
+  const sherpaRevisions = {
+    'tiny': '65176e2deb88badc814a94058666cadccc29b61c',
+    'base': 'bb53ee204431c90d314c1cc08d28d23e5b7927cc',
+    'small': '8f3c18b358db4d1f2fc1eae49d75cd20989e4309',
+    'medium': '8c31d28503847560985df21f90e14f0c736e075e',
+  };
+  CatalogModel sherpa(
+    String size,
+    (int, String) enc,
+    (int, String) dec,
+    String label,
+  ) {
     Uri u(String f) => Uri.parse(
       'https://huggingface.co/csukuangfj/sherpa-onnx-whisper-$size'
-      '/resolve/main/$f',
+      '/resolve/${sherpaRevisions[size]}/$f',
     );
     const tokens = 816730;
     return CatalogModel(
@@ -140,17 +163,21 @@ List<CatalogModel> defaultModelCatalog() {
         BundleFile(
           url: u('$size-encoder.int8.onnx'),
           filename: '$size-encoder.int8.onnx',
-          sizeBytes: enc,
+          sizeBytes: enc.$1,
+          sha256: enc.$2,
         ),
         BundleFile(
           url: u('$size-decoder.int8.onnx'),
           filename: '$size-decoder.int8.onnx',
-          sizeBytes: dec,
+          sizeBytes: dec.$1,
+          sha256: dec.$2,
         ),
         BundleFile(
           url: u('$size-tokens.txt'),
           filename: '$size-tokens.txt',
           sizeBytes: tokens,
+          sha256:
+              'b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126',
         ),
       ],
     );
@@ -162,9 +189,19 @@ List<CatalogModel> defaultModelCatalog() {
   // that dir. Source is the public onnx-community export — Microsoft's
   // whisper-*-directml repos went private (HTTP 401), so the old single-file
   // catalogue entries no longer resolve.
-  CatalogModel onnxc(String size, int enc, int dec, String label) {
+  const onnxcRevisions = {
+    'base': '27a07b4b52b3a4c5886134bb4320e93e1a4bbc7c',
+    'small': '36050c46d777d46dc4b5f43f6d90574fc38f8732',
+  };
+  CatalogModel onnxc(
+    String size,
+    (int, String) enc,
+    (int, String) dec,
+    String label,
+  ) {
     Uri u(String f) => Uri.parse(
-      'https://huggingface.co/onnx-community/whisper-$size/resolve/main/$f',
+      'https://huggingface.co/onnx-community/whisper-$size'
+      '/resolve/${onnxcRevisions[size]}/$f',
     );
     const tokenizer = 2480466; // tokenizer.json is identical across sizes
     return CatalogModel(
@@ -175,17 +212,21 @@ List<CatalogModel> defaultModelCatalog() {
         BundleFile(
           url: u('onnx/encoder_model_int8.onnx'),
           filename: 'encoder_model_int8.onnx',
-          sizeBytes: enc,
+          sizeBytes: enc.$1,
+          sha256: enc.$2,
         ),
         BundleFile(
           url: u('onnx/decoder_model_int8.onnx'),
           filename: 'decoder_model_int8.onnx',
-          sizeBytes: dec,
+          sizeBytes: dec.$1,
+          sha256: dec.$2,
         ),
         BundleFile(
           url: u('tokenizer.json'),
           filename: 'tokenizer.json',
           sizeBytes: tokenizer,
+          sha256:
+              '27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566',
         ),
       ],
     );
@@ -196,12 +237,27 @@ List<CatalogModel> defaultModelCatalog() {
   // `faster-whisper-<size>` on purpose — Purfview's standalone resolves a model
   // as `<model_dir>/faster-whisper-<name>`, so the bundle dir name IS the lookup
   // key (see FasterWhisperCandidate).
-  CatalogModel ct2(String size, int modelBin, String label) {
+  const ct2Revisions = {
+    'base': 'ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66',
+    'small': '536b0662742c02347bc0e980a01041f333bce120',
+  };
+  // config.json differs per size (size, hash); model.bin is passed in.
+  const ct2Config = {
+    'base': (
+      2309,
+      '56a6d8110d311f19c8f0471e562832c7527f146b567275bfca59fcf7c184da9a',
+    ),
+    'small': (
+      2370,
+      'b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828',
+    ),
+  };
+  CatalogModel ct2(String size, (int, String) modelBin, String label) {
     Uri u(String f) => Uri.parse(
-      'https://huggingface.co/Systran/faster-whisper-$size/resolve/main/$f',
+      'https://huggingface.co/Systran/faster-whisper-$size'
+      '/resolve/${ct2Revisions[size]}/$f',
     );
-    // tokenizer.json / vocabulary.txt are identical across sizes; config.json
-    // is tiny. Sizes drive the display + progress fallback only.
+    // tokenizer.json / vocabulary.txt are identical across sizes.
     return CatalogModel(
       id: 'faster-whisper-$size',
       label: label,
@@ -210,22 +266,28 @@ List<CatalogModel> defaultModelCatalog() {
         BundleFile(
           url: u('model.bin'),
           filename: 'model.bin',
-          sizeBytes: modelBin,
+          sizeBytes: modelBin.$1,
+          sha256: modelBin.$2,
         ),
         BundleFile(
           url: u('config.json'),
           filename: 'config.json',
-          sizeBytes: 2370,
+          sizeBytes: ct2Config[size]!.$1,
+          sha256: ct2Config[size]!.$2,
         ),
         BundleFile(
           url: u('tokenizer.json'),
           filename: 'tokenizer.json',
           sizeBytes: 2203239,
+          sha256:
+              'fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab',
         ),
         BundleFile(
           url: u('vocabulary.txt'),
           filename: 'vocabulary.txt',
           sizeBytes: 459861,
+          sha256:
+              '34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913',
         ),
       ],
     );
@@ -240,6 +302,8 @@ List<CatalogModel> defaultModelCatalog() {
       'ggml-tiny.bin',
       77691713,
       'Tiny · ~75 MB · sehr schnell',
+      sha256:
+          'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21',
     ),
     make(
       'ggml-base',
@@ -248,6 +312,8 @@ List<CatalogModel> defaultModelCatalog() {
       'ggml-base.bin',
       147951465,
       'Base · ~141 MB · schnell',
+      sha256:
+          '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
     ),
     make(
       'ggml-small',
@@ -256,6 +322,8 @@ List<CatalogModel> defaultModelCatalog() {
       'ggml-small.bin',
       487601967,
       'Small · ~465 MB · ausgewogen',
+      sha256:
+          '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
     ),
     make(
       'ggml-medium',
@@ -264,26 +332,42 @@ List<CatalogModel> defaultModelCatalog() {
       'ggml-medium.bin',
       1533763059,
       'Medium · ~1,5 GB · genau',
+      sha256:
+          '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208',
     ),
     make(
       'ggml-large-v3',
       'ggml',
       ggmlUrl('ggml-large-v3.bin'),
       'ggml-large-v3.bin',
-      3094623691,
+      3095033483,
       'Large v3 · ~2,9 GB · höchste Qualität',
+      sha256:
+          '64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2',
     ),
     // ONNX Whisper — ONNX Runtime + DirectML (onnx-community export).
     onnxc(
       'base',
-      23201297,
-      53310178,
+      (
+        23201297,
+        'ca6177401f86a2c6b4dc5f7fc02fbca680678906bd0c22f6d89f0b80f124253f',
+      ),
+      (
+        53310178,
+        'c859636f4463dd5a9ea752546c6c7badeb48ab3e22b340cafef08a15552fcb2e',
+      ),
       'Whisper Base (ONNX int8, DirectML) · ~78 MB · schnell',
     ),
     onnxc(
       'small',
-      92326127,
-      155989346,
+      (
+        92326127,
+        '2601c9eb2d345c5916d4576d36f663a7c96589740fb2273828c48c3fc2c7db75',
+      ),
+      (
+        155989346,
+        '0486afa8eb464bf2210d07aca0cb3f5d91d3f2f01cbe47f9f1e6ff9122abaaf6',
+      ),
       'Whisper Small (ONNX int8, DirectML) · ~243 MB · ausgewogen',
     ),
     // Non-Whisper — German wav2vec2 (ONNX).
@@ -291,7 +375,10 @@ List<CatalogModel> defaultModelCatalog() {
       'wav2vec2-de-xlsr53',
       'onnx-wav2vec2',
       Uri.parse(
-        'https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-german/resolve/main/model.onnx',
+        // The repository has no ONNX export at any commit (checked
+        // 2026-11-16, HTTP 404); pinned so it cannot silently change.
+        'https://huggingface.co/jonatasgrosman/wav2vec2-large-xlsr-53-german'
+        '/resolve/4b8a02957378d0f2da2ef74091156b032c485a89/model.onnx',
       ),
       'wav2vec2-large-xlsr-53-german.onnx',
       1180000000,
@@ -300,35 +387,61 @@ List<CatalogModel> defaultModelCatalog() {
     // sherpa-onnx (k2-fsa) — multilingual Whisper-ONNX bundles, CPU EP.
     sherpa(
       'tiny',
-      12937772,
-      89855401,
+      (
+        12937772,
+        'd24fb083ae3b1041fc24e97971d60e280c9342201fbb67b0ab428a8b4a51a434',
+      ),
+      (
+        89855401,
+        'd2fece8dd42771f1df975c6c0445770d0c292bf7547c2cae04a6c0cc57540925',
+      ),
       'sherpa-onnx Whisper Tiny (int8) · ~103 MB · sehr schnell',
     ),
     sherpa(
       'base',
-      29120534,
-      130672026,
+      (
+        29120534,
+        '0b8fb1304b6109976038efff5ace81720e00386f3ff6b54ee8c75291ca0a1e11',
+      ),
+      (
+        130672026,
+        '9759d217388a01b3a4c7c15533201067b48ae819c4daafc8624e64b9409dc02d',
+      ),
       'sherpa-onnx Whisper Base (int8) · ~161 MB · schnell',
     ),
     sherpa(
       'small',
-      112442483,
-      262226114,
+      (
+        112442483,
+        '4cbe7b22fa9026b843b60a68640c747de05bafb1a11b57edc0e66c232d9f33a9',
+      ),
+      (
+        262226114,
+        'acad50b5c782696e91b55914cc5ab4f756f1532f76e22aa6fc615f39fb69a8ee',
+      ),
       'sherpa-onnx Whisper Small (int8) · ~376 MB · ausgewogen',
     ),
     sherpa(
       'medium',
-      374196283,
-      571059257,
+      (
+        374196283,
+        '1c54582b4d829de0089f6cb63bbbdb3bf7555398bacaf855fbecf1a84dfd193e',
+      ),
+      (
+        571059257,
+        '595d00a338a365a7bfa0ca7f296cabc639583bef770ab6130df90f49a6412747',
+      ),
       'sherpa-onnx Whisper Medium (int8) · ~946 MB · genau',
     ),
     // CTranslate2 — faster-whisper (Purfview standalone), CPU + CUDA.
-    ct2('base', 145217532, 'faster-whisper Base (CT2) · ~148 MB · schnell'),
-    ct2(
-      'small',
+    ct2('base', (
+      145217532,
+      'd01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9',
+    ), 'faster-whisper Base (CT2) · ~148 MB · schnell'),
+    ct2('small', (
       483546902,
-      'faster-whisper Small (CT2) · ~466 MB · ausgewogen',
-    ),
+      '3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671',
+    ), 'faster-whisper Small (CT2) · ~466 MB · ausgewogen'),
   ];
 }
 
@@ -471,6 +584,7 @@ class ModelStore {
               ..total = m.totalSizeBytes;
             onChange?.call();
           });
+          await _verifyDownloaded(target, bf.sha256);
           completed += target.existsSync() ? target.lengthSync() : bf.sizeBytes;
         }
         e
@@ -486,6 +600,7 @@ class ModelStore {
             ..total = total > 0 ? total : m.entry!.sizeBytes;
           onChange?.call();
         });
+        await _verifyDownloaded(target, m.entry!.sha256);
         e
           ..state = ModelState.present
           ..received = target.existsSync() ? target.lengthSync() : e.received;
@@ -497,6 +612,19 @@ class ModelStore {
     }
     onChange?.call();
   }
+}
+
+/// Deletes [file] and throws when its SHA-256 differs from [expected]. An
+/// empty [expected] skips the check (entries without a pinned upstream copy).
+Future<void> _verifyDownloaded(File file, String expected) async {
+  if (expected.isEmpty || !file.existsSync()) return;
+  final actual = (await sha256.bind(file.openRead()).first).toString();
+  if (actual == expected) return;
+  await file.delete();
+  throw StateError(
+    'Prüfsumme falsch für ${p.basename(file.path)}: '
+    'erwartet $expected, erhalten $actual',
+  );
 }
 
 /// Production [ProgressDownloader] — streams [url] to `<target>.part`, reports

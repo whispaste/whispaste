@@ -92,6 +92,32 @@ void main() {
         expect(stripPunctuation('  , Hello world . '), 'Hello world');
       },
     );
+
+    test(
+      'written forms keep their punctuation, sentence ends are stripped',
+      () {
+        expect(
+          stripPunctuation('Treffen um 10:30 Uhr.'),
+          'Treffen um 10:30 Uhr',
+        );
+        expect(
+          stripPunctuation('Schreib an john@gmail.com.'),
+          'Schreib an john@gmail.com',
+        );
+        expect(
+          stripPunctuation('Besuch www.beispiel.de heute.'),
+          'Besuch www.beispiel.de heute',
+        );
+        expect(
+          stripPunctuation('Sieh dir beispiel.de/impressum an.'),
+          'Sieh dir beispiel.de/impressum an',
+        );
+        expect(
+          stripPunctuation('Mail john@gmail.com, bitte.'),
+          'Mail john@gmail.com bitte',
+        );
+      },
+    );
   });
 
   group('appendToQuickNoteContent', () {
@@ -328,5 +354,13 @@ void main() {
         expect(removeFillerWords('', languageCode: 'de'), '');
       });
     });
+  });
+
+  test('quickNoteStampLine falls back to a numeric date for unknown locales '
+      '(#803)', () {
+    expect(
+      quickNoteStampLine(DateTime(2026, 11, 6, 14, 32), 'xx-invalid'),
+      '2026-11-06 14:32',
+    );
   });
 }

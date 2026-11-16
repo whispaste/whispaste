@@ -18,8 +18,9 @@ const breadcrumbItems = [
   tocLabel="Contents"
   testid="legal-privacy"
 >
+    <p class="legal-note"><strong>Note:</strong> The German version of this policy is binding. This translation is for information only.</p>
     <p>
-      <strong>Effective date:</strong> October 2026<br>
+      <strong>Effective date:</strong> November 2026<br>
       WhisPaste is a desktop application for Windows, macOS, and Linux that transcribes speech to text. This policy explains what data the application processes, where it is stored, and what, if anything, is transmitted.
     </p>
 
@@ -36,7 +37,7 @@ const breadcrumbItems = [
         org Gräfendorf, GbR<br>
         Pappelweg 27<br>
         39576 Stendal<br>
-        Email: contact@whispaste.de
+        Email: kontakt@whispaste.de
       </p>
     </section>
 
@@ -65,13 +66,17 @@ const breadcrumbItems = [
     <section>
       <h2>4. Cookiefree Web Analytics (Matomo)</h2>
       <p>
-        This website uses the <strong>cookiefree</strong> web analytics software <strong>Matomo</strong> (endpoint: matomo.silvio-und-maik.de) to produce aggregated, anonymous usage statistics. No cookies are set and no information is stored on or read from your device; because tracking is cookieless and IP-anonymised, § 25 TDDDG requires neither consent nor a cookie banner. Recorded are, among others, the anonymised IP address, browser and device type, screen resolution, language, region of origin, the referrer and the subpages visited, plus anonymous technical performance metrics (Core Web Vitals: loading time, layout stability, response time). There is <strong>no profiling</strong>, no cross-device tracking and no sharing with third parties; the data cannot be linked to individuals. No external fonts or CDN services are loaded; all other resources are served locally from GitHub Pages. Legal basis: Art.&nbsp;6(1)(f) GDPR (legitimate interest in needs-driven improvement). You may object to this processing at any time (Art. 21 GDPR). Tick the opt-out option in the field below.
+        This website uses the <strong>cookiefree</strong> web analytics software <strong>Matomo</strong> (endpoint: matomo.silvio-und-maik.de) to produce aggregated, anonymous usage statistics. No cookies are set and no information is stored on or read from your device; because tracking is enforced cookieless and the IP address is truncated, § 25 TDDDG requires neither consent nor a cookie banner. Recorded are, among others, the IP address truncated to two bytes (the last two bytes are zeroed), browser and device type, screen resolution, language, region of origin, the referrer and the subpages visited, plus anonymous technical performance metrics (Core Web Vitals: loading time, layout stability, response time). There is <strong>no profiling</strong>, no cross-device tracking and no sharing with third parties; the data cannot be linked to individuals. The full IP address is used briefly on arrival of the request for location derivation (country and region), and only the truncated address (two bytes) is stored afterwards. Raw data is deleted after 180 days; aggregated reports without personal reference are kept. The app's usage statistics run on the same server (section&nbsp;15), in a separate measurement area. No external fonts or CDN services are loaded; all other resources are served locally from GitHub Pages. Legal basis: Art.&nbsp;6(1)(f) GDPR (legitimate interest in needs-driven improvement). You may object to this processing at any time (Art. 21 GDPR). Tick the opt-out option in the field below.
       </p>
       <p>
         This website sets no cookies. In browser storage (<code>localStorage</code>/<code>sessionStorage</code>) we keep only what a feature you use needs: your chosen language, whether the automatic language redirect already happened in this session, and whether you have already opened or closed the contact notice (so it does not appear again). This stays on your device and is never sent to any server; it is strictly necessary for the feature you asked for (Section&nbsp;25(2) no.&nbsp;2 TDDDG). You can delete it at any time in your browser settings.
       </p>
       <div id="matomo-opt-out-en"></div>
       <script is:inline src="https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out-en&language=en&showIntro=1"></script>
+        <h3>Error monitoring (Sentry, EU)</h3>
+        <p>
+          If a programming error occurs on this website, your browser sends an error report to <strong>Sentry</strong> (Functional Software, Inc., EU data region) so that we can find and fix the error. The report contains the error message with its stack trace, the address of the page, browser and operating system, and technical traces of the page before the error (for example loaded addresses, clicked page elements and console messages), but no form input. Without an error the page sends nothing to Sentry. There is no performance monitoring, no session recording (Session Replay) and no session tracking; nothing is stored on or read from your device for this. Sentry does not store IP addresses. Pages whose address contains a personal link (for example the newsletter confirmation) send no error reports. The error data is kept for 30&nbsp;days. Sentry processes it as our processor under a data processing agreement; for the transfer to the USA the same applies as for the app's crash reports (section&nbsp;15). The legal basis is Art.&nbsp;6(1)(f) GDPR (legitimate interest in a website that works without errors).
+        </p>
     </section>
 
     <section>
@@ -81,7 +86,7 @@ const breadcrumbItems = [
       </p>
       <ul>
         <li><strong>GitHub</strong> — Source code repository and releases</li>
-        <li><strong>GitHub Sponsors / Ko-fi</strong> — Voluntary support options</li>
+        <li><strong>GitHub Sponsors / Ko-fi / Buy Me a Coffee</strong> — Voluntary support options</li>
       </ul>
       <p>
         When clicking these links, the respective privacy policies of the third-party providers apply. WhisPaste has no influence on data processing by these services.
@@ -91,7 +96,7 @@ const breadcrumbItems = [
     <section>
       <h2>6. Core Principle</h2>
       <p>
-        WhisPaste is designed with <strong>privacy first</strong>. Your <strong>audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud service for transcription or for Smart Mode. By default (opt-out) the app sends <strong>anonymous, aggregated usage statistics</strong> and <strong>crash reports</strong> to guide development; both are cookieless, carry no account identifier, never contain your audio, text, or history, and can each be switched off at any time (details in section&nbsp;15).
+        WhisPaste is designed with <strong>privacy first</strong>. Your <strong>audio and transcribed text never leave your device</strong> unless you explicitly choose a cloud service for transcription or for Smart Mode. By default (opt-out) the app sends two separately switchable data streams to guide development: <strong>usage statistics</strong> to a server we operate, and <strong>crash reports</strong> via Sentry (EU data region). Neither ever contains your audio, transcribed text, recordings or name. Crash reports are sent only for crashes, hangs of the app lasting 5&nbsp;seconds or more, and serious errors. Details in section&nbsp;15.
       </p>
     </section>
 
@@ -112,14 +117,23 @@ const breadcrumbItems = [
         <strong>Smart Mode (optional text cleanup):</strong> Off by default. When it runs locally, the transcribed text is processed on your device with a downloaded language model. If you choose OpenAI as the Smart Mode service, the transcribed text and the selected preset's instructions are sent directly to OpenAI using your own OpenAI API key.
       </p>
       <p>
-        When using a cloud provider, that provider's data processing terms apply: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI Privacy Policy</a> or <a href="https://deepgram.com/privacy-policy" target="_blank" rel="noopener">Deepgram Privacy Policy</a>.
+        When using a cloud provider, that provider's data processing terms apply: <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI Privacy Policy</a> or <a href="https://deepgram.com/privacy" target="_blank" rel="noopener">Deepgram Privacy Policy</a>.
       </p>
     </section>
 
     <section>
-      <h2>8. Transcription History</h2>
+      <h2>8. Recordings</h2>
       <p>
-        Transcribed text is stored locally on your device in an SQLite database (<code>%APPDATA%\WhisPaste\</code> on Windows, <code>~/Library/Application Support/WhisPaste</code> on macOS, <code>~/.config/whispaste</code> on Linux). This data never leaves your device. You can view, search, export, and delete your transcription history at any time through the application.
+        Transcribed text is stored locally on your device in an SQLite database (<code>%APPDATA%\WhisPaste\</code> on Windows, <code>~/Library/Application Support/WhisPaste</code> on macOS, <code>~/.config/whispaste</code> on Linux). This data never leaves your device. For each entry WhisPaste also stores, when known, the identifier of the app the text was pasted into. WhisPaste asks the operating system for that app’s name and icon and keeps them in a cache in the same application folder (<code>app_icons</code>). This also stays on your device; an app’s cached name and icon are deleted once no entry (including the trash) names that app, and all of them are deleted with the recordings. You can view, search, export, and delete your recordings at any time through the application.
+      </p>
+      <p>
+        <strong>Notes and note images:</strong> WhisPaste also stores your notes locally on your device, together with their version history (up to 50 versions per note; the storage budget is 4&nbsp;MiB, but the newest 20 versions are kept even above it, up to 16&nbsp;MiB per note at most; older versions are then removed automatically). Images you add to a note (via the file picker, by pasting from the clipboard, or by drag and drop) are stored by WhisPaste in the application folder; each note may hold up to 20 images and 32&nbsp;MiB, with 512&nbsp;MiB in total. Before saving, WhisPaste removes extra information from images, including GPS location, EXIF, XMP, IPTC and comment data; the image orientation is kept. Notes and images never leave your device.
+      </p>
+      <p>
+        <strong>Correction observations:</strong> When you correct transcribed text, WhisPaste stores locally in the same database the source word and target word of the correction, how often it occurred, your decisions (accepted or rejected) and the time. Counting uses a 30-day window; observations older than 30 days are deleted automatically at startup. This data is never sent. You can delete entries individually at any time in the corrections history; a factory reset deletes all of it.
+      </p>
+      <p>
+        The PIN for your recordings also protects your notes: while the app is locked, notes and search show no content; you can still capture quick notes, but existing content is not shown. If you forget the PIN and reset it, all recordings, all notes with their version history and all note images are deleted immediately and permanently. Settings, snippets, and replacements are kept.
       </p>
     </section>
 
@@ -133,19 +147,25 @@ const breadcrumbItems = [
     <section>
       <h2>10. Configuration &amp; Local Storage</h2>
       <p>
-        All other application settings (language, hotkey, theme, model preferences, etc.) are stored locally in the same application folder as your transcription history (see section&nbsp;8). No configuration data is transmitted to external servers.
+        All other application settings (language, hotkey, theme, model preferences, etc.) are stored locally in the same application folder as your recordings (see section&nbsp;8). Settings themselves are never transmitted. The one exception: usage statistics report the name of a changed setting, never its value (see section&nbsp;15).
+      </p>
+      <p>
+        <strong>Clipboard:</strong> The app reads the clipboard only on your device, to paste a dictation and then restore what was there before, and for the clipboard history, which is kept in memory only. Clipboard content is never written to disk and never transmitted. WhisPaste does not write dictation or clipboard content to the log. Where an error message could contain such content, only the error type is logged; every log line is also stripped of paths and secrets.
       </p>
     </section>
 
     <section>
       <h2>11. AI Model Downloads</h2>
       <p>
-        For local/offline transcription, WhisPaste downloads AI models from <strong>Hugging Face</strong>: the Whisper and Parakeet models as well as the optional Smart Mode language model come from separate repositories there. A corrupted Whisper model is re-downloaded automatically. During a model download, a standard HTTPS request is made to Hugging Face's servers. No personal data or identifiers are sent; only the model file URL is requested. Downloaded models are stored locally on your device.
+        For local/offline transcription, WhisPaste downloads AI models from <strong>Hugging Face</strong>: the Whisper and Parakeet models as well as the optional Smart Mode language model come from separate repositories there. A corrupted Whisper model is re-downloaded automatically. During a model download, a standard HTTPS request is made to Hugging Face's servers. No personal data or identifiers are sent; only the model file URL is requested. Downloaded models are stored locally on your device. The optional CUDA pack for acceleration on NVIDIA graphics cards is only downloaded when you request it in the settings, as a release file from <strong>GitHub</strong>. This too is a standard HTTPS request without identifiers.
       </p>
     </section>
 
     <section>
       <h2>12. Auto-Update</h2>
+      <p>
+        On first launch, the app makes no automatic network connections before your privacy decision. A model download you start yourself is an exception. Automatic update checks are enabled by default, but only begin after that decision.
+      </p>
       <p>
         The update mechanism depends on how you installed WhisPaste:
       </p>
@@ -162,7 +182,7 @@ const breadcrumbItems = [
     <section>
       <h2>13. Third-Party Data Sharing</h2>
       <p>
-        WhisPaste does <strong>not share your content with third parties</strong>. Audio or text is sent to a cloud provider only when you explicitly choose one (OpenAI or Deepgram for transcription, OpenAI for Smart Mode), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Crash reports and performance data are processed by Sentry (EU data region) as a data processor. Both can be switched off (see section&nbsp;15).
+        WhisPaste does <strong>not share your content with third parties</strong>. Audio or text is sent to a cloud provider only when you explicitly choose one (OpenAI or Deepgram for transcription, OpenAI for Smart Mode), directly from your device under that provider's terms. Anonymous usage statistics go to a Matomo server operated by us (not a third party). Crash reports are processed by Sentry (EU data region) as a data processor under a data processing agreement (see section&nbsp;15). Both can be switched off (see section&nbsp;15).
       </p>
     </section>
 
@@ -174,44 +194,82 @@ const breadcrumbItems = [
       <ul>
         <li>OpenAI / Deepgram API — when cloud transcription is enabled (user-initiated)</li>
         <li>OpenAI API — only if you choose OpenAI as the Smart Mode service (user-initiated)</li>
+        <li>Your own OpenAI-compatible server (e.g. LM Studio, Ollama, or a provider you choose) — only if you enter it for speech recognition or Smart Mode (user-initiated). Addresses on your device or in your local network stay there; any other address receives the data</li>
         <li>Hugging Face — when downloading offline AI models (user-initiated)</li>
+        <li>GitHub — when downloading the optional CUDA pack (user-initiated)</li>
         <li>GitHub — for automatic update checks (Releases API or appcast; on by default, can be switched off)</li>
-        <li>Matomo — anonymous usage statistics (on by default, can be switched off, see section 15)</li>
-        <li>Sentry — crash reports and sampled performance data (on by default, can be switched off, see section 15)</li>
-        <li>Supabase — only when you submit the optional feedback form (see section 16)</li>
+        <li>Matomo — usage statistics (on by default, can be switched off, see section 15)</li>
+        <li>Sentry — crash reports (on by default, can be switched off, see section 15)</li>
+        <li>api.whispaste.de (netcup) — when you submit the optional feedback form and when you withdraw a quote approval (see section 16)</li>
+        <li>Our API <code>api.whispaste.de</code> — project numbers for the “Get involved” section of the overview and the star count under “Help without money” on the support page, at most once a day while either page is open (see section 23), the newsletter sign-up, only when you submit it, and, while a sign-up from the app waits for your confirmation, the question whether it was confirmed (see section 24)</li>
+        <li>MET Norway (<code>api.met.no</code>) and the OpenStreetMap place search (<code>nominatim.openstreetmap.org</code>) — only if you switch on the “Weather” card on the overview: the place search when you search, the forecast at most about hourly while the overview is open (off by default, see section 25)</li>
+        <li>The RSS or Atom feeds you choose for the overview’s “News” block — only while the block is visible and the window is active, at most once an hour per feed (off by default, see section&nbsp;26)</li>
       </ul>
       <p>
-        All network connections use <strong>HTTPS</strong> encryption. Aside from the update check and the usage statistics and crash reports described in section 15, no background network activity occurs. A complete technical list of every connection is in <a href="https://github.com/whispaste/whispaste/blob/main/NETWORK.md" target="_blank" rel="noopener">NETWORK.md</a>.
+        Connections to services on the internet use <strong>HTTPS</strong> encryption. A server of your own on your device or in your local network may use unencrypted HTTP; the app then shows a warning. Aside from the update check, the usage statistics and crash reports described in section 15 the project numbers described in section 23 and the weather forecast described in section 25, no background network activity occurs. A complete technical list of every connection is in <a href="https://github.com/whispaste/whispaste/blob/main/NETWORK.md" target="_blank" rel="noopener">NETWORK.md</a>.
       </p>
     </section>
 
     <section>
-      <h2>15. Anonymous Usage Statistics &amp; Crash Reports</h2>
+      <h2>15. Pseudonymous Usage Statistics &amp; Crash Reports</h2>
       <p>
-        To guide development, WhisPaste collects <strong>anonymous, aggregated usage statistics</strong> via a self-hosted Matomo server, plus <strong>crash reports</strong> via Sentry (EU data region). Both are on by default (opt-out) — the Privacy step of the onboarding says so as well. Both are cookieless and carry no account identifier. For Matomo, the IP address is fully anonymised server-side; if the <code>DNT=1</code> environment variable is set, the app sends no usage statistics. For week-level analysis (e.g. returning usage within the same week), a purely locally generated pseudonymous marker is also sent: a hash of a random, never-transmitted device value and the current calendar week. This value automatically changes every week and cannot be linked across weeks — it is therefore not a persistent device identifier. In addition, every app start gets a random visitor ID that is never stored and only links events from the same run.
+        To guide development, WhisPaste collects two separate data streams. Both are on by default (opt-out) — the Privacy step of the onboarding says so as well. Both work without cookies, never contain audio, text, recordings or clipboard content, and can each be switched off under <strong>Settings → Privacy</strong>. The switches there are called <strong>"Help make WhisPaste better"</strong> (usage statistics) and <strong>"Send crash reports"</strong> (crash reports).
       </p>
       <p>
-        <strong>Crash reports (Sentry)</strong> contain technical error data: the error message and stack trace, app version, operating system and CPU architecture, install channel and the most recent app log lines (these never contain transcribed text; the user name in local file paths is replaced with a placeholder before sending). To tell whether an error keeps recurring on the same device, a truncated hash of the device name is included. Events containing secrets such as API keys are dropped; screenshots and on-screen content are never sent. In addition, a small share of app operations (0.5&nbsp;%) is sent as performance measurements: timings only, database query templates without values, and the addresses of model and update downloads. Switching error reporting off stops Sentry immediately, including native crash and app-hang reports, and later launches do not start it at all.
+        <strong>Usage statistics (Matomo).</strong> The app uses the same self-hosted Matomo server in the EU as the website (section&nbsp;4), in a separate measurement area. Only aggregated event counters and fixed categories are sent: app version, operating system, selected speech-recognition provider, install channel, interface language, update channel, the result of the update check, onboarding steps without content, and the names of changed settings (never their values). When statistics are on, these are added: the chosen speech model as a fixed name (small, medium, large-v3-turbo, Parakeet or cloud), coarse hardware classes (memory tier, GPU vendor, Mac chip family, compute backend), coarse speed classes, success or failure of model downloads with an error class, whether you kept the recommended model, and the time since onboarding as a coarse bucket. Raw data with a truncated IP address is deleted after 180 days; aggregated reports without personal reference are kept.
       </p>
       <p>
-        <strong>Never</strong> transmitted (in either stream): your audio, transcribed text, history, snippets, tags, notes, or API keys. Usage statistics additionally never include concrete hotkeys, file paths, cursor position, or the target application; they only collect aggregated event counters and categories (app version, platform, selected provider, install channel, language, the weekly-rotating cohort marker described above). Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You can switch off each stream independently at any time under <strong>Settings → Privacy</strong> ("Error Reporting" and "Share anonymous usage statistics"); when usage statistics are off, no cohort marker is generated or sent either.
+        <strong>Onboarding answers.</strong> During onboarding you can also optionally say what you dictate for (fixed categories such as writing, development or education) and how you found WhisPaste. Only the fixed ID of your selection is sent. Whether you changed your first name is reported as a state (kept, edited, cleared), never the name itself. There is no separate switch for this: the answers run under the usage-statistics switch and are only sent while it is on.
+      </p>
+      <p>
+        <strong>Legal basis</strong> for both streams is Art. 6(1)(f) GDPR. Our legitimate interest is the stability and development of the app. We have weighed this: only aggregated counters, fixed categories and error data without content are collected; the retention periods are short; and each stream can be switched off at any time. In our assessment, your interests therefore do not override this interest.
+      </p>
+      <p>
+        <strong>Crash reports (Sentry, EU data region).</strong> Only crashes, hangs of the app lasting 5&nbsp;seconds or more, and serious errors are sent. There is no performance measurement and no session tracking. Content: error message and stack trace, app version, operating system and CPU architecture, install channel, the most recent app log lines (WhisPaste does not write dictation or clipboard content to the log, see section&nbsp;10), and a pseudonymous, random per-install identifier of 12 characters. It is created on the first launch, is not derived from the computer, and is reset by deleting its file. Sentry does not store IP addresses, and the app sends no additional personal data by default. Before sending, the app replaces the user name in local file paths with a placeholder. Events containing secrets such as API keys are dropped; screenshots and on-screen content are never sent. A single error is reported at most three times, and one session sends at most 30 reports in total. Error data is kept for 30 days. Sentry processes it as a processor under a data processing agreement (DPA). To safeguard the transfer to the USA, where the parent company is based, the standard contractual clauses (SCC) under Art. 46(2)(c) GDPR or the EU-U.S. Data Privacy Framework apply, as for GitHub in section&nbsp;3. Switching crash reports off stops Sentry immediately, including crash and hang reports, and later launches do not start it at all.
+      </p>
+      <p>
+        <strong>Pseudonymous identifiers on your device.</strong> The installation identifier for crash reports and the salt for the weekly value are stored locally. This is technically necessary for the feature that is switched on (Art.&nbsp;25(2) no.&nbsp;2 TDDDG), so no separate consent is required for it. For week-level analysis a locally generated marker is sent: a hash of a random device value that is never transmitted and of the calendar week. It changes every week and is not a persistent identifier; when usage statistics are off, it is neither generated nor sent. Each app start also gets a random visitor ID that is never stored and only links events from the same run.
+      </p>
+      <p>
+        <strong>Never</strong> transmitted, in either stream: your audio, transcribed text, clipboard content, recordings, snippets, tags, notes, API keys, or your name. Usage statistics also never include concrete hotkeys, file paths, cursor position or the target application.
+      </p>
+      <p>
+        <strong>Objection.</strong> You can object to either stream at any time (Art. 21 GDPR) by switching it off under <strong>Settings → Privacy</strong>. When usage statistics are off, the optional onboarding answers are not sent either.
       </p>
     </section>
 
     <section>
       <h2>16. Feedback Form</h2>
       <p>
-        WhisPaste includes an optional, voluntary feedback form in the app. Submitting it sends your rating, feedback text, chosen category, app version, a hashed, non-identifying device identifier, and the app's UI language to a Supabase database that we operate. Only if you choose to fill them in, a contact email address and a preferred contact language are also sent, so we can reply to your feedback. Legal basis: Art. 6(1)(a) GDPR (consent, given by actively submitting the form). None of this data is transmitted unless you submit the form.
+        WhisPaste includes an optional, voluntary feedback form in the app. Submitting it sends your rating, feedback text, chosen category, app version, a hashed, non-identifying device identifier, and the app's UI language to our own interface <code>api.whispaste.de</code>, where it is stored in a MySQL database on servers of netcup GmbH in Germany (see section&nbsp;17). Only if you choose to fill them in, a contact email address and a preferred contact language are also sent, so we can reply to your feedback. Legal basis: Art. 6(1)(a) GDPR (consent, given by actively submitting the form). None of this data is transmitted unless you submit the form.
+      </p>
+      <p>
+        As of 5&nbsp;November&nbsp;2026 we made a one-time copy of the entries received up to then to our own interface <code>api.whispaste.de</code> (servers of netcup GmbH in Germany, see section&nbsp;17), including a contact email address and contact language if you gave them. We use this copy as it is, also for the quotes on this website. There, a daily cleanup deletes entries that were not approved and entries whose consent was withdrawn after 90&nbsp;days; approved quotes stay but lose the contact details after 90&nbsp;days. The period always starts at the original date of receipt. New feedback and withdrawals from the app go directly to <code>api.whispaste.de</code>. Older app versions still send to our former Supabase database, which we will switch off once they have run out. We always honour a withdrawal of the quote approval for an entry from the copy of 5&nbsp;November&nbsp;2026 (Art.&nbsp;7(3) GDPR): whether you declare it in the app or by email, we transfer it to the copy by hand without undue delay, at the latest within one month of receiving it (Art.&nbsp;12(3) GDPR); this does not happen automatically.
+      </p>
+      <p>
+        <strong>Former Supabase database (older app versions):</strong> Older app versions still send feedback and withdrawals to our former database at <strong>Supabase</strong> (Supabase Inc., acting as our processor under Art.&nbsp;28 GDPR), stored in the Frankfurt am Main data centre (Germany, EU). It receives the same details as above (rating, feedback text, category, app version, hashed device identifier, app language, optionally a contact email address and contact language, and, if you approve a quote, the proof of consent and the hash of the withdrawal code) plus a SHA-256 hash of your IP address formed by the server, which is only used to limit the number of submissions per sender (abuse protection, Art.&nbsp;6(1)(f) GDPR). A daily cleanup empties the IP hash and the device identifier 30&nbsp;days after receipt, deletes entries that were not approved or were withdrawn after 90&nbsp;days, and removes the contact details from approved quotes after 90&nbsp;days. The database holds no backup copies. We will switch it off once hardly any older versions are in use, at the latest three months after the release of the first app version that sends directly to <code>api.whispaste.de</code>. For the backups of our host, see section&nbsp;17.
+      </p>
+      <p>
+        In addition, you can explicitly tick a box in the form to allow your feedback text to appear anonymously as a quote on this website. The box appears only when you choose the type Praise, because quotes are written like a rating: what you like and where there is still room to improve. Bug reports and feature wishes are never published as quotes. The box is unticked by default. Only your text and rating are then shown, never your name or email address, and only after our editorial review. Legal basis: Art.&nbsp;6(1)(a) GDPR. As evidence of your consent we store the time it was given (set by our server) and the version of the consent text you saw.
+      </p>
+      <p>
+        <strong>Withdrawing in the app:</strong> When you consent, the app creates a random withdrawal code that stays on your device, in the operating system's credential store (Keychain, Windows Credential Manager or the Secret Service on Linux; if none is available, in the app's settings). We only receive a hash of this code (SHA-256), from which the code cannot be recovered; the hash alone cannot withdraw the consent either. We store it with your feedback entry, at most until your withdrawal reaches us. Without a withdrawal we delete it with the entry: after 90&nbsp;days or, if we approved your feedback as a quote, when we delete the entry. "Withdraw consent" in the feedback section withdraws every consent you gave from this device with one click. On the device the withdrawal takes effect at once. It is sent to us once WhisPaste runs with an internet connection: right when you click, at the next app start, when you open the feedback section and, while the app is running, at growing intervals of at most one hour, for up to 30&nbsp;days in total. Until our server confirms receipt, the app shows the withdrawal as "being sent", then as "Withdrawal sent". If it cannot be delivered, because our server rejects it as invalid or after 30&nbsp;days without success, the app says so and points you to withdrawing by email. Once our server receives the withdrawal, it revokes your consent and the approval of the quote, deletes the hash and records the time of the withdrawal. The times of consent and withdrawal serve as evidence until deletion. Our daily clean-up deletes the feedback entry at the latest 90&nbsp;days after your feedback arrived, and in any case at the latest 90&nbsp;days after the withdrawal arrived. If your feedback is already older than 90&nbsp;days when the withdrawal arrives, the next daily clean-up deletes it, possibly well before 90&nbsp;days after the withdrawal. For these server deadlines, our server's time at each arrival counts. As a guideline, the quote disappears from the website within about 24&nbsp;hours, at the next daily update of the website; if an update fails, it can take longer.
+      </p>
+      <p>
+        <strong>Withdrawing by email:</strong> If you gave your consent on another device, reinstalled the app, no withdrawal code is stored on this device for another reason, or the app could not deliver the withdrawal, withdraw by email to <a href="mailto:kontakt@whispaste.de">kontakt@whispaste.de</a>. The app offers a prefilled email for this. If the app knows the date of your last feedback, it adds it automatically; for every undelivered withdrawal it also adds the hash described above as a withdrawal reference, never the withdrawal code itself. This lets us find the entry and revoke the consent by hand; the same deletion deadlines as for an in-app withdrawal then apply. We keep your withdrawal email as evidence that we carried out the withdrawal and delete it from our mailbox at the latest 90&nbsp;days after it arrived, the same period as for the feedback entry (storage limitation, Art.&nbsp;5(1)(e) GDPR). You send the email through your own email program and email provider to the operator of WhisPaste. Its transport is not end-to-end encrypted; we cannot influence its route through your provider. The withdrawal reference is a hash from which the withdrawal code cannot be recovered. Apart from this withdrawal reference, the email contains only the date of your last feedback, if the app knows it. If the app finds no email program, it shows the address and offers to copy the address and the message. The app deletes an undelivered withdrawal and its code from your device once you confirm that you sent the email, and at the latest 90&nbsp;days after your withdrawal. This deadline on the device counts from the moment you clicked "Withdraw consent" on your device, by your device's clock, not from its arrival with us. So that the app can offer you the withdrawal reference even while the credential store cannot be read, it keeps the hashes of your consents and the status of their withdrawals in its settings, never the withdrawal code. This information stays on your device only and is not part of any settings export. For a consent it is kept for as long as the consent stands. After a withdrawal the app deletes it once our server confirms the withdrawal or you confirm that you sent the email, and at the latest 90&nbsp;days after your withdrawal, even if it could not be delivered. Withdrawal does not affect the lawfulness of publication before it (Art.&nbsp;7(3) GDPR).
       </p>
     </section>
 
     <section>
-      <h2>17. Website Contact Form</h2>
+      <h2>17. Contact Form on the Website and in the App</h2>
       <p>
-        Using the contact button in the bottom right corner (“Write to us”) you can voluntarily send us a message. We then process the type of request you chose, your message, your email address for the reply, and the language and path of the page you write from. No name or account is needed. The <strong>sole purpose</strong> is to answer your request. The legal basis is Art.&nbsp;6(1)(b) GDPR where your request concerns your use of WhisPaste, otherwise Art.&nbsp;6(1)(f) GDPR (our legitimate interest in answering requests).
+        Using the contact button in the bottom right corner (“Contact us”) you can voluntarily send us a message. We then process the type of request you chose, your message, your email address for the reply, and the language and path of the page you write from. No name or account is needed. The <strong>sole purpose</strong> is to answer your request. The legal basis is Art.&nbsp;6(1)(b) GDPR where your request concerns your use of WhisPaste, otherwise Art.&nbsp;6(1)(f) GDPR (our legitimate interest in answering requests).
       </p>
       <p>
-        The data is sent TLS-encrypted to our interface <code>api.whispaste.de</code>. It runs on servers of <strong>netcup GmbH</strong> (Daimlerstraße 25, 76185 Karlsruhe, Germany), which acts as our processor under Art.&nbsp;28 GDPR; processing takes place in Germany. The interface forwards your message as an email to our mailbox and does not store its content itself. We delete the email once your request is resolved, at the latest after 12&nbsp;months, unless statutory retention obligations apply.
+        <strong>In the app</strong> the same reaches us via “Contact and feedback”. There we process the type of request if you choose one, your message, your email address only if you want a reply, an optional rating, the app language or the reply language you chose, and a hash of the installation ID from which the ID cannot be derived (for abuse protection only). App version and operating system are only sent if you explicitly attach the diagnostic data; you can view it beforehand. As above, message and address are emailed to our team inbox and stored only there, solely for the reply, never for marketing; they are deleted once resolved, after 12&nbsp;months at the latest. Nothing is sent until you click “Send”; until then your draft stays only in the app's memory on your device. If you explicitly allow a quote of your praise on the website, we keep that text until you withdraw consent; the rules on quotes and withdrawal in section&nbsp;16 apply.
+      </p>
+      <p>
+        The data is sent TLS-encrypted to our interface <code>api.whispaste.de</code>. It runs on servers of <strong>netcup GmbH</strong> (Daimlerstraße 25, 76185 Karlsruhe, Germany), which acts as our processor under Art.&nbsp;28 GDPR; processing takes place in Germany. The interface forwards your message as an email to our mailbox and does not store its content itself. We delete the email once your request is resolved, at the latest after 12&nbsp;months, unless statutory retention obligations apply. Deleted data may remain in the daily backups of our host netcup (Germany) for up to 7&nbsp;days and is then overwritten automatically; we do not run backups of our own.
       </p>
       <p>
         <strong>Abuse protection:</strong> To keep the form from being used for spam, we limit the number of messages per sender. For this we never store your IP address or email address in plain text, only as a hash keyed with a secret, and only until the respective time window has passed (at most 24&nbsp;hours, after which the entry is deleted automatically). A hidden check field and the time taken to fill in the form help detect automated submissions; no further data is collected for this. The interface's technical log contains no IP address, email address or message text, only the type and outcome of the request, and is deleted after 14&nbsp;days. The legal basis is Art.&nbsp;6(1)(f) GDPR (protection against abuse).
@@ -256,7 +314,7 @@ const breadcrumbItems = [
         <li>Object to processing (Art. 21 GDPR)</li>
       </ul>
       <p>
-        Since this website does not collect any personal data beyond the technically required server logs by GitHub, there is no data held by WhisPaste itself to delete, unless you have submitted the feedback form (see section 16). For requests regarding GitHub server logs, please contact <a href="https://support.github.com/" target="_blank" rel="noopener">GitHub Support</a>.
+        Which data we hold depends on what you use: usage statistics (sections 4 and 15) are stored only pseudonymously and without names, so we usually cannot link them to you (Art. 11 GDPR). Crash reports (section 15) are deleted after 30 days. If you submitted a form (sections 16 and 17), write to us and we will delete your details. To leave the newsletter, use the unsubscribe link (section 24). For requests regarding GitHub server logs, please contact <a href="https://support.github.com/" target="_blank" rel="noopener">GitHub Support</a>.
       </p>
       <p>
         You also have the right to lodge a complaint with a data protection supervisory authority (Art. 77 GDPR).
@@ -267,6 +325,65 @@ const breadcrumbItems = [
       <h2>22. SSL/TLS Encryption</h2>
       <p>
         This website uses SSL/TLS encryption (HTTPS) for security reasons. An encrypted connection is indicated by the address bar changing from "http://" to "https://".
+      </p>
+    </section>
+
+    <section>
+      <h2>23. Project Numbers in the App Overview</h2>
+      <p>
+        The <strong>“Get involved”</strong> section of the app's overview shows how many stars WhisPaste has on GitHub and how many subscribers its YouTube channel has. The app asks our own API <code>api.whispaste.de</code> for these numbers (netcup GmbH, Germany, see section&nbsp;17), never GitHub or YouTube directly. It asks at most once a day, and only while the overview with this section or the support page with the star count is open. If you hide the section (“Hide this section” or under “Customise overview”), the app no longer fetches the numbers, neither on the overview nor on the support page.
+      </p>
+      <p>
+        The request carries no identifier, no account, no settings and no content from the app. For technical reasons the server receives your IP address in order to deliver the answer. It appears in the web server's access log, which is deleted after 14&nbsp;days at the latest. To limit the number of requests per sender, the API only uses a hash of the IP address formed with a secret key, which expires after one minute. The answer contains only the two numbers and may be cached for up to one hour. The API itself asks GitHub and YouTube (Google) at most every 3&nbsp;hours and passes on no data about you. The legal basis is Art.&nbsp;6(1)(f) GDPR (legitimate interest in showing current project figures).
+      </p>
+    </section>
+
+    <section id="newsletter">
+      <h2>24. Newsletter</h2>
+      <p>
+        You can sign up for the WhisPaste newsletter on the website or in the app. For this we process your email address and first send you a confirmation email (double opt-in). You are only on the list once you confirm the link in it within 48&nbsp;hours. If you do not confirm, the link expires and we delete the sign-up at the next clean-up. Nothing is transmitted unless you submit the sign-up.
+      </p>
+      <ul>
+        <li><strong>Purpose:</strong> news about updates, tips and insights around WhisPaste.</li>
+        <li><strong>Legal basis:</strong> your consent (Art.&nbsp;6(1)(a) GDPR).</li>
+        <li><strong>Data stored:</strong> your email address (stored encrypted), the chosen language, where you signed up (website or app), the times of sign-up and confirmation, the version of the consent text, and an irreversible hash of your IP address formed with a secret key. We use these to prove your consent.</li>
+        <li><strong>Protection against abuse:</strong> so that nobody can flood other people's addresses with confirmation emails, we limit the number of sign-ups per IP address and per email address. An invisible check field and the time taken to fill in the form help to detect automated sign-ups; no further data is stored for this. The API's technical log contains neither the email address nor the IP address and is deleted after 14&nbsp;days.</li>
+        <li><strong>Confirmation in the app:</strong> If you sign up in the app, it creates a random status code and sends it with the sign-up. We store only an irreversible hash of it, formed with a secret key. The code itself stays in the app's settings on your device; it only reveals whether the sign-up from this device was confirmed, which is why it is not kept in the operating system's credential store. While the sign-up waits for your confirmation, at most 48&nbsp;hours, the app uses this code to ask <code>api.whispaste.de</code> whether you have confirmed: when the “Get involved” section appears or the app window comes to the front, at most every two minutes, and right away when the confirmation page sends you back to the app. Neither your email address nor any other information is sent to us in the process. Once you have confirmed, our server reports this exactly once and deletes the hash; the app deletes the code and keeps only the time of confirmation. Without confirmation, both delete it after 48&nbsp;hours. The legal basis is your consent (Art.&nbsp;6(1)(a) GDPR). So that the check cannot be abused, we limit the number of checks per code and per IP address; for this we store both only as a hash formed with a secret key and only for the current one-hour window (Art.&nbsp;6(1)(f) GDPR, protection against abuse).</li>
+        <li><strong>Welcome email:</strong> Once you confirm, we send you a single welcome email with the first steps and a tip. It rests on the same consent, contains no tracking pixels and triggers no further storage.</li>
+        <li><strong>Already signed up:</strong> If you sign up again in the app with an address that is already confirmed, we send you the email “You are already subscribed to WhisPaste news”. To limit how many emails we send you, we store for this, for at most 48&nbsp;hours, an irreversible hash of the app’s device key, the time and count of the last such email, and the start of the current 30-day period. Only when you click “Connect the app” in that email does the app learn that your address is signed up.</li>
+        <li><strong>Language from the app:</strong> If you signed up in the app or linked it to your sign-up via “Connect the app”, we store an irreversible hash of the app’s device key until your sign-up ends. It is used only to adopt the app’s language for your newsletter emails when you change it in the app; the app does not need your address for this. It is deleted as soon as you unsubscribe, your address becomes undeliverable or your sign-up ends. If you sign up again in another language, we write to you in that language from then on.</li>
+        <li><strong>No tracking:</strong> we do not measure whether you open emails or click links. The emails contain no tracking pixels, no tracking parameters and no remotely loaded images.</li>
+        <li><strong>Sending:</strong> through our own mail server at netcup GmbH in Germany (processor under Art.&nbsp;28 GDPR). We do not pass your data on to third parties.</li>
+        <li><strong>Withdrawal and unsubscribing:</strong> you can withdraw your consent at any time through the unsubscribe link in every email. We then delete your address and language. So that we send you nothing more, only an irreversible keyed value of the address stays on a suppression list. We keep the proof of your consent (times, version of the consent text, where you signed up) for three years and then delete it automatically, together with the suppression entry. The withdrawal does not affect the lawfulness of the emails sent before it (Art.&nbsp;7(3) GDPR). For the backups of our host, see section&nbsp;17.</li>
+      </ul>
+    </section>
+
+    <section id="weather">
+      <h2>25. Weather in the App Overview</h2>
+      <p>
+        The <strong>“Weather”</strong> card on the app’s overview is off by default. You switch it on under “Customise overview” and then choose a place yourself. WhisPaste does not use your device’s location services for this.
+      </p>
+      <p>
+        <strong>Place search:</strong> When you search for a place, the app sends your search term and the app’s language to the Nominatim place search of the OpenStreetMap Foundation (United Kingdom, covered by an adequacy decision of the EU Commission). It searches only when you click “Search” or press Enter, never while you type, and at most once per second. See the <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">privacy policy of the OpenStreetMap Foundation</a>. Place data © OpenStreetMap contributors (ODbL).
+      </p>
+      <p>
+        <strong>Forecast:</strong> For the forecast, the app sends the coordinates of the chosen place, rounded to two decimals (about one kilometre), directly to the weather API of the Norwegian Meteorological Institute (MET Norway, Oslo, Norway, within the European Economic Area). It asks at most about once an hour, only once the last forecast has expired, and only while the overview is visible; it never asks in the background or without a chosen place. When offline, the card stays quiet and shows the last forecast.
+      </p>
+      <p>
+        Neither request carries an identifier, an account or any content from the app, only the app’s name and version and our website address as a contact, as both services require. For technical reasons both services receive your IP address. The chosen place (name and rounded coordinates) and the last forecast are kept only in the app’s settings on your device; “Remove place” deletes both. The weather data comes from MET Norway under the CC&nbsp;BY&nbsp;4.0 licence. The legal basis is Art.&nbsp;6(1)(f) GDPR (legitimate interest in providing the weather display you switched on).
+      </p>
+    </section>
+
+    <section id="news">
+      <h2>26. News in the App Overview</h2>
+      <p>
+        The <strong>“News”</strong> block on the app’s overview is off by default. You switch it on under “Customise overview” and decide under “Sources” which RSS or Atom feeds it shows, up to five. The feed of our blog is suggested (<code>whispaste.de/blog/feed.xml</code>, see section&nbsp;3); you enter any other address yourself.
+      </p>
+      <p>
+        <strong>Fetching:</strong> The app loads each chosen feed directly from its server: once when you add it, then at most once an hour, and only while the overview shows the block and the app window is active. It never asks at start-up, in the background or without a feed. The request is a plain fetch of the feed address with “WhisPaste” as the program name, without a device identifier, without a cookie and without any content from the app. For technical reasons the feed’s server receives your IP address; the privacy policy of its operator applies to it. If you enter an address with <code>http://</code>, the fetch is unencrypted.
+      </p>
+      <p>
+        The list of your feeds and the most recently loaded entries (title, source, date, link) are kept only in the app’s database on your device. When you remove a feed, the app also deletes its entries. Clicking an entry opens it in your browser. The legal basis is Art.&nbsp;6(1)(f) GDPR (legitimate interest in providing the news you switched on).
       </p>
     </section>
 </LegalPage>

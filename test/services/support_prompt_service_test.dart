@@ -8,7 +8,9 @@
 ///   AC3  Coordination: never fires while the review prompt is pending, or
 ///        was shown/snoozed recently — mutual exclusion in timing, not
 ///        shared counter state.
-///   AC4  Explicit dismiss is a 90-day snooze, not a permanent flag.
+///   AC4  "Später" and the main action are a 90-day pause; "Nicht mehr
+///        fragen" is permanent. Usage needs 40 dictations on 5 days, at
+///        least 14 days after the first (Hypothese).
 ///   AC5  A link click starts a 9-month quiet period, after which a one-time
 ///        recurring follow-up appears.
 ///   AC6  A hard impression cap of 3 is enforced regardless of resolution
@@ -19,6 +21,7 @@
 /// dismiss / markLinkOpened) and observe [SupportPromptState].
 library;
 
+import 'package:clock/clock.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +29,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
+import 'package:whispaste/services/support/support_store_bridge.dart';
 import 'package:whispaste/services/support/support_state.dart';
+import 'package:whispaste/services/review_prompt_service.dart';
 import 'package:whispaste/services/support_prompt_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -34,12 +39,19 @@ import 'package:whispaste/services/support_prompt_service.dart';
 // ---------------------------------------------------------------------------
 
 /// Builds a [ProviderContainer] with an in-memory drift DB seeded with
-/// [activeEntries] active history entries and the supplied SharedPreferences
-/// initial values. Returns the container so the test can drive the notifier.
+/// [activeEntries] active history entries, [usageDays] distinct dictation
+/// days (from 2025-01-01, so the 14-day rule holds against the real clock)
+/// and the supplied SharedPreferences initial values. The build offers an
+/// external payment route unless [capabilities] says otherwise.
 Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
   required Map<String, Object> prefs,
   int activeEntries = 0,
-  List<SupportAsk>? capabilities,
+  int usageDays = 5,
+  List<SupportAsk> capabilities = const [
+    SupportAsk.githubSponsors,
+    SupportAsk.kofi,
+  ],
+  SupportStoreBridge? bridge,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -49,6 +61,17 @@ Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
         id: 'entry-$i',
         timestamp: DateTime(2025, 1, 1).add(Duration(minutes: i)),
       ),
+    );
+  }
+  for (var d = 0; d < usageDays; d++) {
+    await db.recordDailyStat(
+      timestamp: DateTime(2025, 1, 1 + d, 12),
+      model: 'test',
+      isLocal: true,
+      durationSec: 5,
+      processingDurationSec: 1,
+      wordCount: 10,
+      costUsd: 0,
     );
   }
   final container = ProviderContainer(
@@ -61,11 +84,35 @@ Future<({ProviderContainer container, HistoryDatabase db})> _bootstrap({
       // as part of its coordination check; the deploy channel override
       // keeps that read deterministic in tests.
       deployChannelProvider.overrideWithValue(DeployChannel.portable),
-      if (capabilities != null)
-        supportCapabilitiesProvider.overrideWithValue(capabilities),
+      supportPlatformProvider.overrideWithValue(SupportPlatform.windows),
+      supportCapabilitiesProvider.overrideWithValue(capabilities),
+      if (bridge != null) supportStoreBridgeProvider.overrideWithValue(bridge),
     ],
   );
   return (container: container, db: db);
+}
+
+/// Store bridge whose purchase answers with [status].
+class _Bridge implements SupportStoreBridge {
+  _Bridge(this.status);
+
+  final SupportPurchaseStatus status;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<List<SupportProduct>> loadProducts(List<String> productIds) async =>
+      const [];
+
+  @override
+  Future<SupportPurchaseStatus> purchase(String productId) async => status;
+
+  @override
+  Future<bool> hasVerifiedAppPurchase() async => false;
+
+  @override
+  Future<bool> hasVerifiedSupportPurchase() async => false;
 }
 
 /// Drives the notifier and returns the resulting [SupportPromptState].
@@ -81,6 +128,8 @@ const _snoozeKey = 'support_prompt_snooze_ms';
 const _postLinkKey = 'support_prompt_post_link_ms';
 const _linkClickedKey = 'support_prompt_link_clicked';
 const _followUpShownKey = 'support_prompt_followup_shown';
+const _neverKey = 'support_prompt_never';
+const _roundOpenKey = 'support_prompt_round_open';
 
 /// SharedPreferences keys owned by the review prompt service — used here
 /// only to seed cross-session coordination scenarios (read-only from the
@@ -95,6 +144,55 @@ const _reviewLastSnoozeKey = 'review_prompt_last_snooze';
 const _reviewShownCountKey = 'review_prompt_shown_count';
 
 void main() {
+  // ---------------------------------------------------------------------------
+  // GR-012 — failed-paste dictations do not count toward the 40 threshold
+  // ---------------------------------------------------------------------------
+
+  group('failed-paste entries (GR-012)', () {
+    test(
+      'a failed-paste entry does not count toward the 40 threshold',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+        addTearDown(harness.container.dispose);
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: 'entry-0');
+
+        expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      },
+    );
+
+    test('41 active entries with one failed paste still prompt', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 41);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'entry-0');
+
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+    });
+
+    test('trimmed-away failed entries do not lower the total', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      await harness.db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'failed-trimmed',
+          timestamp: DateTime(2024, 1, 1),
+        ),
+      );
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'failed-trimmed');
+      await harness.db.customStatement(
+        'UPDATE history_entries SET deleted_at = ? WHERE id = ?',
+        [DateTime(2025, 6, 1).millisecondsSinceEpoch, 'failed-trimmed'],
+      );
+
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // AC1 / AC2 — independent state + higher threshold
   // ---------------------------------------------------------------------------
@@ -115,6 +213,29 @@ void main() {
       final state = await _check(harness.container);
       expect(state.shouldShowPrompt, isTrue);
       expect(state.kind, SupportPromptKind.initial);
+    });
+
+    test('stays quiet with 40 dictations on only 4 days', () async {
+      final harness = await _bootstrap(
+        prefs: const {},
+        activeEntries: 40,
+        usageDays: 4,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('stays quiet until 14 days after the first dictation', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+
+      await withClock(Clock.fixed(DateTime(2025, 1, 14, 23)), () async {
+        expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      });
+      await withClock(Clock.fixed(DateTime(2025, 1, 15, 1)), () async {
+        expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      });
     });
 
     test('still prompts at the review-prompt threshold of 12 recordings once '
@@ -238,23 +359,126 @@ void main() {
       expect(prefs.getInt(_impressionCountKey), 1);
     });
 
-    test('a due prompt that never reached the screen counts nothing and '
-        'starts no snooze', () async {
+    test('reopening an unanswered card counts the round only once', () async {
       final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
       addTearDown(harness.container.dispose);
       final notifier = harness.container.read(supportPromptProvider.notifier);
       expect((await _check(harness.container)).shouldShowPrompt, isTrue);
 
-      notifier.cancelPresentation();
+      await notifier.markPresented();
+      await notifier.markPresented();
 
-      expect(
-        harness.container.read(supportPromptProvider).shouldShowPrompt,
-        isFalse,
-      );
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(_impressionCountKey), isNull);
-      expect(prefs.getInt(_snoozeKey), isNull);
+      expect(prefs.getInt(_impressionCountKey), 1);
+    });
+
+    test('an open round stays visible although it reached the cap', () async {
+      final harness = await _bootstrap(
+        prefs: {_impressionCountKey: 3, _roundOpenKey: true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
       expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+    });
+
+    test('the main action pauses for 90 days like Später', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markPresented();
+      await notifier.opened();
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(_snoozeKey), isNotNull);
+      expect(prefs.getBool(_roundOpenKey), isNull);
+    });
+
+    test('Später returns after 90 days', () async {
+      final start = DateTime(2026, 3, 1);
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+
+      await withClock(Clock.fixed(start), () async {
+        expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+        await notifier.markPresented();
+        await notifier.dismiss();
+      });
+      await withClock(
+        Clock.fixed(start.add(const Duration(days: 89))),
+        () async {
+          expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+        },
+      );
+      await withClock(
+        Clock.fixed(start.add(const Duration(days: 90))),
+        () async {
+          expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+        },
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Nicht mehr fragen: permanent
+  // ---------------------------------------------------------------------------
+
+  group('never ask again', () {
+    test('never() silences the card for good, even years later', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(supportPromptProvider.notifier);
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+      await notifier.markPresented();
+      await notifier.never();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(_neverKey), isTrue);
+      await withClock(Clock.fixed(DateTime(2030)), () async {
+        expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      });
+    });
+
+    test('the never flag survives a restart', () async {
+      final harness = await _bootstrap(
+        prefs: {_neverKey: true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Payments: pending or confirmed suppresses, a cancelled checkout does not
+  // ---------------------------------------------------------------------------
+
+  group('store payments', () {
+    Future<bool> dueAfterPurchase(SupportPurchaseStatus status) async {
+      final harness = await _bootstrap(
+        prefs: const {},
+        activeEntries: 40,
+        bridge: _Bridge(status),
+      );
+      addTearDown(harness.container.dispose);
+      await harness.container.read(supportStatusProvider.notifier).purchase();
+      return (await _check(harness.container)).shouldShowPrompt;
+    }
+
+    test('a pending store payment suppresses the card', () async {
+      expect(await dueAfterPurchase(SupportPurchaseStatus.pending), isFalse);
+    });
+
+    test('a confirmed store payment suppresses the card', () async {
+      expect(await dueAfterPurchase(SupportPurchaseStatus.succeeded), isFalse);
+    });
+
+    test('a cancelled checkout is no payment: the card stays due', () async {
+      expect(await dueAfterPurchase(SupportPurchaseStatus.cancelled), isTrue);
     });
   });
 
@@ -409,6 +633,9 @@ void main() {
               return harness.db;
             }),
             deployChannelProvider.overrideWithValue(DeployChannel.portable),
+            supportCapabilitiesProvider.overrideWithValue(const [
+              SupportAsk.githubSponsors,
+            ]),
           ],
         );
         addTearDown(restarted.dispose);
@@ -452,13 +679,21 @@ void main() {
       expect((await _check(harness.container)).shouldShowPrompt, isFalse);
     });
 
-    test('a build without an external payment route gets no prompt (Mac App '
-        'Store)', () async {
+    test('a user who hid the sponsor chip is never prompted (R-12)', () async {
+      final harness = await _bootstrap(
+        prefs: {'support_chip_hidden': true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('a build without any payment route gets no card', () async {
       final harness = await _bootstrap(
         prefs: const {},
         activeEntries: 40,
         capabilities: const [
-          SupportAsk.nativeTip,
           SupportAsk.rate,
           SupportAsk.star,
           SupportAsk.share,

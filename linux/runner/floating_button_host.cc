@@ -1,8 +1,29 @@
 #include "floating_button_host.h"
 
 #include <gdk/gdk.h>
+#include <gdk/gdkx.h>
 
 #include <cstring>
+#include <string>
+
+namespace {
+
+// Preset ids the render engine understands (overlay_design_spec.dart). Any
+// other value from the method channel is replaced by the default before it is
+// cached or relayed.
+const char* const kBackgroundPresets[] = {"marine", "graphit", "gletscher", "amber", "glass"};
+const char* const kWavePresets[] = {"cyan", "violett", "ink", "white", "amber", "coral", "mint"};
+
+template <size_t N>
+std::string KnownPreset(const std::string& value,
+                        const char* const (&known)[N], const char* fallback) {
+  for (const char* id : known) {
+    if (value == id) return value;
+  }
+  return fallback;
+}
+
+}  // namespace
 
 // ── Construction / destruction ───────────────────────────────────────────────
 
@@ -118,10 +139,64 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
 
   } else if (strcmp(method, "setTheme") == 0) {
     // ── setTheme ──────────────────────────────────────────────────────────
-    // args: { isDark: bool }
-    // Relay to the render engine (it currently ignores this — the Dart painter
-    // is theme-independent — but forward it so the channel contract is intact).
-    if (render_ready_) InvokeRenderChannel("setTheme", args);
+    // args: { background: string, wave: string } (ticket). Cached so the ready
+    // flush can replay them.
+    // A missing or non-string id resets to the default, like macOS and
+    // Windows; an unknown string is replaced by the default as well.
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* bv = fl_value_lookup_string(args, "background");
+      FlValue* wv = fl_value_lookup_string(args, "wave");
+      const char* background =
+          (bv && fl_value_get_type(bv) == FL_VALUE_TYPE_STRING)
+              ? fl_value_get_string(bv)
+              : "";
+      const char* wave = (wv && fl_value_get_type(wv) == FL_VALUE_TYPE_STRING)
+                             ? fl_value_get_string(wv)
+                             : "";
+      pending_background_ =
+          KnownPreset(background, kBackgroundPresets, "marine");
+      pending_wave_ = KnownPreset(wave, kWavePresets, "cyan");
+      // ticket button look: shape, recording ring, resting opacity (40-100 %).
+      FlValue* shv = fl_value_lookup_string(args, "shape");
+      pending_shape_ = (shv && fl_value_get_type(shv) == FL_VALUE_TYPE_STRING &&
+                        strcmp(fl_value_get_string(shv), "square") == 0)
+                           ? "square"
+                           : "round";
+      FlValue* rv = fl_value_lookup_string(args, "ring");
+      pending_ring_ = (rv && fl_value_get_type(rv) == FL_VALUE_TYPE_BOOL)
+                          ? fl_value_get_bool(rv)
+                          : true;
+      double idle = 1.0;
+      FlValue* ov = fl_value_lookup_string(args, "idleOpacity");
+      if (ov && fl_value_get_type(ov) == FL_VALUE_TYPE_FLOAT) {
+        idle = fl_value_get_float(ov);
+      } else if (ov && fl_value_get_type(ov) == FL_VALUE_TYPE_INT) {
+        idle = static_cast<double>(fl_value_get_int(ov));
+      }
+      pending_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+      FlValue* icv = fl_value_lookup_string(args, "idleCapsule");
+      pending_idle_capsule_ =
+          (icv && fl_value_get_type(icv) == FL_VALUE_TYPE_BOOL)
+              ? fl_value_get_bool(icv)
+              : false;
+      has_theme_ = true;
+    }
+    if (render_ready_) {
+      g_autoptr(FlValue) theme_args = fl_value_new_map();
+      fl_value_set_string_take(theme_args, "background",
+                               fl_value_new_string(pending_background_.c_str()));
+      fl_value_set_string_take(theme_args, "wave",
+                               fl_value_new_string(pending_wave_.c_str()));
+      fl_value_set_string_take(theme_args, "shape",
+                               fl_value_new_string(pending_shape_.c_str()));
+      fl_value_set_string_take(theme_args, "ring",
+                               fl_value_new_bool(pending_ring_));
+      fl_value_set_string_take(theme_args, "idleOpacity",
+                               fl_value_new_float(pending_idle_opacity_));
+      fl_value_set_string_take(theme_args, "idleCapsule",
+                               fl_value_new_bool(pending_idle_capsule_));
+      InvokeRenderChannel("setTheme", theme_args);
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "setPosition") == 0) {
@@ -183,23 +258,8 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
 
   } else if (strcmp(method, "setContextMenuItems") == 0) {
     // ── setContextMenuItems ───────────────────────────────────────────────
-    // args: { items: [{id, label}, …] }
-    context_menu_items_.clear();
-    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
-      FlValue* items_val = fl_value_lookup_string(args, "items");
-      if (items_val && fl_value_get_type(items_val) == FL_VALUE_TYPE_LIST) {
-        size_t count = fl_value_get_length(items_val);
-        for (size_t i = 0; i < count; ++i) {
-          FlValue* item = fl_value_get_list_value(items_val, i);
-          if (!item || fl_value_get_type(item) != FL_VALUE_TYPE_MAP) continue;
-          FlValue* id_v = fl_value_lookup_string(item, "id");
-          FlValue* lb_v = fl_value_lookup_string(item, "label");
-          if (!id_v || !lb_v) continue;
-          context_menu_items_.push_back(
-              {fl_value_get_string(id_v), fl_value_get_string(lb_v)});
-        }
-      }
-    }
+    // args: {items:[...tree...], appearance} (#393, native_context_menu.h)
+    context_menu_ = ParseNativeMenu(args);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "getPosition") == 0) {
@@ -224,6 +284,35 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
                               fl_value_new_float(static_cast<double>(y)));
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
 
+  } else if (strcmp(method, "rebootRenderEngine") == 0) {
+    // ── rebootRenderEngine ────────────────────────────────────────────────
+    // Dart's frame heartbeat found no painted frame after its re-push (see
+    // FloatingButtonService). Re-boots only the render engine, like
+    // FloatingButtonHost.swift: a fresh shell opens at the current position
+    // with the old visibility, and the new engine's `ready` flushes the
+    // cached state.
+    if (button_window_) {
+      g_message("[button-host] rebootRenderEngine: re-booting on request");
+      GtkWidget* old_window = button_window_->GetGtkWindow();
+      const bool was_visible =
+          old_window != nullptr && gtk_widget_get_visible(old_window);
+      if (render_channel_) {
+        fl_method_channel_set_method_call_handler(render_channel_, nullptr,
+                                                   nullptr, nullptr);
+        g_object_unref(render_channel_);
+        render_channel_ = nullptr;
+      }
+      delete button_window_;
+      button_window_ = nullptr;
+      pending_x_ = current_x_;
+      pending_y_ = current_y_;
+      has_pending_position_ = true;
+      EnsureButtonWindow();
+      button_window_->SetDiameter(pending_diameter_);
+      if (was_visible) button_window_->Show();
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
   } else if (strcmp(method, "destroy") == 0) {
     // ── destroy ───────────────────────────────────────────────────────────
     // Called by MethodChannelPlatformHost.dispose() from Dart. Tear down the
@@ -240,6 +329,19 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
     render_ready_ = false;
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
+  } else if (strcmp(method, "getCapabilities") == 0) {
+    // ── getCapabilities ───────────────────────────────────────────────────
+    // Reports whether the active GDK backend can host the button at all. Keep-
+    // above, absolute positioning and focus-free clicks need X11 (native or
+    // XWayland). The Dart side maps the session type (X11 vs. Wayland) to the
+    // limits it shows in Settings (PAR-010).
+    GdkDisplay* display = gdk_display_get_default();
+    g_autoptr(FlValue) caps = fl_value_new_map();
+    fl_value_set_string_take(
+        caps, "x11",
+        fl_value_new_bool(display != nullptr && GDK_IS_X11_DISPLAY(display)));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(caps));
+
   } else if (strcmp(method, "setOpacity") == 0) {
     // ── setOpacity ────────────────────────────────────────────────────────
     // No-op on Linux — the Flutter painter handles its own alpha compositing.
@@ -254,11 +356,35 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
 
 // ── Button window creation ────────────────────────────────────────────────────
 
+std::vector<std::string> FloatingButtonHost::BootArguments() const {
+  // #977: the engine paints this state in its first frame, so a heartbeat
+  // re-boot during a recording no longer blanks the stop button until the
+  // ready flush. Theme keys only once a theme arrived (#369 guard: no frame
+  // in default colours). g_ascii_dtostr ignores the user locale, which would
+  // otherwise write a decimal comma Dart cannot parse.
+  std::vector<std::string> args{
+      "--button-boot-diameter=" + std::to_string(pending_diameter_),
+      "--button-boot-state=" + pending_state_};
+  if (has_theme_) {
+    gchar opacity[G_ASCII_DTOSTR_BUF_SIZE];
+    g_ascii_dtostr(opacity, sizeof(opacity), pending_idle_opacity_);
+    args.push_back("--button-boot-background=" + pending_background_);
+    args.push_back("--button-boot-wave=" + pending_wave_);
+    args.push_back("--button-boot-shape=" + pending_shape_);
+    args.push_back(std::string("--button-boot-ring=") +
+                   (pending_ring_ ? "true" : "false"));
+    args.push_back(std::string("--button-boot-idleOpacity=") + opacity);
+    args.push_back(std::string("--button-boot-idleCapsule=") +
+                   (pending_idle_capsule_ ? "true" : "false"));
+  }
+  return args;
+}
+
 void FloatingButtonHost::EnsureButtonWindow() {
   render_ready_ = false;
   button_window_ = new FloatingButtonWindow();
   button_window_->SetOnMoved(OnWindowMoved, this);
-  button_window_->Create();
+  button_window_->Create(BootArguments());
 
   // Apply pending position before the window is shown.
   if (has_pending_position_) {
@@ -322,7 +448,54 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
                               fl_value_new_int(pending_diameter_));
     InvokeRenderChannel("setDiameter", diam_args);
 
+    // Flush pending theme presets.
+    g_autoptr(FlValue) theme_args = fl_value_new_map();
+    fl_value_set_string_take(theme_args, "background",
+                              fl_value_new_string(pending_background_.c_str()));
+    fl_value_set_string_take(theme_args, "wave",
+                              fl_value_new_string(pending_wave_.c_str()));
+    fl_value_set_string_take(theme_args, "shape",
+                              fl_value_new_string(pending_shape_.c_str()));
+    fl_value_set_string_take(theme_args, "ring",
+                              fl_value_new_bool(pending_ring_));
+    fl_value_set_string_take(theme_args, "idleOpacity",
+                              fl_value_new_float(pending_idle_opacity_));
+    fl_value_set_string_take(theme_args, "idleCapsule",
+                              fl_value_new_bool(pending_idle_capsule_));
+    InvokeRenderChannel("setTheme", theme_args);
+
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "setWindowSize") == 0) {
+    // ── setWindowSize ─────────────────────────────────────────────────────
+    // The render engine asks for the content size of its current form (disc,
+    // idle capsule or pill). The shell adds the shadow padding.
+    FlValue* args = fl_method_call_get_args(method_call);
+    double width = 0.0;
+    double height = 0.0;
+    bool expanded = false;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* wv = fl_value_lookup_string(args, "width");
+      FlValue* hv = fl_value_lookup_string(args, "height");
+      if (wv && fl_value_get_type(wv) == FL_VALUE_TYPE_FLOAT)
+        width = fl_value_get_float(wv);
+      if (hv && fl_value_get_type(hv) == FL_VALUE_TYPE_FLOAT)
+        height = fl_value_get_float(hv);
+      FlValue* ev = fl_value_lookup_string(args, "expanded");
+      if (ev && fl_value_get_type(ev) == FL_VALUE_TYPE_BOOL)
+        expanded = fl_value_get_bool(ev);
+    }
+    g_autoptr(FlValue) reply = fl_value_new_map();
+    if (button_window_ && button_window_->IsCreated() && width > 0 &&
+        height > 0) {
+      auto pins = button_window_->SetWindowSizeAnchored(
+          static_cast<int>(width), static_cast<int>(height), expanded);
+      fl_value_set_string_take(reply, "pinnedRight",
+                               fl_value_new_bool(pins.right));
+      fl_value_set_string_take(reply, "pinnedBottom",
+                               fl_value_new_bool(pins.bottom));
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(reply));
 
   } else if (strcmp(method, "clicked") == 0) {
     // ── clicked ───────────────────────────────────────────────────────────
@@ -333,28 +506,15 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
   } else if (strcmp(method, "startDrag") == 0) {
     // ── startDrag ─────────────────────────────────────────────────────────
     // The user began a pan gesture on the button disc (Dart onPanStart).
-    // We initiate a WM-level window move via gdk_window_begin_move_drag,
-    // which sends _NET_WM_MOVERESIZE to the X11 WM (GNOME Shell via XWayland).
-    // The WM then handles the interactive drag; configure-event fires on
-    // position changes and OnWindowMoved reports them as onDragEnded events.
+    // WindowDragMover follows the pointer until the button is released and
+    // reports the final position once via OnDragEnded. Not a WM move:
+    // KWin refuses to move NOTIFICATION windows (see window_drag_mover.h).
     //
-    // TUNING: gdk_window_begin_move_drag is X11-only and only reliable when
-    // GDK_BACKEND=x11 is set (see main.cc). On a bare Wayland session without
-    // XWayland it will be a no-op — ensure XWayland is running.
+    // TUNING: X11-only, like every window move here (GDK_BACKEND=x11, see
+    // main.cc); without XWayland the pointer cannot be queried.
     if (button_window_ && button_window_->IsCreated()) {
-      GtkWidget* gtk_win = button_window_->GetGtkWindow();
-      GdkWindow* gdk_win = gtk_win ? gtk_widget_get_window(gtk_win) : nullptr;
-      if (gdk_win) {
-        GdkDisplay* display = gdk_display_get_default();
-        GdkSeat* seat = gdk_display_get_default_seat(display);
-        GdkDevice* pointer = gdk_seat_get_pointer(seat);
-        gint root_x = 0, root_y = 0;
-        gdk_device_get_position(pointer, nullptr, &root_x, &root_y);
-        // Button 1 = left mouse button. GDK_CURRENT_TIME lets the X server
-        // use the most recent event timestamp (avoids focus-theft rejection).
-        gdk_window_begin_move_drag(gdk_win, 1, root_x, root_y,
-                                    GDK_CURRENT_TIME);
-      }
+      button_window_->ForgetCapsuleHome();
+      drag_mover_.Start(GTK_WINDOW(button_window_->GetGtkWindow()));
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
@@ -363,11 +523,36 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
     // If we have items, show the GTK popup and emit onContextMenu{id} for
     // the selected item. If items list is empty, emit onSecondaryClicked
     // (mirrors macOS/Windows behaviour).
-    if (context_menu_items_.empty()) {
+    if (context_menu_.empty()) {
       InvokeMainChannel("onSecondaryClicked", nullptr);
     } else {
       ShowContextMenu();
     }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "frameRendered") == 0) {
+    // Frame heartbeat, relayed like the macOS host. The Dart service runs
+    // its stall recovery only for controllers that can re-boot the engine
+    // (macOS so far); elsewhere the event only ends a pending deadline.
+    InvokeMainChannel("onRenderFrame", nullptr);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "reportError") == 0) {
+    // Uncaught Dart error inside the render engine: relay it to the main
+    // engine's log, as the macOS host and the snippet picker do.
+    FlValue* args = fl_method_call_get_args(method_call);
+    std::string message;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* msg_v = fl_value_lookup_string(args, "message");
+      if (msg_v && fl_value_get_type(msg_v) == FL_VALUE_TYPE_STRING) {
+        message = fl_value_get_string(msg_v);
+      }
+    }
+    g_autoptr(FlValue) event_args = fl_value_new_map();
+    fl_value_set_string_take(event_args, "message",
+                             fl_value_new_string(message.c_str()));
+    fl_value_set_string_take(event_args, "isError", fl_value_new_bool(TRUE));
+    InvokeMainChannel("onRenderEngineDiagnostic", event_args);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else {
@@ -380,44 +565,11 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
 // ── Context menu ──────────────────────────────────────────────────────────────
 
 void FloatingButtonHost::ShowContextMenu() {
-  GtkWidget* menu = gtk_menu_new();
-  for (const auto& item : context_menu_items_) {
-    GtkWidget* menu_item =
-        gtk_menu_item_new_with_label(item.label.c_str());
-
-    // Heap-allocate callback data; destroyed by the GClosureNotify below.
-    auto* data = new MenuItemCallbackData{this, item.id};
-    g_signal_connect_data(
-        menu_item, "activate",
-        G_CALLBACK(OnMenuItemActivated), data,
-        [](gpointer p, GClosure*) {
-          delete static_cast<MenuItemCallbackData*>(p);
-        },
-        static_cast<GConnectFlags>(0));
-
-    gtk_menu_shell_append(GTK_MENU_SHELL(menu), menu_item);
-  }
-  gtk_widget_show_all(menu);
-
-  // Popup at the current pointer position.
-  // gtk_menu_popup_at_pointer requires GTK >= 3.22 (Ubuntu 18.04+).
-#if GTK_CHECK_VERSION(3, 22, 0)
-  gtk_menu_popup_at_pointer(GTK_MENU(menu), nullptr);
-#else
-  gtk_menu_popup(GTK_MENU(menu), nullptr, nullptr, nullptr, nullptr, 3,
-                  GDK_CURRENT_TIME);
-#endif
-}
-
-// static
-void FloatingButtonHost::OnMenuItemActivated(GtkMenuItem* /*item*/,
-                                              gpointer user_data) {
-  auto* data = static_cast<MenuItemCallbackData*>(user_data);
-  // NOTE: key is "id" (not "action" as in the overlay channel).
-  g_autoptr(FlValue) args = fl_value_new_map();
-  fl_value_set_string_take(args, "id",
-                            fl_value_new_string(data->id.c_str()));
-  data->host->InvokeMainChannel("onContextMenu", args);
+  ShowNativeMenu(context_menu_, [this](const std::string& id) {
+    g_autoptr(FlValue) args = fl_value_new_map();
+    fl_value_set_string_take(args, "id", fl_value_new_string(id.c_str()));
+    InvokeMainChannel("onContextMenu", args);
+  });
 }
 
 // ── Drag / position tracking ──────────────────────────────────────────────────
@@ -432,12 +584,30 @@ void FloatingButtonHost::OnWindowMoved(int x, int y, void* user_data) {
     self->suppress_next_configure_ = false;
     return;
   }
+  // The drag mover's own steps; it reports the end position itself.
+  if (self->drag_mover_.IsActive()) return;
+  // The configure-event of the mover's last step, already reported.
+  if (x == self->current_x_ && y == self->current_y_) return;
 
   // Store the new position.
   self->current_x_ = x;
   self->current_y_ = y;
 
   // Report the final drag position to the main engine.
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "x",
+                            fl_value_new_float(static_cast<double>(x)));
+  fl_value_set_string_take(args, "y",
+                            fl_value_new_float(static_cast<double>(y)));
+  self->InvokeMainChannel("onDragEnded", args);
+}
+
+// static
+void FloatingButtonHost::OnDragEnded(int x, int y, void* user_data) {
+  auto* self = static_cast<FloatingButtonHost*>(user_data);
+  self->current_x_ = x;
+  self->current_y_ = y;
+
   g_autoptr(FlValue) args = fl_value_new_map();
   fl_value_set_string_take(args, "x",
                             fl_value_new_float(static_cast<double>(x)));

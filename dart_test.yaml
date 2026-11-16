@@ -1,3 +1,8 @@
+# Per-test time limit (#1414): no exceptions; tool/test_guard.dart enforces it
+# again from the outside. testWidgets reads the binding default, set in
+# test/flutter_test_config.dart.
+timeout: 10s
+
 # Registered test tags (unregistered tags only warn).
 tags:
   canary:
@@ -10,7 +15,9 @@ tags:
     # Wall-clock budgets live outside test/ and run deliberately.
     # Registered until the bench folder has its own runner; CI still excludes it.
   process:
-    # Tests that start real processes (single-instance IPC); no CI filter excludes them.
+    # Real child processes, including permission/IPC/launcher integration tests.
+    # Excluded by lab.yml on dev; selected by lab-full.yml nightly (--tags=process).
+    # Keep pure logic and fake-runner tests untagged so they still run on dev.
   compositor-e2e:
     # Asks a real, nested compositor for the focused window
     # (test/scripts/focus_sources_e2e.sh sets it up); skipped otherwise.

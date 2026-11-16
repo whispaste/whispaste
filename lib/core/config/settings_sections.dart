@@ -15,8 +15,14 @@
 library;
 
 import 'dart:convert';
-import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, immutable, listEquals;
+import 'package:flutter/widgets.dart' show StringCharacters;
+
+import 'automation_hooks.dart';
+import 'language_favorites.dart' as fav;
 import 'quality_tier.dart' show QualityTier;
 import 'settings_enums.dart';
 
@@ -36,10 +42,31 @@ double _readDouble(Map<String, String> v, String key, double fallback) =>
 int _readInt(Map<String, String> v, String key, int fallback) =>
     int.tryParse(v[key] ?? '') ?? fallback;
 
-/// Like [_readInt], but for a field whose absence means "unset" (`null`)
-/// rather than falling back to a default value.
+bool _sameStrings(List<String> a, List<String> b) =>
+    a.length == b.length &&
+    Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);
+
+/// JSON-array string list. Anything that is not a list of strings (missing
+/// key, corrupt value) reads as the empty list.
+List<String> _readStringList(Map<String, String> v, String key) {
+  final raw = v[key];
+  if (raw == null || raw.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return [
+      for (final item in decoded)
+        if (item is String) item,
+    ];
+  } on FormatException {
+    return const [];
+  }
+}
+
+/// Like [_readInt] for an absent "unset" field; a port outside 1024..65535
+/// is dropped on load (ticket A-N9, C-N-3).
 int? _readNullableInt(Map<String, String> v, String key) =>
-    int.tryParse(v[key] ?? '');
+    _portInRange(int.tryParse(v[key] ?? ''));
 
 /// Sentinel for `copyWith` parameters that must distinguish "not passed"
 /// from "explicitly set to null" — see [AutomationApiSettings.copyWith].
@@ -101,15 +128,33 @@ class InterfaceSettings {
     this.launchAtStartup = false,
     this.startMinimized = false,
     this.showNotifications = true,
+    this.notifyPasteProblems = true,
+    this.notifySmartModeFallback = true,
+    this.notifyMicrophoneProblems = true,
     this.showBackendUtilization = true,
-    this.sidePanelEnabled = true,
+    this.sidePanelEnabled = false,
     this.sidePanelEdge = SidePanelEdge.left,
+    this.clipboardExcludedApps,
+    this.appearance = AppearanceMode.navy,
   });
 
   final String locale;
   final bool launchAtStartup;
   final bool startMinimized;
   final bool showNotifications;
+
+  /// Category switch under [showNotifications]: native notifications for
+  /// paste problems (blocked, no target, elevated target, unknown failure).
+  /// Dock bounce and taskbar flash are not affected; they stay the fallback.
+  final bool notifyPasteProblems;
+
+  /// Category switch under [showNotifications]: informational notice that
+  /// Smart Mode fell back to the raw transcript. The paste itself succeeded.
+  final bool notifySmartModeFallback;
+
+  /// Category switch under [showNotifications]: the microphone delivers no
+  /// signal shortly after the start (possibly muted or the wrong input).
+  final bool notifyMicrophoneProblems;
 
   /// Whether the status bar shows the CPU/GPU backend-utilization chip
   /// (`_BackendUtilizationChip` in `status_bar.dart`). Default on: the
@@ -119,8 +164,9 @@ class InterfaceSettings {
   final bool showBackendUtilization;
 
   /// Whether the clipboard quick-paste side panel's hover trigger is armed
-  /// at all (`SidePanelService`/native edge sensors). Default on, but an
-  /// always-on-top hover-activated edge zone is exactly the kind of thing
+  /// at all (`SidePanelService`/native edge sensors). Default off (since
+  /// 2026-10-30; existing installs keep it on, see `_migrateSidePanelDefault`).
+  /// An always-on-top hover-activated edge zone is exactly the kind of thing
   /// some users want to turn off entirely rather than just tolerate.
   final bool sidePanelEnabled;
 
@@ -129,6 +175,15 @@ class InterfaceSettings {
   /// who keep desktop icons/taskbar shortcuts along the left edge (issue
   /// #150) can move it to the right instead.
   final SidePanelEdge sidePanelEdge;
+
+  /// Apps whose copies never enter the clipboard history, as a JSON list of
+  /// platform-specific identifiers (bundle id / exe name). `null` = never
+  /// edited: the platform's password-manager defaults apply.
+  final String? clipboardExcludedApps;
+
+  /// Appearance mode (AR-21). Stored under `appearance`, not the retired
+  /// `theme_mode` key, so values left over from the old toggle stay inert.
+  final AppearanceMode appearance;
 
   static const InterfaceSettings defaults = InterfaceSettings();
 
@@ -145,6 +200,21 @@ class InterfaceSettings {
       'show_notifications',
       defaults.showNotifications,
     ),
+    notifyPasteProblems: _readBool(
+      v,
+      'notify_paste_problems',
+      defaults.notifyPasteProblems,
+    ),
+    notifySmartModeFallback: _readBool(
+      v,
+      'notify_smart_mode_fallback',
+      defaults.notifySmartModeFallback,
+    ),
+    notifyMicrophoneProblems: _readBool(
+      v,
+      'notify_microphone_problems',
+      defaults.notifyMicrophoneProblems,
+    ),
     showBackendUtilization: _readBool(
       v,
       'show_backend_utilization',
@@ -156,6 +226,8 @@ class InterfaceSettings {
       defaults.sidePanelEnabled,
     ),
     sidePanelEdge: SidePanelEdge.fromValue(v['side_panel_edge']),
+    clipboardExcludedApps: v['clipboard_excluded_apps'],
+    appearance: AppearanceMode.fromValue(v['appearance']),
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -167,9 +239,14 @@ class InterfaceSettings {
     'launch_at_startup': '$launchAtStartup',
     'start_minimized': '$startMinimized',
     'show_notifications': '$showNotifications',
+    'notify_paste_problems': '$notifyPasteProblems',
+    'notify_smart_mode_fallback': '$notifySmartModeFallback',
+    'notify_microphone_problems': '$notifyMicrophoneProblems',
     'show_backend_utilization': '$showBackendUtilization',
     'side_panel_enabled': '$sidePanelEnabled',
     'side_panel_edge': sidePanelEdge.value,
+    'clipboard_excluded_apps': ?clipboardExcludedApps,
+    'appearance': appearance.value,
   };
 
   InterfaceSettings copyWith({
@@ -177,24 +254,32 @@ class InterfaceSettings {
     bool? launchAtStartup,
     bool? startMinimized,
     bool? showNotifications,
+    bool? notifyPasteProblems,
+    bool? notifySmartModeFallback,
+    bool? notifyMicrophoneProblems,
     bool? showBackendUtilization,
     bool? sidePanelEnabled,
     SidePanelEdge? sidePanelEdge,
-    // loam-ignore: code-duplicates – every settings-section class in this file shares this exact copyWith(field: field ?? this.field, ...) return shape by deliberate convention, established repo-wide boilerplate.
+    String? clipboardExcludedApps,
+    AppearanceMode? appearance,
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     startMinimized: startMinimized ?? this.startMinimized,
     showNotifications: showNotifications ?? this.showNotifications,
+    notifyPasteProblems: notifyPasteProblems ?? this.notifyPasteProblems,
+    notifySmartModeFallback:
+        notifySmartModeFallback ?? this.notifySmartModeFallback,
+    notifyMicrophoneProblems:
+        notifyMicrophoneProblems ?? this.notifyMicrophoneProblems,
     showBackendUtilization:
         showBackendUtilization ?? this.showBackendUtilization,
     sidePanelEnabled: sidePanelEnabled ?? this.sidePanelEnabled,
     sidePanelEdge: sidePanelEdge ?? this.sidePanelEdge,
+    clipboardExcludedApps: clipboardExcludedApps ?? this.clipboardExcludedApps,
+    appearance: appearance ?? this.appearance,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file
-  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -203,9 +288,14 @@ class InterfaceSettings {
           launchAtStartup == other.launchAtStartup &&
           startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
+          notifyPasteProblems == other.notifyPasteProblems &&
+          notifySmartModeFallback == other.notifySmartModeFallback &&
+          notifyMicrophoneProblems == other.notifyMicrophoneProblems &&
           showBackendUtilization == other.showBackendUtilization &&
           sidePanelEnabled == other.sidePanelEnabled &&
-          sidePanelEdge == other.sidePanelEdge;
+          sidePanelEdge == other.sidePanelEdge &&
+          clipboardExcludedApps == other.clipboardExcludedApps &&
+          appearance == other.appearance;
 
   @override
   int get hashCode => Object.hash(
@@ -213,9 +303,14 @@ class InterfaceSettings {
     launchAtStartup,
     startMinimized,
     showNotifications,
+    notifyPasteProblems,
+    notifySmartModeFallback,
+    notifyMicrophoneProblems,
     showBackendUtilization,
     sidePanelEnabled,
     sidePanelEdge,
+    clipboardExcludedApps,
+    appearance,
   );
 }
 
@@ -223,16 +318,79 @@ class InterfaceSettings {
 // Section 2 — Audio Input
 // ===========================================================================
 
+/// Keys offered for cancelling a dictation. Escape is the default; F12 is the
+/// alternative for users whose apps already bind Escape.
+const cancelDictationKeyEscape = 'escape';
+const cancelDictationKeyChoices = [cancelDictationKeyEscape, 'f12'];
+
+/// Default Hold-or-Tap threshold (Automatisch): 250 ms, per product decision.
+const defaultHoldOrTapThresholdMs = 250;
+const minHoldOrTapThresholdMs = 150;
+const maxHoldOrTapThresholdMs = 1500;
+
+int _readHoldOrTapThresholdMs(Map<String, String> v) {
+  final raw = int.tryParse(v['hold_or_tap_threshold_ms'] ?? '');
+  if (raw == null) return defaultHoldOrTapThresholdMs;
+  return raw.clamp(minHoldOrTapThresholdMs, maxHoldOrTapThresholdMs);
+}
+
+/// Range of the manual input volume (#1611), in dB: never silent, at most
+/// +18 dB. Stored as a linear factor in `input_gain` (the key predates dB).
+const double minInputGainDb = -12;
+const double maxInputGainDb = 18;
+
+/// Reads `input_gain` bounded to [minInputGainDb]..[maxInputGainDb]. A
+/// missing, unreadable, NaN or infinite value falls back to the default 1.0;
+/// zero and negative values (mute, phase flip) become the minimum. Used for
+/// stored settings and imports alike (both go through `fromMap`).
+double readInputGain(String? raw) {
+  final value = double.tryParse(raw ?? '');
+  if (value == null || !value.isFinite) return 1.0;
+  final min = math.pow(10, minInputGainDb / 20).toDouble();
+  final max = math.pow(10, maxInputGainDb / 20).toDouble();
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
+
+/// Whether `auto_level` is on in [v]. Additive key (#1611): settings written
+/// before it exist read it from `input_gain`. The default 1.0 (also new
+/// installs) means on; a value the user chose keeps the manual mode.
+bool _readAutoLevel(Map<String, String> v) {
+  final stored = v['auto_level'];
+  if (stored != null) return stored == 'true';
+  return readInputGain(v['input_gain']) == 1.0;
+}
+
 class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
-    this.pushToTalk = false,
+    this.pushToTalk = true,
     this.holdOrTap = false,
+    this.holdOrTapThresholdMs = defaultHoldOrTapThresholdMs,
+    this.shortPressHintHidden = false,
+    this.cancelDictationKey = cancelDictationKeyEscape,
     this.inputGain = 1.0,
+    this.autoLevel = true,
+    this.microphonePriority = const [],
+    this.pauseMediaWhileRecording = false,
   });
 
+  /// Key that cancels a running dictation. One of [cancelDictationKeyChoices].
+  final String cancelDictationKey;
+
   final String microphone;
+
+  /// Ordered device labels, most preferred first. Used when the explicit
+  /// [microphone] is absent (unplugged) or set to "Default". Virtual and
+  /// loopback inputs are never picked from this list.
+  final List<String> microphonePriority;
+
   final bool pushToTalk;
+
+  /// Pause running music/video while recording and resume what was paused
+  /// afterwards (#563). Opt-in.
+  final bool pauseMediaWhileRecording;
 
   /// Hold-or-Tap hybrid (sub-option of [pushToTalk]): with both on, a short
   /// tap toggles and a longer hold acts as push-to-talk. Ignored while
@@ -240,12 +398,27 @@ class AudioInputSettings {
   /// degrades gracefully to plain push-to-talk.
   final bool holdOrTap;
 
-  /// User-controlled gain multiplier applied to the raw PCM stream during
-  /// recording. `1.0` is identity (no scaling). The settings UI exposes this
-  /// as a 0–300 % slider (0.0–3.0). When non-default, the recording pipeline
-  /// switches off the `record`-plugin's library-side `autoGain` and applies
-  /// the user multiplier instead via `PcmGainProcessor`.
+  /// Hold-or-Tap threshold in milliseconds: a press released earlier latches
+  /// the recording (tap), a longer press is push-to-talk (hold). Clamped to
+  /// [minHoldOrTapThresholdMs]..[maxHoldOrTapThresholdMs] on read.
+  final int holdOrTapThresholdMs;
+
+  /// The user chose "Don't show again" on the short-press card (#877).
+  /// Additive key: older settings files simply read `false`.
+  final bool shortPressHintHidden;
+
+  /// Manual input volume as a linear factor ("Eingangslautstärke", #1611).
+  /// `1.0` is identity. The settings UI shows it in dB
+  /// ([minInputGainDb]..[maxInputGainDb]); reads are bounded by
+  /// [readInputGain]. Applied by `PcmGainProcessor` only while [autoLevel]
+  /// is off. No platform gain control is involved on any system.
   final double inputGain;
+
+  /// "Lautstärke automatisch angleichen" (#1611): after the stop, before the
+  /// WAV goes to recognition, quiet speech is raised to a steady level
+  /// (`speech_leveler.dart`). On for new installs; see [_readAutoLevel] for
+  /// settings written before the key existed.
+  final bool autoLevel;
 
   static const AudioInputSettings defaults = AudioInputSettings();
 
@@ -254,26 +427,62 @@ class AudioInputSettings {
         microphone: v['microphone'] ?? defaults.microphone,
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
         holdOrTap: _readBool(v, 'hold_or_tap', defaults.holdOrTap),
-        inputGain: _readDouble(v, 'input_gain', defaults.inputGain),
+        holdOrTapThresholdMs: _readHoldOrTapThresholdMs(v),
+        shortPressHintHidden: _readBool(
+          v,
+          'short_press_hint_hidden',
+          defaults.shortPressHintHidden,
+        ),
+        cancelDictationKey:
+            cancelDictationKeyChoices.contains(v['cancel_dictation_key'])
+            ? v['cancel_dictation_key']!
+            : defaults.cancelDictationKey,
+        inputGain: readInputGain(v['input_gain']),
+        autoLevel: _readAutoLevel(v),
+        microphonePriority: _readStringList(v, 'microphone_priority'),
+        pauseMediaWhileRecording: _readBool(
+          v,
+          'pause_media_while_recording',
+          defaults.pauseMediaWhileRecording,
+        ),
       );
 
   Map<String, String> toMap() => {
     'microphone': microphone,
     'push_to_talk': '$pushToTalk',
     'hold_or_tap': '$holdOrTap',
+    'hold_or_tap_threshold_ms': '$holdOrTapThresholdMs',
+    'short_press_hint_hidden': '$shortPressHintHidden',
+    'cancel_dictation_key': cancelDictationKey,
     'input_gain': '$inputGain',
+    'auto_level': '$autoLevel',
+    'microphone_priority': jsonEncode(microphonePriority),
+    'pause_media_while_recording': '$pauseMediaWhileRecording',
   };
 
   AudioInputSettings copyWith({
     String? microphone,
     bool? pushToTalk,
     bool? holdOrTap,
+    int? holdOrTapThresholdMs,
+    bool? shortPressHintHidden,
+    String? cancelDictationKey,
     double? inputGain,
+    bool? autoLevel,
+    List<String>? microphonePriority,
+    bool? pauseMediaWhileRecording,
   }) => AudioInputSettings(
     microphone: microphone ?? this.microphone,
     pushToTalk: pushToTalk ?? this.pushToTalk,
     holdOrTap: holdOrTap ?? this.holdOrTap,
+    holdOrTapThresholdMs: holdOrTapThresholdMs ?? this.holdOrTapThresholdMs,
+    shortPressHintHidden: shortPressHintHidden ?? this.shortPressHintHidden,
+    cancelDictationKey: cancelDictationKey ?? this.cancelDictationKey,
     inputGain: inputGain ?? this.inputGain,
+    autoLevel: autoLevel ?? this.autoLevel,
+    microphonePriority: microphonePriority ?? this.microphonePriority,
+    pauseMediaWhileRecording:
+        pauseMediaWhileRecording ?? this.pauseMediaWhileRecording,
   );
 
   @override
@@ -283,10 +492,27 @@ class AudioInputSettings {
           microphone == other.microphone &&
           pushToTalk == other.pushToTalk &&
           holdOrTap == other.holdOrTap &&
-          inputGain == other.inputGain;
+          holdOrTapThresholdMs == other.holdOrTapThresholdMs &&
+          shortPressHintHidden == other.shortPressHintHidden &&
+          cancelDictationKey == other.cancelDictationKey &&
+          inputGain == other.inputGain &&
+          autoLevel == other.autoLevel &&
+          _sameStrings(microphonePriority, other.microphonePriority) &&
+          pauseMediaWhileRecording == other.pauseMediaWhileRecording;
 
   @override
-  int get hashCode => Object.hash(microphone, pushToTalk, holdOrTap, inputGain);
+  int get hashCode => Object.hash(
+    microphone,
+    pushToTalk,
+    holdOrTap,
+    holdOrTapThresholdMs,
+    shortPressHintHidden,
+    cancelDictationKey,
+    inputGain,
+    autoLevel,
+    Object.hashAll(microphonePriority),
+    pauseMediaWhileRecording,
+  );
 }
 
 // ===========================================================================
@@ -345,13 +571,62 @@ class RecordingSafetySettings {
 // ===========================================================================
 // Section 4 — STT
 // ===========================================================================
+/// Written forms ("Schreibformen") switches: the master switch and one per
+/// kind (e-mail, web address, date, time, money). Each kind is ignored while
+/// the master is off.
+class WrittenFormSettings {
+  const WrittenFormSettings({
+    this.enabled = true,
+    this.email = true,
+    this.url = true,
+    this.date = true,
+    this.time = true,
+    this.money = true,
+  });
+
+  final bool enabled;
+  final bool email;
+  final bool url;
+  final bool date;
+  final bool time;
+  final bool money;
+
+  WrittenFormSettings copyWith({
+    bool? enabled,
+    bool? email,
+    bool? url,
+    bool? date,
+    bool? time,
+    bool? money,
+  }) => WrittenFormSettings(
+    enabled: enabled ?? this.enabled,
+    email: email ?? this.email,
+    url: url ?? this.url,
+    date: date ?? this.date,
+    time: time ?? this.time,
+    money: money ?? this.money,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is WrittenFormSettings &&
+      enabled == other.enabled &&
+      email == other.email &&
+      url == other.url &&
+      date == other.date &&
+      time == other.time &&
+      money == other.money;
+
+  @override
+  int get hashCode => Object.hash(enabled, email, url, date, time, money);
+}
 
 class SttSettings {
   const SttSettings({
     this.provider = 'On Device',
     this.model = 'whisper-medium',
     this.language = 'Auto-detect',
-    this.idleTimeoutMinutes = 5,
+    this.idleTimeoutMinutes = 0,
     this.customVocabulary = '',
     this.engine = 'whisper',
     this.punctuationPriming = true,
@@ -360,13 +635,35 @@ class SttSettings {
     this.numericOnlyMode = false,
     this.removeFillerWords = false,
     this.voiceLineBreaks = true,
+    this.spokenPunctuation = false,
+    this.writtenForms = const WrittenFormSettings(),
+    this.favoriteLanguages = const [],
+    this.languageCycleHotkeyEnabled = false,
+    this.languageCycleHotkeyKey = 'L',
+    this.languageCycleHotkeyKeyDisplay = '',
+    this.languageCycleHotkeyModifiers = 'ctrl+shift',
   });
 
   final String provider;
   final String model;
   final String language;
 
-  /// Minutes before idle STT server is shut down (0 = keep alive).
+  /// Up to [maxFavoriteLanguages] recognition-language codes the user marked
+  /// as favorites. They feed the dock's favorites block, the tray submenu and
+  /// the "next favorite language" hotkey. Empty by default.
+  final List<String> favoriteLanguages;
+
+  /// Off by default. When on, the "next favorite language" hotkey cycles the
+  /// recognition language through [favoriteLanguages]. Stored like the other
+  /// secondary hotkeys (see [SnippetPickerHotkeySettings]).
+  final bool languageCycleHotkeyEnabled;
+  final String languageCycleHotkeyKey;
+  final String languageCycleHotkeyKeyDisplay;
+  final String languageCycleHotkeyModifiers;
+
+  static const int maxFavoriteLanguages = fav.maxFavoriteLanguages;
+
+  /// Minutes before idle STT server is shut down (0 = keep alive, default; -1 = auto).
   final int idleTimeoutMinutes;
 
   /// User-defined vocabulary terms (names, jargon) passed as Whisper prompt
@@ -426,18 +723,33 @@ class SttSettings {
   /// are removed from the final transcript before Smart Mode and text
   /// replacements run — see `removeFillerWords` in `text_transforms.dart`.
   /// Same engine-independent post-processing path as [stripPunctuation].
-  /// Default off (maintainer decision 4b, `internal-notes` ticket
-  /// 16): a dictation stays verbatim unless the user opts in.
+  /// Default off: a dictation stays verbatim unless the user opts in.
   final bool removeFillerWords;
 
   /// Whether spoken line-break commands ("new paragraph", "neue Zeile", ...)
   /// are turned into real line breaks, after filler removal and before Smart
   /// Mode and text replacements — see `applyVoiceLineBreaks` in
-  /// `voice_line_breaks.dart`. Default on: the another app-style behaviour is the
+  /// `voice_line_breaks.dart`. Default on: spoken paragraph commands are the
   /// point of the feature, and a dictation without those phrases is untouched.
   final bool voiceLineBreaks;
 
+  /// Whether spoken punctuation commands ("Komma", "comma", "punto", ...)
+  /// become the marks they name, after line breaks in the pipeline — see
+  /// `applyVoicePunctuation` in `voice_punctuation.dart`. Default off: a
+  /// dictation keeps the words it was spoken with unless the user opts in.
+  final bool spokenPunctuation;
+
+  /// The written forms ("Schreibformen"): the master switch and one switch
+  /// per kind. Runs after line breaks, before the dictionary replacements.
+  /// See `applyWrittenForms` in `lib/services/itn/itn_pipeline.dart`.
+  final WrittenFormSettings writtenForms;
+
   static const SttSettings defaults = SttSettings();
+
+  /// Parses the persisted comma-separated codes: trimmed, de-duplicated,
+  /// empty entries dropped and capped at [maxFavoriteLanguages].
+  static List<String> parseFavoriteLanguages(String raw) =>
+      fav.parseFavoriteLanguageList(raw);
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
     provider: v['stt_provider'] ?? defaults.provider,
@@ -476,6 +788,40 @@ class SttSettings {
       'stt_voice_line_breaks',
       defaults.voiceLineBreaks,
     ),
+    spokenPunctuation: _readBool(
+      v,
+      'stt_spoken_punctuation',
+      defaults.spokenPunctuation,
+    ),
+    writtenForms: WrittenFormSettings(
+      enabled: _readBool(v, 'stt_written_forms', defaults.writtenForms.enabled),
+      email: _readBool(
+        v,
+        'stt_written_form_email',
+        defaults.writtenForms.email,
+      ),
+      url: _readBool(v, 'stt_written_form_url', defaults.writtenForms.url),
+      date: _readBool(v, 'stt_written_form_date', defaults.writtenForms.date),
+      time: _readBool(v, 'stt_written_form_time', defaults.writtenForms.time),
+      money: _readBool(
+        v,
+        'stt_written_form_money',
+        defaults.writtenForms.money,
+      ),
+    ),
+    favoriteLanguages: parseFavoriteLanguages(
+      v['stt_favorite_languages'] ?? '',
+    ),
+    languageCycleHotkeyEnabled: _readBool(
+      v,
+      'stt_language_cycle_hotkey_enabled',
+      false,
+    ),
+    languageCycleHotkeyKey: v['stt_language_cycle_hotkey_key'] ?? 'L',
+    languageCycleHotkeyKeyDisplay:
+        v['stt_language_cycle_hotkey_key_display'] ?? '',
+    languageCycleHotkeyModifiers:
+        v['stt_language_cycle_hotkey_modifiers'] ?? 'ctrl+shift',
   );
 
   Map<String, String> toMap() => {
@@ -491,12 +837,20 @@ class SttSettings {
     'stt_numeric_only_mode': '$numericOnlyMode',
     'stt_remove_filler_words': '$removeFillerWords',
     'stt_voice_line_breaks': '$voiceLineBreaks',
+    'stt_spoken_punctuation': '$spokenPunctuation',
+    'stt_written_forms': '${writtenForms.enabled}',
+    'stt_written_form_email': '${writtenForms.email}',
+    'stt_written_form_url': '${writtenForms.url}',
+    'stt_written_form_date': '${writtenForms.date}',
+    'stt_written_form_time': '${writtenForms.time}',
+    'stt_written_form_money': '${writtenForms.money}',
+    'stt_favorite_languages': favoriteLanguages.join(','),
+    'stt_language_cycle_hotkey_enabled': '$languageCycleHotkeyEnabled',
+    'stt_language_cycle_hotkey_key': languageCycleHotkeyKey,
+    'stt_language_cycle_hotkey_key_display': languageCycleHotkeyKeyDisplay,
+    'stt_language_cycle_hotkey_modifiers': languageCycleHotkeyModifiers,
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the ~15 other section classes below); it is
-  // established repo-wide boilerplate, not accidental duplication.
   SttSettings copyWith({
     String? provider,
     String? model,
@@ -510,6 +864,13 @@ class SttSettings {
     bool? numericOnlyMode,
     bool? removeFillerWords,
     bool? voiceLineBreaks,
+    bool? spokenPunctuation,
+    WrittenFormSettings? writtenForms,
+    List<String>? favoriteLanguages,
+    bool? languageCycleHotkeyEnabled,
+    String? languageCycleHotkeyKey,
+    String? languageCycleHotkeyKeyDisplay,
+    String? languageCycleHotkeyModifiers,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -523,11 +884,21 @@ class SttSettings {
     numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
     removeFillerWords: removeFillerWords ?? this.removeFillerWords,
     voiceLineBreaks: voiceLineBreaks ?? this.voiceLineBreaks,
+    spokenPunctuation: spokenPunctuation ?? this.spokenPunctuation,
+    writtenForms: writtenForms ?? this.writtenForms,
+    favoriteLanguages: favoriteLanguages == null
+        ? this.favoriteLanguages
+        : List.unmodifiable(favoriteLanguages),
+    languageCycleHotkeyEnabled:
+        languageCycleHotkeyEnabled ?? this.languageCycleHotkeyEnabled,
+    languageCycleHotkeyKey:
+        languageCycleHotkeyKey ?? this.languageCycleHotkeyKey,
+    languageCycleHotkeyKeyDisplay:
+        languageCycleHotkeyKeyDisplay ?? this.languageCycleHotkeyKeyDisplay,
+    languageCycleHotkeyModifiers:
+        languageCycleHotkeyModifiers ?? this.languageCycleHotkeyModifiers,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file
-  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -543,10 +914,18 @@ class SttSettings {
           vadEnabled == other.vadEnabled &&
           numericOnlyMode == other.numericOnlyMode &&
           removeFillerWords == other.removeFillerWords &&
-          voiceLineBreaks == other.voiceLineBreaks;
+          voiceLineBreaks == other.voiceLineBreaks &&
+          spokenPunctuation == other.spokenPunctuation &&
+          writtenForms == other.writtenForms &&
+          listEquals(favoriteLanguages, other.favoriteLanguages) &&
+          languageCycleHotkeyEnabled == other.languageCycleHotkeyEnabled &&
+          languageCycleHotkeyKey == other.languageCycleHotkeyKey &&
+          languageCycleHotkeyKeyDisplay ==
+              other.languageCycleHotkeyKeyDisplay &&
+          languageCycleHotkeyModifiers == other.languageCycleHotkeyModifiers;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     provider,
     model,
     language,
@@ -559,7 +938,14 @@ class SttSettings {
     numericOnlyMode,
     removeFillerWords,
     voiceLineBreaks,
-  );
+    spokenPunctuation,
+    writtenForms,
+    Object.hashAll(favoriteLanguages),
+    languageCycleHotkeyEnabled,
+    languageCycleHotkeyKey,
+    languageCycleHotkeyKeyDisplay,
+    languageCycleHotkeyModifiers,
+  ]);
 }
 
 // ===========================================================================
@@ -573,6 +959,8 @@ class SoundSettings {
     this.transcriptionCompleteSound = true,
     this.durationWarningSound = true,
     this.errorSound = true,
+    this.pasteSound = false,
+    this.soundSet = SoundSet.bernstein,
     this.soundVolume = 80.0,
   });
 
@@ -581,6 +969,14 @@ class SoundSettings {
   final bool transcriptionCompleteSound;
   final bool durationWarningSound;
   final bool errorSound;
+
+  /// The very quiet cue after a successful paste. Sets without a paste cue
+  /// ([SoundSet.classic]) stay silent. Off by default, also for existing
+  /// installs (#1343): it is stored under `paste_cue_sound`, because the
+  /// unused `paste_sound` key was saved as `true` by every install before
+  /// the cue ever played, without the user choosing it.
+  final bool pasteSound;
+  final SoundSet soundSet;
   final double soundVolume;
 
   static const SoundSettings defaults = SoundSettings();
@@ -607,6 +1003,8 @@ class SoundSettings {
       defaults.durationWarningSound,
     ),
     errorSound: _readBool(v, 'error_sound', defaults.errorSound),
+    pasteSound: _readBool(v, 'paste_cue_sound', defaults.pasteSound),
+    soundSet: SoundSet.fromValue(v['sound_set']),
     soundVolume: _readDouble(v, 'sound_volume', defaults.soundVolume),
   );
 
@@ -616,6 +1014,8 @@ class SoundSettings {
     'transcription_complete_sound': '$transcriptionCompleteSound',
     'duration_warning_sound': '$durationWarningSound',
     'error_sound': '$errorSound',
+    'paste_cue_sound': '$pasteSound',
+    'sound_set': soundSet.value,
     'sound_volume': '$soundVolume',
   };
 
@@ -625,6 +1025,8 @@ class SoundSettings {
     bool? transcriptionCompleteSound,
     bool? durationWarningSound,
     bool? errorSound,
+    bool? pasteSound,
+    SoundSet? soundSet,
     double? soundVolume,
   }) => SoundSettings(
     recordStartSound: recordStartSound ?? this.recordStartSound,
@@ -633,6 +1035,8 @@ class SoundSettings {
         transcriptionCompleteSound ?? this.transcriptionCompleteSound,
     durationWarningSound: durationWarningSound ?? this.durationWarningSound,
     errorSound: errorSound ?? this.errorSound,
+    pasteSound: pasteSound ?? this.pasteSound,
+    soundSet: soundSet ?? this.soundSet,
     soundVolume: soundVolume ?? this.soundVolume,
   );
 
@@ -645,6 +1049,8 @@ class SoundSettings {
           transcriptionCompleteSound == other.transcriptionCompleteSound &&
           durationWarningSound == other.durationWarningSound &&
           errorSound == other.errorSound &&
+          pasteSound == other.pasteSound &&
+          soundSet == other.soundSet &&
           soundVolume == other.soundVolume;
 
   @override
@@ -654,6 +1060,8 @@ class SoundSettings {
     transcriptionCompleteSound,
     durationWarningSound,
     errorSound,
+    pasteSound,
+    soundSet,
     soundVolume,
   );
 }
@@ -695,6 +1103,45 @@ class AfterTranscriptionSettings {
   int get hashCode => afterTranscription.hashCode;
 }
 
+/// Background preset for each retired `overlay_style` value (ADR 0024,
+/// migration table). Glass and solid drew the same opaque navy pill (UX-013),
+/// so both map to marine. Unknown values get no entry and fall back to the
+/// default, like every other unknown preset name.
+const Map<String, String> _legacyOverlayStyleBackground = {
+  'glass': 'marine',
+  'solid': 'marine',
+};
+
+/// Carries a retired `overlay_style` entry into the preset keys. An explicit
+/// `overlay_background` or `overlay_wave` in [raw] always wins; the retired key
+/// is removed either way. Used when reading stored settings (upgrade) and when
+/// importing an export from an older version.
+Map<String, String> migrateLegacyOverlayStyle(Map<String, String> raw) {
+  if (!raw.containsKey('overlay_style')) return raw;
+  final migrated = {...raw}..remove('overlay_style');
+  migrated.putIfAbsent(
+    'overlay_background',
+    () => _legacyOverlayStyleBackground[raw['overlay_style']] ?? 'marine',
+  );
+  // The retired style had no wave colour; it always drew the cyan wave.
+  migrated.putIfAbsent('overlay_wave', () => 'cyan');
+  return migrated;
+}
+
+/// Wave preset that was retired (2026-10-29). Stored `neutral` loads as `ink`,
+/// its light-background counterpart. `ink` is invalid on the dark backgrounds
+/// and then moves to the replacement wave (see `OverlayWave.validOn`).
+const Map<String, String> _retiredOverlayWaves = {'neutral': 'ink'};
+
+/// Carries a retired wave preset in [raw] over to its successor (see
+/// [_retiredOverlayWaves]). Used when reading stored settings and when
+/// importing an export from an older version.
+Map<String, String> migrateRetiredOverlayWave(Map<String, String> raw) {
+  final successor = _retiredOverlayWaves[raw['overlay_wave']];
+  if (successor == null) return raw;
+  return {...raw, 'overlay_wave': successor};
+}
+
 // ===========================================================================
 // Section 7 — Overlay
 // ===========================================================================
@@ -704,10 +1151,23 @@ class OverlaySettings {
     this.showOverlay = false,
     this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
-    this.overlaySize = 'normal',
-    this.overlayStyle = 'glass',
+    this.overlaySize = 'compact',
+    this.overlayBackground = 'amber',
+    this.overlayWave = 'ink',
     this.showFloatingButton = false,
     this.overlayShowLiveTranscript = false,
+    this.overlayQuietHint = true,
+    this.overlayForm = 'pill',
+    this.overlayWaveStyle = 'bars',
+    this.overlayWaveFluid = false,
+    this.overlayShowTimer = true,
+    this.overlayShowCancel = true,
+    this.overlayOpacity = '100',
+    this.floatingButtonSize = 'medium',
+    this.floatingButtonShape = 'round',
+    this.floatingButtonRing = true,
+    this.floatingButtonIdleOpacity = '100',
+    this.floatingButtonIdleCapsule = false,
   });
 
   final bool showOverlay;
@@ -721,10 +1181,54 @@ class OverlaySettings {
   /// 'normal' or 'compact'.
   final String overlaySize;
 
-  /// 'glass' or 'solid'.
-  final String overlayStyle;
+  /// Background preset: 'marine', 'graphit', 'gletscher' or 'amber' (ADR 0024).
+  /// Replaces the retired `overlay_style` key, which is no longer written.
+  final String overlayBackground;
+
+  /// Wave colour preset: 'cyan', 'violett', 'amber', 'ink', 'white', 'coral' or 'mint'
+  /// (ADR 0024). Retired 'neutral' is loaded as 'ink'.
+  final String overlayWave;
+
+  /// Window shape: 'pill' or 'rounded-rect' (other stored values read as 'pill')
+  /// (ticket, see `OverlayForm` in `overlay_customization.dart`).
+  final String overlayForm;
+
+  /// Waveform drawing: 'bars', 'line', 'dots', 'ribbon' or 'pulse'
+  /// (`OverlayWaveStyle`).
+  final String overlayWaveStyle;
+
+  /// Fluid, speech-reactive outline. Off gives a static outline. Reduce
+  /// motion in the system overrides this (`OverlayPolicy`).
+  final bool overlayWaveFluid;
+
+  /// Elapsed-time label in the overlay.
+  final bool overlayShowTimer;
+
+  /// Cancel button in the overlay. Esc cancels regardless of this setting.
+  final bool overlayShowCancel;
+
+  /// Fill opacity as a percentage string: '100', '80' or '60'
+  /// (`OverlayOpacity`). Clamped by `OverlayOpacityGate` at render time.
+  final String overlayOpacity;
+
+  /// Floating button disc size: 'small' (44), 'medium' (56) or 'large' (80).
+  final String floatingButtonSize;
+
+  /// Floating button shape: 'round' (disc) or 'square' (rounded square).
+  final String floatingButtonShape;
+
+  /// Recording ring around the floating button while recording.
+  final bool floatingButtonRing;
+
+  /// Resting opacity of the floating button when idle, as a percentage
+  /// string: '100', '70' or '40'.
+  final String floatingButtonIdleOpacity;
 
   final bool showFloatingButton;
+
+  /// Idle form of the floating button: a small capsule that expands to the
+  /// pill on hover ("Immer sichtbar"). Off keeps the disc.
+  final bool floatingButtonIdleCapsule;
 
   /// Whether the overlay shows the live/partial recognized text (as far as
   /// the active STT engine has decoded it) instead of staying waveform-only.
@@ -735,60 +1239,150 @@ class OverlaySettings {
   /// user opts in), with live text as an opt-in error-transparency trade-off.
   final bool overlayShowLiveTranscript;
 
+  /// Whether the overlay shows the quiet-microphone notice card (overlay F2).
+  /// Settings > Overlay turns the hint off and on.
+  final bool overlayQuietHint;
+
   static const OverlaySettings defaults = OverlaySettings();
 
-  factory OverlaySettings.fromMap(Map<String, String> v) => OverlaySettings(
-    showOverlay: _readBool(v, 'show_overlay', defaults.showOverlay),
-    overlayMode:
-        v['overlay_mode'] ??
-        (_readBool(v, 'show_overlay', defaults.showOverlay)
-            ? defaults.overlayMode
-            : OverlayMode.off.value),
-    overlayStartPosition:
-        v['overlay_start_position'] ?? defaults.overlayStartPosition,
-    overlaySize: v['overlay_size'] ?? defaults.overlaySize,
-    overlayStyle: v['overlay_style'] ?? defaults.overlayStyle,
-    showFloatingButton: _readBool(
-      v,
-      'show_floating_button',
-      defaults.showFloatingButton,
-    ),
-    // 'floating_button_size' is intentionally not read — removed in issue 11.
-    // Old configs may have it; the key is silently ignored (no migration needed).
-    overlayShowLiveTranscript: _readBool(
-      v,
-      'overlay_show_live_transcript',
-      defaults.overlayShowLiveTranscript,
-    ),
-  );
+  factory OverlaySettings.fromMap(Map<String, String> raw) {
+    final v = migrateRetiredOverlayWave(migrateLegacyOverlayStyle(raw));
+    return OverlaySettings(
+      showOverlay: _readBool(v, 'show_overlay', defaults.showOverlay),
+      overlayMode:
+          v['overlay_mode'] ??
+          (_readBool(v, 'show_overlay', defaults.showOverlay)
+              ? defaults.overlayMode
+              : OverlayMode.off.value),
+      overlayStartPosition:
+          v['overlay_start_position'] ?? defaults.overlayStartPosition,
+      overlaySize: v['overlay_size'] ?? defaults.overlaySize,
+      overlayBackground: v['overlay_background'] ?? defaults.overlayBackground,
+      overlayWave: v['overlay_wave'] ?? defaults.overlayWave,
+      overlayForm: v['overlay_form'] ?? defaults.overlayForm,
+      overlayWaveStyle: v['overlay_wave_style'] ?? defaults.overlayWaveStyle,
+      overlayWaveFluid: _readBool(
+        v,
+        'overlay_wave_fluid',
+        defaults.overlayWaveFluid,
+      ),
+      overlayShowTimer: _readBool(
+        v,
+        'overlay_show_timer',
+        defaults.overlayShowTimer,
+      ),
+      overlayShowCancel: _readBool(
+        v,
+        'overlay_show_cancel',
+        defaults.overlayShowCancel,
+      ),
+      overlayOpacity: v['overlay_opacity'] ?? defaults.overlayOpacity,
+      floatingButtonSize:
+          v['overlay_button_size'] ?? defaults.floatingButtonSize,
+      floatingButtonShape:
+          v['overlay_button_shape'] ?? defaults.floatingButtonShape,
+      floatingButtonRing: _readBool(
+        v,
+        'overlay_button_ring',
+        defaults.floatingButtonRing,
+      ),
+      floatingButtonIdleOpacity:
+          v['overlay_button_idle_opacity'] ??
+          defaults.floatingButtonIdleOpacity,
+      showFloatingButton: _readBool(
+        v,
+        'show_floating_button',
+        defaults.showFloatingButton,
+      ),
+      floatingButtonIdleCapsule: _readBool(
+        v,
+        'overlay_button_idle_capsule',
+        defaults.floatingButtonIdleCapsule,
+      ),
+      // 'floating_button_size' is intentionally not read — removed in issue 11.
+      // Old configs may have it; the key is silently ignored (no migration needed).
+      overlayShowLiveTranscript: _readBool(
+        v,
+        'overlay_show_live_transcript',
+        defaults.overlayShowLiveTranscript,
+      ),
+      overlayQuietHint: _readBool(
+        v,
+        'overlay_quiet_hint',
+        defaults.overlayQuietHint,
+      ),
+    );
+  }
 
   Map<String, String> toMap() => {
     'show_overlay': '$showOverlay',
     'overlay_mode': overlayMode,
     'overlay_start_position': overlayStartPosition,
     'overlay_size': overlaySize,
-    'overlay_style': overlayStyle,
+    'overlay_background': overlayBackground,
+    'overlay_wave': overlayWave,
+    'overlay_form': overlayForm,
+    'overlay_wave_style': overlayWaveStyle,
+    'overlay_wave_fluid': '$overlayWaveFluid',
+    'overlay_show_timer': '$overlayShowTimer',
+    'overlay_show_cancel': '$overlayShowCancel',
+    'overlay_opacity': overlayOpacity,
+    'overlay_button_size': floatingButtonSize,
+    'overlay_button_shape': floatingButtonShape,
+    'overlay_button_ring': '$floatingButtonRing',
+    'overlay_button_idle_opacity': floatingButtonIdleOpacity,
     'show_floating_button': '$showFloatingButton',
+    'overlay_button_idle_capsule': '$floatingButtonIdleCapsule',
     'overlay_show_live_transcript': '$overlayShowLiveTranscript',
+    'overlay_quiet_hint': '$overlayQuietHint',
   };
 
+  // loam-ignore: complexity-hotspots – one `??` per field, no logic.
   OverlaySettings copyWith({
     bool? showOverlay,
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayStyle,
+    String? overlayBackground,
+    String? overlayWave,
+    String? overlayForm,
+    String? overlayWaveStyle,
+    bool? overlayWaveFluid,
+    bool? overlayShowTimer,
+    bool? overlayShowCancel,
+    String? overlayOpacity,
+    String? floatingButtonSize,
+    String? floatingButtonShape,
+    bool? floatingButtonRing,
+    String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
+    bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
+    bool? overlayQuietHint,
   }) => OverlaySettings(
+    floatingButtonIdleCapsule:
+        floatingButtonIdleCapsule ?? this.floatingButtonIdleCapsule,
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
     overlaySize: overlaySize ?? this.overlaySize,
-    overlayStyle: overlayStyle ?? this.overlayStyle,
+    overlayBackground: overlayBackground ?? this.overlayBackground,
+    overlayWave: overlayWave ?? this.overlayWave,
+    overlayForm: overlayForm ?? this.overlayForm,
+    overlayWaveStyle: overlayWaveStyle ?? this.overlayWaveStyle,
+    overlayWaveFluid: overlayWaveFluid ?? this.overlayWaveFluid,
+    overlayShowTimer: overlayShowTimer ?? this.overlayShowTimer,
+    overlayShowCancel: overlayShowCancel ?? this.overlayShowCancel,
+    overlayOpacity: overlayOpacity ?? this.overlayOpacity,
+    floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
+    floatingButtonShape: floatingButtonShape ?? this.floatingButtonShape,
+    floatingButtonRing: floatingButtonRing ?? this.floatingButtonRing,
+    floatingButtonIdleOpacity:
+        floatingButtonIdleOpacity ?? this.floatingButtonIdleOpacity,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
     overlayShowLiveTranscript:
         overlayShowLiveTranscript ?? this.overlayShowLiveTranscript,
+    overlayQuietHint: overlayQuietHint ?? this.overlayQuietHint,
   );
 
   @override
@@ -799,9 +1393,22 @@ class OverlaySettings {
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
-          overlayStyle == other.overlayStyle &&
+          overlayBackground == other.overlayBackground &&
+          overlayWave == other.overlayWave &&
+          overlayForm == other.overlayForm &&
+          overlayWaveStyle == other.overlayWaveStyle &&
+          overlayWaveFluid == other.overlayWaveFluid &&
+          overlayShowTimer == other.overlayShowTimer &&
+          overlayShowCancel == other.overlayShowCancel &&
+          overlayOpacity == other.overlayOpacity &&
+          floatingButtonSize == other.floatingButtonSize &&
+          floatingButtonShape == other.floatingButtonShape &&
+          floatingButtonRing == other.floatingButtonRing &&
+          floatingButtonIdleOpacity == other.floatingButtonIdleOpacity &&
           showFloatingButton == other.showFloatingButton &&
-          overlayShowLiveTranscript == other.overlayShowLiveTranscript;
+          floatingButtonIdleCapsule == other.floatingButtonIdleCapsule &&
+          overlayShowLiveTranscript == other.overlayShowLiveTranscript &&
+          overlayQuietHint == other.overlayQuietHint;
 
   @override
   int get hashCode => Object.hash(
@@ -809,9 +1416,22 @@ class OverlaySettings {
     overlayMode,
     overlayStartPosition,
     overlaySize,
-    overlayStyle,
+    overlayBackground,
+    overlayWave,
+    overlayForm,
+    overlayWaveStyle,
+    overlayWaveFluid,
+    overlayShowTimer,
+    overlayShowCancel,
+    overlayOpacity,
+    floatingButtonSize,
+    floatingButtonShape,
+    floatingButtonRing,
+    floatingButtonIdleOpacity,
     showFloatingButton,
+    floatingButtonIdleCapsule,
     overlayShowLiveTranscript,
+    overlayQuietHint,
   );
 }
 
@@ -824,6 +1444,10 @@ class CloudProviderSettings {
     this.openAiApiKey = '',
     this.deepgramApiKey = '',
     this.cloudSttProvider = 'openai',
+    this.customEndpointUrl = '',
+    this.customEndpointApiKey = '',
+    this.customEndpointSttModel = '',
+    this.customEndpointSmartModel = '',
   });
 
   // API keys are stored in secure storage — never persisted to SQLite.
@@ -831,30 +1455,62 @@ class CloudProviderSettings {
   final String deepgramApiKey;
   final String cloudSttProvider;
 
+  /// Own OpenAI-compatible server (W-M3): base address, e.g. `http://localhost:1234/v1`.
+  final String customEndpointUrl;
+
+  /// Optional key of that server; secure storage like the other keys.
+  final String customEndpointApiKey;
+
+  /// Model names for transcription and for Smart Mode on that server.
+  final String customEndpointSttModel;
+  final String customEndpointSmartModel;
+
   static const CloudProviderSettings defaults = CloudProviderSettings();
 
-  factory CloudProviderSettings.fromMap(Map<String, String> v) =>
-      CloudProviderSettings(
-        openAiApiKey: v['openai_api_key'] ?? defaults.openAiApiKey,
-        deepgramApiKey: v['deepgram_api_key'] ?? defaults.deepgramApiKey,
-        cloudSttProvider: v['cloud_stt_provider'] ?? defaults.cloudSttProvider,
-      );
+  factory CloudProviderSettings.fromMap(
+    Map<String, String> v,
+  ) => CloudProviderSettings(
+    openAiApiKey: v['openai_api_key'] ?? defaults.openAiApiKey,
+    deepgramApiKey: v['deepgram_api_key'] ?? defaults.deepgramApiKey,
+    cloudSttProvider: v['cloud_stt_provider'] ?? defaults.cloudSttProvider,
+    customEndpointUrl: v['custom_endpoint_url'] ?? defaults.customEndpointUrl,
+    customEndpointApiKey:
+        v['custom_endpoint_api_key'] ?? defaults.customEndpointApiKey,
+    customEndpointSttModel:
+        v['custom_endpoint_stt_model'] ?? defaults.customEndpointSttModel,
+    customEndpointSmartModel:
+        v['custom_endpoint_smart_model'] ?? defaults.customEndpointSmartModel,
+  );
 
   Map<String, String> toMap() => {
     // API keys are stored in secure storage — always write empty string.
     'openai_api_key': '',
     'deepgram_api_key': '',
     'cloud_stt_provider': cloudSttProvider,
+    'custom_endpoint_url': customEndpointUrl,
+    'custom_endpoint_api_key': '',
+    'custom_endpoint_stt_model': customEndpointSttModel,
+    'custom_endpoint_smart_model': customEndpointSmartModel,
   };
 
   CloudProviderSettings copyWith({
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
+    String? customEndpointUrl,
+    String? customEndpointApiKey,
+    String? customEndpointSttModel,
+    String? customEndpointSmartModel,
   }) => CloudProviderSettings(
     openAiApiKey: openAiApiKey ?? this.openAiApiKey,
     deepgramApiKey: deepgramApiKey ?? this.deepgramApiKey,
     cloudSttProvider: cloudSttProvider ?? this.cloudSttProvider,
+    customEndpointUrl: customEndpointUrl ?? this.customEndpointUrl,
+    customEndpointApiKey: customEndpointApiKey ?? this.customEndpointApiKey,
+    customEndpointSttModel:
+        customEndpointSttModel ?? this.customEndpointSttModel,
+    customEndpointSmartModel:
+        customEndpointSmartModel ?? this.customEndpointSmartModel,
   );
 
   @override
@@ -863,11 +1519,22 @@ class CloudProviderSettings {
       other is CloudProviderSettings &&
           openAiApiKey == other.openAiApiKey &&
           deepgramApiKey == other.deepgramApiKey &&
-          cloudSttProvider == other.cloudSttProvider;
+          cloudSttProvider == other.cloudSttProvider &&
+          customEndpointUrl == other.customEndpointUrl &&
+          customEndpointApiKey == other.customEndpointApiKey &&
+          customEndpointSttModel == other.customEndpointSttModel &&
+          customEndpointSmartModel == other.customEndpointSmartModel;
 
   @override
-  int get hashCode =>
-      Object.hash(openAiApiKey, deepgramApiKey, cloudSttProvider);
+  int get hashCode => Object.hash(
+    openAiApiKey,
+    deepgramApiKey,
+    cloudSttProvider,
+    customEndpointUrl,
+    customEndpointApiKey,
+    customEndpointSttModel,
+    customEndpointSmartModel,
+  );
 }
 
 // ===========================================================================
@@ -882,10 +1549,28 @@ class BehaviorSettings {
     this.gpuAcceleration = 'auto',
     this.autoPasteDelay = 200,
     this.autoPasteBlocklist = '',
-    this.textReplacementsEnabled = false,
+    this.textReplacementsEnabled = true,
+    this.termSimilarityEnabled = true,
+    this.replacementsCascade = true,
     this.snippetPickerTrigger = '',
     this.correctionLearningEnabled = true,
     this.cudaAcceleration = true,
+    this.copyBlockedToClipboard = true,
+    this.autoSendOnRelease = false,
+    this.linuxAlwaysShiftPaste = false,
+    this.restoreClipboardAfterPaste = true,
+    this.restoreClipboardWithoutReceipt = false,
+    this.fitDictationStart = true,
+    this.pasteWithMarkdown = false,
+    this.cudaEulaAccepted = '',
+    this.repasteHotkeyEnabled = false,
+    this.repasteHotkeyKey = 'V',
+    this.repasteHotkeyKeyDisplay = '',
+    this.repasteHotkeyModifiers = 'alt+shift',
+    this.learnCorrectionHotkeyEnabled = false,
+    this.learnCorrectionHotkeyKey = 'L',
+    this.learnCorrectionHotkeyKeyDisplay = '',
+    this.learnCorrectionHotkeyModifiers = 'alt+shift',
   });
 
   final int maxRecordDuration;
@@ -900,15 +1585,26 @@ class BehaviorSettings {
 
   final bool textReplacementsEnabled;
 
+  /// Strict similarity matching of dictionary terms (#147): a recognised word
+  /// at least 92 % similar to a term is corrected to the term. Only runs for
+  /// engines without a prompt hint (`TermHintEffect.replacementOnly`); an
+  /// engine with a hint channel never uses it. Default on.
+  final bool termSimilarityEnabled;
+
+  /// Whether replacements build on each other (issue #1004): on, each rule
+  /// works on the text the rules above it produced (the cascade, list
+  /// order); off, every rule only matches the dictated original.
+  final bool replacementsCascade;
+
   /// The single global trigger word that opens the Snippet-Picker when a
   /// transcript matches it exactly (dictation-automations ticket 06). Empty
   /// string means the feature is off — the picker has exactly one trigger,
   /// no payload, and its own UI on the Snippets page.
   final String snippetPickerTrigger;
 
-  /// Global on/off switch for vocabulary-learning-from-corrections (ticket
-  /// 01 `internal-notes`): whether repeated voice
-  /// corrections are watched for candidate replacement entries at all.
+  /// Global on/off switch for learning from corrections (issue #144):
+  /// whether repeated corrections are watched for candidate replacements
+  /// and terms at all.
   /// Default on -- but every candidate still requires explicit confirmation
   /// in the review UI before it becomes an active replacement, so "on" here
   /// only means "detect", never "auto-apply". Turning this off stops new
@@ -922,6 +1618,78 @@ class BehaviorSettings {
   /// Vulkan without deleting the download. No effect without an installed
   /// pack or with `gpuAcceleration` set to CPU only.
   final bool cudaAcceleration;
+
+  /// When a block-listed target blocks auto-paste, still copy the transcript
+  /// to the clipboard (true, default) or leave the clipboard untouched; the
+  /// transcript is then only kept in the history (AUF-1, maintainer 4a+c).
+  final bool copyBlockedToClipboard;
+
+  /// Opt-in (#564, off by default): holding the one fixed extra key (Alt /
+  /// Option) while releasing the recording shortcut sends Enter after a
+  /// confirmed paste.
+  final bool autoSendOnRelease;
+
+  /// Linux only (V1 Wayland): paste and copy with Ctrl+Shift+V/C everywhere,
+  /// not only in recognised terminals. The fallback for sessions where the
+  /// target app cannot be named (GNOME without the WhisPaste extension, an
+  /// unsupported compositor, Flatpak without the compositor socket). Off by
+  /// default: some apps bind Ctrl+Shift+V to something else (LibreOffice
+  /// opens Paste Special).
+  final bool linuxAlwaysShiftPaste;
+
+  /// After a paste, put the user's previous clipboard content back (true,
+  /// default) or keep the dictation on the clipboard (false). Only applies
+  /// when the paste is confirmed or cannot be confirmed; a receipt timeout
+  /// always keeps the transcript.
+  final bool restoreClipboardAfterPaste;
+
+  /// Legacy switch (W-E1): after a paste whose read receipt timed out, put the
+  /// previous clipboard back after the fixed wait, as the previous release did.
+  /// Only with [restoreClipboardAfterPaste]. New installs keep it off; an
+  /// install that finished onboarding before W-E1 is switched on once
+  /// (`settings_provider.dart`, `kPasteRestoreLegacyMigrationKey`).
+  final bool restoreClipboardWithoutReceipt;
+
+  /// Fits the first letter of a dictation and the gap to the text in front of
+  /// the caret (#401). Has no effect in the Mac App Store build, whose sandbox
+  /// cannot read other apps' fields.
+  final bool fitDictationStart;
+
+  /// Off by default (#644): a snippet (picker, side panel, automation API,
+  /// interactive snippet) or a transcript picked in the side panel is pasted
+  /// into another app as plain text with its Markdown markers removed
+  /// (`markdownToPlainText`). On, the text is pasted exactly as written. The
+  /// dictation hotkey path never converts.
+  final bool pasteWithMarkdown;
+
+  /// The consent value (pack version + EULA version, see
+  /// `cudaEulaConsentValue` in `cuda_pack.dart`) the user accepted the NVIDIA
+  /// CUDA EULA for. Empty = never accepted. Per installation: deny-listed in
+  /// the settings export, so it never travels to another machine.
+  final String cudaEulaAccepted;
+
+  /// Off by default: the "paste the last dictation again" hotkey claims a
+  /// system-wide shortcut only after the user opts in. It pastes into the
+  /// app in front, through the same paster as a dictation.
+  final bool repasteHotkeyEnabled;
+
+  /// Storage token, display label and modifiers of that hotkey (see
+  /// [HotkeySettings.hotkeyKey]). The modifiers default per platform
+  /// ([defaultRepasteHotkeyModifiers]).
+  final String repasteHotkeyKey;
+  final String repasteHotkeyKeyDisplay;
+  final String repasteHotkeyModifiers;
+
+  /// Off by default, like the repaste hotkey: "Learn correction" (#934)
+  /// copies the selection in the app in front and proposes it as a
+  /// replacement for the matching words of the last dictation.
+  final bool learnCorrectionHotkeyEnabled;
+
+  /// Storage token, display label and modifiers of that hotkey; the
+  /// modifiers default per platform ([defaultRepasteHotkeyModifiers]).
+  final String learnCorrectionHotkeyKey;
+  final String learnCorrectionHotkeyKeyDisplay;
+  final String learnCorrectionHotkeyModifiers;
 
   static const BehaviorSettings defaults = BehaviorSettings();
 
@@ -942,6 +1710,16 @@ class BehaviorSettings {
       'text_replacements_enabled',
       defaults.textReplacementsEnabled,
     ),
+    termSimilarityEnabled: _readBool(
+      v,
+      'term_similarity_enabled',
+      defaults.termSimilarityEnabled,
+    ),
+    replacementsCascade: _readBool(
+      v,
+      'text_replacements_cascade',
+      defaults.replacementsCascade,
+    ),
     snippetPickerTrigger:
         v['snippet_picker_trigger'] ?? defaults.snippetPickerTrigger,
     correctionLearningEnabled: _readBool(
@@ -954,6 +1732,65 @@ class BehaviorSettings {
       'cuda_acceleration',
       defaults.cudaAcceleration,
     ),
+    copyBlockedToClipboard: _readBool(
+      v,
+      'copy_blocked_to_clipboard',
+      defaults.copyBlockedToClipboard,
+    ),
+    autoSendOnRelease: _readBool(
+      v,
+      'auto_send_on_release',
+      defaults.autoSendOnRelease,
+    ),
+    linuxAlwaysShiftPaste: _readBool(
+      v,
+      'linux_always_shift_paste',
+      defaults.linuxAlwaysShiftPaste,
+    ),
+    restoreClipboardAfterPaste: _readBool(
+      v,
+      'restore_clipboard_after_paste',
+      defaults.restoreClipboardAfterPaste,
+    ),
+    restoreClipboardWithoutReceipt: _readBool(
+      v,
+      'restore_clipboard_without_receipt',
+      defaults.restoreClipboardWithoutReceipt,
+    ),
+    fitDictationStart: _readBool(
+      v,
+      'fit_dictation_start',
+      defaults.fitDictationStart,
+    ),
+    pasteWithMarkdown: _readBool(
+      v,
+      'paste_with_markdown',
+      defaults.pasteWithMarkdown,
+    ),
+    cudaEulaAccepted: v['cuda_eula_accepted'] ?? defaults.cudaEulaAccepted,
+    repasteHotkeyEnabled: _readBool(
+      v,
+      'repaste_hotkey_enabled',
+      defaults.repasteHotkeyEnabled,
+    ),
+    repasteHotkeyKey: v['repaste_hotkey_key'] ?? defaults.repasteHotkeyKey,
+    repasteHotkeyKeyDisplay:
+        v['repaste_hotkey_key_display'] ?? defaults.repasteHotkeyKeyDisplay,
+    repasteHotkeyModifiers:
+        v['repaste_hotkey_modifiers'] ?? defaultRepasteHotkeyModifiers(),
+    learnCorrectionHotkeyEnabled: _readBool(
+      v,
+      'learn_correction_hotkey_enabled',
+      defaults.learnCorrectionHotkeyEnabled,
+    ),
+    learnCorrectionHotkeyKey:
+        v['learn_correction_hotkey_key'] ?? defaults.learnCorrectionHotkeyKey,
+    learnCorrectionHotkeyKeyDisplay:
+        v['learn_correction_hotkey_key_display'] ??
+        defaults.learnCorrectionHotkeyKeyDisplay,
+    learnCorrectionHotkeyModifiers:
+        v['learn_correction_hotkey_modifiers'] ??
+        defaultRepasteHotkeyModifiers(),
   );
 
   Map<String, String> toMap() => {
@@ -964,9 +1801,27 @@ class BehaviorSettings {
     'auto_paste_delay': '$autoPasteDelay',
     'auto_paste_blocklist': autoPasteBlocklist,
     'text_replacements_enabled': '$textReplacementsEnabled',
+    'term_similarity_enabled': '$termSimilarityEnabled',
+    'text_replacements_cascade': '$replacementsCascade',
     'snippet_picker_trigger': snippetPickerTrigger,
     'correction_learning_enabled': '$correctionLearningEnabled',
     'cuda_acceleration': '$cudaAcceleration',
+    'copy_blocked_to_clipboard': '$copyBlockedToClipboard',
+    'auto_send_on_release': '$autoSendOnRelease',
+    'linux_always_shift_paste': '$linuxAlwaysShiftPaste',
+    'restore_clipboard_after_paste': '$restoreClipboardAfterPaste',
+    'restore_clipboard_without_receipt': '$restoreClipboardWithoutReceipt',
+    'fit_dictation_start': '$fitDictationStart',
+    'paste_with_markdown': '$pasteWithMarkdown',
+    'cuda_eula_accepted': cudaEulaAccepted,
+    'repaste_hotkey_enabled': '$repasteHotkeyEnabled',
+    'repaste_hotkey_key': repasteHotkeyKey,
+    'repaste_hotkey_key_display': repasteHotkeyKeyDisplay,
+    'repaste_hotkey_modifiers': repasteHotkeyModifiers,
+    'learn_correction_hotkey_enabled': '$learnCorrectionHotkeyEnabled',
+    'learn_correction_hotkey_key': learnCorrectionHotkeyKey,
+    'learn_correction_hotkey_key_display': learnCorrectionHotkeyKeyDisplay,
+    'learn_correction_hotkey_modifiers': learnCorrectionHotkeyModifiers,
   };
 
   BehaviorSettings copyWith({
@@ -977,9 +1832,27 @@ class BehaviorSettings {
     int? autoPasteDelay,
     String? autoPasteBlocklist,
     bool? textReplacementsEnabled,
+    bool? termSimilarityEnabled,
+    bool? replacementsCascade,
     String? snippetPickerTrigger,
     bool? correctionLearningEnabled,
     bool? cudaAcceleration,
+    bool? copyBlockedToClipboard,
+    bool? autoSendOnRelease,
+    bool? linuxAlwaysShiftPaste,
+    bool? restoreClipboardAfterPaste,
+    bool? restoreClipboardWithoutReceipt,
+    bool? fitDictationStart,
+    bool? pasteWithMarkdown,
+    String? cudaEulaAccepted,
+    bool? repasteHotkeyEnabled,
+    String? repasteHotkeyKey,
+    String? repasteHotkeyKeyDisplay,
+    String? repasteHotkeyModifiers,
+    bool? learnCorrectionHotkeyEnabled,
+    String? learnCorrectionHotkeyKey,
+    String? learnCorrectionHotkeyKeyDisplay,
+    String? learnCorrectionHotkeyModifiers,
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -989,10 +1862,37 @@ class BehaviorSettings {
     autoPasteBlocklist: autoPasteBlocklist ?? this.autoPasteBlocklist,
     textReplacementsEnabled:
         textReplacementsEnabled ?? this.textReplacementsEnabled,
+    termSimilarityEnabled: termSimilarityEnabled ?? this.termSimilarityEnabled,
+    replacementsCascade: replacementsCascade ?? this.replacementsCascade,
     snippetPickerTrigger: snippetPickerTrigger ?? this.snippetPickerTrigger,
     correctionLearningEnabled:
         correctionLearningEnabled ?? this.correctionLearningEnabled,
     cudaAcceleration: cudaAcceleration ?? this.cudaAcceleration,
+    copyBlockedToClipboard:
+        copyBlockedToClipboard ?? this.copyBlockedToClipboard,
+    autoSendOnRelease: autoSendOnRelease ?? this.autoSendOnRelease,
+    linuxAlwaysShiftPaste: linuxAlwaysShiftPaste ?? this.linuxAlwaysShiftPaste,
+    restoreClipboardAfterPaste:
+        restoreClipboardAfterPaste ?? this.restoreClipboardAfterPaste,
+    restoreClipboardWithoutReceipt:
+        restoreClipboardWithoutReceipt ?? this.restoreClipboardWithoutReceipt,
+    fitDictationStart: fitDictationStart ?? this.fitDictationStart,
+    pasteWithMarkdown: pasteWithMarkdown ?? this.pasteWithMarkdown,
+    cudaEulaAccepted: cudaEulaAccepted ?? this.cudaEulaAccepted,
+    repasteHotkeyEnabled: repasteHotkeyEnabled ?? this.repasteHotkeyEnabled,
+    repasteHotkeyKey: repasteHotkeyKey ?? this.repasteHotkeyKey,
+    repasteHotkeyKeyDisplay:
+        repasteHotkeyKeyDisplay ?? this.repasteHotkeyKeyDisplay,
+    repasteHotkeyModifiers:
+        repasteHotkeyModifiers ?? this.repasteHotkeyModifiers,
+    learnCorrectionHotkeyEnabled:
+        learnCorrectionHotkeyEnabled ?? this.learnCorrectionHotkeyEnabled,
+    learnCorrectionHotkeyKey:
+        learnCorrectionHotkeyKey ?? this.learnCorrectionHotkeyKey,
+    learnCorrectionHotkeyKeyDisplay:
+        learnCorrectionHotkeyKeyDisplay ?? this.learnCorrectionHotkeyKeyDisplay,
+    learnCorrectionHotkeyModifiers:
+        learnCorrectionHotkeyModifiers ?? this.learnCorrectionHotkeyModifiers,
   );
 
   @override
@@ -1006,9 +1906,29 @@ class BehaviorSettings {
         autoPasteDelay == other.autoPasteDelay &&
         autoPasteBlocklist == other.autoPasteBlocklist &&
         textReplacementsEnabled == other.textReplacementsEnabled &&
+        termSimilarityEnabled == other.termSimilarityEnabled &&
+        replacementsCascade == other.replacementsCascade &&
         snippetPickerTrigger == other.snippetPickerTrigger &&
         correctionLearningEnabled == other.correctionLearningEnabled &&
-        cudaAcceleration == other.cudaAcceleration;
+        cudaAcceleration == other.cudaAcceleration &&
+        copyBlockedToClipboard == other.copyBlockedToClipboard &&
+        autoSendOnRelease == other.autoSendOnRelease &&
+        linuxAlwaysShiftPaste == other.linuxAlwaysShiftPaste &&
+        restoreClipboardAfterPaste == other.restoreClipboardAfterPaste &&
+        restoreClipboardWithoutReceipt ==
+            other.restoreClipboardWithoutReceipt &&
+        fitDictationStart == other.fitDictationStart &&
+        pasteWithMarkdown == other.pasteWithMarkdown &&
+        cudaEulaAccepted == other.cudaEulaAccepted &&
+        repasteHotkeyEnabled == other.repasteHotkeyEnabled &&
+        repasteHotkeyKey == other.repasteHotkeyKey &&
+        repasteHotkeyKeyDisplay == other.repasteHotkeyKeyDisplay &&
+        repasteHotkeyModifiers == other.repasteHotkeyModifiers &&
+        learnCorrectionHotkeyEnabled == other.learnCorrectionHotkeyEnabled &&
+        learnCorrectionHotkeyKey == other.learnCorrectionHotkeyKey &&
+        learnCorrectionHotkeyKeyDisplay ==
+            other.learnCorrectionHotkeyKeyDisplay &&
+        learnCorrectionHotkeyModifiers == other.learnCorrectionHotkeyModifiers;
   }
 
   @override
@@ -1020,9 +1940,31 @@ class BehaviorSettings {
     autoPasteDelay,
     autoPasteBlocklist,
     textReplacementsEnabled,
+    replacementsCascade,
     snippetPickerTrigger,
     correctionLearningEnabled,
     cudaAcceleration,
+    copyBlockedToClipboard,
+    autoSendOnRelease,
+    linuxAlwaysShiftPaste,
+    restoreClipboardAfterPaste,
+    restoreClipboardWithoutReceipt,
+    // Object.hash takes at most 20 values: grouped with its neighbour.
+    Object.hash(fitDictationStart, pasteWithMarkdown, termSimilarityEnabled),
+    cudaEulaAccepted,
+    // Object.hash takes at most 20 values: the hotkeys hash as one.
+    Object.hash(
+      repasteHotkeyEnabled,
+      repasteHotkeyKey,
+      repasteHotkeyKeyDisplay,
+      repasteHotkeyModifiers,
+    ),
+    Object.hash(
+      learnCorrectionHotkeyEnabled,
+      learnCorrectionHotkeyKey,
+      learnCorrectionHotkeyKeyDisplay,
+      learnCorrectionHotkeyModifiers,
+    ),
   );
 }
 
@@ -1083,6 +2025,7 @@ class UpdateSettings {
 
 class HistorySettings {
   const HistorySettings({
+    this.saveHistory = true,
     this.historyMaxEntries = 1000,
     this.historyAutoTrashDays = 90,
     this.historyHideOnOpen = false,
@@ -1091,6 +2034,12 @@ class HistorySettings {
     this.historyPinLockedUntil = 0,
     this.historyAutoLockMinutes = 0,
   });
+
+  /// Whether a dictation is written to Recordings (the history). Off: the
+  /// text is only pasted or copied, no entry and no audio is kept, and the
+  /// rating count runs on its own content-free counter. Existing entries are
+  /// not touched by switching it off.
+  final bool saveHistory;
 
   /// Max active (non-trashed) history entries to keep. 0 = unlimited.
   final int historyMaxEntries;
@@ -1122,6 +2071,7 @@ class HistorySettings {
   static const HistorySettings defaults = HistorySettings();
 
   factory HistorySettings.fromMap(Map<String, String> v) => HistorySettings(
+    saveHistory: _readBool(v, 'history_save_enabled', defaults.saveHistory),
     historyMaxEntries: _readInt(
       v,
       'history_max_entries',
@@ -1156,6 +2106,7 @@ class HistorySettings {
   );
 
   Map<String, String> toMap() => {
+    'history_save_enabled': '$saveHistory',
     'history_max_entries': '$historyMaxEntries',
     'history_auto_trash_days': '$historyAutoTrashDays',
     'history_hide_on_open': '$historyHideOnOpen',
@@ -1166,6 +2117,7 @@ class HistorySettings {
   };
 
   HistorySettings copyWith({
+    bool? saveHistory,
     int? historyMaxEntries,
     int? historyAutoTrashDays,
     bool? historyHideOnOpen,
@@ -1174,6 +2126,7 @@ class HistorySettings {
     int? historyPinLockedUntil,
     int? historyAutoLockMinutes,
   }) => HistorySettings(
+    saveHistory: saveHistory ?? this.saveHistory,
     historyMaxEntries: historyMaxEntries ?? this.historyMaxEntries,
     historyAutoTrashDays: historyAutoTrashDays ?? this.historyAutoTrashDays,
     historyHideOnOpen: historyHideOnOpen ?? this.historyHideOnOpen,
@@ -1185,12 +2138,11 @@ class HistorySettings {
         historyAutoLockMinutes ?? this.historyAutoLockMinutes,
   );
 
-  // loam-ignore: code-duplicates – same operator==/hashCode boilerplate
-  // shape as every other settings-section class in this file.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is HistorySettings &&
+          saveHistory == other.saveHistory &&
           historyMaxEntries == other.historyMaxEntries &&
           historyAutoTrashDays == other.historyAutoTrashDays &&
           historyHideOnOpen == other.historyHideOnOpen &&
@@ -1201,6 +2153,7 @@ class HistorySettings {
 
   @override
   int get hashCode => Object.hash(
+    saveHistory,
     historyMaxEntries,
     historyAutoTrashDays,
     historyHideOnOpen,
@@ -1215,13 +2168,97 @@ class HistorySettings {
 // Section 13 — Hotkey
 // ===========================================================================
 
+/// Modifier-only hotkeys a user can choose instead of a key combination.
+/// Stored as the names shared with the native hosts. Empty = no modifier-only
+/// hotkey (the combination in [HotkeySettings.hotkeyKey] is used).
+const modifierOnlyHotkeyChoices = [
+  'fn',
+  'leftShift',
+  'rightShift',
+  'leftControl',
+  'rightControl',
+  'leftAlt',
+  'rightAlt',
+  'leftMeta',
+  'rightMeta',
+];
+
+/// Retired trigger keys of the model before 2026-10-25, when one action could
+/// hold a hold key and a double-tap action at once. Nothing reads them any more
+/// except [migrateLegacyHotkeyTriggers].
+const legacyHotkeyTriggerKeys = {
+  'hotkey_modifier_only',
+  'double_tap_action',
+  'double_tap_hands_free',
+};
+
+/// Moves the retired trigger values to the one-trigger model. Returns [raw]
+/// with the legacy keys cleared and, when a legacy hold key can become the
+/// double-tap trigger, `hotkey_double_tap_key` set to it.
+///
+/// - A hold key that [doubleTapObservable] accepts becomes the double-tap
+///   trigger, unless a double-tap trigger is already stored.
+/// - Otherwise the hold key is dropped and the stored combination stays.
+/// - A legacy double-tap action is dropped. Quick note and snippet picker keep
+///   their own combinations.
+///
+/// Only active values are cleared, so the result is idempotent: a load after
+/// the migration writes nothing, and a trigger the user cleared later is never
+/// restored from an old key. Used on load and on settings import.
+Map<String, String> migrateLegacyHotkeyTriggers(
+  Map<String, String> raw, {
+  required bool Function(String choice) doubleTapObservable,
+}) {
+  final hold = raw['hotkey_modifier_only'] ?? '';
+  final action = raw['double_tap_action'] ?? '';
+  final handsFree = raw['double_tap_hands_free'] ?? '';
+  final activeLegacy =
+      hold.isNotEmpty ||
+      (action.isNotEmpty && action != 'none') ||
+      handsFree == 'true';
+  if (!activeLegacy) return raw;
+
+  final migrated = {...raw};
+  for (final key in legacyHotkeyTriggerKeys) {
+    if (migrated.containsKey(key)) migrated[key] = '';
+  }
+  final hasDoubleTap = (raw['hotkey_double_tap_key'] ?? '').isNotEmpty;
+  if (hold.isNotEmpty &&
+      !hasDoubleTap &&
+      modifierOnlyHotkeyChoices.contains(hold) &&
+      doubleTapObservable(hold)) {
+    migrated['hotkey_double_tap_key'] = hold;
+  }
+  return migrated;
+}
+
+/// Reads a stored single-key choice; anything unknown or missing is none (`''`).
+String _readModifierChoice(Map<String, String> v, String key) =>
+    modifierOnlyHotkeyChoices.contains(v[key]) ? v[key]! : '';
+
 class HotkeySettings {
   const HotkeySettings({
     this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
     this.hotkeyKeyDisplay = '',
     this.hotkeyModifiers = 'ctrl+shift',
+    this.hotkeyDoubleTapKey = '',
+    this.hotkeyDoubleTap = true,
   });
+
+  /// Single key that is the dictation trigger (one of
+  /// [modifierOnlyHotkeyChoices]), or empty when the dictation trigger is the
+  /// key combination in [hotkeyKey]/[hotkeyModifiers]. Only one of the two is
+  /// active at a time: an action has exactly one trigger. The stored name
+  /// stems from the time the key could only be double-tapped; since
+  /// 2026-10-30 it holds and double-taps like a combination.
+  final String hotkeyDoubleTapKey;
+
+  /// A double tap of the trigger (combination or single key) starts a
+  /// hands-free recording; one press stops it. On for new installs; an
+  /// existing install gets it written once (see
+  /// `kHotkeyDoubleTapDefaultMigrationKey`).
+  final bool hotkeyDoubleTap;
 
   final bool hotkeyEnabled;
 
@@ -1246,6 +2283,12 @@ class HotkeySettings {
     hotkeyKeyDisplay: v['hotkey_key_display'] ?? defaults.hotkeyKeyDisplay,
     hotkeyModifiers:
         v['hotkey_modifiers'] ?? buildDefaultHotkeySettings().hotkeyModifiers,
+    hotkeyDoubleTapKey: _readModifierChoice(v, 'hotkey_double_tap_key'),
+    hotkeyDoubleTap: _readBool(
+      v,
+      'hotkey_double_tap',
+      defaults.hotkeyDoubleTap,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -1253,6 +2296,8 @@ class HotkeySettings {
     'hotkey_key': hotkeyKey,
     'hotkey_key_display': hotkeyKeyDisplay,
     'hotkey_modifiers': hotkeyModifiers,
+    'hotkey_double_tap_key': hotkeyDoubleTapKey,
+    'hotkey_double_tap': '$hotkeyDoubleTap',
   };
 
   HotkeySettings copyWith({
@@ -1260,11 +2305,15 @@ class HotkeySettings {
     String? hotkeyKey,
     String? hotkeyKeyDisplay,
     String? hotkeyModifiers,
+    String? hotkeyDoubleTapKey,
+    bool? hotkeyDoubleTap,
   }) => HotkeySettings(
     hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
     hotkeyKey: hotkeyKey ?? this.hotkeyKey,
     hotkeyKeyDisplay: hotkeyKeyDisplay ?? this.hotkeyKeyDisplay,
     hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
+    hotkeyDoubleTapKey: hotkeyDoubleTapKey ?? this.hotkeyDoubleTapKey,
+    hotkeyDoubleTap: hotkeyDoubleTap ?? this.hotkeyDoubleTap,
   );
 
   @override
@@ -1274,11 +2323,19 @@ class HotkeySettings {
           hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyKeyDisplay == other.hotkeyKeyDisplay &&
-          hotkeyModifiers == other.hotkeyModifiers;
+          hotkeyModifiers == other.hotkeyModifiers &&
+          hotkeyDoubleTapKey == other.hotkeyDoubleTapKey &&
+          hotkeyDoubleTap == other.hotkeyDoubleTap;
 
   @override
-  int get hashCode =>
-      Object.hash(hotkeyEnabled, hotkeyKey, hotkeyKeyDisplay, hotkeyModifiers);
+  int get hashCode => Object.hash(
+    hotkeyEnabled,
+    hotkeyKey,
+    hotkeyKeyDisplay,
+    hotkeyModifiers,
+    hotkeyDoubleTapKey,
+    hotkeyDoubleTap,
+  );
 }
 
 // ===========================================================================
@@ -1296,11 +2353,22 @@ class QuickNoteHotkeySettings {
     this.quickNoteHotkeyKey = 'N',
     this.quickNoteHotkeyKeyDisplay = '',
     this.quickNoteHotkeyModifiers = 'ctrl+shift',
+    this.openNoteInMainWindow = false,
+    this.timestampStyle = QuickNoteTimestampStyle.marginMark,
   });
 
   /// Off by default — an existing user must opt in, never gets a system-wide
   /// shortcut silently claimed by an update.
   final bool quickNoteHotkeyEnabled;
+
+  /// When a quick note was saved: bring the main window forward and open the
+  /// note in the Notizen area. Off by default: the note is saved in the
+  /// background and a toast offers "Open note" (UIA-SHL-08).
+  final bool openNoteInMainWindow;
+
+  /// How each appended dictation is dated (#803). Margin mark by default:
+  /// the note text stays clean, the moment lives in `note_appends`.
+  final QuickNoteTimestampStyle timestampStyle;
 
   /// Canonical storage token for the non-modifier key, as consumed by
   /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
@@ -1314,7 +2382,6 @@ class QuickNoteHotkeySettings {
 
   static const QuickNoteHotkeySettings defaults = QuickNoteHotkeySettings();
 
-  // loam-ignore: code-duplicates – same repo-wide fromMap(v) shape shared by every settings-section class in this file, established boilerplate.
   factory QuickNoteHotkeySettings.fromMap(Map<String, String> v) =>
       QuickNoteHotkeySettings(
         quickNoteHotkeyEnabled: _readBool(
@@ -1330,6 +2397,14 @@ class QuickNoteHotkeySettings {
         quickNoteHotkeyModifiers:
             v['quick_note_hotkey_modifiers'] ??
             buildDefaultQuickNoteHotkeySettings().quickNoteHotkeyModifiers,
+        openNoteInMainWindow: _readBool(
+          v,
+          'quick_note_open_in_main_window',
+          defaults.openNoteInMainWindow,
+        ),
+        timestampStyle: QuickNoteTimestampStyle.fromValue(
+          v['quick_note_timestamp_style'],
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -1337,18 +2412,17 @@ class QuickNoteHotkeySettings {
     'quick_note_hotkey_key': quickNoteHotkeyKey,
     'quick_note_hotkey_key_display': quickNoteHotkeyKeyDisplay,
     'quick_note_hotkey_modifiers': quickNoteHotkeyModifiers,
+    'quick_note_open_in_main_window': '$openNoteInMainWindow',
+    'quick_note_timestamp_style': timestampStyle.value,
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the SttSettings comment above and the ~15
-  // other section classes below); it is established repo-wide boilerplate,
-  // not accidental duplication.
   QuickNoteHotkeySettings copyWith({
     bool? quickNoteHotkeyEnabled,
     String? quickNoteHotkeyKey,
     String? quickNoteHotkeyKeyDisplay,
     String? quickNoteHotkeyModifiers,
+    bool? openNoteInMainWindow,
+    QuickNoteTimestampStyle? timestampStyle,
   }) => QuickNoteHotkeySettings(
     quickNoteHotkeyEnabled:
         quickNoteHotkeyEnabled ?? this.quickNoteHotkeyEnabled,
@@ -1357,11 +2431,10 @@ class QuickNoteHotkeySettings {
         quickNoteHotkeyKeyDisplay ?? this.quickNoteHotkeyKeyDisplay,
     quickNoteHotkeyModifiers:
         quickNoteHotkeyModifiers ?? this.quickNoteHotkeyModifiers,
+    openNoteInMainWindow: openNoteInMainWindow ?? this.openNoteInMainWindow,
+    timestampStyle: timestampStyle ?? this.timestampStyle,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file
-  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1369,7 +2442,9 @@ class QuickNoteHotkeySettings {
           quickNoteHotkeyEnabled == other.quickNoteHotkeyEnabled &&
           quickNoteHotkeyKey == other.quickNoteHotkeyKey &&
           quickNoteHotkeyKeyDisplay == other.quickNoteHotkeyKeyDisplay &&
-          quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers;
+          quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers &&
+          openNoteInMainWindow == other.openNoteInMainWindow &&
+          timestampStyle == other.timestampStyle;
 
   @override
   int get hashCode => Object.hash(
@@ -1377,6 +2452,8 @@ class QuickNoteHotkeySettings {
     quickNoteHotkeyKey,
     quickNoteHotkeyKeyDisplay,
     quickNoteHotkeyModifiers,
+    openNoteInMainWindow,
+    timestampStyle,
   );
 }
 
@@ -1439,11 +2516,6 @@ class SnippetPickerHotkeySettings {
     'snippet_picker_hotkey_modifiers': snippetPickerHotkeyModifiers,
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the SttSettings comment above and the ~15
-  // other section classes below); it is established repo-wide boilerplate,
-  // not accidental duplication.
   SnippetPickerHotkeySettings copyWith({
     bool? snippetPickerHotkeyEnabled,
     String? snippetPickerHotkeyKey,
@@ -1460,9 +2532,6 @@ class SnippetPickerHotkeySettings {
         snippetPickerHotkeyModifiers ?? this.snippetPickerHotkeyModifiers,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file
-  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1497,7 +2566,12 @@ class WindowPositionSettings {
     this.windowWidth = 1100.0,
     this.windowHeight = 750.0,
     this.windowMaximized = false,
+    this.overlayPositionsByMonitor = '',
   });
+
+  /// Raw JSON `{monitorKey: [dx, dy]}`: the overlay position relative to each
+  /// monitor it was dragged to. Decoded by `MonitorRelativePosition`.
+  final String overlayPositionsByMonitor;
 
   final double floatingButtonX;
   final double floatingButtonY;
@@ -1511,38 +2585,37 @@ class WindowPositionSettings {
 
   static const WindowPositionSettings defaults = WindowPositionSettings();
 
-  factory WindowPositionSettings.fromMap(Map<String, String> v) =>
-      WindowPositionSettings(
-        floatingButtonX: _readDouble(
-          v,
-          'floating_button_x',
-          defaults.floatingButtonX,
-        ),
-        floatingButtonY: _readDouble(
-          v,
-          'floating_button_y',
-          defaults.floatingButtonY,
-        ),
-        floatingOverlayX: _readDouble(
-          v,
-          'floating_overlay_x',
-          defaults.floatingOverlayX,
-        ),
-        floatingOverlayY: _readDouble(
-          v,
-          'floating_overlay_y',
-          defaults.floatingOverlayY,
-        ),
-        windowX: _readDouble(v, 'window_x', defaults.windowX),
-        windowY: _readDouble(v, 'window_y', defaults.windowY),
-        windowWidth: _readDouble(v, 'window_width', defaults.windowWidth),
-        windowHeight: _readDouble(v, 'window_height', defaults.windowHeight),
-        windowMaximized: _readBool(
-          v,
-          'window_maximized',
-          defaults.windowMaximized,
-        ),
-      );
+  factory WindowPositionSettings.fromMap(
+    Map<String, String> v,
+  ) => WindowPositionSettings(
+    floatingButtonX: _readDouble(
+      v,
+      'floating_button_x',
+      defaults.floatingButtonX,
+    ),
+    floatingButtonY: _readDouble(
+      v,
+      'floating_button_y',
+      defaults.floatingButtonY,
+    ),
+    floatingOverlayX: _readDouble(
+      v,
+      'floating_overlay_x',
+      defaults.floatingOverlayX,
+    ),
+    floatingOverlayY: _readDouble(
+      v,
+      'floating_overlay_y',
+      defaults.floatingOverlayY,
+    ),
+    windowX: _readDouble(v, 'window_x', defaults.windowX),
+    windowY: _readDouble(v, 'window_y', defaults.windowY),
+    windowWidth: _readDouble(v, 'window_width', defaults.windowWidth),
+    windowHeight: _readDouble(v, 'window_height', defaults.windowHeight),
+    windowMaximized: _readBool(v, 'window_maximized', defaults.windowMaximized),
+    overlayPositionsByMonitor:
+        v['overlay_positions_by_monitor'] ?? defaults.overlayPositionsByMonitor,
+  );
 
   Map<String, String> toMap() => {
     'floating_button_x': '$floatingButtonX',
@@ -1554,6 +2627,7 @@ class WindowPositionSettings {
     'window_width': '$windowWidth',
     'window_height': '$windowHeight',
     'window_maximized': '$windowMaximized',
+    'overlay_positions_by_monitor': overlayPositionsByMonitor,
   };
 
   WindowPositionSettings copyWith({
@@ -1566,6 +2640,7 @@ class WindowPositionSettings {
     double? windowWidth,
     double? windowHeight,
     bool? windowMaximized,
+    String? overlayPositionsByMonitor,
   }) => WindowPositionSettings(
     floatingButtonX: floatingButtonX ?? this.floatingButtonX,
     floatingButtonY: floatingButtonY ?? this.floatingButtonY,
@@ -1576,6 +2651,8 @@ class WindowPositionSettings {
     windowWidth: windowWidth ?? this.windowWidth,
     windowHeight: windowHeight ?? this.windowHeight,
     windowMaximized: windowMaximized ?? this.windowMaximized,
+    overlayPositionsByMonitor:
+        overlayPositionsByMonitor ?? this.overlayPositionsByMonitor,
   );
 
   @override
@@ -1590,7 +2667,8 @@ class WindowPositionSettings {
           windowY == other.windowY &&
           windowWidth == other.windowWidth &&
           windowHeight == other.windowHeight &&
-          windowMaximized == other.windowMaximized;
+          windowMaximized == other.windowMaximized &&
+          overlayPositionsByMonitor == other.overlayPositionsByMonitor;
 
   @override
   int get hashCode => Object.hash(
@@ -1603,6 +2681,7 @@ class WindowPositionSettings {
     windowWidth,
     windowHeight,
     windowMaximized,
+    overlayPositionsByMonitor,
   );
 }
 
@@ -1617,11 +2696,27 @@ class OnboardingSettings {
     this.onboardingCurrentStep = 0,
     this.onboardingFlowVersion = 0,
     this.onboardingContentVersion = 0,
-    this.seenFeatureSpotlightIds = '',
     this.smartModeUsageHintShown = false,
+    this.dataKeyExplained = false,
+    this.inputMonitoringOffered = false,
+    this.exactTriggerHintDismissed = false,
+    this.userFirstName = '',
+    this.userFirstNameSet = false,
+    this.userRoles = '',
+    this.userAttribution = '',
+    this.aboutFollowUpDone = false,
+    this.roleTermsDone = false,
+    this.firstStepsArmed = false,
+    this.firstStepsDismissed = false,
+    this.firstStepsDone = '',
+    this.completedInVersion = '',
   });
 
   final bool onboardingCompleted;
+
+  /// The one-time hint in the replacements list that names the similar
+  /// entries whose short triggers now match exactly (#204) was dismissed.
+  final bool exactTriggerHintDismissed;
 
   /// Persistent dismiss of the "Auto-Paste deaktiviert" status-bar hint that
   /// appears after the user skips Auto-Paste during onboarding. When `true`,
@@ -1655,22 +2750,74 @@ class OnboardingSettings {
   /// real entries at `1`; see `lib/core/onboarding/onboarding_revision.dart`.
   final int onboardingContentVersion;
 
-  /// Comma-separated ids of feature-spotlight registry entries
-  /// (`lib/core/feature_spotlight/feature_spotlight.dart`) this user has
-  /// already been shown. Same storage convention as
-  /// [BehaviorSettings.autoPasteBlocklist] — parsed via
-  /// `parseFeatureSpotlightSeenIds` at the point of use, not on this class.
-  /// Only written once a spotlight showing actually happens — never while
-  /// it stays pending behind onboarding, a manual review, or a revision run.
-  final String seenFeatureSpotlightIds;
-
-  /// Whether the one-time, post-usage Smart Mode discovery hint (ticket 08
-  /// of `internal-notes`) has already been shown. Shown at most
+  /// Whether the one-time, post-usage Smart Mode discovery hint has
+  /// already been shown. Shown at most
   /// once, regardless of user action, to users who have not engaged with
   /// Smart Mode (standard preset still `off`) after their first completed
   /// recording — covers both onboarding-skippers and pre-existing users who
   /// onboarded before this feature shipped.
   final bool smartModeUsageHintShown;
+
+  /// Whether this installation already explained the data key (#1071):
+  /// what it protects, that it stays on the device and what declining
+  /// means. The system key-store prompt only follows that explanation and a
+  /// deliberate tap. Device-local, never exported.
+  final bool dataKeyExplained;
+
+  /// Whether this installation already offered the macOS Input Monitoring
+  /// permission for a key combination (#807), after a recording kept running
+  /// because the key's release did not arrive. Offered once; a decline or an
+  /// ignored offer is not repeated. Device-local, never exported.
+  final bool inputMonitoringOffered;
+
+  /// First name from the "About you" page, used in later onboarding
+  /// headings. Empty means no name. Stays on this device.
+  final String userFirstName;
+
+  /// Whether [userFirstName] was ever confirmed on the "About you" page.
+  /// Until then the page prefills the name from the operating system; after
+  /// it, a cleared name stays cleared.
+  final bool userFirstNameSet;
+
+  /// Comma-separated role ids from the "About you" page
+  /// (`OnboardingRole.name`). Local only; the dictionary's one-time term
+  /// suggestion reads it (`lib/features/dictionary/role_terms.dart`).
+  final String userRoles;
+
+  /// The "How did you find us?" answer (`OnboardingAttribution.name`), empty
+  /// when unanswered. Local only, so going back shows the answer again.
+  final String userAttribution;
+
+  /// Whether the one-time follow-up card in the Übersicht's "Mitmachen"
+  /// block, which asks again whoever answered "Keine Angabe", is finished:
+  /// answered or dismissed. It never comes back after that.
+  final bool aboutFollowUpDone;
+
+  /// Whether the dictionary's one-time term suggestion for the roles in
+  /// [userRoles] is finished: taken over or hidden. It never comes back.
+  /// See `lib/features/dictionary/role_terms.dart`.
+  final bool roleTermsDone;
+
+  /// Set once the user finishes Onboarding v6 (the final "Start" action). The
+  /// "Erste Schritte" card is only ever shown while this is `true`, so an
+  /// existing install, which never passes that action again, never sees it.
+  /// See `lib/core/first_steps/first_steps.dart`.
+  final bool firstStepsArmed;
+
+  /// The user closed the "Erste Schritte" card. Cleared by "Neu anzeigen" in
+  /// Settings; [firstStepsDone] is kept either way.
+  final bool firstStepsDismissed;
+
+  /// Comma-separated ids of the first-steps items confirmed by app state or
+  /// events (`FirstStepsItem.id`). Parsed at the point of use, never by a
+  /// click on an item.
+  final String firstStepsDone;
+
+  /// The app version in which this install finished its first onboarding, or
+  /// empty for installs that finished it before this was recorded. The
+  /// Übersicht treats "new in this version" of that version as already seen:
+  /// a fresh install has nothing to catch up on.
+  final String completedInVersion;
 
   static const OnboardingSettings defaults = OnboardingSettings();
 
@@ -1685,6 +2832,11 @@ class OnboardingSettings {
           v,
           'auto_paste_off_hint_dismissed',
           defaults.autoPasteOffHintDismissed,
+        ),
+        exactTriggerHintDismissed: _readBool(
+          v,
+          'exact_trigger_hint_dismissed',
+          defaults.exactTriggerHintDismissed,
         ),
         onboardingCurrentStep: _readInt(
           v,
@@ -1701,49 +2853,117 @@ class OnboardingSettings {
           'onboarding_content_version',
           defaults.onboardingContentVersion,
         ),
-        seenFeatureSpotlightIds:
-            v['seen_feature_spotlight_ids'] ?? defaults.seenFeatureSpotlightIds,
         smartModeUsageHintShown: _readBool(
           v,
           'smart_mode_usage_hint_shown',
           defaults.smartModeUsageHintShown,
         ),
+        dataKeyExplained: _readBool(
+          v,
+          'data_key_explained',
+          defaults.dataKeyExplained,
+        ),
+        inputMonitoringOffered: _readBool(
+          v,
+          'input_monitoring_offered',
+          defaults.inputMonitoringOffered,
+        ),
+        userFirstName: v['user_first_name'] ?? defaults.userFirstName,
+        userFirstNameSet: _readBool(
+          v,
+          'user_first_name_set',
+          defaults.userFirstNameSet,
+        ),
+        userRoles: v['user_roles'] ?? defaults.userRoles,
+        userAttribution: v['user_attribution'] ?? defaults.userAttribution,
+        aboutFollowUpDone: _readBool(
+          v,
+          'about_follow_up_done',
+          defaults.aboutFollowUpDone,
+        ),
+        roleTermsDone: _readBool(v, 'role_terms_done', defaults.roleTermsDone),
+        firstStepsArmed: _readBool(
+          v,
+          'first_steps_armed',
+          defaults.firstStepsArmed,
+        ),
+        firstStepsDismissed: _readBool(
+          v,
+          'first_steps_dismissed',
+          defaults.firstStepsDismissed,
+        ),
+        firstStepsDone: v['first_steps_done'] ?? defaults.firstStepsDone,
+        completedInVersion:
+            v['onboarding_completed_in_version'] ?? defaults.completedInVersion,
       );
 
   Map<String, String> toMap() => {
     'onboarding_completed': '$onboardingCompleted',
     'auto_paste_off_hint_dismissed': '$autoPasteOffHintDismissed',
+    'exact_trigger_hint_dismissed': '$exactTriggerHintDismissed',
     'onboarding_current_step': '$onboardingCurrentStep',
     'onboarding_flow_version': '$onboardingFlowVersion',
     'onboarding_content_version': '$onboardingContentVersion',
-    'seen_feature_spotlight_ids': seenFeatureSpotlightIds,
     'smart_mode_usage_hint_shown': '$smartModeUsageHintShown',
+    'data_key_explained': '$dataKeyExplained',
+    'input_monitoring_offered': '$inputMonitoringOffered',
+    'user_first_name': userFirstName,
+    'user_first_name_set': '$userFirstNameSet',
+    'user_roles': userRoles,
+    'user_attribution': userAttribution,
+    'about_follow_up_done': '$aboutFollowUpDone',
+    'role_terms_done': '$roleTermsDone',
+    'first_steps_armed': '$firstStepsArmed',
+    'first_steps_dismissed': '$firstStepsDismissed',
+    'first_steps_done': firstStepsDone,
+    'onboarding_completed_in_version': completedInVersion,
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the ~15 other section classes in this file);
-  // it is established repo-wide boilerplate, not accidental duplication.
   OnboardingSettings copyWith({
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
+    bool? exactTriggerHintDismissed,
     int? onboardingCurrentStep,
     int? onboardingFlowVersion,
     int? onboardingContentVersion,
-    String? seenFeatureSpotlightIds,
     bool? smartModeUsageHintShown,
+    bool? dataKeyExplained,
+    bool? inputMonitoringOffered,
+    String? userFirstName,
+    bool? userFirstNameSet,
+    String? userRoles,
+    String? userAttribution,
+    bool? aboutFollowUpDone,
+    bool? roleTermsDone,
+    bool? firstStepsArmed,
+    bool? firstStepsDismissed,
+    String? firstStepsDone,
+    String? completedInVersion,
   }) => OnboardingSettings(
     onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
     autoPasteOffHintDismissed:
         autoPasteOffHintDismissed ?? this.autoPasteOffHintDismissed,
+    exactTriggerHintDismissed:
+        exactTriggerHintDismissed ?? this.exactTriggerHintDismissed,
     onboardingCurrentStep: onboardingCurrentStep ?? this.onboardingCurrentStep,
     onboardingFlowVersion: onboardingFlowVersion ?? this.onboardingFlowVersion,
     onboardingContentVersion:
         onboardingContentVersion ?? this.onboardingContentVersion,
-    seenFeatureSpotlightIds:
-        seenFeatureSpotlightIds ?? this.seenFeatureSpotlightIds,
     smartModeUsageHintShown:
         smartModeUsageHintShown ?? this.smartModeUsageHintShown,
+    dataKeyExplained: dataKeyExplained ?? this.dataKeyExplained,
+    inputMonitoringOffered:
+        inputMonitoringOffered ?? this.inputMonitoringOffered,
+    userFirstName: userFirstName ?? this.userFirstName,
+    userFirstNameSet: userFirstNameSet ?? this.userFirstNameSet,
+    userRoles: userRoles ?? this.userRoles,
+    userAttribution: userAttribution ?? this.userAttribution,
+    aboutFollowUpDone: aboutFollowUpDone ?? this.aboutFollowUpDone,
+    roleTermsDone: roleTermsDone ?? this.roleTermsDone,
+    firstStepsArmed: firstStepsArmed ?? this.firstStepsArmed,
+    firstStepsDismissed: firstStepsDismissed ?? this.firstStepsDismissed,
+    firstStepsDone: firstStepsDone ?? this.firstStepsDone,
+    completedInVersion: completedInVersion ?? this.completedInVersion,
   );
 
   @override
@@ -1752,21 +2972,45 @@ class OnboardingSettings {
       other is OnboardingSettings &&
           onboardingCompleted == other.onboardingCompleted &&
           autoPasteOffHintDismissed == other.autoPasteOffHintDismissed &&
+          exactTriggerHintDismissed == other.exactTriggerHintDismissed &&
           onboardingCurrentStep == other.onboardingCurrentStep &&
           onboardingFlowVersion == other.onboardingFlowVersion &&
           onboardingContentVersion == other.onboardingContentVersion &&
-          seenFeatureSpotlightIds == other.seenFeatureSpotlightIds &&
-          smartModeUsageHintShown == other.smartModeUsageHintShown;
+          smartModeUsageHintShown == other.smartModeUsageHintShown &&
+          dataKeyExplained == other.dataKeyExplained &&
+          inputMonitoringOffered == other.inputMonitoringOffered &&
+          userFirstName == other.userFirstName &&
+          userFirstNameSet == other.userFirstNameSet &&
+          userRoles == other.userRoles &&
+          userAttribution == other.userAttribution &&
+          aboutFollowUpDone == other.aboutFollowUpDone &&
+          roleTermsDone == other.roleTermsDone &&
+          firstStepsArmed == other.firstStepsArmed &&
+          firstStepsDismissed == other.firstStepsDismissed &&
+          firstStepsDone == other.firstStepsDone &&
+          completedInVersion == other.completedInVersion;
 
   @override
   int get hashCode => Object.hash(
     onboardingCompleted,
     autoPasteOffHintDismissed,
+    exactTriggerHintDismissed,
     onboardingCurrentStep,
     onboardingFlowVersion,
     onboardingContentVersion,
-    seenFeatureSpotlightIds,
     smartModeUsageHintShown,
+    dataKeyExplained,
+    inputMonitoringOffered,
+    userFirstName,
+    userFirstNameSet,
+    userRoles,
+    userAttribution,
+    aboutFollowUpDone,
+    roleTermsDone,
+    firstStepsArmed,
+    firstStepsDismissed,
+    firstStepsDone,
+    completedInVersion,
   );
 }
 
@@ -1779,6 +3023,7 @@ class BenchmarkSettings {
     this.tierBenchmarkRtf,
     this.benchmarkHardwareId,
     this.benchmarkTimestamp,
+    this.benchmarkBackend,
   });
 
   /// Real-time factor (RTF) for each quality tier from last benchmark.
@@ -1791,26 +3036,34 @@ class BenchmarkSettings {
   /// When the benchmark was last run.
   final DateTime? benchmarkTimestamp;
 
+  /// Compute backend the last measurement ran on (`cpu`, `metal`, `cuda`,
+  /// `vulkan`). Persisted so the result can name its hardware path later.
+  final String? benchmarkBackend;
+
   factory BenchmarkSettings.fromMap(Map<String, String> v) => BenchmarkSettings(
     tierBenchmarkRtf: _readBenchmarkRtf(v['tier_benchmark_rtf']),
     benchmarkHardwareId: v['benchmark_hardware_id'],
     benchmarkTimestamp: _readDateTime(v['benchmark_timestamp']),
+    benchmarkBackend: v['benchmark_backend'],
   );
 
   Map<String, String> toMap() => {
     'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
     'benchmark_hardware_id': benchmarkHardwareId ?? '',
     'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
+    'benchmark_backend': benchmarkBackend ?? '',
   };
 
   BenchmarkSettings copyWith({
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
+    String? benchmarkBackend,
   }) => BenchmarkSettings(
     tierBenchmarkRtf: tierBenchmarkRtf ?? this.tierBenchmarkRtf,
     benchmarkHardwareId: benchmarkHardwareId ?? this.benchmarkHardwareId,
     benchmarkTimestamp: benchmarkTimestamp ?? this.benchmarkTimestamp,
+    benchmarkBackend: benchmarkBackend ?? this.benchmarkBackend,
   );
 
   @override
@@ -1819,16 +3072,30 @@ class BenchmarkSettings {
       other is BenchmarkSettings &&
           tierBenchmarkRtf == other.tierBenchmarkRtf &&
           benchmarkHardwareId == other.benchmarkHardwareId &&
-          benchmarkTimestamp == other.benchmarkTimestamp;
+          benchmarkTimestamp == other.benchmarkTimestamp &&
+          benchmarkBackend == other.benchmarkBackend;
 
   @override
-  int get hashCode =>
-      Object.hash(tierBenchmarkRtf, benchmarkHardwareId, benchmarkTimestamp);
+  int get hashCode => Object.hash(
+    tierBenchmarkRtf,
+    benchmarkHardwareId,
+    benchmarkTimestamp,
+    benchmarkBackend,
+  );
 }
 
 // ===========================================================================
 // Section 17 — Privacy
 // ===========================================================================
+
+/// How long the audio of a failed transcription is kept for a retry when
+/// audio retention is off, unless the user picked another stage: 24 hours,
+/// the one default for the live path, the crash recovery and the queue.
+const int kDefaultFailedAudioKeepDays = 1;
+
+/// Default and selectable counts for retained, successfully saved recordings.
+const int kDefaultRetainedAudioCount = 20;
+const kRetainedAudioCountStages = [5, 10, 20, 50, 100];
 
 class PrivacySettings {
   // Opt-out by design (PRD Säule D): anonymous, cookieless, self-hosted usage
@@ -1843,15 +3110,26 @@ class PrivacySettings {
   const PrivacySettings({
     this.shareUsageStats = true,
     this.retainRecentAudio = false,
+    this.retainedAudioCount = kDefaultRetainedAudioCount,
+    this.failedAudioKeepDays = kDefaultFailedAudioKeepDays,
     this.cohortPseudonymSalt,
   });
 
   final bool shareUsageStats;
 
-  /// Keeps the WAV of each dictation (rotating cap: the 20 most recent) in
+  /// Keeps the WAV of each dictation (up to [retainedAudioCount]) in
   /// a persistent app-data directory instead of deleting it after
   /// transcription — for debugging and for restoring past dictations.
   final bool retainRecentAudio;
+
+  /// Maximum retained recordings. Changes apply at the next cleanup.
+  final int retainedAudioCount;
+
+  /// Days the audio of a failed transcription is kept for a retry when
+  /// [retainRecentAudio] is off. Applies to parked audio at the next sweep.
+  final int failedAudioKeepDays;
+
+  Duration get failedAudioKeepDuration => Duration(days: failedAudioKeepDays);
 
   /// Locally generated, never-transmitted random salt for the weekly-rotating
   /// cohort pseudonym sent to Matomo as `dimension7` (see `telemetry_service`
@@ -1874,6 +3152,15 @@ class PrivacySettings {
       'retain_recent_audio',
       defaults.retainRecentAudio,
     ),
+    retainedAudioCount: _readInt(
+      v,
+      'retained_audio_count',
+      kDefaultRetainedAudioCount,
+    ).clamp(kRetainedAudioCountStages.first, kRetainedAudioCountStages.last),
+    failedAudioKeepDays:
+        _readInt(v, 'failed_audio_keep_days', defaults.failedAudioKeepDays) > 0
+        ? _readInt(v, 'failed_audio_keep_days', defaults.failedAudioKeepDays)
+        : defaults.failedAudioKeepDays,
     cohortPseudonymSalt: v['cohort_pseudonym_salt']?.isEmpty ?? true
         ? null
         : v['cohort_pseudonym_salt'],
@@ -1882,16 +3169,22 @@ class PrivacySettings {
   Map<String, String> toMap() => {
     'share_usage_stats': '$shareUsageStats',
     'retain_recent_audio': '$retainRecentAudio',
+    'retained_audio_count': '$retainedAudioCount',
+    'failed_audio_keep_days': '$failedAudioKeepDays',
     'cohort_pseudonym_salt': cohortPseudonymSalt ?? '',
   };
 
   PrivacySettings copyWith({
     bool? shareUsageStats,
     bool? retainRecentAudio,
+    int? retainedAudioCount,
+    int? failedAudioKeepDays,
     String? cohortPseudonymSalt,
   }) => PrivacySettings(
     shareUsageStats: shareUsageStats ?? this.shareUsageStats,
     retainRecentAudio: retainRecentAudio ?? this.retainRecentAudio,
+    retainedAudioCount: retainedAudioCount ?? this.retainedAudioCount,
+    failedAudioKeepDays: failedAudioKeepDays ?? this.failedAudioKeepDays,
     cohortPseudonymSalt: cohortPseudonymSalt ?? this.cohortPseudonymSalt,
   );
 
@@ -1901,11 +3194,18 @@ class PrivacySettings {
       other is PrivacySettings &&
           shareUsageStats == other.shareUsageStats &&
           retainRecentAudio == other.retainRecentAudio &&
+          retainedAudioCount == other.retainedAudioCount &&
+          failedAudioKeepDays == other.failedAudioKeepDays &&
           cohortPseudonymSalt == other.cohortPseudonymSalt;
 
   @override
-  int get hashCode =>
-      Object.hash(shareUsageStats, retainRecentAudio, cohortPseudonymSalt);
+  int get hashCode => Object.hash(
+    shareUsageStats,
+    retainRecentAudio,
+    retainedAudioCount,
+    failedAudioKeepDays,
+    cohortPseudonymSalt,
+  );
 }
 
 // ===========================================================================
@@ -2099,7 +3399,7 @@ class SettingsAutosaveSettings {
 // Section 21 — Smart Mode
 // ===========================================================================
 
-/// Smart-Mode-v2 settings (`internal-notes`).
+/// Smart-Mode-v2 settings.
 ///
 /// [standardPreset] is the only field ticket 01 needs — everything else the
 /// feature will grow (target language in ticket 03, hotkey-preset in ticket
@@ -2110,9 +3410,11 @@ class SmartModeSettings {
     this.standardPreset = 'off',
     this.targetLanguage = 'en',
     this.provider = 'local',
+    this.customPresets = const [],
   });
 
-  /// One of `off` / `cleanup` / `concise` / `translate`. Defaults to `off` —
+  /// One of `off` / `cleanup` / `concise` / `translate`, or
+  /// `custom:<id>` for one of [customPresets] (#891). Defaults to `off` —
   /// an update to an existing installation must not change dictation
   /// behavior until the user actively opts in (ADR-independent product
   /// requirement, ticket 01).
@@ -2140,33 +3442,56 @@ class SmartModeSettings {
   /// Defaults to `local`.
   final String provider;
 
+  /// The user's own named presets (#891), each a name plus a free-text
+  /// instruction. Selected through [standardPreset] as `custom:<id>`.
+  final List<SmartModeCustomPreset> customPresets;
+
+  /// The custom preset [standardPreset] points at, or null for a built-in
+  /// preset or a `custom:` id that no longer exists (which then acts as
+  /// `off`, like any other unknown value).
+  SmartModeCustomPreset? get activeCustomPreset =>
+      customPresetFor(standardPreset);
+
+  /// The custom preset behind a `custom:<id>` [value], or null.
+  SmartModeCustomPreset? customPresetFor(String value) {
+    if (!value.startsWith(SmartModeCustomPreset.valuePrefix)) return null;
+    final id = value.substring(SmartModeCustomPreset.valuePrefix.length);
+    for (final preset in customPresets) {
+      if (preset.id == id) return preset;
+    }
+    return null;
+  }
+
   static const SmartModeSettings defaults = SmartModeSettings();
 
   factory SmartModeSettings.fromMap(Map<String, String> v) => SmartModeSettings(
     standardPreset: v['smart_mode_standard_preset'] ?? defaults.standardPreset,
     targetLanguage: v['smart_mode_target_language'] ?? defaults.targetLanguage,
     provider: v['smart_mode_provider'] ?? defaults.provider,
+    customPresets: SmartModeCustomPreset.listFromJson(
+      v['smart_mode_custom_presets'],
+    ),
   );
 
   Map<String, String> toMap() => {
     'smart_mode_standard_preset': standardPreset,
     'smart_mode_target_language': targetLanguage,
     'smart_mode_provider': provider,
+    'smart_mode_custom_presets': SmartModeCustomPreset.listToJson(
+      customPresets,
+    ),
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the SttSettings comment above and the other
-  // section classes in this file); it is established repo-wide boilerplate,
-  // not accidental duplication.
   SmartModeSettings copyWith({
     String? standardPreset,
     String? targetLanguage,
     String? provider,
+    List<SmartModeCustomPreset>? customPresets,
   }) => SmartModeSettings(
     standardPreset: standardPreset ?? this.standardPreset,
     targetLanguage: targetLanguage ?? this.targetLanguage,
     provider: provider ?? this.provider,
+    customPresets: customPresets ?? this.customPresets,
   );
 
   @override
@@ -2175,10 +3500,122 @@ class SmartModeSettings {
       other is SmartModeSettings &&
           standardPreset == other.standardPreset &&
           targetLanguage == other.targetLanguage &&
-          provider == other.provider;
+          provider == other.provider &&
+          listEquals(customPresets, other.customPresets);
 
   @override
-  int get hashCode => Object.hash(standardPreset, targetLanguage, provider);
+  int get hashCode => Object.hash(
+    standardPreset,
+    targetLanguage,
+    provider,
+    Object.hashAll(customPresets),
+  );
+}
+
+/// A named Smart Mode preset of the user's own (#891): a [name] shown in
+/// Settings, overlay and dock, plus the free-text [instruction] the engine
+/// follows. It runs with the same safety net as the built-in presets (fact
+/// guard, loop check, raw-text fallback).
+@immutable
+class SmartModeCustomPreset {
+  const SmartModeCustomPreset({
+    required this.id,
+    required this.name,
+    required this.instruction,
+  });
+
+  /// Prefix of a [SmartModeSettings.standardPreset] value that selects a
+  /// custom preset by [id].
+  static const valuePrefix = 'custom:';
+
+  /// Stable id, unique within the list; never shown.
+  final String id;
+
+  /// Display name the user chose.
+  final String name;
+
+  /// What the engine should do with the dictated text.
+  final String instruction;
+
+  /// The [SmartModeSettings.standardPreset] value selecting this preset.
+  String get value => '$valuePrefix$id';
+
+  /// Parses the stored JSON list; a missing or damaged value is an empty
+  /// list, and entries without id or instruction are dropped.
+  static List<SmartModeCustomPreset> listFromJson(String? raw) {
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return [
+        for (final item in decoded)
+          if (item is Map &&
+              item['id'] is String &&
+              (item['id'] as String).isNotEmpty &&
+              item['instruction'] is String)
+            SmartModeCustomPreset(
+              id: item['id'] as String,
+              name: item['name'] is String ? item['name'] as String : '',
+              instruction: item['instruction'] as String,
+            ),
+      ];
+    } on FormatException {
+      return const [];
+    }
+  }
+
+  static String listToJson(List<SmartModeCustomPreset> presets) => jsonEncode([
+    for (final p in presets)
+      {'id': p.id, 'name': p.name, 'instruction': p.instruction},
+  ]);
+
+  SmartModeCustomPreset copyWith({String? name, String? instruction}) =>
+      SmartModeCustomPreset(
+        id: id,
+        name: name ?? this.name,
+        instruction: instruction ?? this.instruction,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SmartModeCustomPreset &&
+          id == other.id &&
+          name == other.name &&
+          instruction == other.instruction;
+
+  @override
+  int get hashCode => Object.hash(id, name, instruction);
+}
+
+/// Longest instruction a custom Smart Mode preset may be saved with (#1685),
+/// counted in characters (graphemes, the unit the field's counter shows).
+///
+/// The same for the local model and for cloud/BYOK: a preset is stored apart
+/// from the engine, and the engine is a global setting that can change at any
+/// time, so a larger cloud limit would turn a saved preset invalid or worse
+/// after a switch to local. 500 characters hold one task with a target format
+/// and a constraint or two; small on-device models follow longer,
+/// many-part instructions noticeably worse. Reasoning and sources: #1685.
+///
+/// Presets saved before the limit keep running unchanged and are never cut;
+/// the edit dialog only refuses to *save* an over-long instruction.
+const int kSmartModeCustomInstructionMaxChars = 500;
+
+/// Characters of [instruction] as the save rule counts them: trimmed, in
+/// graphemes.
+int smartModeCustomInstructionLength(String instruction) =>
+    instruction.trim().characters.length;
+
+/// Whether the preset dialog may save [name] and [instruction]: both present
+/// and the instruction no longer than [kSmartModeCustomInstructionMaxChars].
+bool smartModeCustomPresetCanSave({
+  required String name,
+  required String instruction,
+}) {
+  if (name.trim().isEmpty) return false;
+  final length = smartModeCustomInstructionLength(instruction);
+  return length > 0 && length <= kSmartModeCustomInstructionMaxChars;
 }
 
 // ===========================================================================
@@ -2262,11 +3699,6 @@ class SmartModeHotkeySettings {
     'smart_mode_hotkey_target_language': smartModeHotkeyTargetLanguage,
   };
 
-  // loam-ignore: code-duplicates – every settings-section class in this file
-  // shares this exact copyWith(field: field ?? this.field, ...) shape by
-  // deliberate convention (see the SttSettings comment above and the other
-  // section classes in this file); it is established repo-wide boilerplate,
-  // not accidental duplication.
   SmartModeHotkeySettings copyWith({
     bool? smartModeHotkeyEnabled,
     String? smartModeHotkeyKey,
@@ -2287,9 +3719,6 @@ class SmartModeHotkeySettings {
         smartModeHotkeyTargetLanguage ?? this.smartModeHotkeyTargetLanguage,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file
-  // (see the copyWith comment above), not accidental duplication.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2312,8 +3741,8 @@ class SmartModeHotkeySettings {
   );
 }
 
-/// Settings for the "edit selection by voice" hotkey
-/// (`internal-notes`): select text in any app, press it,
+/// Settings for the "edit selection by voice" hotkey:
+/// select text in any app, press it,
 /// speak an instruction — the Smart Mode engine's result replaces the
 /// selection. A fifth, independently configurable global hotkey, same shape
 /// as [QuickNoteHotkeySettings].
@@ -2367,8 +3796,6 @@ class SelectionEditHotkeySettings {
     'selection_edit_hotkey_modifiers': selectionEditHotkeyModifiers,
   };
 
-  // loam-ignore: code-duplicates – same repo-wide copyWith boilerplate shape
-  // shared by every settings-section class in this file.
   SelectionEditHotkeySettings copyWith({
     bool? selectionEditHotkeyEnabled,
     String? selectionEditHotkeyKey,
@@ -2385,8 +3812,6 @@ class SelectionEditHotkeySettings {
         selectionEditHotkeyModifiers ?? this.selectionEditHotkeyModifiers,
   );
 
-  // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
-  // boilerplate shape shared by every settings-section class in this file.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2410,10 +3835,8 @@ class SelectionEditHotkeySettings {
 // Section 23 — Local Automation API
 // ===========================================================================
 
-/// Local automation API settings (ticket 03,
-/// `internal-notes`; port robustness/custom port follow-up
-/// `internal-notes`) — a loopback-only HTTP server
-/// power users can script dictation against.
+/// Local automation API settings, including the custom port — a
+/// loopback-only HTTP server power users can script dictation against.
 ///
 /// The bearer token lives in secure storage (`wp_automation_api_token`, see
 /// `lib/services/automation_api/automation_api_token_store.dart`), never in
@@ -2422,7 +3845,11 @@ class SelectionEditHotkeySettings {
 /// `AutomationApiController`), not a persisted setting — only the user's
 /// requested [customPort] is.
 class AutomationApiSettings {
-  const AutomationApiSettings({this.enabled = false, this.customPort});
+  const AutomationApiSettings({
+    this.enabled = false,
+    this.customPort,
+    this.hooks = const [],
+  });
 
   /// Whether the local automation API server should be running. Off by
   /// default — the ticket's first acceptance criterion.
@@ -2434,17 +3861,24 @@ class AutomationApiSettings {
   /// `AutomationApiController._start`).
   final int? customPort;
 
+  /// Outbound event hooks (ticket / 8.3). Loopback-only; see
+  /// `automation_hooks.dart`. Stored under the additive key
+  /// `automation_hooks`.
+  final List<AutomationHook> hooks;
+
   static const AutomationApiSettings defaults = AutomationApiSettings();
 
   factory AutomationApiSettings.fromMap(Map<String, String> v) =>
       AutomationApiSettings(
         enabled: _readBool(v, 'automation_api_enabled', defaults.enabled),
         customPort: _readNullableInt(v, 'automation_api_custom_port'),
+        hooks: decodeAutomationHooks(v[kAutomationHooksSettingsKey]),
       );
 
   Map<String, String> toMap() => {
     'automation_api_enabled': '$enabled',
     'automation_api_custom_port': customPort?.toString() ?? '',
+    kAutomationHooksSettingsKey: encodeAutomationHooks(hooks),
   };
 
   /// [customPort] defaults to the private [_unset] sentinel so
@@ -2455,11 +3889,13 @@ class AutomationApiSettings {
   AutomationApiSettings copyWith({
     bool? enabled,
     Object? customPort = _unset,
+    List<AutomationHook>? hooks,
   }) => AutomationApiSettings(
     enabled: enabled ?? this.enabled,
     customPort: identical(customPort, _unset)
         ? this.customPort
         : customPort as int?,
+    hooks: hooks ?? this.hooks,
   );
 
   @override
@@ -2467,10 +3903,15 @@ class AutomationApiSettings {
       identical(this, other) ||
       other is AutomationApiSettings &&
           enabled == other.enabled &&
-          customPort == other.customPort;
+          customPort == other.customPort &&
+          _sameHooks(hooks, other.hooks);
 
   @override
-  int get hashCode => Object.hash(enabled, customPort);
+  int get hashCode => Object.hash(enabled, customPort, Object.hashAll(hooks));
+
+  static bool _sameHooks(List<AutomationHook> a, List<AutomationHook> b) =>
+      a.length == b.length &&
+      Iterable.generate(a.length).every((i) => a[i] == b[i]);
 }
 
 // ===========================================================================
@@ -2479,22 +3920,33 @@ class AutomationApiSettings {
 
 /// Build a [HotkeySettings] with the platform-correct default modifier.
 HotkeySettings buildDefaultHotkeySettings() => HotkeySettings(
-  hotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+  hotkeyModifiers: defaultTargetPlatform == TargetPlatform.macOS
+      ? 'meta+shift'
+      : 'ctrl+shift',
 );
 
 /// Build a [QuickNoteHotkeySettings] with the platform-correct default
 /// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+N` combination.
 QuickNoteHotkeySettings buildDefaultQuickNoteHotkeySettings() =>
     QuickNoteHotkeySettings(
-      quickNoteHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+      quickNoteHotkeyModifiers: defaultTargetPlatform == TargetPlatform.macOS
+          ? 'meta+shift'
+          : 'ctrl+shift',
     );
+
+/// Default modifiers of the "paste the last dictation again" hotkey:
+/// Ctrl+Cmd on macOS, Alt+Shift elsewhere. Ctrl+Shift+V is taken by "paste
+/// without formatting" in many apps, and Ctrl+Alt is AltGr on Windows.
+String defaultRepasteHotkeyModifiers() =>
+    defaultTargetPlatform == TargetPlatform.macOS ? 'ctrl+meta' : 'alt+shift';
 
 /// Build a [SnippetPickerHotkeySettings] with the platform-correct default
 /// modifier and pre-filled (but disabled) `Ctrl/Cmd+Shift+E` combination
 /// (ticket 26).
 SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
     SnippetPickerHotkeySettings(
-      snippetPickerHotkeyModifiers: Platform.isMacOS
+      snippetPickerHotkeyModifiers:
+          defaultTargetPlatform == TargetPlatform.macOS
           ? 'meta+shift'
           : 'ctrl+shift',
     );
@@ -2504,12 +3956,18 @@ SnippetPickerHotkeySettings buildDefaultSnippetPickerHotkeySettings() =>
 /// (ticket 04).
 SmartModeHotkeySettings buildDefaultSmartModeHotkeySettings() =>
     SmartModeHotkeySettings(
-      smartModeHotkeyModifiers: Platform.isMacOS ? 'meta+shift' : 'ctrl+shift',
+      smartModeHotkeyModifiers: defaultTargetPlatform == TargetPlatform.macOS
+          ? 'meta+shift'
+          : 'ctrl+shift',
     );
 
 SelectionEditHotkeySettings buildDefaultSelectionEditHotkeySettings() =>
     SelectionEditHotkeySettings(
-      selectionEditHotkeyModifiers: Platform.isMacOS
+      selectionEditHotkeyModifiers:
+          defaultTargetPlatform == TargetPlatform.macOS
           ? 'meta+shift'
           : 'ctrl+shift',
     );
+
+int? _portInRange(int? port) =>
+    port != null && port >= 1024 && port <= 65535 ? port : null;

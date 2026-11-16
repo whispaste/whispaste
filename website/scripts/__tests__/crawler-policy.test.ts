@@ -5,8 +5,7 @@
  * für die sieben benannten KI-Crawler ein. Ein versehentliches Entfernen oder
  * Umstellen auf `Disallow` schlägt diesen Test fehl, bevor es deployt wird.
  *
- * Die Policy-Entscheidung selbst (Allow statt Block) ist in
- * `internal-notes` begründet:
+ * Die Policy-Entscheidung selbst (Allow statt Block) ist so begründet:
  * MIT-lizenziertes Projekt, Brand-Konsistenz-Interesse, KI-Such-Sichtbarkeit.
  */
 import { readFile } from "node:fs/promises";

@@ -58,6 +58,14 @@ grade: stable
 # noexec), so the downloaded binary is chmod +x'd and executed there.
 confinement: strict
 
+# GStreamer plugins staged by the runtime-libs part (M4A/AAC import). The
+# registry lives in the per-user common dir, which strict confinement keeps
+# writable. Not verified on a built snap yet.
+environment:
+  GST_PLUGIN_SYSTEM_PATH_1_0: $SNAP/usr/lib/x86_64-linux-gnu/gstreamer-1.0
+  GST_PLUGIN_SCANNER_1_0: $SNAP/usr/lib/x86_64-linux-gnu/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+  GST_REGISTRY_1_0: $SNAP_USER_COMMON/gstreamer-registry.bin
+
 platforms:
   amd64:
     build-on: [amd64]
@@ -70,6 +78,9 @@ apps:
     extensions: [gnome]
     common-id: de.whispaste.app
     desktop: usr/share/applications/de.whispaste.app.desktop
+    # Started at login from $SNAP_USER_DATA/.config/autostart/ (written by the
+    # app's autostart switch, Exec=/snap/bin/whispaste --autostart, #97).
+    autostart: de.whispaste.app.desktop
     plugs:
       # ── Display / windowing + Clipboard / Paste (internal-notes §2.4) ────────────
       # Clipboard write rides on the Wayland/X11 sockets; the desktop plugs cover
@@ -83,7 +94,7 @@ apps:
       # Unlike the plugs above, snapd's `uinput` interface is NOT auto-connect —
       # even with this plug declared, a user installing outside the Snap Store
       # (or before a store auto-connect assertion is granted) must run
-      # `snap connect whispaste:uinput` once themselves, or Auto-Paste falls
+      # `sudo snap connect whispaste:uinput` once themselves, or Auto-Paste falls
       # back to clipboard-only (CheckCapability() reports `permission_missing`).
       - uinput
       # ── Global Hotkey (internal-notes §2.5) ──────────────────────────────────────
@@ -113,10 +124,19 @@ parts:
       - libnotify4
       - libayatana-appindicator3-1
       - libasound2
+      - libxss1
       - libcurl4
       - libkeybinder-3.0-0
       - liblzma5
       - zlib1g
+      # parecord (recording) and pactl (microphone list), started by the
+      # `record` package (#85).
+      - pulseaudio-utils
+      # M4A/AAC import: GStreamer is loaded at runtime (linux/runner/
+      # audio_file_decode_gst.cc). libav provides the AAC decoder (avdec_aac).
+      - gstreamer1.0-plugins-base
+      - gstreamer1.0-plugins-good
+      - gstreamer1.0-libav
 
   # Stage the prebuilt Linux x86_64 release bundle (no Flutter rebuild) under
   # $SNAP/whispaste. Per-release: bump `source` to the tag's tarball asset.

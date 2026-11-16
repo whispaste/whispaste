@@ -1,60 +1,86 @@
-/// Debounced autosave for the note editor — reine Dart, no Widget/BuildContext
-/// dependency, so it's testable with `fakeAsync` (see `note_autosave_test.dart`).
+/// Autosave of the note and recording editors — a thin adapter onto the one
+/// text write path, [TextWriter] (#676).
 ///
-/// Debounces 400ms from the last keystroke ([schedule]). Callers must call
-/// [flush] to save immediately and cancel the pending timer on: note
-/// switch in the list, editor blur, `NotesPage.dispose()`, and immediately
-/// before `togglePin`/`moveToTrash`/`deleteForever`.
+/// [schedule] hands each keystroke's text to the writer, which saves after
+/// its quiet pause (2 s, longer for long texts), journals in between and
+/// merges changes made elsewhere. Callers still call [flush] to save at
+/// once on: note switch in the list, editor blur, `dispose()`, and right
+/// before `togglePin`/`moveToTrash`/`deleteForever`. Pure Dart, testable
+/// with `fakeAsync`.
 library;
 
 import 'dart:async';
 
+import '../../../core/data/text_writer/text_writer.dart';
+
 class NoteAutosave {
   NoteAutosave({
     required this.onSave,
-    this.debounce = const Duration(milliseconds: 400),
+    this.load,
+    this.kind = 'note',
+    this._writer,
   });
 
   final Future<void> Function(String noteId, String content) onSave;
-  final Duration debounce;
 
-  Timer? _timer;
-  String? _pendingNoteId;
-  String? _pendingContent;
+  /// Reads the stored content of a document — enables the paragraph merge
+  /// with a change made outside this editor.
+  final Future<String?> Function(String noteId)? load;
 
-  /// Schedules [content] to be saved for [noteId] after [debounce], cancelling
-  /// any previously scheduled save for a different note or older content.
+  /// Document kind in the writer's journal ('note', 'recording').
+  final String kind;
+
+  final TextWriter? _writer;
+  TextWriter get writer => _writer ?? TextWriter.shared;
+
+  final Set<String> _scheduled = {};
+
+  TextDocKey keyOf(String noteId) => TextDocKey(kind, noteId);
+
+  /// The editor shows [content] of [noteId] as stored.
+  void opened(String noteId, String content) =>
+      writer.opened(keyOf(noteId), content);
+
+  /// Schedules [content] to be saved for [noteId] after the quiet pause.
   void schedule(String noteId, String content) {
-    _timer?.cancel();
-    _pendingNoteId = noteId;
-    _pendingContent = content;
-    _timer = Timer(debounce, () {
-      _timer = null;
-      unawaited(_flushPending());
-    });
+    _scheduled.add(noteId);
+    final read = load;
+    writer.schedule(
+      keyOf(noteId),
+      content,
+      save: (text) => onSave(noteId, text),
+      load: read == null ? null : () => read(noteId),
+    );
   }
 
-  /// Cancels any pending debounce timer and saves immediately, if there is
-  /// a pending write.
-  Future<void> flush() async {
-    _timer?.cancel();
-    _timer = null;
-    await _flushPending();
+  /// Saves every pending text of this editor now. Never throws: a failure
+  /// keeps the text pending, writes a backup and is reported by the writer.
+  /// True when nothing is left pending.
+  Future<bool> flush() async {
+    var ok = true;
+    for (final id in [..._scheduled]) {
+      final saved = await writer.flush(keyOf(id));
+      if (saved) _scheduled.remove(id);
+      ok = ok && saved;
+    }
+    return ok;
   }
 
-  Future<void> _flushPending() async {
-    final noteId = _pendingNoteId;
-    final content = _pendingContent;
-    if (noteId == null || content == null) return;
-    _pendingNoteId = null;
-    _pendingContent = null;
-    await onSave(noteId, content);
+  /// Drops the pending edit of [noteId] (the document was deleted).
+  Future<void> discard(String noteId) {
+    _scheduled.remove(noteId);
+    return writer.discard(keyOf(noteId));
   }
 
-  /// Cancels any pending debounce timer without saving — call when the
-  /// autosave instance itself is being torn down after an explicit [flush].
-  void dispose() {
-    _timer?.cancel();
-    _timer = null;
+  /// Drops every pending edit of this editor (the edit was written another
+  /// way or abandoned).
+  Future<void> discardAll() async {
+    for (final id in [..._scheduled]) {
+      await discard(id);
+    }
   }
+
+  /// Nothing to tear down: pending text stays with the writer, which the
+  /// app flushes on blur, pause and quit.
+  void dispose() {}
 }

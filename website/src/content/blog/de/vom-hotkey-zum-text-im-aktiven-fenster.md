@@ -22,7 +22,7 @@ Lies den Text anschließend durch und bearbeite ihn direkt in deiner Anwendung. 
 
 ## Unter Linux einmal die Einrichtung prüfen
 
-Unter Linux braucht Auto-Paste eine Berechtigungsregel für `/dev/uinput`. Das .deb-Paket richtet sie bei der Installation ein; bei AppImage oder tar.gz richtest du sie einmal mit sudo ein. Ohne diese Regel bleibt das Ergebnis in der Zwischenablage und lässt sich mit Strg+V einfügen.
+Unter Linux braucht Auto-Paste eine Berechtigungsregel für `/dev/uinput`. Beim .deb-Paket gibst du sie in der App mit deinem Administratorpasswort frei und kannst sie dort wieder entfernen; bei AppImage oder tar.gz richtest du sie einmal mit sudo ein. Ohne diese Regel bleibt das Ergebnis in der Zwischenablage und lässt sich mit Strg+V einfügen.
 
 Unter Wayland legst du den Hotkey über deine Desktop-Umgebung an. Dafür lässt sich der Befehl `whispaste --toggle` verwenden; beim AppImage nimmst du stattdessen dessen vollständigen Pfad mit `--toggle`.
 

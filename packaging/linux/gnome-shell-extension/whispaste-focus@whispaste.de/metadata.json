@@ -1,0 +1,7 @@
+{
+  "uuid": "whispaste-focus@whispaste.de",
+  "name": "WhisPaste Focus",
+  "description": "Lets WhisPaste learn which application window has focus (app ID and WM class) so it can detect terminals and apply per-app rules. Read-only; exposes no window titles.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/whispaste/whispaste"
+}

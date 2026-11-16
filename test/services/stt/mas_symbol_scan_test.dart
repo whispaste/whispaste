@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// runs — Guideline 2.5.2) isn't feasible inside a Dart test suite. This is
 /// an honest proxy: it greps the exact Dart source files that make up the
 /// onDevice STT call path (subprocess/server-manifest code was removed by
-/// `internal-notes` and `08`; onDevice transcription
+/// the FFI engine migration; onDevice transcription
 /// now runs exclusively through the FFI binding in
 /// `lib/services/stt/whisper/whisper_ffi_engine.dart`) for symbols that
 /// would reintroduce a subprocess or filesystem-quarantine dependency:
@@ -28,6 +28,8 @@ void main() {
       'lib/services/transcription',
       'lib/services/recording',
       'lib/services/recording_orchestrator.dart',
+      // The capture folder: chmod/uid run in process on macOS (posix_native).
+      'lib/services/audio/capture/capture_dir.dart',
       'lib/main.dart',
     ];
 

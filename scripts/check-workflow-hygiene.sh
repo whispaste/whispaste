@@ -26,6 +26,22 @@
 #      (cf. 19b24e8a, which fixed exactly that failure mode in the docs-drift
 #      auditor).
 #
+#   3. Every `uses:` must be pinned to a full 40-char commit SHA with a
+#      trailing `# vX.Y.Z` comment (docker:// refs: @sha256 digest; local
+#      ./ refs exempt). A tag can be moved after review, so a tag-pinned
+#      action runs code nobody reviewed. Checked as plain text.
+#
+#   4. The CI gates are defined once, in scripts/ci-gates.sh. ci.yml must run
+#      every gate defined there, the pre-commit and pre-push hooks must call
+#      the script too, and the secret-scan job must not carry gate logic of
+#      its own. A gate that lives only in CI is found by a red run (2026-10).
+#
+#   5. Jobs that `needs: secret-scan` must say `always()` in their `if:`. A
+#      failing gate otherwise skips every test job and hides the test results.
+#
+# Rules 1, 2 and 5 need PyYAML. It is a hard requirement: a missing module
+# fails the check instead of skipping it (a skip looked like a pass).
+#
 # Fast (pure YAML parse, no network, no runner), so it belongs on the push
 # path next to actionlint rather than in CI, where it would cost the very
 # minutes it is protecting.
@@ -33,15 +49,92 @@
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-python3 - "$REPO_ROOT" <<'PYEOF'
+bash "$REPO_ROOT/.githooks/python3.sh" - "$REPO_ROOT" <<'PYEOF'
 import sys, pathlib, re
+
+# --- rule 3: every uses: pinned to a commit SHA + version comment ----------
+# Text-based on purpose: this must run even without PyYAML (see below).
+PIN_RE = re.compile(r'^\s*(?:-\s+)?uses:\s*(\S+)(.*)$')
+SHA_REF = re.compile(r'^[^@\s]+@[0-9a-f]{40}$')
+DIGEST_REF = re.compile(r'^docker://.+@sha256:[0-9a-f]{64}$')
+VERSION_COMMENT = re.compile(r'^#\s*v[0-9]+(\.[0-9]+){0,2}\s*$')
+
+_root = pathlib.Path(sys.argv[1])
+_wf = _root / ".github" / "workflows"
+_pin_files = (sorted(_wf.glob("*.yml")) + sorted(_wf.glob("*.yaml"))
+              + sorted((_root / ".github" / "actions").glob("*/action.y*ml")))
+pin_problems = []
+pin_refs = 0
+for _f in _pin_files:
+    for _no, _line in enumerate(_f.read_text(encoding="utf-8").splitlines(), 1):
+        _m = PIN_RE.match(_line)
+        if not _m:
+            continue
+        _ref, _rest = _m.group(1), _m.group(2).strip()
+        if _ref.startswith(("./", "../")):
+            continue
+        pin_refs += 1
+        _where = f"{_f.relative_to(_root)}:{_no}"
+        if _ref.startswith("docker://"):
+            if not DIGEST_REF.match(_ref):
+                pin_problems.append(f"{_where}: docker reference not pinned by digest: {_ref}")
+        elif not SHA_REF.match(_ref):
+            pin_problems.append(f"{_where}: not pinned to a full commit SHA: {_ref}")
+        elif not VERSION_COMMENT.match(_rest):
+            pin_problems.append(f"{_where}: missing trailing '# vX.Y.Z' comment: {_ref}")
+if pin_problems:
+    print("")
+    print("Action pin problems (pin to <owner/repo>@<40-char-sha> # vX.Y.Z):")
+    for _p in pin_problems:
+        print(f"  - {_p}")
+    print("")
+    sys.exit(1)
+print(f"  action pins: clean ({pin_refs} references)")
+
+# --- rule 4: CI gates are defined once, in scripts/ci-gates.sh -------------
+gate_problems = []
+ci_yml = _wf / "ci.yml"
+if not ci_yml.exists():
+    # Public export tree: ci.yml and .githooks/ are internal and not exported.
+    # The wiring is still enforced in the internal repo, where ci.yml exists.
+    print("  ci gates: skipped (no .github/workflows/ci.yml in this tree)")
+else:
+    gates_sh = _root / "scripts" / "ci-gates.sh"
+    gate_names = re.findall(r"^gate_([a-z_]+)\(\)", gates_sh.read_text(encoding="utf-8"), re.M)
+    if not gate_names:
+        gate_problems.append("scripts/ci-gates.sh defines no gate_<name>() function")
+    ci_text = ci_yml.read_text(encoding="utf-8")
+    for g in gate_names:
+        if not re.search(r"ci-gates\.sh[^\n]*\b" + re.escape(g) + r"\b", ci_text):
+            gate_problems.append(f"ci.yml does not run gate '{g}' via scripts/ci-gates.sh")
+    for hook in (".githooks/pre-commit", ".githooks/pre-push"):
+        hook_text = (_root / hook).read_text(encoding="utf-8")
+        if "ci-gates.sh" not in hook_text:
+            gate_problems.append(f"{hook} does not call scripts/ci-gates.sh")
+    secret_job = re.search(
+        r"^  secret-scan:\n(.*?)(?=^  [a-z][a-z0-9-]*:\n|\Z)", ci_text, re.M | re.S)
+    if secret_job and re.search(r"\bgrep -r", secret_job.group(1)):
+        gate_problems.append(
+            "ci.yml secret-scan job carries inline grep gate logic — move it into "
+            "scripts/ci-gates.sh")
+    if gate_problems:
+        print("")
+        print("CI gate wiring problems (gates live in scripts/ci-gates.sh):")
+        for p in gate_problems:
+            print(f"  - {p}")
+        print("")
+        sys.exit(1)
+    print(f"  ci gates: wired ({', '.join(gate_names)})")
 
 try:
     import yaml
 except ImportError:
-    print("check-workflow-hygiene: PyYAML not available — skipping "
-          "(install with: pip3 install pyyaml)", file=sys.stderr)
-    sys.exit(0)
+    _pip = ("bash .githooks/python3.sh -m pip install --user pyyaml"
+            if sys.platform == "win32" else
+            "python3 -m pip install --user --break-system-packages pyyaml")
+    print("check-workflow-hygiene: PyYAML fehlt — Regeln 1, 2 und 5 können nicht "
+          f"geprüft werden. Installieren: {_pip}", file=sys.stderr)
+    sys.exit(1)
 
 root = pathlib.Path(sys.argv[1])
 wf_dir = root / ".github" / "workflows"
@@ -57,7 +150,7 @@ expected_flutter = None
 ci = wf_dir / "ci.yml"
 if ci.exists():
     versions = set(re.findall(r"flutter-version:\s*['\"]?([0-9][^'\"\s]*)",
-                              ci.read_text()))
+                              ci.read_text(encoding="utf-8")))
     if len(versions) == 1:
         expected_flutter = versions.pop()
     elif len(versions) > 1:
@@ -69,12 +162,24 @@ if ci.exists():
 for f in files:
     rel = f.relative_to(root)
     try:
-        doc = yaml.safe_load(f.read_text())
+        doc = yaml.safe_load(f.read_text(encoding="utf-8"))
     except yaml.YAMLError as e:
         problems.append(f"{rel}: not parseable as YAML: {e}")
         continue
     if not isinstance(doc, dict):
         continue
+
+    # --- rule 5: dependants of secret-scan must not be masked by a red gate --
+    for job_name, job in (doc.get("jobs") or {}).items():
+        if not isinstance(job, dict):
+            continue
+        needs = job.get("needs") or []
+        needs = [needs] if isinstance(needs, str) else needs
+        if "secret-scan" in needs and "always()" not in str(job.get("if", "")):
+            problems.append(
+                f"{rel}: job '{job_name}' needs secret-scan but its if: lacks "
+                "always() — a failing gate would skip it silently"
+            )
 
     # --- rule 1: every job needs an explicit timeout ---------------------
     for job_name, job in (doc.get("jobs") or {}).items():

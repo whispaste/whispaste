@@ -21,21 +21,19 @@ in progress. It reflects direction, not a binding schedule.
 
 ## Contributing code
 
-1. Fork the repo and create a branch off `dev`.
+1. Fork the repo and create a branch.
 2. Make your change. Keep it focused — one logical change per PR.
 3. Run the gate commands below for the parts of the repo you touched and make
    sure they pass.
-4. Open a pull request against `dev` describing what changed and why.
-
-`dev` is the integration branch; `main` only receives tested releases from `dev`.
+4. Open a pull request describing what changed and why.
 
 ### Gate commands
 
 Desktop app (Dart/Flutter, repo root):
 
 ```bash
-dart format --output=none --set-exit-if-changed lib test
-flutter analyze --fatal-infos --fatal-warnings
+dart format --output=none --set-exit-if-changed lib test tool generators benchmarks
+flutter analyze --fatal-infos --fatal-warnings lib test integration_test tool generators benchmarks
 flutter test test/<path>   # the tests relevant to your change
 ```
 

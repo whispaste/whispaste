@@ -23,7 +23,9 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+import 'core/accessibility/accessibility_reply_binding.dart';
 import 'core/l10n/generated/app_localizations.dart';
+import 'core/theme/overlay_design_spec.dart';
 import 'services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'services/floating_overlay/overlay_render_channel.dart';
 import 'shared_render_engine_helpers.dart';
@@ -66,8 +68,33 @@ void runFloatingOverlayEngine() {
 /// repainting an ordered-out panel.
 @visibleForTesting
 void bootstrapFloatingOverlayEngine() {
-  WidgetsFlutterBinding.ensureInitialized();
+  WpRenderEngineBinding.ensureInitialized();
   detachFromEmbedderAppLifecycle();
+}
+
+/// Whether a click at [position] (window-local) lands on the pill's X.
+///
+/// The geometry comes from [OverlayDesignSpec.closeHitRect], the same numbers
+/// the painter places the glyph with. The pill width is the state's target
+/// width, which the animated width settles on. A notice card replaces the
+/// pill and has no X.
+@visibleForTesting
+bool isCloseTap(FloatingOverlaySnapshot snapshot, Offset position) {
+  if (!snapshot.visible || snapshot.notice != null) return false;
+  final sizeSpec = OverlayDesignSpec.sizeFor(snapshot.size);
+  final width = OverlayDesignSpec.pillWidthForText(
+    WpFloatingOverlayView.designStateFor(snapshot.state),
+    sizeSpec,
+    OverlayDesignSpec.layoutFor(snapshot.size),
+    WpFloatingOverlayView.statusTextFor(snapshot),
+    secondaryText: WpFloatingOverlayView.secondaryTextFor(snapshot),
+  );
+  final hit = OverlayDesignSpec.closeHitRect(
+    variant: snapshot.size,
+    showCancel: snapshot.appearance.showCancel,
+    pillWidth: width,
+  );
+  return hit != null && hit.contains(position);
 }
 
 class _OverlayRenderApp extends StatefulWidget {
@@ -89,6 +116,13 @@ class _OverlayRenderAppState
   );
   List<double> _bars = const [];
 
+  /// Acknowledges the first painted frame of each show to the native shell
+  /// (ticket phase 2 frame heartbeat). Created lazily: `channel` exists only
+  /// after [initState].
+  late final OverlayFrameHeartbeat _heartbeat = OverlayFrameHeartbeat(
+    onFrame: () => channel.frameRendered(),
+  );
+
   @override
   OverlayRenderChannel createChannel() => OverlayRenderChannel(
     name: _renderChannelName,
@@ -102,11 +136,21 @@ class _OverlayRenderAppState
   void _onSnapshot(FloatingOverlaySnapshot s) {
     final previous = _snapshot;
     setState(() => _snapshot = s);
+    _heartbeat.onSnapshot(visible: s.visible);
     // The main engine pre-localises [FloatingOverlaySnapshot.label] for the
     // active locale, so it's announced verbatim — only on an actual state
     // change while the overlay is visible, never on every relayed snapshot
-    // (waveform updates land ~30/s and share the same state).
-    if (s.visible && s.state != previous.state) announce(s.label);
+    // (waveform updates land ~30/s and share the same state). A frame the
+    // main engine has read out already stays quiet (#633).
+    if (s.visible && !s.announced && s.state != previous.state) {
+      announce(s.label);
+    }
+    // A notice card (overlay F2) is announced once when it appears or its
+    // kind changes, not on every countdown tick.
+    final notice = s.notice;
+    if (s.visible && notice != null && notice.kind != previous.notice?.kind) {
+      announce(notice.announcement);
+    }
   }
 
   /// The static role label plus the currently-painted status text (mirrors
@@ -120,15 +164,34 @@ class _OverlayRenderAppState
     return statusText.isEmpty ? semanticsLabel : '$semanticsLabel, $statusText';
   }
 
+  /// A click on the painted X cancels the dictation; a click anywhere else
+  /// toggles recording. Notice cards have no X and keep their own buttons.
+  void _onTapAt(Offset position) {
+    if (isCloseTap(_snapshot, position)) {
+      channel.closeClicked();
+    } else {
+      channel.bodyClicked();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => buildRenderEngineRoot(
-    // While hidden the snapshot still renders an (empty) box; the native
-    // shell is what orders the panel out, so we simply paint nothing
-    // meaningful until the next visible snapshot arrives.
+    // While hidden the snapshot renders an empty box; the native shell is what
+    // orders the panel out. The empty box alone would make every resize of the
+    // hidden panel stall, see [HiddenSurfaceFill].
     semanticsLabel: _composedSemanticsLabel,
     onTap: channel.bodyClicked,
+    onTapAt: _onTapAt,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,
-    child: WpFloatingOverlayView(snapshot: _snapshot, waveformBars: _bars),
+    child: HiddenSurfaceFill(
+      hidden: !_snapshot.visible,
+      child: WpFloatingOverlayView(
+        snapshot: _snapshot,
+        waveformBars: _bars,
+        onNoticeAction: (action) => channel.noticeAction(action.id),
+        onPillWidth: channel.pillWidth,
+      ),
+    ),
   );
 }

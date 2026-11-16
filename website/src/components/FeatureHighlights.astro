@@ -9,18 +9,13 @@ const lang = currentLocale(Astro.currentLocale);
 const rowCards = ['editSelection', 'history', 'notes'] as const;
 
 // Everything else stays on the page (crawlable, searchable) in one native
-// disclosure instead of a wall of equal-rank cards.
-const moreKeys = [
-  'hotkey',
-  'sidepanel',
-  'vocabulary',
-  'overlay',
-  'hardware',
-  'privacy',
-  'cloud',
-  'access',
-  'remote',
-  'backup',
+// disclosure instead of a wall of equal-rank cards, grouped by what it does
+// for the user (internal-notes: no feature dump).
+const moreGroups = [
+  { key: 'dictate', items: ['hotkey', 'level', 'languages', 'overlay', 'access', 'profiles', 'handsfree'] },
+  { key: 'text', items: ['vocabulary', 'sidepanel', 'import', 'cloud'] },
+  { key: 'safe', items: ['privacy', 'recovery', 'backup'] },
+  { key: 'fit', items: ['hardware', 'accessibility', 'remote'] },
 ] as const;
 
 const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.example2', 'highlights.snippets.example3'] as const;
@@ -113,14 +108,21 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
         <span data-i18n="highlights.more">{t(lang, 'highlights.more')}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </summary>
-      <dl class="fh-more-list">
-        {moreKeys.map((key) => (
-          <div class="fh-more-item">
-            <dt data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</dt>
-            <dd data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</dd>
-          </div>
+      <div class="fh-more-groups">
+        {moreGroups.map((group) => (
+          <section class="fh-more-group" data-testid={`features-more-${group.key}`}>
+            <h3 class="fh-more-title" data-i18n={`highlights.group.${group.key}`}>{t(lang, `highlights.group.${group.key}`)}</h3>
+            <dl class="fh-more-list">
+              {group.items.map((key) => (
+                <div class="fh-more-item">
+                  <dt data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</dt>
+                  <dd data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
         ))}
-      </dl>
+      </div>
     </details>
 
     <p class="fh-gallery">
@@ -440,9 +442,23 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
   .fh-more[open] .fh-more-summary svg {
     transform: rotate(180deg);
   }
+  .fh-more-groups {
+    display: grid;
+    gap: var(--wp-space-8);
+    padding: 0 var(--wp-space-5) var(--wp-space-5);
+  }
+  /* Same eyebrow look as the pricing "includes" heading. */
+  .fh-more-title {
+    margin: 0 0 var(--wp-space-4);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+  }
   .fh-more-list {
     margin: 0;
-    padding: 0 var(--wp-space-5) var(--wp-space-5);
     display: grid;
     gap: var(--wp-space-5) var(--wp-space-10);
   }

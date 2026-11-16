@@ -4,11 +4,10 @@
 /// pattern for [settingsProvider], plus a lightweight fake
 /// [SttServerStateNotifier] subclass so [localSttBundleProvider] can be
 /// pinned to a fixed [SttStatus] without spinning up the real engine seam.
-/// Real polling intervals are short (milliseconds), driven with
-/// `Future.delayed` rather than fakeAsync — same as
-/// `mic_permission_notifier_test.dart`.
+/// Polling runs on simulated time (fakeAsync), so no test waits in real time.
 library;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -126,104 +125,109 @@ void main() {
 
   test(
     'backend loaded and setting enabled — polls and derives a percentage',
-    () async {
-      final container = makeContainer(
-        backend: WhisperBackend.cpu,
-        showBackendUtilization: true,
-        samples: [
-          ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
-          ProcessCpuSample(
-            cpuTime: const Duration(milliseconds: 500),
-            wallTime: t0.add(const Duration(seconds: 1)),
-          ),
-        ],
-      );
-      final notifier = container.read(backendUtilizationProvider.notifier);
-      container.read(backendUtilizationProvider); // triggers build()
-      expect(notifier.isPolling, isTrue);
-
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-
-      expect(
-        container.read(backendUtilizationProvider).cpuPercent,
-        closeTo(50, 0.01),
-      );
+    () {
+      fakeAsync((async) {
+        final container = makeContainer(
+          backend: WhisperBackend.cpu,
+          showBackendUtilization: true,
+          samples: [
+            ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
+            ProcessCpuSample(
+              cpuTime: const Duration(milliseconds: 500),
+              wallTime: t0.add(const Duration(seconds: 1)),
+            ),
+          ],
+        );
+        final notifier = container.read(backendUtilizationProvider.notifier);
+        container.read(backendUtilizationProvider); // triggers build()
+        expect(notifier.isPolling, isTrue);
+        async.elapse(const Duration(milliseconds: 60));
+        expect(
+          container.read(backendUtilizationProvider).cpuPercent,
+          closeTo(50, 0.01),
+        );
+      });
     },
   );
 
   test('normalizes the raw per-core reading by processor count — 4 cores fully '
-      'saturated (400% raw) reads as 100%, not 400%', () async {
-    final container = makeContainer(
-      backend: WhisperBackend.cpu,
-      showBackendUtilization: true,
-      processorCount: 4,
-      samples: [
-        ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
-        ProcessCpuSample(
-          cpuTime: const Duration(seconds: 4),
-          wallTime: t0.add(const Duration(seconds: 1)),
-        ),
-      ],
-    );
-    container.read(backendUtilizationProvider);
-
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-
-    expect(
-      container.read(backendUtilizationProvider).cpuPercent,
-      closeTo(100, 0.01),
-    );
+      'saturated (400% raw) reads as 100%, not 400%', () {
+    fakeAsync((async) {
+      final container = makeContainer(
+        backend: WhisperBackend.cpu,
+        showBackendUtilization: true,
+        processorCount: 4,
+        samples: [
+          ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
+          ProcessCpuSample(
+            cpuTime: const Duration(seconds: 4),
+            wallTime: t0.add(const Duration(seconds: 1)),
+          ),
+        ],
+      );
+      container.read(backendUtilizationProvider);
+      async.elapse(const Duration(milliseconds: 60));
+      expect(
+        container.read(backendUtilizationProvider).cpuPercent,
+        closeTo(100, 0.01),
+      );
+    });
   });
 
   test(
     'backend unloading again (e.g. idle timeout) stops polling and resets',
-    () async {
-      // Built inline (not via makeContainer) so the test can reach into the
-      // real, running `_FakeSttNotifier` and mutate its state — mirroring how
-      // the production `SttServerStateNotifier` actually transitions
-      // (`state = ...`), rather than swapping provider overrides mid-test
-      // (which does not itself trigger a dependent rebuild).
-      final sttNotifier = _FakeSttNotifier(
-        const SttStatus(backend: WhisperBackend.cpu),
-      );
-      final container = ProviderContainer(
-        overrides: [
-          settingsProvider.overrideWith(
-            () => _FakeSettingsNotifier(
-              AppSettings.defaults.copyWithSections(
-                interface_: InterfaceSettings.defaults.copyWith(
-                  showBackendUtilization: true,
+    () {
+      fakeAsync((async) {
+        // Built inline (not via makeContainer) so the test can reach into the
+        // real, running `_FakeSttNotifier` and mutate its state — mirroring how
+        // the production `SttServerStateNotifier` actually transitions
+        // (`state = ...`), rather than swapping provider overrides mid-test
+        // (which does not itself trigger a dependent rebuild).
+        final sttNotifier = _FakeSttNotifier(
+          const SttStatus(backend: WhisperBackend.cpu),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            settingsProvider.overrideWith(
+              () => _FakeSettingsNotifier(
+                AppSettings.defaults.copyWithSections(
+                  interface_: InterfaceSettings.defaults.copyWith(
+                    showBackendUtilization: true,
+                  ),
                 ),
               ),
             ),
-          ),
-          localSttBundleProvider.overrideWith(() => sttNotifier),
-          cpuSamplerProvider.overrideWithValue(
-            _FakeCpuSampler([
-              ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
-              ProcessCpuSample(
-                cpuTime: const Duration(milliseconds: 500),
-                wallTime: t0.add(const Duration(seconds: 1)),
-              ),
-            ]),
-          ),
-          backendUtilizationPollIntervalProvider.overrideWithValue(
-            const Duration(milliseconds: 20),
-          ),
-          processorCountProvider.overrideWithValue(1),
-        ],
-      );
-      addTearDown(container.dispose);
+            localSttBundleProvider.overrideWith(() => sttNotifier),
+            cpuSamplerProvider.overrideWithValue(
+              _FakeCpuSampler([
+                ProcessCpuSample(cpuTime: Duration.zero, wallTime: t0),
+                ProcessCpuSample(
+                  cpuTime: const Duration(milliseconds: 500),
+                  wallTime: t0.add(const Duration(seconds: 1)),
+                ),
+              ]),
+            ),
+            backendUtilizationPollIntervalProvider.overrideWithValue(
+              const Duration(milliseconds: 20),
+            ),
+            processorCountProvider.overrideWithValue(1),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final notifier = container.read(backendUtilizationProvider.notifier);
-      container.read(backendUtilizationProvider);
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      expect(container.read(backendUtilizationProvider).cpuPercent, isNotNull);
+        final notifier = container.read(backendUtilizationProvider.notifier);
+        container.read(backendUtilizationProvider);
+        async.elapse(const Duration(milliseconds: 60));
+        expect(
+          container.read(backendUtilizationProvider).cpuPercent,
+          isNotNull,
+        );
 
-      sttNotifier.setStatus(const SttStatus()); // backend: null again
+        sttNotifier.setStatus(const SttStatus()); // backend: null again
 
-      expect(notifier.isPolling, isFalse);
-      expect(container.read(backendUtilizationProvider).cpuPercent, isNull);
+        expect(notifier.isPolling, isFalse);
+        expect(container.read(backendUtilizationProvider).cpuPercent, isNull);
+      });
     },
   );
 }

@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -55,8 +56,9 @@ class _RecordingController implements FloatingOverlayController {
 
   @override
   Future<void> setContextMenuItems(
-    List<({String id, String label})> items,
-  ) async {}
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) async {}
 }
 
 class _TestableService extends FloatingOverlayService {
@@ -126,6 +128,7 @@ _Harness _buildHarness(FakeAsync async, {required bool liveTranscript}) {
       settingsProvider.overrideWith(
         () => _ConstantSettingsNotifier(liveTranscript: liveTranscript),
       ),
+      audioServiceProvider.overrideWith(_MicOpenAudioNotifier.new),
       localSttBundleProvider.overrideWith(() => stt),
       floatingOverlayServiceProvider.overrideWith(() => _TestableService(fake)),
     ],
@@ -145,6 +148,18 @@ _Harness _buildHarness(FakeAsync async, {required bool liveTranscript}) {
   );
 
   return _Harness(fake, stt, container);
+}
+
+/// Mic-open precondition for snapshot-content tests (briefing criterion 4):
+/// the recording content is only shown once the capture runs, so these tests
+/// model an opened microphone. The start-feedback rule itself is covered in
+/// `floating_overlay_service_recovery_test.dart`.
+class _MicOpenAudioNotifier extends AudioServiceNotifier {
+  @override
+  AudioStatus build() => const AudioStatus(
+    captureState: AudioCaptureState.recording,
+    hasLiveSamples: true,
+  );
 }
 
 void main() {

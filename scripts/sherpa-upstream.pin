@@ -1,0 +1,17 @@
+# Hash pins of the upstream sherpa-onnx binaries shipped in the sherpa_onnx_<os>
+# pub packages (ADR 0037, #1253). Read by scripts/verify-sherpa-upstream.sh.
+# Values: sha256sum of the pub archive (equals pubspec.lock) and of each bundled
+# file relative to the package root. Bump together with pubspec.lock and
+# scripts/sherpa-onnx.pin; the verify script fails on any mismatch.
+# The own build (scripts/build-sherpa-onnx.*) stays the shipped path until the
+# acceptance on macOS, Windows and Linux is done; these pins gate the upstream path.
+UPSTREAM_VERSION=2.0.1
+UPSTREAM_ARCHIVE_SHA256_MACOS=bd3aafc3a8d767564aeb71ebd30547b1d69867f193d9dad73725dd68c88c3d42
+UPSTREAM_ARCHIVE_SHA256_LINUX=4424b09fd26ba79c970b4031d78e58e16f902cb9ef43eeb3809e2dff75246c27
+UPSTREAM_ARCHIVE_SHA256_WINDOWS=449b6ccb864713d454b771ebfe200d6e030e72cd1da9ae5bd1f079064550e435
+# Files: <platform>|<path in the package>|<sha256>
+UPSTREAM_FILE=macos|macos/sherpa_onnx_macos/sherpa-onnx.xcframework/macos-arm64_x86_64/libsherpa-onnx-c-api.dylib|657b7aa686b9a162a1821c39b09232d6ec5ca9fc37a26d479f6573175450b32d
+UPSTREAM_FILE=linux|linux/x64/libsherpa-onnx-c-api.so|a62a3c62ee1eefb1c925b1ac1d59d6a941b06e5ceea74308094adef7739458e0
+UPSTREAM_FILE=linux|linux/x64/libonnxruntime.so|4b3607aebd1784b26b6f9b20e4bd974c7ab8287043e4d095cb7d2cb40b5e566e
+UPSTREAM_FILE=windows|windows/x64/sherpa-onnx-c-api.dll|1850fbacb36ebdc15b75e1a0353334606854ce054be4d82ca60ad6098ab8f874
+UPSTREAM_FILE=windows|windows/x64/onnxruntime.dll|7f66f939a881baf4f46a2216496798edf4a1429878b646d12674aa62f27d8a25

@@ -20,7 +20,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import 'auto_updater_service.dart';
 import 'deploy_channel_service.dart';
-import 'update_channel_service.dart';
 import 'update_service.dart';
 
 /// Runs the correct "check for update" / "present update" / "install"
@@ -38,16 +37,15 @@ import 'update_service.dart';
 /// Linux/portable (the GitHub-API mechanism) drives its own explicit
 /// download + local-file install flow: [UpdatePhase.available] opens the
 /// release notes URL, [UpdatePhase.readyToInstall] launches the downloaded
-/// installer, anything else triggers a fresh check.
+/// installer, a failed launch retries it, anything else triggers a fresh
+/// check.
 void triggerUpdateAction({
   required WidgetRef ref,
   required UpdateState updateState,
   required DeployChannel channel,
 }) {
   if (shouldUseAutoUpdater(channel)) {
-    presentSparkleUpdate(
-      ref.read(updateChannelProvider).value ?? UpdateChannel.stable,
-    );
+    presentSparkleUpdate();
     return;
   }
 
@@ -57,6 +55,10 @@ void triggerUpdateAction({
       final url = updateState.releaseNotesUrl;
       if (url != null) launchUrl(Uri.parse(url));
     case UpdatePhase.readyToInstall:
+      notifier.installUpdate();
+    // A failed launch keeps the installer, so the same action retries it.
+    case UpdatePhase.error
+        when updateState.installFailure == InstallFailure.launchFailed:
       notifier.installUpdate();
     default:
       notifier.checkForUpdate();
@@ -91,6 +93,24 @@ void triggerUpdateAction({
       l10n.updateInstall,
     ),
     UpdatePhase.upToDate => (LucideIcons.circleCheck, l10n.updateUpToDate),
-    UpdatePhase.error => (LucideIcons.triangleAlert, l10n.updateError),
+    UpdatePhase.error => switch (state.installFailure) {
+      InstallFailure.launchFailed => (
+        LucideIcons.download,
+        l10n.updateInstallRetry,
+      ),
+      InstallFailure.installerMissing => (
+        LucideIcons.refreshCw,
+        l10n.updateCheckNow,
+      ),
+      null => (LucideIcons.triangleAlert, l10n.updateError),
+    },
   };
 }
+
+/// Whether updates on [channel] end at the release page, because no
+/// self-updater runs there: Linux and other portable installs (PAR-004). The
+/// check still finds new versions; the user installs them by hand.
+bool updatesInstalledByHand(
+  DeployChannel channel, {
+  required bool autoUpdater,
+}) => channel == DeployChannel.portable && !autoUpdater;

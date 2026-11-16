@@ -15,6 +15,7 @@ import 'dart:typed_data';
 import '../../../core/logging/app_logger.dart';
 import '../../audio/pcm_sliding_window.dart';
 import '../../audio/pcm_wav_codec.dart' show pcm16BytesToFloat32;
+import '../../audio/speech_presence.dart';
 
 final _log = AppLogger('LiveTranscriptPreviewer');
 
@@ -32,7 +33,7 @@ final _log = AppLogger('LiveTranscriptPreviewer');
 /// no separate, lightweight streaming silence-detector callback anywhere in
 /// this app that fires independently of a full decode call (the amplitude-
 /// based `SafetyGuard`/`autoStopSilence` auto-stop is a different,
-/// RMS-threshold mechanism, not Silero VAD). Wiring a second, real-time
+/// peak-level mechanism, not Silero VAD). Wiring a second, real-time
 /// Silero pass purely to pick trigger moments would need new FFI
 /// bindings/struct work beyond this ticket's scope (`whisper_vad_*`), for a
 /// benefit (slightly better-placed decode boundaries) a fixed timer with a
@@ -42,7 +43,7 @@ class LiveTranscriptPreviewer {
   LiveTranscriptPreviewer({
     required Future<String> Function(Float32List samples) decode,
     this.windowSeconds = 25.0,
-    this.triggerInterval = const Duration(seconds: 2),
+    this.triggerInterval = defaultInterval,
     this.minDecodeInterval = const Duration(milliseconds: 1500),
     this.sampleRate = 16000,
     DateTime Function()? now,
@@ -67,6 +68,9 @@ class LiveTranscriptPreviewer {
   /// How often a decode is attempted while [isActive].
   final Duration triggerInterval;
 
+  /// The tick the app runs with.
+  static const defaultInterval = Duration(seconds: 2);
+
   /// Hard cap: never decode more often than this, even if triggered more
   /// frequently (e.g. a future VAD-pause trigger firing in a burst).
   final Duration minDecodeInterval;
@@ -78,6 +82,17 @@ class LiveTranscriptPreviewer {
   DateTime? _lastDecodeAt;
   bool _decoding = false;
   bool _active = false;
+
+  /// Set when a fed chunk held speech since the last decode. A tick without
+  /// it is skipped: the window would decode to the same text. "Speech" is the
+  /// safety guard's definition ([Pcm16SpeechDetector]), so a quiet
+  /// microphone gets a preview, while room tone, clicks and short noise
+  /// spikes start no decode. Noise loud enough to pass counts as speech for
+  /// the guard too; even then decodes stay capped by [minDecodeInterval].
+  bool _speechSinceDecode = false;
+  late final Pcm16SpeechDetector _speech = Pcm16SpeechDetector(
+    sampleRate: sampleRate,
+  );
 
   final StreamController<String> _previewController =
       StreamController<String>.broadcast();
@@ -93,19 +108,26 @@ class LiveTranscriptPreviewer {
   bool get isActive => _active;
 
   /// Starts buffering PCM and arms the trigger timer. No-op if already
-  /// active.
-  void start() {
+  /// active. [armTimer] false leaves the timer out: a replay driver (the
+  /// live-preview benchmark) then calls [onTriggerTick] itself on a
+  /// simulated clock.
+  void start({bool armTimer = true}) {
     if (_active) return;
     _active = true;
     _buffer = Uint8List(0);
     _lastDecodeAt = null;
-    _timer = Timer.periodic(triggerInterval, (_) => _maybeTrigger());
+    _speechSinceDecode = false;
+    _speech.reset();
+    if (armTimer) {
+      _timer = Timer.periodic(triggerInterval, (_) => _maybeTrigger());
+    }
   }
 
   /// Appends a raw PCM chunk (16-bit mono LE, no WAV header) and trims the
   /// internal buffer back to [windowSeconds]. No-op while not [isActive].
   void addPcmChunk(Uint8List chunk) {
     if (!_active) return;
+    if (_speech.add(chunk)) _speechSinceDecode = true;
     final combined = Uint8List(_buffer.length + chunk.length)
       ..setRange(0, _buffer.length, _buffer)
       ..setRange(_buffer.length, _buffer.length + chunk.length, chunk);
@@ -125,6 +147,8 @@ class LiveTranscriptPreviewer {
     _timer = null;
     _buffer = Uint8List(0);
     _lastDecodeAt = null;
+    _speechSinceDecode = false;
+    _speech.reset();
   }
 
   void dispose() {
@@ -138,13 +162,14 @@ class LiveTranscriptPreviewer {
   Future<void> onTriggerTick() => _maybeTrigger();
 
   Future<void> _maybeTrigger() async {
-    if (!_active || _decoding) return;
+    if (!_active || _decoding || !_speechSinceDecode) return;
     final now = _now();
     final last = _lastDecodeAt;
     if (last != null && now.difference(last) < minDecodeInterval) return;
     if (_buffer.isEmpty) return;
 
     _decoding = true;
+    _speechSinceDecode = false;
     _lastDecodeAt = now;
     try {
       final samples = pcm16BytesToFloat32(_buffer);

@@ -17,6 +17,8 @@ interface Props {
   /** Optional trailing part of the title in the brand gradient. */
   readonly titleAccent?: string;
   readonly lead?: string;
+  /** Optional one-sentence line directly under the H1, above the lead. */
+  readonly note?: string;
   readonly eyebrow?: string;
   readonly crumbs?: readonly Crumb[];
   readonly artLabel?: string;
@@ -28,7 +30,7 @@ interface Props {
   readonly titleId?: string;
 }
 
-const { title, titleAccent, lead, eyebrow, crumbs, artLabel, titleKey, leadKey, testid = 'page-hero', titleId } = Astro.props;
+const { title, titleAccent, lead, note, eyebrow, crumbs, artLabel, titleKey, leadKey, testid = 'page-hero', titleId } = Astro.props;
 const hasArt = Astro.slots.has('art');
 ---
 
@@ -53,6 +55,7 @@ const hasArt = Astro.slots.has('art');
         <h1 class="page-title" id={titleId}>
           <span data-i18n={titleKey}>{title}</span>{titleAccent && <> <span class="text-gradient-brand">{titleAccent}</span></>}
         </h1>
+        {note && <p class="page-hero__note" data-testid="page-hero-note">{note}</p>}
         {lead && <p class="wp-lead" data-i18n={leadKey}>{lead}</p>}
         <div class="page-hero__actions"><slot name="actions" /></div>
       </div>

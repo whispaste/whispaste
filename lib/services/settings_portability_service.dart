@@ -22,9 +22,15 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 
 import '../core/config/settings_provider.dart' show AppSettings;
-import '../core/config/settings_sections.dart' show HotkeySettings;
+import '../core/config/settings_sections.dart'
+    show
+        HotkeySettings,
+        migrateLegacyHotkeyTriggers,
+        migrateLegacyOverlayStyle,
+        readInputGain;
 import '../features/replacements/replacements_page.dart' show Replacement;
 import '../features/snippets/snippets_page.dart' show SnippetItem;
+import 'hotkey_trigger.dart' show doubleTapSupportedHere;
 
 // ---------------------------------------------------------------------------
 // Deny list
@@ -45,6 +51,7 @@ const Set<String> settingsPortabilityDenyList = {
   'tier_benchmark_rtf',
   'benchmark_hardware_id',
   'benchmark_timestamp',
+  'benchmark_backend',
   // WindowPositionSettings — monitorgebunden.
   'floating_button_x',
   'floating_button_y',
@@ -55,6 +62,8 @@ const Set<String> settingsPortabilityDenyList = {
   'window_width',
   'window_height',
   'window_maximized',
+  // Monitor-bound overlay positions (ticket, 9.4): meaningless on another machine.
+  'overlay_positions_by_monitor',
   // OnboardingSettings — Fortschritt/Zustand, keine Präferenz.
   'onboarding_completed',
   'onboarding_current_step',
@@ -63,25 +72,47 @@ const Set<String> settingsPortabilityDenyList = {
   // same category as `onboarding_current_step` above — progress/migration
   // state, not a preference.
   'onboarding_flow_version',
-  // Added for the onboarding revision registry (`internal-notes
-  // onboarding-revisions/issues/01`): last content revision this
+  // Added for the onboarding revision registry: last content revision this
   // installation was shown/grandfathered to. Progress/migration state
   // exactly like the two keys above, not a preference — and doubly wrong
   // to import, since a foreign install's revision history has nothing to
   // do with what this one has already seen.
   'onboarding_content_version',
-  // Feature-spotlight registry (`internal-notes`):
-  // ids of hints this installation has already been shown. Same category as
-  // `onboarding_content_version` above — progress/seen-state, not a
-  // preference — and just as wrong to import: a foreign install's spotlight
-  // history has nothing to do with what this one has already seen.
-  'seen_feature_spotlight_ids',
   'auto_paste_off_hint_dismissed',
-  // Smart Mode post-usage discovery hint (ticket 08 of
-  // `internal-notes`): same category as the two seen-state keys
+  // One-time #204 hint in the replacements list: seen-state of this
+  // installation, not a preference.
+  'exact_trigger_hint_dismissed',
+  // Smart Mode post-usage discovery hint: same category as the two seen-state keys
   // above — whether this installation already showed the one-time hint,
   // not a preference to carry to another machine.
   'smart_mode_usage_hint_shown',
+  // Data-key explanation (#1071): whether this installation explained its
+  // own data key before the key-store prompt. The key never leaves the
+  // device, so neither does this.
+  'data_key_explained',
+  // Input Monitoring offer for a key combination (#807): whether this Mac
+  // already asked once. The grant belongs to this device, so does the flag.
+  'input_monitoring_offered',
+  // "Erste Schritte" card on the home screen: this installation's own
+  // progress through its first dictations, not a preference to carry over.
+  'first_steps_armed',
+  'first_steps_dismissed',
+  'first_steps_done',
+  // "About you" onboarding page (337aa0cbb): the person's first name, roles
+  // and where they found WhisPaste are personal data, not configuration. They
+  // stay on this machine; a new installation asks again. The four keys go
+  // together: `user_first_name_set` without the name would mark an empty
+  // name as already answered on the target machine.
+  'user_first_name',
+  'user_first_name_set',
+  'user_roles',
+  'user_attribution',
+  // The follow-up card that asks again after "Keine Angabe" belongs to the
+  // answers above: a machine that asks again must also be free to follow up.
+  'about_follow_up_done',
+  // The dictionary's term suggestion follows the roles it was made for.
+  'role_terms_done',
+  'onboarding_completed_in_version',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',
   // AppSettings.toStorageMap() — reines Persistenz-Artefakt, von
@@ -93,6 +124,8 @@ const Set<String> settingsPortabilityDenyList = {
   // *fehlender* Key läse ohnehin als '' über CloudProviderSettings.fromMap).
   'openai_api_key',
   'deepgram_api_key',
+  // Own endpoint key (W-M3): same rule as the cloud keys above.
+  'custom_endpoint_api_key',
   // SettingsPortabilityPathSettings (Ticket 03) — describe *where* the
   // export file lives on this machine, not *what* is exported. Bookmark
   // blobs are additionally security-scoped tokens bound to this machine and
@@ -116,13 +149,17 @@ const Set<String> settingsPortabilityDenyList = {
   'settings_autosave_bookmark',
   'settings_autosave_last_success',
   'settings_autosave_last_error',
-  // History PIN lock (`internal-notes`) — the hash must never
+  // History PIN lock — the hash must never
   // leave this machine inside an export, and an import must not be able to
   // replace or clear it (that would be a one-click bypass). The throttle
   // state belongs to this installation's unlock attempts.
   'history_pin',
   'history_pin_failed_attempts',
   'history_pin_locked_until',
+  // NVIDIA CUDA EULA acceptance (pack id): consent is per installation. An
+  // export carries no acceptance, and an import must not grant one for this
+  // machine, so the user is asked again before any CUDA download here.
+  'cuda_eula_accepted',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new
@@ -136,20 +173,53 @@ const Set<String> settingsPortabilityDenyList = {
 /// reconstructed from reading section classes by eye.
 const Set<String> settingsPortabilityPortableKeysForTest = {
   'after_transcription',
+  // ADR 0023: light/dark/brand/system appearance — a display preference.
+  'appearance',
   'auto_paste_blocklist',
   'auto_paste_delay',
-  // Local Automation API (`internal-notes`) — the user's own
+  // Send-on-release: a plain user preference, no machine state.
+  'auto_send_on_release',
+  // Maintainer 4a+c: travels with the blocklist it belongs to.
+  'copy_blocked_to_clipboard',
+  // V1 Wayland: how this user wants Linux to paste; no machine state.
+  'linux_always_shift_paste',
+  // The "paste the last dictation again" hotkey: a plain user preference,
+  // like the other hotkeys.
+  'repaste_hotkey_enabled',
+  'repaste_hotkey_key',
+  'repaste_hotkey_key_display',
+  'repaste_hotkey_modifiers',
+  // The "learn correction" hotkey (#934): a plain user preference too.
+  'learn_correction_hotkey_enabled',
+  'learn_correction_hotkey_key',
+  'learn_correction_hotkey_key_display',
+  'learn_correction_hotkey_modifiers',
+  // Clipboard after pasting: restore the previous content or keep the dictation.
+  'restore_clipboard_after_paste',
+  // Legacy clipboard restore after an unconfirmed paste (W-E1).
+  'restore_clipboard_without_receipt',
+  // Local Automation API — the user's own
   // choice to run/expose the loopback server and which port to request; the
   // bearer token itself lives in secure storage and is never part of this
   // map, so importing these two carries no secret.
   'automation_api_custom_port',
   'automation_api_enabled',
+  // Loopback-only hook URLs and event choices: the user's own integration
+  // config, no token or secret.
+  'automation_hooks',
+  // Automatic level of finished recordings (#1611): a preference. An older
+  // file without it derives it from 'input_gain' (see mergeImportedSettings).
+  'auto_level',
   'auto_stop_silence',
   'check_updates',
   'close_to_tray',
   'cloud_stt_provider',
-  // Vocab-learning-from-corrections global switch (`internal-notes
-  // vocab-learning-corrections/`) — a behavior preference like the other
+  // Own OpenAI-compatible endpoint (W-M3): address and model names are the
+  // user's configuration; the key stays out of the file (deny list above).
+  'custom_endpoint_url',
+  'custom_endpoint_stt_model',
+  'custom_endpoint_smart_model',
+  // Vocab-learning-from-corrections global switch — a behavior preference like the other
   // 'text_replacements_enabled'/'snippet_picker_trigger' toggles nearby.
   'correction_learning_enabled',
   // Optional CUDA pack switch — a preference like 'gpu_acceleration'; on a
@@ -167,11 +237,25 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'history_auto_trash_days',
   'history_hide_on_open',
   'history_max_entries',
+  // "Aufnahmen speichern" (history-off): a behavior preference like the
+  // other 'history_*' toggles; it carries no entry data.
+  'history_save_enabled',
   'hotkey_enabled',
   'hotkey_key',
   'hotkey_key_display',
   'hotkey_modifiers',
+  'hotkey_double_tap_key',
+  // Double-tap switch (a3329ac94 moved it from onboarding to Settings): a
+  // hotkey behavior preference like 'hotkey_double_tap_key' next to it.
+  'hotkey_double_tap',
   'input_gain',
+  // User-ordered microphone fallback list — a preference, travels with the
+  // selected microphone.
+  'microphone_priority',
+  // Pause media while recording (#563): a preference.
+  'pause_media_while_recording',
+  // ticket, 9.1: recording controls — preferences.
+  'cancel_dictation_key',
   'launch_at_startup',
   'locale',
   'max_record_duration',
@@ -179,32 +263,73 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Ticket 11: opt-in live/partial-transcript overlay text — a display
   // preference like the other 'overlay_*'/'show_*' keys around it.
   'overlay_show_live_transcript',
+  // Overlay F2: the quiet-microphone notice card, a display preference.
+  'overlay_quiet_hint',
   'overlay_size',
   'overlay_start_position',
-  'overlay_style',
+  'overlay_background',
+  'overlay_wave',
+  // ticket: overlay shape, waveform style, content and opacity — display
+  // preferences like the 'overlay_*' keys around them.
+  'overlay_form',
+  'overlay_wave_style',
+  'overlay_wave_fluid',
+  'overlay_show_timer',
+  'overlay_show_cancel',
+  'overlay_opacity',
+  // ticket floating-button look: size, shape, recording ring, resting opacity.
+  'overlay_button_size',
+  'overlay_button_shape',
+  'overlay_button_ring',
+  'overlay_button_idle_opacity',
+  'overlay_button_idle_capsule',
   'push_to_talk',
   // Ticket catchup/07: hold-or-tap sub-option of push-to-talk — same
   // behavior-preference portability as 'push_to_talk' itself.
   'hold_or_tap',
+  // Hold-or-Tap threshold (Automatisch): behavior preference, travels with it.
+  'hold_or_tap_threshold_ms',
+  // #877: "Don't show again" on the short-press card, a display preference.
+  'short_press_hint_hidden',
   // Ticket 20: second, independently configurable hotkey — same portability
   // rationale as the existing 'hotkey_*' keys above.
   'quick_note_hotkey_enabled',
   'quick_note_hotkey_key',
   'quick_note_hotkey_key_display',
   'quick_note_hotkey_modifiers',
+  // Where a quick note opens after saving: a behavior preference like the
+  // hotkey keys above (SHL-08).
+  'quick_note_open_in_main_window',
+  // How quick-note dictations are dated (#803): a display preference.
+  'quick_note_timestamp_style',
+  // Paste cue switch (#1343); replaces the never-shown 'paste_sound'.
+  'paste_cue_sound',
+  // Fits the start of a dictation to the text before the caret (#401): a
+  // behavior preference, so it travels with the export.
+  'fit_dictation_start',
+  // Paste snippets with their Markdown markers (#644): a behavior
+  // preference, so it travels with the export.
+  'paste_with_markdown',
   'record_start_sound',
   'record_stop_sound',
   // PrivacySettings — a behavior preference, not the audio data itself
   // (which the export deliberately excludes, same as History's entries vs.
   // its own portable 'history_*' preferences above).
   'retain_recent_audio',
+  // How many recent recordings to keep: a count preference next to the switch
+  // above, nothing machine-bound.
+  'retained_audio_count',
+  // Failed-recording retention period (1-30 days): a privacy preference like
+  // 'history_auto_trash_days' above. The parked audio itself is never part of
+  // the export, so the number carries nothing machine-bound.
+  'failed_audio_keep_days',
   'share_usage_stats',
   // T4 (Matomo product analysis 2026-09-04): device-local random salt for
   // the weekly-rotating cohort pseudonym — hardware/install-bound like
   // 'benchmark_hardware_id' above, would be meaningless (and privacy-adverse,
   // it would let two devices collide into one cohort) on a different machine.
   'cohort_pseudonym_salt',
-  // `internal-notes`: fifth, independently configurable
+  // Edit selection by voice: fifth, independently configurable
   // hotkey ("edit selection by voice") — same portability rationale as
   // 'hotkey_*'/'quick_note_hotkey_*'/'smart_mode_hotkey_*'.
   'selection_edit_hotkey_enabled',
@@ -222,6 +347,10 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'show_backend_utilization',
   'show_floating_button',
   'show_notifications',
+  // ticket category switches for native notifications — display preferences.
+  'notify_paste_problems',
+  'notify_smart_mode_fallback',
+  'notify_microphone_problems',
   'show_overlay',
   // Ticket 26: third, independently configurable hotkey (opens the
   // Snippet-Picker panel) — same portability rationale as 'hotkey_*'/
@@ -231,17 +360,20 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'snippet_picker_hotkey_key_display',
   'snippet_picker_hotkey_modifiers',
   'snippet_picker_trigger',
-  // Ticket 01 of `internal-notes` — standard preset is a genuine
+  // Smart Mode — standard preset is a genuine
   // user preference, portable like any other section field.
   'smart_mode_standard_preset',
-  // Ticket 03 of `internal-notes` — same rationale as the preset
+  // Smart Mode target language — same rationale as the preset
   // above.
   'smart_mode_target_language',
-  // Ticket 06 of `internal-notes` — local/cloud engine choice, same
+  // Smart Mode provider — local/cloud engine choice, same
   // rationale as the preset above. The OpenAI API key itself lives in secure
   // storage (shared with Cloud STT) and is never portable, by design.
   'smart_mode_provider',
-  // Ticket 04 of `internal-notes`: fourth, independently
+  // Named custom presets (#891) — the user's own wording, portable like the
+  // standard preset that selects them.
+  'smart_mode_custom_presets',
+  // Smart Mode hotkey: fourth, independently
   // configurable hotkey (bound to one preset) — same portability rationale
   // as 'hotkey_*'/'quick_note_hotkey_*'/'snippet_picker_hotkey_*' above.
   'smart_mode_hotkey_enabled',
@@ -250,19 +382,36 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'smart_mode_hotkey_modifiers',
   'smart_mode_hotkey_preset',
   'smart_mode_hotkey_target_language',
+  'sound_set',
   'sound_volume',
   'start_minimized',
   'stt_engine',
+  // Favorite languages and the next-favorite-language hotkey (SW-01/SW-02):
+  // plain user preferences, like the other stt_* keys.
+  'stt_favorite_languages',
   'stt_idle_timeout_minutes',
   'stt_language',
+  'stt_language_cycle_hotkey_enabled',
+  'stt_language_cycle_hotkey_key',
+  'stt_language_cycle_hotkey_key_display',
+  'stt_language_cycle_hotkey_modifiers',
   'stt_model',
   'stt_numeric_only_mode',
   'stt_provider',
   'stt_punctuation_priming',
   'stt_remove_filler_words',
+  'stt_spoken_punctuation',
   'stt_strip_punctuation',
   'stt_vad_enabled',
   'stt_voice_line_breaks',
+  'stt_written_form_date',
+  'stt_written_form_email',
+  'stt_written_form_money',
+  'stt_written_form_time',
+  'stt_written_form_url',
+  'stt_written_forms',
+  'term_similarity_enabled',
+  'text_replacements_cascade',
   'text_replacements_enabled',
   // No 'theme_mode' since 2026-08-11. It left this list with the light theme:
   // `toStorageMap()` no longer emits the key, and the assertion that every
@@ -369,18 +518,38 @@ AppSettings mergeImportedSettings(
   Map<String, String> imported,
 ) {
   final filteredImported = <String, String>{
-    for (final entry in imported.entries)
+    for (final entry in migrateLegacyHotkeyTriggers(
+      migrateLegacyOverlayStyle(imported),
+      doubleTapObservable: doubleTapSupportedHere,
+    ).entries)
       if (!settingsPortabilityDenyList.contains(entry.key))
         entry.key: entry.value,
   };
+  // A file from before 'auto_level' (#1611) carries only 'input_gain': its
+  // own value decides the mode, as for stored settings, instead of the
+  // current machine's switch.
+  if (filteredImported.containsKey('input_gain') &&
+      !filteredImported.containsKey('auto_level')) {
+    filteredImported['auto_level'] =
+        '${readInputGain(filteredImported['input_gain']) == 1.0}';
+  }
   final merged = AppSettings.fromStorageMap({
     ...current.toStorageMap(),
     ...filteredImported,
   });
+  // The own endpoint key belongs to its address. An import that moves the
+  // address (possibly to a host the user never trusted) must not carry the
+  // stored key along, so the key is kept only for the same address (W-M3).
+  final sameEndpoint =
+      merged.cloudProvider.customEndpointUrl.trim() ==
+      current.cloudProvider.customEndpointUrl.trim();
   return merged.copyWithSections(
     cloudProvider: merged.cloudProvider.copyWith(
       openAiApiKey: current.cloudProvider.openAiApiKey,
       deepgramApiKey: current.cloudProvider.deepgramApiKey,
+      customEndpointApiKey: sameEndpoint
+          ? current.cloudProvider.customEndpointApiKey
+          : '',
     ),
   );
 }
@@ -394,6 +563,14 @@ class SettingsImportFormatException implements Exception {
 
   @override
   String toString() => 'SettingsImportFormatException: $message';
+}
+
+/// The file exceeds [settingsImportMaxBytes]. A subtype of
+/// [SettingsImportFormatException] so generic format handling still applies,
+/// while the UI can name the size limit as the reason.
+class SettingsImportTooLargeException extends SettingsImportFormatException {
+  const SettingsImportTooLargeException()
+    : super('Export file is larger than 5 MiB');
 }
 
 /// Thrown by `importFromFile` when no file exists at the given path.
@@ -418,6 +595,20 @@ class SettingsImportFileNotFoundException implements Exception {
 /// Encodes/decodes [SettingsExportBundle] as JSON and reads/writes it via an
 /// injectable [FileSystem] (production: [LocalFileSystem]; tests: a
 /// `MemoryFileSystem`) — mirrors the seam used by `FactoryResetCoordinator`.
+/// Settings files above this size are refused before they are read (C-M-3).
+const int settingsImportMaxBytes = 5 * 1024 * 1024;
+
+/// Replacements, snippets or settings entries above this count are refused.
+const int settingsImportMaxEntries = 5000;
+
+/// Keys a file may carry on export but that import never applies (ticket
+/// C-M-5). Turning on the automation API or its hooks must be a deliberate
+/// choice in the settings UI, not a side effect of opening a file.
+const Set<String> settingsImportRefusedKeys = {
+  'automation_api_enabled',
+  'automation_hooks',
+};
+
 class SettingsPortabilityService {
   const SettingsPortabilityService({FileSystem? fileSystem})
     : _fileSystem = fileSystem ?? const LocalFileSystem();
@@ -473,6 +664,9 @@ class SettingsPortabilityService {
   /// [SettingsImportFormatException] for malformed or structurally invalid
   /// content.
   SettingsExportBundle decode(String jsonString) {
+    if (jsonString.length > settingsImportMaxBytes) {
+      throw const SettingsImportTooLargeException();
+    }
     final Object? raw;
     try {
       raw = jsonDecode(jsonString);
@@ -502,6 +696,11 @@ class SettingsPortabilityService {
     if (replacementsRaw is! List) {
       throw const SettingsImportFormatException('Missing "replacements" list');
     }
+    if (replacementsRaw.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many replacements in the export file',
+      );
+    }
 
     // v1 lift: `custom_vocabulary` is literally the storage key
     // `SttSettings.toMap()` writes, and the `hotkey` object's entries are
@@ -517,7 +716,15 @@ class SettingsPortabilityService {
         for (final entry in settingsRaw.entries)
           '${entry.key}': '${entry.value}',
     };
+    if (settings.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many settings entries in the export file',
+      );
+    }
     for (final key in settingsPortabilityDenyList) {
+      settings.remove(key);
+    }
+    for (final key in settingsImportRefusedKeys) {
       settings.remove(key);
     }
 
@@ -530,6 +737,11 @@ class SettingsPortabilityService {
     // "absent" and "malformed" into `null` and only a real JSON list
     // (including `[]`) decodes to a list.
     final snippetsRaw = raw['snippets'];
+    if (snippetsRaw is List && snippetsRaw.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many snippets in the export file',
+      );
+    }
 
     return SettingsExportBundle(
       settings: settings,
@@ -544,6 +756,8 @@ class SettingsPortabilityService {
                 id: '',
                 triggers: triggers,
                 replacement: '${entry['replacement'] ?? ''}',
+                // Not portable either: the import stamps the creation time.
+                createdAt: DateTime.now(),
               ),
       ],
       snippets: snippetsRaw is List
@@ -558,6 +772,8 @@ class SettingsPortabilityService {
                       id: '',
                       title: title,
                       body: '${entry['body'] ?? ''}',
+                      // Not portable: the import stamps the creation time.
+                      createdAt: DateTime.now(),
                       // Older export files (pre-interactive-snippets) have
                       // neither key — default to a plain static snippet.
                       kind: '${entry['kind'] ?? 'static'}',
@@ -603,6 +819,9 @@ class SettingsPortabilityService {
     final file = _fileSystem.file(path);
     if (!await file.exists()) {
       throw SettingsImportFileNotFoundException(path);
+    }
+    if (await file.length() > settingsImportMaxBytes) {
+      throw const SettingsImportTooLargeException();
     }
     final content = await file.readAsString();
     return decode(content);

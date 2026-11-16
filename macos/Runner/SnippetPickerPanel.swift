@@ -26,8 +26,15 @@ class SnippetPickerPanel: NSPanel {
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
     isOpaque = false
     backgroundColor = .clear
-    hasShadow = true
+    // The shadow is drawn by the Flutter body on every platform (PAR-017);
+    // a native shadow here would double it.
+    hasShadow = false
     isMovableByWindowBackground = false
+    // An NSPanel hides itself when its app deactivates. The picker stays on
+    // screen when another app takes focus without a click outside (#1680),
+    // and its open/closed state is owned by SnippetPickerHost, so AppKit
+    // must not hide it behind the host's back.
+    hidesOnDeactivate = false
   }
 
   override var canBecomeKey: Bool { true }

@@ -3,10 +3,12 @@
 ///
 /// Sponsoring never unlocks a feature: a verified purchase only earns the
 /// cosmetic supporter badge and silences the automatic support prompt
-/// (`internal-notes`, decisions 2026-10-07 and S4).
+/// (decisions 2026-10-07 and S4).
 /// Every implementation is client-side only; there is no server receipt
 /// check because nothing is entitled.
 library;
+
+import 'dart:async';
 
 /// Product ids shared by the Microsoft Store (InAppOfferToken) and App Store
 /// Connect, so both stores carry the same catalogue. Ordered from the
@@ -71,6 +73,16 @@ abstract interface class SupportStoreBridge {
   /// Whether any support consumable was ever bought and not refunded, so
   /// the badge can be restored after a reinstall.
   Future<bool> hasVerifiedSupportPurchase();
+}
+
+/// Optional extension of [SupportStoreBridge]: a store that settles a
+/// [SupportPurchaseStatus.pending] purchase later (e.g. Ask to Buy) emits one
+/// event per confirmation. The event carries no payload on purpose: neither
+/// amount, price nor receipt ever leaves the bridge. The store may repeat a
+/// notification; the consumer reports a late success only once.
+abstract interface class LateConfirmingSupportStoreBridge
+    implements SupportStoreBridge {
+  Stream<void> get lateConfirmations;
 }
 
 class UnavailableSupportStoreBridge implements SupportStoreBridge {

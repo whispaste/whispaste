@@ -4,9 +4,12 @@
 #include <objbase.h>
 
 #include <chrono>
+#include <map>
+#include <string>
 
 #include "gdiplus_helper.h"
 
+using flutter::EncodableList;
 using flutter::EncodableMap;
 using flutter::EncodableValue;
 using flutter::MethodCall;
@@ -51,6 +54,52 @@ std::string WideToUtf8(const std::wstring& wide) {
                         result.data(), size, nullptr, nullptr);
   return result;
 }
+
+// Lower-case executable file name (e.g. "1password.exe") of the process that
+// owns |hwnd|, or "" when it cannot be resolved (elevated/protected process).
+// Used by the per-app clipboard exclusion list (issue #593).
+std::string ExeNameOfWindow(HWND hwnd) {
+  if (!hwnd) return "";
+  DWORD pid = 0;
+  ::GetWindowThreadProcessId(hwnd, &pid);
+  if (pid == 0) return "";
+  HANDLE process = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (!process) return "";
+  wchar_t path[MAX_PATH];
+  DWORD size = MAX_PATH;
+  std::wstring name;
+  if (::QueryFullProcessImageNameW(process, 0, path, &size) && size > 0) {
+    name.assign(path, size);
+    const size_t slash = name.find_last_of(L"\\/");
+    if (slash != std::wstring::npos) name.erase(0, slash + 1);
+    ::CharLowerBuffW(name.data(), static_cast<DWORD>(name.size()));
+  }
+  ::CloseHandle(process);
+  return WideToUtf8(name);
+}
+
+// Source app of the current clipboard content: the clipboard owner window,
+// falling back to the foreground window for owner-less (delayed) writers.
+std::string ClipboardSourceExe() {
+  std::string exe = ExeNameOfWindow(::GetClipboardOwner());
+  if (exe.empty()) exe = ExeNameOfWindow(::GetForegroundWindow());
+  return exe;
+}
+
+BOOL CALLBACK CollectAppWindow(HWND hwnd, LPARAM lparam) {
+  if (!::IsWindowVisible(hwnd) || ::GetWindow(hwnd, GW_OWNER) != nullptr) {
+    return TRUE;
+  }
+  wchar_t title[256];
+  const int len = ::GetWindowTextW(hwnd, title, 256);
+  if (len <= 0) return TRUE;
+  const std::string exe = ExeNameOfWindow(hwnd);
+  if (exe.empty()) return TRUE;
+  auto* apps = reinterpret_cast<std::map<std::string, std::string>*>(lparam);
+  apps->emplace(exe, WideToUtf8(std::wstring(title, len)));
+  return TRUE;
+}
+
 
 // Standard MSDN pattern for locating an installed GDI+ encoder by MIME
 // type. GdiPlusHelper (gdiplus_helper.h) doesn't have this -- it's a
@@ -138,6 +187,22 @@ void ClipboardMonitorHost::HandleMethodCall(
     return;
   }
 
+  if (call.method_name() == "listRunningApps") {
+    // Visible top-level windows, one entry per executable (id = exe name,
+    // name = a window title). Feeds the clipboard exclusion picker.
+    std::map<std::string, std::string> apps;
+    ::EnumWindows(CollectAppWindow, reinterpret_cast<LPARAM>(&apps));
+    EncodableList list;
+    for (const auto& [exe, title] : apps) {
+      EncodableMap entry;
+      entry[EncodableValue("id")] = EncodableValue(exe);
+      entry[EncodableValue("name")] = EncodableValue(title);
+      list.push_back(EncodableValue(entry));
+    }
+    result->Success(EncodableValue(list));
+    return;
+  }
+
   result->NotImplemented();
 }
 
@@ -167,8 +232,12 @@ void ClipboardMonitorHost::ProcessClipboardChange() {
   // WhisPaste never writes images to the clipboard itself (matches the
   // Swift host's comment), so there is no self-write fingerprint to check
   // for images.
-  const std::vector<uint8_t> png = ReadClipboardImagePng();
-  if (!png.empty()) {
+  std::vector<uint8_t> png;
+  // cppcheck cannot follow the GDI+ / IStream results inside the helper, so it
+  // reports the condition as always false. It is reachable: the helper returns
+  // true after a successful PNG encode of a clipboard bitmap.
+  // cppcheck-suppress knownConditionTrueFalse
+  if (ReadClipboardImagePng(&png)) {
     EmitImageEntry(png, /*concealed=*/false);
   }
 }
@@ -190,11 +259,13 @@ std::wstring ClipboardMonitorHost::ReadClipboardText() const {
   return result;
 }
 
-std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
-  if (!::IsClipboardFormatAvailable(CF_BITMAP)) return {};
-  if (!::OpenClipboard(owner_)) return {};
+bool ClipboardMonitorHost::ReadClipboardImagePng(
+    std::vector<uint8_t>* png) const {
+  png->clear();
+  if (!::IsClipboardFormatAvailable(CF_BITMAP)) return false;
+  if (!::OpenClipboard(owner_)) return false;
 
-  std::vector<uint8_t> png;
+  bool encoded = false;
   HBITMAP hbitmap = static_cast<HBITMAP>(::GetClipboardData(CF_BITMAP));
   if (hbitmap) {
     Gdiplus::Bitmap bitmap(hbitmap, nullptr);
@@ -203,14 +274,20 @@ std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
       IStream* stream = nullptr;
       if (SUCCEEDED(::CreateStreamOnHGlobal(nullptr, TRUE, &stream)) && stream) {
         if (bitmap.Save(stream, &png_clsid, nullptr) == Gdiplus::Ok) {
+          // GlobalSize() reports the allocation, which is rounded up past the
+          // encoded data. The stream length is the exact PNG size.
+          ULARGE_INTEGER length = {};
+          LARGE_INTEGER origin = {};
           HGLOBAL hglobal = nullptr;
-          if (SUCCEEDED(::GetHGlobalFromStream(stream, &hglobal)) && hglobal) {
-            const SIZE_T size = ::GlobalSize(hglobal);
+          if (SUCCEEDED(stream->Seek(origin, STREAM_SEEK_END, &length)) &&
+              length.QuadPart > 0 &&
+              SUCCEEDED(::GetHGlobalFromStream(stream, &hglobal)) && hglobal) {
             const void* locked = ::GlobalLock(hglobal);
-            if (locked && size > 0) {
+            if (locked) {
               const auto* bytes = static_cast<const uint8_t*>(locked);
-              png.assign(bytes, bytes + size);
+              png->assign(bytes, bytes + length.QuadPart);
               ::GlobalUnlock(hglobal);
+              encoded = true;
             }
           }
         }
@@ -219,7 +296,7 @@ std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
     }
   }
   ::CloseClipboard();
-  return png;
+  return encoded;
 }
 
 bool ClipboardMonitorHost::IsPrivacyExcluded() const {
@@ -266,6 +343,7 @@ void ClipboardMonitorHost::EmitTextEntry(const std::string& utf8_text,
   args[EncodableValue("concealed")] = EncodableValue(concealed);
   args[EncodableValue("autoGenerated")] = EncodableValue(false);
   args[EncodableValue("text")] = EncodableValue(utf8_text);
+  args[EncodableValue("sourceApp")] = EncodableValue(ClipboardSourceExe());
   channel_->InvokeMethod("clipEntryDetected",
                          std::make_unique<EncodableValue>(args));
 }
@@ -280,6 +358,7 @@ void ClipboardMonitorHost::EmitImageEntry(const std::vector<uint8_t>& png,
   args[EncodableValue("concealed")] = EncodableValue(concealed);
   args[EncodableValue("autoGenerated")] = EncodableValue(false);
   args[EncodableValue("imageBytes")] = EncodableValue(png);
+  args[EncodableValue("sourceApp")] = EncodableValue(ClipboardSourceExe());
   channel_->InvokeMethod("clipEntryDetected",
                          std::make_unique<EncodableValue>(args));
 }

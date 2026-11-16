@@ -34,6 +34,12 @@ devtools_options.yaml
 # Vendored WinSparkle 0.9.3 runtime DLLs (auto_updater_windows fork) —
 # intentional binary commit, provenance + SHA-256 in WinSparkle-0.9.3/PROVENANCE.md
 !packages/auto_updater_windows/windows/WinSparkle-0.9.3/**/*.dll
+# Sparkle.framework for the auto_updater_macos fork: fetched from
+# scripts/sparkle.pin (SHA-256 checked), never checked in.
+/packages/auto_updater_macos/macos/Frameworks/
+# Vendored plugin packages resolve their own pubspec.lock on every pub get;
+# only the root pubspec.lock is versioned (#800).
+packages/*/pubspec.lock
 
 # IDE
 .idea/
@@ -70,33 +76,20 @@ fastlane/*.certSigningRequest
 fastlane/*.provisionprofile
 
 # ┌─────────────────────────────────────────────────────────────────────┐
-# │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
-# │  These entries protect internal files from being pushed to GitHub.  │
-# │  The pre-commit hook enforces this section cannot be weakened.      │
-# │  Any change to lines between PROTECTED-START and PROTECTED-END     │
-# │  will be rejected by the hook.                                     │
+# │  PROTECTED PATHS — secrets, credentials, build and local output.   │
+# │  Remove an entry only on purpose: GitHub receives only the NAS     │
+# │  export (allowlist + gate), but these files must not even be       │
+# │  versioned internally.                                             │
 # ├─────────────────────────────────────────────────────────────────────┤
 # │  PROTECTED-START                                                    │
 # ├─────────────────────────────────────────────────────────────────────┤
 
-# Internal files — blanket ignore (NEVER track contents)
-.internal/
-.impeccable/
-docs/
-
-# AI agent / skill config (local only)
-opencode.json
-rules/
-skills-lock.json
-skills.yaml
-.github/copilot-instructions.md
-.skills/
-.agent/
-.agents/
-.claude/
+# Internal docs and agent config are versioned in the internal repository
+# (maintainer 2026-10-31); only the filtered NAS export reaches GitHub
+# (.ossallowlist + export gate). What stays local:
+.claude/worktrees/
+.claude/scheduled_tasks.lock
 .scratch/
-CLAUDE.md
-internal-notes
 
 # ASO-Research-Runs (lokale Analyse-Outputs — nie öffentlich)
 .aso-research/
@@ -107,22 +100,65 @@ internal-notes
 # Internal dev tools (local only)
 cmd/
 scripts/*
+!scripts/check-libwhisper-guard.sh
+!scripts/check-libwhisper-guard.test.sh
+!scripts/check-linux-bundled-codecs.test.sh
+!scripts/gate-stamp.sh
 !scripts/build-libwhisper-macos.sh
+!scripts/libwhisper-pin-stamp.sh
+!scripts/build-opus-macos.sh
+!scripts/build-video-decoder.py
+!scripts/video-decoder.cmake
 !scripts/build-libwhisper-linux.sh
+!scripts/apply-whisper-patches.sh
+!scripts/apply-whisper-patches.test.sh
 !scripts/split-debug-linux.sh
 !scripts/bundle-libwhisper-windows.ps1
+!scripts/build-libwhisper-windows.ps1
 !scripts/build-libllama-macos.sh
 !scripts/build-libllama-linux.sh
 !scripts/build-smartmode-shim-macos.sh
 !scripts/ensure-libllama-macos.sh
 !scripts/build-libllama-windows.ps1
+!scripts/ensure-msys2-windows.ps1
 !scripts/build-smartmode-shim-windows.ps1
+!scripts/windows-msvc-env.ps1
+!scripts/build-sherpa-onnx.sh
+!scripts/build-sherpa-onnx.ps1
+!scripts/check-no-espeak.sh
+!scripts/check-no-espeak.test.sh
+!scripts/check-crashpad-exec.sh
+!scripts/check-crashpad-exec.test.sh
+!scripts/docs-attest.test.sh
+!scripts/check-linux-bundled-codecs.sh
+!scripts/generate-third-party-notices.py
+!scripts/sherpa-onnx.pin
+!scripts/sherpa-upstream.pin
+!scripts/verify-sherpa-upstream.sh
+!scripts/verify-sherpa-upstream.test.sh
+!scripts/whisper-cpp.pin
+!scripts/llama-cpp.pin
+!scripts/check-upstream-pins.sh
+!scripts/check-upstream-pins.test.sh
+!scripts/check-sherpa-stage.cmake
+!scripts/check-sherpa-stage.test.sh
+!scripts/sherpa-stage-libs.sh
+!scripts/sherpa-stage-libs.test.sh
+!scripts/fetch-onnxruntime.sh
 !scripts/bundle-libllama-windows.ps1
 !scripts/collect-pdbs-windows.ps1
+!scripts/labctl-path.sh
+!scripts/native-compile-check.sh
+!scripts/native-compile-linux.sh
+!scripts/native-compile-windows.ps1
+!scripts/native-compile-windows-runner.ps1
+!scripts/native-compile-linux-runner.sh
+!scripts/privacy-netcapture.sh
 !scripts/fetch-cuda-redist.py
 !scripts/build-cuda-pack-linux.sh
 !scripts/build-cuda-pack-windows.ps1
 !scripts/cuda-pack-NOTICE.template.txt
+!scripts/LICENSE-NVIDIA.txt
 !scripts/git-hooks/
 !scripts/smoke/
 !scripts/generate-release-notes.mjs
@@ -130,11 +166,13 @@ scripts/*
 !scripts/extract-cumulative-changelog.mjs
 !scripts/security-scan.ps1
 !scripts/setup-gh-secrets.sh
-!scripts/setup-gh-secrets.ps1
 !scripts/setup-gh-secrets.py
+!scripts/update-mozilla-cacert.sh
 !scripts/GITHUB-SECRETS-SETUP.md
 !scripts/generate-screenshots.py
 !scripts/generate-store-icons.py
+!scripts/generate-msix-badge.py
+!scripts/build-msix.ps1
 !scripts/generate-store-listing.mjs
 !scripts/apply-store-metadata.mjs
 !scripts/apply-store-metadata.test.mjs
@@ -144,18 +182,29 @@ scripts/*
 !scripts/premium-screenshots.py
 !scripts/cppcheck.ps1
 !scripts/install-hooks.sh
+!scripts/cppcheck-runner.sh
+!scripts/cppcheck.pin
+!scripts/install-git-filters.sh
+!scripts/sync-macos-plugins.sh
+!scripts/sparkle.pin
+!scripts/fetch-sparkle.sh
 !scripts/submit-ms-store.ps1
 !scripts/verify-ms-store-listing.ps1
 !scripts/generate-whisper-server-manifest.sh
 !scripts/docs-attest.sh
 !scripts/approve-release.sh
+!scripts/premerge-main.sh
 !scripts/docs-drift.sh
 !scripts/probe-packaging-validate.sh
 !scripts/check-workflow-hygiene.sh
-!scripts/macos-selfsign.sh
-!scripts/macos-selfsign-export-secret.sh
 !scripts/generate_appcast.sh
-!scripts/publish_beta_fallback.sh
+!scripts/release-macos-local.sh
+!scripts/release.sh
+!scripts/release/
+!scripts/release/*.sh
+!scripts/release/*.ps1
+!scripts/build-whisper-server-metal-local.sh
+!scripts/diagnose-smoke-macos-local.sh
 !scripts/ci/
 
 # Internal website files
@@ -167,6 +216,29 @@ wack-report.xml
 # ├─────────────────────────────────────────────────────────────────────┤
 # │  PROTECTED-END                                                      │
 # └─────────────────────────────────────────────────────────────────────┘
+
+# Repo-Gates, shared by CI and the hooks (scripts/ci-gates.sh). Outside the
+# protected block on purpose: this only re-includes one script the scripts/*
+# rule above hides.
+!scripts/ci-gates.sh
+!scripts/privacy-netcapture.ps1
+!scripts/privacy_netcapture.py
+!scripts/privacy_netcapture_test.py
+!scripts/atspi_drive.py
+# Local check entry point (commit/push/full tiers, same commands as CI).
+!scripts/check.sh
+!scripts/sdk-env.sh
+!scripts/sdk-env.test.sh
+!scripts/check.test.sh
+!scripts/build-stamp.sh
+!scripts/macos-flutter-build.sh
+!scripts/macos-preview.sh
+!scripts/worktree-prepare.sh
+!scripts/worktree-prepare.test.sh
+!scripts/mac-build-smoke.sh
+!scripts/lsregister-cleanup.sh
+!scripts/fetch-native-deps.sh
+!scripts/fetch-native-deps.test.sh
 
 # Screenshots (local output only — golden test sources are tracked)
 # Leading slash anchors to repo root, so website/public/screenshots/ is NOT ignored
@@ -231,8 +303,43 @@ __pycache__/
 /lib/PRODUCT.md
 *.pyc
 
-# Pi: loads AGENTS.override.md (-> CLAUDE.md) instead of AGENTS.md
+# Agent instruction files of every CLI/agent tool stay local (maintainer
+# 2026-10-31); .githooks/instruction-guard.sh blocks them even when forced.
+AGENTS.md
+AGENT.md
 AGENTS.override.md
+AGENTS.local.md
+GEMINI.md
+JULES.md
+CODEX.md
+QWEN.md
+CRUSH.md
+WARP.md
+.cursorrules
+.windsurfrules
+.clinerules
+.roorules
+.goosehints
+.augment-guidelines
+.aider*
+*.instructions.md
+*.prompt.md
+*.chatmode.md
+.gemini/
+.jules/
+.cursor/
+.windsurf/
+.roo/
+.kiro/
+.junie/
+.continue/
+.amazonq/
+.augment/
+.qwen/
+.crush/
+.trae/
+.openhands/
+.opencode/
 
 # Codex CLI per-repo config (MCP server credentials, local hooks) — local-only.
 .codex/
@@ -240,3 +347,10 @@ AGENTS.override.md
 # Closed-source server API (PHP/Slim): lives in its own private git repository
 # at this path and must never be committed to or pushed with this public repo.
 /services/api/
+
+# Generated localizations: made by `flutter pub get` / `flutter gen-l10n` (l10n.yaml),
+# never committed, so ARB changes of parallel branches do not conflict (#1452).
+/lib/core/l10n/generated/
+
+# Generated test bundles of the lab lanes (tool/test_bundles.dart, #1492)
+/test/_lab_bundles/

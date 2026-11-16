@@ -5,8 +5,8 @@
 /// instruction like "add punctuation") makes results worse, while a short,
 /// punctuated, conversational prompt in the *same* language as the dictation
 /// measurably improves punctuation in the output, especially under the
-/// greedy decoding WhisPaste uses for latency (see ADR
-/// `internal-notes`).
+/// greedy decoding WhisPaste uses for latency (see the
+/// default punctuation priming decision).
 ///
 /// Source of truth: `ggml-org/whisper.cpp` server docs + community guidance
 /// (https://github.com/ggml-org/whisper.cpp/discussions/348). Covers the

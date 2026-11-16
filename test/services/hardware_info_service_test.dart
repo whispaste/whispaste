@@ -372,18 +372,14 @@ void main() {
 
     // --- Layer 2: DLL heuristic (Windows-only) ---
 
-    test(
-      'returns false when CUDA DLLs present on non-NVIDIA GPU',
-      () async {
-        File(p.join(tmpDir.path, _serverBinary)).createSync();
-        // No metadata → Layer 1 passes, but Layer 2 should catch it.
-        File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
-        File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
+    test('returns false when CUDA DLLs present on non-NVIDIA GPU', () async {
+      File(p.join(tmpDir.path, _serverBinary)).createSync();
+      // No metadata → Layer 1 passes, but Layer 2 should catch it.
+      File(p.join(tmpDir.path, 'cublas64_12.dll')).createSync();
+      File(p.join(tmpDir.path, 'ggml-cuda.dll')).createSync();
 
-        expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
-      },
-      skip: _skipNonWindows,
-    );
+      expect(isServerBinaryCompatible(tmpDir.path, _intelGpu), isFalse);
+    }, skip: _skipNonWindows);
 
     test('returns true when metadata matches even without CUDA DLLs', () async {
       File(p.join(tmpDir.path, _serverBinary)).createSync();
@@ -558,6 +554,29 @@ void main() {
   // =========================================================================
 
   group('GPU cache', () {
+    // Hermetic: the probes never reach the real host. An answered PowerShell
+    // probe settles detection, which is what gets cached; the real Windows
+    // probes on a GPU-less VM may give no answer, and then detectGpu
+    // intentionally caches nothing (a later call retries).
+    setUp(() {
+      clearGpuCache();
+      setProcessRunnerForTesting(
+        (exe, args) async => exe == 'powershell'
+            ? ProcessResult(
+                0,
+                0,
+                'Intel(R) Iris(R) Xe Graphics|1073741824\n',
+                '',
+              )
+            : ProcessResult(1, 1, '', ''),
+      );
+    });
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      clearGpuCache();
+    });
+
     test('clearGpuCache resets cached info', () {
       clearGpuCache();
       expect(cachedGpuInfo, isNull);
@@ -637,9 +656,12 @@ void main() {
       // CPU can't be the "wrong" backend here: it is the universal fallback
       // and now always counts as compatible (FLUTTER_WHISPASTE-80 loop fix),
       // so a stored cpu binary would never be deleted.
-      final fakeGpu = realGpu.optimalBackend == 'vulkan'
-          ? _nvidiaWithCuda // Real GPU needs Vulkan → pretend it's CUDA.
-          : _intelGpu; // Anything else → pretend it's Intel Vulkan.
+      // A real CUDA host also runs vulkan, so it needs metal as the foreign one.
+      final fakeGpu = switch (realGpu.optimalBackend) {
+        'vulkan' => _nvidiaWithCuda, // Real GPU needs Vulkan → pretend CUDA.
+        'cuda' => _appleGpu, // Real CUDA host → pretend Metal.
+        _ => _intelGpu, // cpu or metal → pretend Intel Vulkan.
+      };
       await writeServerBinaryInfo(tmpDir.path, fakeGpu);
 
       final deleted = await validateAndCleanIncompatibleBinary(tmpDir.path);

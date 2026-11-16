@@ -1,8 +1,8 @@
-/// Channel matrix for the support asks (`internal-notes`,
-/// decisions S1, S9 and S10; the matrix table in the codex strategy).
+/// Channel matrix for the support asks (decisions S1, S9 and S10; the matrix table in the codex strategy).
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
 
@@ -47,7 +47,7 @@ void main() {
 
   group('Windows Store build', () {
     test(
-      'native one-time tip first, GitHub Sponsors for monthly/free amounts',
+      'native tip first, external support without digital rewards (#1036)',
       () {
         final asks = supportCapabilities(
           DeployChannel.store,
@@ -56,17 +56,41 @@ void main() {
 
         expect(asks.first, SupportAsk.nativeTip);
         expect(asks, contains(SupportAsk.githubSponsors));
-        expect(asks, isNot(contains(SupportAsk.kofi)));
-        expect(asks, isNot(contains(SupportAsk.paypal)));
+        expect(asks, contains(SupportAsk.kofi));
+        expect(asks, contains(SupportAsk.paypal));
         expect(asks, isNot(contains(SupportAsk.storePurchaseUpsell)));
       },
     );
   });
 
-  group('Mac App Store build (guideline 3.1.1)', () {
-    test('exactly native tip, rate, star and share, with no payment link', () {
+  group('Windows external payment routes (#1036)', () {
+    for (final channel in DeployChannel.values) {
+      test('$channel offers PayPal and both configured coffee providers', () {
+        final asks = supportCapabilities(channel, SupportPlatform.windows);
+        expect(asks, contains(SupportAsk.paypal));
+        expect(asks, contains(SupportAsk.kofi));
+        expect(kBuyMeACoffeeUrl, isNotNull);
+        expect(coffeeExternalLinks().map((link) => link.url), [
+          kKofiUrl,
+          kBuyMeACoffeeUrl,
+        ]);
+        expect(
+          coffeeSupportTarget(channel, SupportPlatform.windows),
+          channel == DeployChannel.store
+              ? CoffeeSupportTarget.storePurchase
+              : CoffeeSupportTarget.externalLinks,
+        );
+      });
+    }
+  });
+
+  group('Mac App Store build (decision 2026-11-09, #1006)', () {
+    test('native tip first, then sponsoring, Ko-fi and PayPal, then reach', () {
       expect(supportCapabilities(DeployChannel.store, SupportPlatform.macos), [
         SupportAsk.nativeTip,
+        SupportAsk.githubSponsors,
+        SupportAsk.kofi,
+        SupportAsk.paypal,
         SupportAsk.rate,
         SupportAsk.star,
         SupportAsk.share,
@@ -134,6 +158,54 @@ void main() {
     }
   });
 
+  group('complete payment priority matrix (S1, #1035)', () {
+    const external = [
+      SupportAsk.githubSponsors,
+      SupportAsk.kofi,
+      SupportAsk.paypal,
+    ];
+    for (final platform in SupportPlatform.values) {
+      for (final channel in DeployChannel.values) {
+        test('$platform / $channel preserves the complete provider order', () {
+          final expected = switch ((platform, channel)) {
+            (SupportPlatform.macos, DeployChannel.store) => [
+              SupportAsk.nativeTip,
+              ...external,
+            ],
+            (SupportPlatform.windows, DeployChannel.store) => [
+              SupportAsk.nativeTip,
+              ...external,
+            ],
+            (SupportPlatform.windows, DeployChannel.installer) ||
+            (SupportPlatform.windows, DeployChannel.portable) ||
+            (
+              SupportPlatform.macos,
+              DeployChannel.portable,
+            ) => [SupportAsk.storePurchaseUpsell, ...external],
+            (SupportPlatform.windows, DeployChannel.packageManaged) ||
+            (
+              SupportPlatform.macos,
+              DeployChannel.packageManaged,
+            ) => [...external, SupportAsk.storePurchaseUpsell],
+            (SupportPlatform.linux, DeployChannel.portable) ||
+            (SupportPlatform.linux, DeployChannel.packageManaged) => external,
+            _ => <SupportAsk>[],
+          };
+          expect(
+            supportCapabilities(channel, platform).where(
+              (ask) => ![
+                SupportAsk.rate,
+                SupportAsk.star,
+                SupportAsk.share,
+              ].contains(ask),
+            ),
+            expected,
+          );
+        });
+      }
+    }
+  });
+
   test('no list repeats an ask, and every list is non-empty', () {
     for (final channel in DeployChannel.values) {
       for (final platform in SupportPlatform.values) {
@@ -142,5 +214,69 @@ void main() {
         expect(asks.toSet(), hasLength(asks.length));
       }
     }
+  });
+
+  group('"Other amount" ways follow the channel matrix (#1034)', () {
+    const all = [
+      OtherAmountWay.githubSponsors,
+      OtherAmountWay.kofi,
+      OtherAmountWay.buyMeACoffee,
+      OtherAmountWay.paypal,
+    ];
+
+    test('direct, package-managed and both stores offer every way', () {
+      for (final (channel, platform) in [
+        (DeployChannel.installer, SupportPlatform.windows),
+        (DeployChannel.portable, SupportPlatform.windows),
+        (DeployChannel.packageManaged, SupportPlatform.windows),
+        (DeployChannel.store, SupportPlatform.windows),
+        (DeployChannel.portable, SupportPlatform.macos),
+        (DeployChannel.packageManaged, SupportPlatform.macos),
+        (DeployChannel.store, SupportPlatform.macos),
+        (DeployChannel.portable, SupportPlatform.linux),
+        (DeployChannel.packageManaged, SupportPlatform.linux),
+      ]) {
+        expect(
+          otherAmountWays(channel, platform).toSet(),
+          all.toSet(),
+          reason: '$channel on $platform',
+        );
+      }
+    });
+
+    test('follows the matrix order, Sponsors before Ko-fi before PayPal', () {
+      expect(
+        otherAmountWays(DeployChannel.store, SupportPlatform.windows),
+        all,
+      );
+    });
+
+    test('Buy Me a Coffee is dropped when its link is not configured', () {
+      expect(
+        otherAmountWays(
+          DeployChannel.store,
+          SupportPlatform.macos,
+          buyMeACoffeeUrl: null,
+        ),
+        isNot(contains(OtherAmountWay.buyMeACoffee)),
+      );
+    });
+
+    test('reach-only rows get no payment way (fail closed)', () {
+      expect(
+        otherAmountWays(DeployChannel.installer, SupportPlatform.linux),
+        isEmpty,
+      );
+      expect(
+        otherAmountWays(DeployChannel.store, SupportPlatform.linux),
+        isEmpty,
+      );
+    });
+
+    test('every way has an https address', () {
+      for (final way in OtherAmountWay.values) {
+        expect(otherAmountUrl(way), startsWith('https://'));
+      }
+    });
   });
 }

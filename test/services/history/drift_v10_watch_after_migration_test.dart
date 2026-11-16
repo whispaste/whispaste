@@ -6,6 +6,7 @@
 /// still emit when subsequent inserts happen.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -40,10 +41,28 @@ void main() {
         await db.customSelect('SELECT 1').get();
 
         final emissions = <List<HistoryEntry>>[];
-        final sub = db.watchEntries().listen(emissions.add);
+        final emitted = StreamController<void>.broadcast();
+        final sub = db.watchEntries().listen((entries) {
+          emissions.add(entries);
+          emitted.add(null);
+        });
+
+        /// Waits for emissions until [done] holds, without a fixed sleep
+        /// (#1491). Gives up after 5 s so the expectation below reports a
+        /// stream that went silent.
+        Future<void> emissionsUntil(bool Function() done) async {
+          while (!done()) {
+            var timedOut = false;
+            await emitted.stream.first.timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => timedOut = true,
+            );
+            if (timedOut) return;
+          }
+        }
 
         // Wait for the initial emission (post-migration snapshot).
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await emissionsUntil(() => emissions.isNotEmpty);
         final initialCount = emissions.length;
         expect(initialCount, greaterThan(0), reason: 'initial snapshot');
 
@@ -63,8 +82,11 @@ void main() {
           ),
         );
 
-        // Drift's broadcast pump is async — give it a beat.
-        await Future<void>.delayed(const Duration(milliseconds: 100));
+        // Drift's broadcast pump is async — wait for the emission that
+        // carries the new entry.
+        await emissionsUntil(
+          () => emissions.last.any((e) => e.id == 'e-after-migration'),
+        );
 
         expect(
           emissions.length,
@@ -79,6 +101,7 @@ void main() {
         expect(last.any((e) => e.id == 'e-after-migration'), isTrue);
 
         await sub.cancel();
+        await emitted.close();
         await db.close();
       },
     );

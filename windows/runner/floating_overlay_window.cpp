@@ -197,6 +197,9 @@ void FloatingOverlayWindow::Destroy() {
 
 void FloatingOverlayWindow::Show() {
   if (!hwnd_ || shutting_down_) return;
+  // Already on screen: every visible snapshot would otherwise re-order the
+  // window. Position changes arrive through SetPosition, so skipping is safe.
+  if (visible_ && IsWindowVisible(hwnd_)) return;
   ValidatePosition();
   ApplyWindowPosition();
   ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
@@ -234,7 +237,80 @@ void FloatingOverlayWindow::SetSize(int logical_w, int logical_h) {
     SetWindowPos(hwnd_, nullptr, 0, 0, phys_w, phys_h,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     ApplyChildSize();
+    if (glass_on_) ApplyPillRegion(0.0, /*redraw=*/true);
   }
+}
+
+// Windows 11 system backdrop attribute and its values (numeric, so the
+// build does not need a newer SDK).
+namespace {
+constexpr DWORD kDwmwaSystemBackdropType = 38;
+constexpr DWORD kDwmsbtNone = 1;
+constexpr DWORD kDwmsbtTransientWindow = 3;  // acrylic
+}  // namespace
+
+void FloatingOverlayWindow::SetGlassBackdrop(bool on) {
+  glass_on_ = on;
+  if (!hwnd_) return;
+  DWORD type = on ? kDwmsbtTransientWindow : kDwmsbtNone;
+  DwmSetWindowAttribute(hwnd_, kDwmwaSystemBackdropType, &type, sizeof(type));
+  if (on) {
+    ApplyPillRegion(0.0, /*redraw=*/true);
+  } else {
+    SetWindowRgn(hwnd_, nullptr, TRUE);
+  }
+}
+
+void FloatingOverlayWindow::SetPillWidth(double logical_w,
+                                         double corner_radius) {
+  const bool radius_changed = std::abs(corner_radius - corner_radius_) >= 0.25;
+  corner_radius_ = corner_radius;
+  if (std::abs(logical_w - pill_w_) < 0.5) {
+    if (radius_changed && hwnd_ && glass_on_) ApplyPillRegion(0.0, /*redraw=*/false);
+    return;
+  }
+  // The region is applied before the Flutter frame that paints this width is
+  // presented, and acts as a clip on the whole window, so a region narrower
+  // than the painted pill would cut its edges. While growing, run two ticks
+  // ahead; while shrinking, a region that is briefly a little too wide only
+  // shows a sliver of glass and is harmless.
+  const double lead =
+      (pill_w_ > 0.0 && logical_w > pill_w_) ? 2.0 * (logical_w - pill_w_) : 0.0;
+  pill_w_ = logical_w;
+  if (hwnd_ && glass_on_) ApplyPillRegion(lead, /*redraw=*/false);
+}
+
+// Clips the shell to the pill box (window inset by the 8 logical px shadow
+// padding), so the acrylic only covers the capsule and not the shadow area.
+// The box is as wide as the painted pill, centred in the window (#476).
+void FloatingOverlayWindow::ApplyPillRegion(double lead_logical, bool redraw) {
+  if (!hwnd_) return;
+  const double dpi = GetDpiScale();
+  const int pad = static_cast<int>(std::round(8 * dpi));
+  RECT rc{};
+  GetClientRect(hwnd_, &rc);
+  const int w = rc.right - rc.left;
+  const int h = rc.bottom - rc.top;
+  // The region radius follows the painted shape (capsule, rounded rectangle,
+  // notice card); without a reported radius it is the full capsule.
+  const int capsule = h - 2 * pad;
+  const int diameter =
+      corner_radius_ > 0.0
+          ? std::min(static_cast<int>(std::round(2 * corner_radius_ * dpi)), capsule)
+          : capsule;
+  int left = pad;
+  int right = w - pad;
+  if (pill_w_ > 0.0) {
+    const int pill = std::min(static_cast<int>(std::round((pill_w_ + lead_logical) * dpi)),
+                              right - left);
+    left += (right - left - pill) / 2;
+    right = left + pill;
+  }
+  HRGN rgn = CreateRoundRectRgn(left, pad, right, h - pad, diameter, diameter);
+  // The system takes ownership of the region once it is set. No forced
+  // repaint on the per-tick width path (redraw FALSE): the Flutter view
+  // repaints itself, and a synchronous invalidate per tick would flicker.
+  SetWindowRgn(hwnd_, rgn, redraw ? TRUE : FALSE);
 }
 
 void FloatingOverlayWindow::SetPosition(double lx, double ly) {

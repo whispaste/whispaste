@@ -3,10 +3,16 @@
 #include <windows.h>
 
 #include "flutter_window.h"
+#include "hang_watchdog_host.h"
+#include "url_scheme_registration.h"
 #include "utils.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // A restart by the hang watchdog (#338) waits until the hung predecessor
+  // is gone, so the single-instance check never sees two instances.
+  WaitForHangRestartPredecessor(::GetCommandLineW());
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -18,6 +24,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
+
+  EnsureUrlSchemeRegistered();
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();

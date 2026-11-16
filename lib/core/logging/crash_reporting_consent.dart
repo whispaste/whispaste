@@ -55,7 +55,10 @@ class CrashReportingConsentMarker {
   }
 
   /// Fails open: a missing or unreadable database means "not opted out";
-  /// the settings sync in main.dart still closes Sentry in that case.
+  /// the settings sync in main.dart still closes Sentry in that case. An
+  /// encrypted database (#1020) is unreadable here on purpose (no key before
+  /// the app runs): it only exists after the first start of this version,
+  /// which read the plain file and moved a stored opt-out into the marker.
   bool _storedSettingOptedOut() {
     final path = p.join(_directory, settingsDatabaseName);
     try {
@@ -73,6 +76,39 @@ class CrashReportingConsentMarker {
       }
     } on SqliteException catch (e) {
       dev.log('Stored consent not readable: $e', name: 'CrashReporter');
+      return false;
+    } on FileSystemException {
+      return false;
+    } on ArgumentError {
+      return false;
+    }
+  }
+
+  /// Whether this start belongs to a first run whose privacy choice is still
+  /// open: no settings database yet, or the onboarding is not completed in it.
+  /// Sentry is not started then (#686): native crash and app-hang reports
+  /// bypass the Dart-side hold, so the only way to send nothing before the
+  /// choice is not to run the SDK. Fails open to "not a first run" when the
+  /// database cannot be read, so an existing install never loses reporting.
+  bool firstRunPending() {
+    final path = p.join(_directory, settingsDatabaseName);
+    try {
+      if (!File(path).existsSync()) return true;
+      final db = sqlite3.open(path, mode: OpenMode.readWrite);
+      try {
+        final table = db.select(
+          "SELECT 1 FROM sqlite_master WHERE name = 'app_settings'",
+        );
+        if (table.isEmpty) return true;
+        final rows = db.select(
+          "SELECT value FROM app_settings WHERE key = 'onboarding_completed'",
+        );
+        return rows.isEmpty || rows.first['value'] != 'true';
+      } finally {
+        db.close();
+      }
+    } on SqliteException catch (e) {
+      dev.log('Onboarding state not readable: $e', name: 'CrashReporter');
       return false;
     } on FileSystemException {
       return false;

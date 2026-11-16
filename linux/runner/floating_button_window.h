@@ -4,6 +4,9 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
+#include <string>
+#include <vector>
+
 // Shadow padding added on each side of the button disc so the painter's shadow
 // does not clip at the window edge. The GTK window is always
 // (diameter + 2*kButtonShadowPadding) square.
@@ -35,7 +38,9 @@ class FloatingButtonWindow {
 
   // Creates the GtkWindow, boots the 2nd Flutter engine, realizes the shell.
   // Must be called before any other method. Call at most once.
-  void Create();
+  // |boot_args| are appended to the entrypoint arguments: the last known
+  // render state, so the engine paints it in its first frame (#977).
+  void Create(const std::vector<std::string>& boot_args = {});
 
   // Returns the binary messenger of the 2nd engine so the host can open the
   // private render channel (com.whispaste.floating_button_render).
@@ -44,6 +49,21 @@ class FloatingButtonWindow {
 
   // Resize the shell to (diameter + 2*kButtonShadowPadding) square.
   void SetDiameter(int diameter);
+
+  // Resize the shell to a content size of width x height (logical pixels,
+  // the shadow padding is added here). The idle capsule uses it; the origin
+  // stays, so the window grows right and down from its top-left corner.
+  void SetWindowSize(int width, int height);
+
+  // Edges an open capsule pinned (see CapsulePins in idle_capsule.dart).
+  struct CapsulePins {
+    bool right = false;
+    bool bottom = false;
+  };
+  // Like SetWindowSize, but an open pill grows toward the interior of the
+  // monitor work area, and a rest size returns to the capsule's home position.
+  CapsulePins SetWindowSizeAnchored(int width, int height, bool expanded);
+  void ForgetCapsuleHome() { has_capsule_home_ = false; }
 
   // Move the shell to absolute screen coordinates (X11 root, top-left origin).
   // gtk_window_move is reliable only when GDK_BACKEND=x11 is in effect.
@@ -72,6 +92,12 @@ class FloatingButtonWindow {
 
  private:
   GtkWidget* window_ = nullptr;
+  // Capsule rectangle at rest (window coordinates) while the pill is open.
+  bool has_capsule_home_ = false;
+  int home_x_ = 0;
+  int home_y_ = 0;
+  int home_w_ = 0;
+  int home_h_ = 0;
   FlView* fl_view_ = nullptr;  // Non-owning; container holds the ref.
 
   OnMovedCallback on_moved_cb_ = nullptr;

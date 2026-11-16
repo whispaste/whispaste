@@ -1,5 +1,4 @@
-/// The one way the "edit selection" hotkey gets rebound
-/// (`internal-notes`).
+/// The one way the "edit selection" hotkey gets rebound.
 ///
 /// Twin of `smart_mode_hotkey_flow.dart`: the flow itself — open dialog →
 /// check collisions → only then save — lives in `hotkey_flow.dart`; this
@@ -18,7 +17,6 @@ Future<HotkeyRecordResult> recordSelectionEditHotkey({
   required BuildContext context,
   required WidgetRef ref,
   required AppSettings settings,
-  // loam-ignore: code-duplicates – twin of `recordSmartModeHotkey`, see its doc comment
 }) {
   final hotkey = settings.selectionEditHotkey;
   return recordHotkey(

@@ -88,6 +88,7 @@ bool FloatingButtonWindow::Create(HWND owner, double lx, double ly,
   owner_ = owner;
   flutter_child_ = flutter_child;
   total_logical_size_ = std::max(total_logical_size, 32);
+  total_logical_height_ = total_logical_size_;
   logical_x_ = lx;
   logical_y_ = ly;
 
@@ -194,12 +195,82 @@ void FloatingButtonWindow::RefreshTopmost() {
 
 void FloatingButtonWindow::SetTotalSize(int total_logical_size) {
   total_logical_size_ = std::max(total_logical_size, 32);
+  total_logical_height_ = total_logical_size_;
+  rect_hit_test_ = false;
   if (hwnd_) {
     int phys = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
     SetWindowPos(hwnd_, nullptr, 0, 0, phys, phys,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     ApplyChildSize();
   }
+}
+
+void FloatingButtonWindow::SetWindowSize(int total_width, int total_height) {
+  total_logical_size_ = std::max(total_width, 32);
+  total_logical_height_ = std::max(total_height, 32);
+  rect_hit_test_ = true;
+  if (hwnd_) {
+    double scale = GetDpiScale();
+    int phys_w = static_cast<int>(std::round(total_logical_size_ * scale));
+    int phys_h = static_cast<int>(std::round(total_logical_height_ * scale));
+    SetWindowPos(hwnd_, nullptr, 0, 0, phys_w, phys_h,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    ApplyChildSize();
+  }
+}
+
+FloatingButtonWindow::CapsulePins FloatingButtonWindow::SetWindowSizeAnchored(
+    int total_width, int total_height, bool expanded) {
+  CapsulePins pins{false, false};
+  if (!hwnd_) {
+    SetWindowSize(total_width, total_height);
+    return pins;
+  }
+  if (expanded && !capsule_home_) {
+    RECT current{};
+    if (GetWindowRect(hwnd_, &current)) capsule_home_ = current;
+  }
+  RECT home{};
+  if (capsule_home_) {
+    home = *capsule_home_;
+  } else {
+    GetWindowRect(hwnd_, &home);
+  }
+
+  total_logical_size_ = std::max(total_width, 32);
+  total_logical_height_ = std::max(total_height, 32);
+  rect_hit_test_ = true;
+  const double scale = GetDpiScale();
+  const int phys_w = static_cast<int>(std::round(total_logical_size_ * scale));
+  const int phys_h = static_cast<int>(std::round(total_logical_height_ * scale));
+
+  int x = home.left;
+  int y = home.top;
+  if (expanded) {
+    // Grow toward the interior of the work area (see CapsulePins.resolve).
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+    HMONITOR monitor = MonitorFromWindow(hwnd_, MONITOR_DEFAULTTONEAREST);
+    if (GetMonitorInfo(monitor, &mi)) {
+      const RECT& work = mi.rcWork;
+      const bool right_fits = home.right - phys_w >= work.left;
+      const bool left_fits = home.left + phys_w <= work.right;
+      const bool up_fits = home.bottom - phys_h >= work.top;
+      const bool down_fits = home.top + phys_h <= work.bottom;
+      pins.right = !left_fits && right_fits;
+      pins.bottom = !down_fits && up_fits;
+    }
+    x = pins.right ? home.right - phys_w : home.left;
+    y = pins.bottom ? home.bottom - phys_h : home.top;
+  } else {
+    capsule_home_.reset();
+  }
+  SetWindowPos(hwnd_, nullptr, x, y, phys_w, phys_h,
+               SWP_NOZORDER | SWP_NOACTIVATE);
+  logical_x_ = x / scale;
+  logical_y_ = y / scale;
+  ApplyChildSize();
+  return pins;
 }
 
 void FloatingButtonWindow::SetPosition(double lx, double ly) {
@@ -253,6 +324,9 @@ LRESULT FloatingButtonWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
     case WM_NCHITTEST: {
       POINT pt = {GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
       ScreenToClient(hwnd_, &pt);
+      // Idle capsule: the whole window is the target, so the 8 px margin
+      // around the capsule is hoverable too.
+      if (rect_hit_test_) return HTCLIENT;
       double dpi = GetDpiScale();
       int phys = static_cast<int>(std::round(total_logical_size_ * dpi));
       float cx = phys / 2.0f;
@@ -352,32 +426,41 @@ double FloatingButtonWindow::ToLogical(int physical) const {
 
 void FloatingButtonWindow::ApplyWindowPosition() {
   if (!hwnd_) return;
-  int phys = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
+  int phys_w = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
+  int phys_h = static_cast<int>(std::round(total_logical_height_ * GetDpiScale()));
   int px = ToPhysical(logical_x_);
   int py = ToPhysical(logical_y_);
-  SetWindowPos(hwnd_, nullptr, px, py, phys, phys,
+  SetWindowPos(hwnd_, nullptr, px, py, phys_w, phys_h,
                SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void FloatingButtonWindow::ApplyChildSize() {
   if (!hwnd_ || !flutter_child_) return;
-  int phys = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
-  SetWindowPos(flutter_child_, nullptr, 0, 0, phys, phys,
+  int phys_w = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
+  int phys_h = static_cast<int>(std::round(total_logical_height_ * GetDpiScale()));
+  SetWindowPos(flutter_child_, nullptr, 0, 0, phys_w, phys_h,
                SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void FloatingButtonWindow::ValidatePosition() {
-  // Clamp to nearest monitor's work area so the button stays on-screen.
+  // The logical position is the window's top-left (see ApplyWindowPosition).
+  // Clamp it so the whole button stays inside the nearest work area. Only a
+  // position that is really off-screen moves; a valid one is left untouched.
   POINT pt = {ToPhysical(logical_x_), ToPhysical(logical_y_)};
-  HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+  const int size = static_cast<int>(std::round(total_logical_size_ * GetDpiScale()));
+  POINT centre = {pt.x + size / 2, pt.y + size / 2};
+  HMONITOR mon = MonitorFromPoint(centre, MONITOR_DEFAULTTOPRIMARY);
   MONITORINFO mi = {};
   mi.cbSize = sizeof(mi);
   if (!GetMonitorInfoW(mon, &mi)) return;
 
+  // A work area smaller than the button must not make std::clamp's bounds
+  // inverted (undefined behaviour); the button then simply stays at the edge.
   const RECT& wa = mi.rcWork;
-  int half = static_cast<int>(std::round(total_logical_size_ * GetDpiScale())) / 2;
-  int cx = std::clamp(pt.x, wa.left + half, wa.right - half);
-  int cy = std::clamp(pt.y, wa.top + half, wa.bottom - half);
+  const int max_x = std::max<int>(wa.left, wa.right - size);
+  const int max_y = std::max<int>(wa.top, wa.bottom - size);
+  int cx = std::clamp<int>(pt.x, wa.left, max_x);
+  int cy = std::clamp<int>(pt.y, wa.top, max_y);
 
   if (cx != pt.x || cy != pt.y) {
     logical_x_ = ToLogical(cx);

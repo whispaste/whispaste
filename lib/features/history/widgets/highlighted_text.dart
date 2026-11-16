@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/theme/colors.dart';
+
 import '../data/providers.dart';
 
 /// Drop-in replacement for [Text] that highlights every occurrence of the
@@ -36,7 +37,7 @@ class HighlightedText extends ConsumerWidget {
       );
     }
 
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     // Translucent tint behind each match — warmer in dark mode.
     final highlightBg = accent.withValues(alpha: 0.28);
 

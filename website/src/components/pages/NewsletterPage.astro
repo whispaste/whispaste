@@ -1,0 +1,279 @@
+---
+/**
+ * Newsletter sign-up for every locale: the form (address, the versioned
+ * consent wording, privacy link, "Sign up") next to what the newsletter is.
+ * Double opt-in through whispaste-api: a 202 only means the confirmation
+ * mail is on its way, and the page says exactly that. Nothing is sent before
+ * the button, nothing is stored in the browser. Rules: scripts/newsletter.ts.
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import PageSheet from '../PageSheet.astro';
+import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
+import { t, localePath, pathForSlug, type Locale } from '../../scripts/i18n.ts';
+import { NEWSLETTER_ENDPOINT_DEFAULT } from '../../scripts/newsletter.ts';
+
+interface Props {
+  readonly lang: Locale;
+}
+
+const { lang } = Astro.props;
+const endpoint = import.meta.env.PUBLIC_NEWSLETTER_ENDPOINT ?? NEWSLETTER_ENDPOINT_DEFAULT;
+const privacyHref = `${pathForSlug(lang, 'privacy')}#newsletter`;
+const breadcrumbItems = [
+  { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
+  { name: t(lang, 'breadcrumb.newsletter'), item: localePath(lang, 'newsletter') },
+];
+const points = ['releases', 'tips', 'quiet'] as const;
+---
+
+<SubpageLayout lang={lang} title={t(lang, 'meta.title.newsletter')} description={t(lang, 'meta.description.newsletter')}>
+  <PageHero
+    title={t(lang, 'newsletter.title')}
+    titleKey="newsletter.title"
+    lead={t(lang, 'newsletter.desc')}
+    leadKey="newsletter.desc"
+    crumbs={breadcrumbItems}
+    artLabel={t(lang, 'art.label.community').toUpperCase()}
+    testid="newsletter-hero"
+  />
+
+  <PageSheet>
+    <div class="nl-grid">
+      <section class="nl-card" data-newsletter data-endpoint={endpoint} data-lang={lang} data-testid="newsletter-signup">
+        <form class="nl-form" novalidate data-nl-form data-testid="newsletter-form">
+          <div class="wp-field">
+            <label class="wp-field__label" for="nl-email" data-i18n="newsletter.email.label">{t(lang, 'newsletter.email.label')}</label>
+            <input
+              id="nl-email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              inputmode="email"
+              maxlength="254"
+              required
+              class="wp-input"
+              placeholder={t(lang, 'newsletter.email.placeholder')}
+              aria-describedby="nl-status"
+              data-testid="newsletter-email"
+            />
+          </div>
+
+          <label class="nl-consent" data-testid="newsletter-consent-row">
+            <input type="checkbox" name="consent" required data-testid="newsletter-consent" />
+            <span data-i18n="newsletter.consent">{t(lang, 'newsletter.consent')}</span>
+          </label>
+
+          <!-- Honeypot: invisible to people, tempting to bots. -->
+          <div class="nl-hp" aria-hidden="true">
+            <label for="nl-website">Website</label>
+            <input id="nl-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+
+          <p class="wp-field__help" data-i18n="newsletter.doubleOptIn">{t(lang, 'newsletter.doubleOptIn')}</p>
+          <p class="wp-field__help">
+            <a href={privacyHref} class="nl-link" data-testid="newsletter-privacy" data-i18n="newsletter.privacyLink">{t(lang, 'newsletter.privacyLink')}</a>
+          </p>
+
+          <p id="nl-status" class="nl-status" role="status" aria-live="polite" data-nl-status data-testid="newsletter-status"></p>
+
+          <div>
+            <button type="submit" class="wp-btn wp-btn--primary" data-nl-submit data-testid="newsletter-submit" data-i18n="newsletter.submit">{t(lang, 'newsletter.submit')}</button>
+          </div>
+        </form>
+
+        <div class="nl-sent" hidden tabindex="-1" data-nl-sent data-testid="newsletter-sent">
+          <h2 class="nl-title" data-i18n="newsletter.sent.title">{t(lang, 'newsletter.sent.title')}</h2>
+          <p class="nl-text" data-i18n="newsletter.sent.text">{t(lang, 'newsletter.sent.text')}</p>
+          <button type="button" class="wp-btn wp-btn--secondary" data-nl-again data-testid="newsletter-again" data-i18n="newsletter.again">{t(lang, 'newsletter.again')}</button>
+        </div>
+      </section>
+
+      <section class="nl-points" data-testid="newsletter-points">
+        <h2 class="nl-title" data-i18n="newsletter.points.title">{t(lang, 'newsletter.points.title')}</h2>
+        <ul class="nl-list">
+          {points.map((point) => (
+            <li>
+              <p class="nl-list-title" data-i18n={`newsletter.points.${point}.title`}>{t(lang, `newsletter.points.${point}.title`)}</p>
+              <p class="nl-text" data-i18n={`newsletter.points.${point}.desc`}>{t(lang, `newsletter.points.${point}.desc`)}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+
+    <script type="application/json" data-nl-strings set:html={JSON.stringify({
+      sending: t(lang, 'newsletter.sending'),
+      submit: t(lang, 'newsletter.submit'),
+      invalidEmail: t(lang, 'newsletter.error.invalid'),
+      consent: t(lang, 'newsletter.error.consent'),
+      rateLimited: t(lang, 'newsletter.error.rateLimited'),
+      offline: t(lang, 'newsletter.error.offline'),
+      unavailable: t(lang, 'newsletter.error.unavailable'),
+      alreadySubscribed: t(lang, 'newsletter.already'),
+    })} />
+  </PageSheet>
+  <BreadcrumbListSchema items={breadcrumbItems} />
+</SubpageLayout>
+
+<style>
+  .nl-grid {
+    display: grid;
+    gap: var(--wp-space-6);
+    align-items: start;
+  }
+  @media (min-width: 900px) {
+    .nl-grid {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+  }
+  .nl-card,
+  .nl-points {
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    color: var(--wp-card-text);
+  }
+  .nl-form,
+  .nl-sent {
+    display: grid;
+    gap: var(--wp-space-4);
+  }
+  .nl-sent[hidden],
+  .nl-form[hidden] {
+    display: none;
+  }
+  .nl-consent {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--wp-space-3);
+    align-items: start;
+    color: var(--wp-card-text);
+    cursor: pointer;
+  }
+  .nl-consent input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: var(--wp-space-1);
+    accent-color: var(--wp-input-border-focus);
+  }
+  .nl-consent input:focus-visible {
+    outline: 2px solid var(--wp-input-border-focus);
+    outline-offset: 2px;
+  }
+  .nl-hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .nl-link {
+    color: var(--wp-input-border-focus);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .nl-status {
+    color: var(--wp-status-error-text);
+    font-size: var(--wp-type-small);
+  }
+  .nl-status:empty {
+    display: none;
+  }
+  .nl-title {
+    color: var(--wp-card-title);
+    font-size: var(--wp-font-size-h3);
+    font-weight: var(--wp-font-weight-semibold);
+  }
+  .nl-text {
+    color: var(--wp-card-meta);
+    line-height: 1.6;
+  }
+  .nl-list {
+    display: grid;
+    gap: var(--wp-space-4);
+    margin-top: var(--wp-space-4);
+  }
+  .nl-list-title {
+    color: var(--wp-card-title);
+    font-weight: var(--wp-font-weight-semibold);
+  }
+</style>
+
+<script>
+  import {
+    looksLikeNewsletterEmail,
+    newsletterElapsedMs,
+    newsletterRequestBody,
+    subscribeToNewsletter,
+  } from '../../scripts/newsletter.ts';
+
+  const root = document.querySelector<HTMLElement>('[data-newsletter]');
+  if (root) {
+    const form = root.querySelector<HTMLFormElement>('[data-nl-form]')!;
+    const sent = root.querySelector<HTMLElement>('[data-nl-sent]')!;
+    const status = root.querySelector<HTMLElement>('[data-nl-status]')!;
+    const submit = root.querySelector<HTMLButtonElement>('[data-nl-submit]')!;
+    const again = root.querySelector<HTMLButtonElement>('[data-nl-again]')!;
+    const strings = JSON.parse(document.querySelector('[data-nl-strings]')!.textContent ?? '{}') as Record<string, string>;
+    const email = form.elements.namedItem('email') as HTMLInputElement;
+    const consent = form.elements.namedItem('consent') as HTMLInputElement;
+    const honeypot = form.elements.namedItem('website') as HTMLInputElement;
+    let shownAt = performance.now();
+
+    email.addEventListener('input', () => {
+      email.removeAttribute('aria-invalid');
+      status.textContent = '';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!looksLikeNewsletterEmail(email.value)) {
+        email.setAttribute('aria-invalid', 'true');
+        status.textContent = strings.invalidEmail;
+        email.focus();
+        return;
+      }
+      if (!consent.checked) {
+        status.textContent = strings.consent;
+        consent.focus();
+        return;
+      }
+      submit.disabled = true;
+      submit.textContent = strings.sending;
+      status.textContent = '';
+      const outcome = await subscribeToNewsletter(
+        root.dataset.endpoint!,
+        newsletterRequestBody({
+          email: email.value,
+          locale: root.dataset.lang!,
+          elapsedMs: newsletterElapsedMs(shownAt, performance.now()),
+          honeypot: honeypot.value,
+        }),
+      );
+      submit.disabled = false;
+      submit.textContent = strings.submit;
+      if (outcome === 'accepted') {
+        form.reset();
+        form.hidden = true;
+        sent.hidden = false;
+        sent.focus();
+        return;
+      }
+      if (outcome === 'alreadySubscribed') {
+        status.textContent = strings.alreadySubscribed;
+        return;
+      }
+      if (outcome === 'invalidEmail') email.setAttribute('aria-invalid', 'true');
+      status.textContent = strings[outcome];
+    });
+
+    again.addEventListener('click', () => {
+      sent.hidden = true;
+      form.hidden = false;
+      shownAt = performance.now();
+      email.focus();
+    });
+  }
+</script>

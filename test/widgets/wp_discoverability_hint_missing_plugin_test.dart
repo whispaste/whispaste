@@ -1,13 +1,16 @@
 /// Regression test for [WpDiscoverabilityHint] under a missing
 /// SharedPreferences plugin (issue 03, experience-perf-polish Cluster 2).
 ///
-/// `test/screenshots/store_screenshots_test.dart` (the `golden_screenshot`
+/// `generators/store/store_screenshots_test.dart` (the `golden_screenshot`
 /// harness) never registers the shared_preferences mock channel, so the very
 /// first `SharedPreferences.getInstance()` call throws
 /// `MissingPluginException`. Kept in its own file (its own test isolate) so
 /// no earlier test's `SharedPreferences.setMockInitialValues` call primes the
 /// package's cached singleton before this scenario runs.
 library;
+
+// test_bundles: own run (removes the shared_preferences channel handler for
+// the whole isolate; in a bundle the next files lost it, lab run 2848).
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

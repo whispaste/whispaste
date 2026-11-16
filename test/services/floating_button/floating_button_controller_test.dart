@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_button/floating_button_events.dart';
+import 'package:whispaste/core/theme/overlay_customization.dart';
 
 void main() {
   group('FloatingButtonVisualState', () {
@@ -158,7 +159,19 @@ class _MockController extends FloatingButtonController {
   }
 
   @override
-  Future<void> setContextMenuItems(List<Map<String, String>> items) async {
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  }) async {
+    calls.add('setTheme($background,$wave)');
+  }
+
+  @override
+  Future<void> setContextMenuItems(
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) async {
     calls.add('setContextMenuItems(${items.length})');
   }
 

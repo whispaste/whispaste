@@ -16,6 +16,19 @@
             "WhisPaste"
         ]
     ],
+    "post_install": [
+        "# whispaste:// (newsletter return path); the app keeps it current on every start",
+        "$key = 'HKCU:\\Software\\Classes\\whispaste'",
+        "New-Item -Path \"$key\\shell\\open\\command\" -Force | Out-Null",
+        "Set-Item -Path $key -Value 'URL:WhisPaste'",
+        "New-ItemProperty -Path $key -Name 'URL Protocol' -Value '' -Force | Out-Null",
+        "Set-Item -Path \"$key\\shell\\open\\command\" -Value \"`\"$(Split-Path $dir)\\current\\whispaste.exe`\" `\"%1`\"\""
+    ],
+    "uninstaller": {
+        "script": [
+            "Remove-Item -Path 'HKCU:\\Software\\Classes\\whispaste' -Recurse -Force -ErrorAction SilentlyContinue"
+        ]
+    },
     "checkver": "github",
     "autoupdate": {
         "architecture": {

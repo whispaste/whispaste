@@ -12,11 +12,16 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/settings_sections.dart';
 import '../../../core/data/database.dart';
+import '../../../core/data/history_backups.dart';
+import '../../../core/data/note_asset_storage.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../services/app_identity/app_identity_service.dart';
+import '../../../services/audio/retention/pending_wipe.dart';
 import '../../../services/path_service.dart';
 import 'history_pin.dart';
 
@@ -27,32 +32,179 @@ final historyLockClockProvider = Provider<DateTime Function()>(
   (_) => DateTime.now,
 );
 
-/// Permanently deletes every history entry and its retained recordings —
-/// the "Forgot PIN?" path. A seam so tests do not need a database.
-final historyWiperProvider = Provider<Future<void> Function()>((ref) {
+/// Runs PIN hashing and verification off the UI isolate. A seam: widget tests
+/// run the work inline, because an isolate hop only completes in real time.
+class HistoryPinCompute {
+  const HistoryPinCompute();
+
+  Future<T> call<T>(T Function() work) => Isolate.run(work);
+}
+
+final historyPinComputeProvider = Provider<HistoryPinCompute>(
+  (_) => const HistoryPinCompute(),
+);
+
+/// What a forgot-PIN wipe left behind.
+class HistoryWipeOutcome {
+  const HistoryWipeOutcome({
+    required this.leftovers,
+    required this.queued,
+    required this.folder,
+    this.migrationCopyLeft,
+  });
+
+  /// Files or folders that could not be removed, at least one when the
+  /// folders could not be listed at all.
+  final int leftovers;
+
+  /// True when every leftover file is queued for removal at the next start.
+  final bool queued;
+
+  /// The audio folders that hold the leftovers, for the user to find them.
+  /// Empty when nothing was left behind.
+  final String folder;
+
+  /// Full path of the pre-migration database copy when it could not be
+  /// removed. It is not audio, so it is never queued and not counted in
+  /// [leftovers]; the user is told its path instead.
+  final String? migrationCopyLeft;
+}
+
+/// Permanently deletes every history entry and the audio folders — the
+/// "Forgot PIN?" path. Each entry is attempted on its own, so one locked entry
+/// does not keep the others. Leftover files are queued for the next start. A
+/// folder that cannot be removed contributes its files, not the folder. A
+/// folder that cannot be listed queues nothing. A seam so tests do not need a
+/// database.
+final historyWiperProvider = Provider<Future<HistoryWipeOutcome> Function()>((
+  ref,
+) {
   return () async {
-    final files = await ref.read(historyDatabaseProvider).deleteAllHistory();
+    final leftovers = <String>[];
+    String? unlistedRoot;
+    final database = ref.read(historyDatabaseProvider);
+    final files = await database.deleteAllHistory();
     for (final path in files) {
-      await _deleteQuietly(File(path));
+      if (!await _deleteQuietly(File(path))) leftovers.add(path);
     }
+    // Notes go too: the PIN covers them, so a reset must not leave them behind.
+    await database.deleteAllNotes();
+    await _wipeNoteAssetFiles(appDataDir(), leftovers);
+    // The icon cache tells which apps were dictated into.
     try {
-      final dir = Directory(retainedAudioDir());
-      if (dir.existsSync()) {
-        await for (final entity in dir.list()) {
-          if (entity is File) await _deleteQuietly(entity);
-        }
-      }
+      await ref.read(appIdentityServiceProvider).clear();
     } catch (e, st) {
-      _log.warning('wipe: retained audio cleanup failed', e, st);
+      _log.warning('wipe: could not delete the app icon cache', e, st);
     }
+    ref.invalidate(appIdentityProvider);
+    // Plaintext copy of the old history, left by a database migration.
+    final preMigration = File(p.join(appDataDir(), 'history.db.pre-migration'));
+    final String? migrationCopyLeft = await _deleteQuietly(preMigration)
+        ? null
+        : preMigration.path;
+    // Upgrade backups of the history (#562) go with it. Not in [leftovers]:
+    // the audio-only queue would refuse them; a folder that resists is
+    // retried at the next start through its own marker.
+    eraseHistoryBackups(appDataDir());
+    for (final root in userAudioDirectories()) {
+      if (!await _wipeFolder(Directory(root), leftovers)) {
+        unlistedRoot ??= root;
+      }
+    }
+    if (unlistedRoot != null) {
+      return HistoryWipeOutcome(
+        leftovers: leftovers.length + 1,
+        queued: false,
+        folder: unlistedRoot,
+        migrationCopyLeft: migrationCopyLeft,
+      );
+    }
+    final queued = await recordPendingWipe(leftovers);
+    return HistoryWipeOutcome(
+      leftovers: leftovers.length,
+      queued: queued,
+      folder: _leftoverFolder(leftovers),
+      migrationCopyLeft: migrationCopyLeft,
+    );
   };
 });
 
-Future<void> _deleteQuietly(File file) async {
+/// The audio folders that hold the leftovers, comma-separated. Never their
+/// common parent: that also holds the database, settings and models, which a
+/// user told to delete by hand must not touch.
+String _leftoverFolder(List<String> leftovers) {
+  final roots = userAudioDirectories();
+  final folders = {
+    for (final path in leftovers)
+      roots.firstWhere(
+        (root) => p.isWithin(root, path),
+        orElse: () => p.dirname(path),
+      ),
+  };
+  return folders.join(', ');
+}
+
+/// Removes everything in [dir]. Returns false when [dir] cannot be listed, or
+/// when a subfolder cannot be removed and its files cannot be listed either.
+Future<bool> _wipeFolder(Directory dir, List<String> leftovers) async {
+  if (!dir.existsSync()) return true;
+  final List<FileSystemEntity> entries;
+  try {
+    entries = await dir.list().toList();
+  } catch (e, st) {
+    _log.warning('wipe: could not list ${dir.path}', e, st);
+    return false;
+  }
+  var listed = true;
+  for (final entity in entries) {
+    if (entity is File) {
+      if (!await _deleteQuietly(entity)) leftovers.add(entity.path);
+      continue;
+    }
+    if (entity is! Directory) continue;
+    try {
+      // The recovery journal lives in a subfolder; it describes the
+      // recordings just removed and must not outlive them.
+      await entity.delete(recursive: true);
+    } catch (e, st) {
+      _log.warning('wipe: could not delete ${entity.path}', e, st);
+      final files = await filesUnder(entity.path);
+      if (files == null) {
+        listed = false;
+      } else {
+        leftovers.addAll(files);
+      }
+    }
+  }
+  return listed;
+}
+
+/// True when the file is gone afterwards.
+/// Removes every file of the note image folder under [dir]. A file that cannot
+/// be removed is added to [leftovers] and queued like audio leftovers.
+Future<void> _wipeNoteAssetFiles(String dir, List<String> leftovers) async {
+  final root = Directory(p.join(dir, noteAssetFolderName));
+  if (!await root.exists()) return;
+  try {
+    await for (final entity in root.list(recursive: true)) {
+      if (entity is File && !await _deleteQuietly(entity)) {
+        leftovers.add(entity.path);
+      }
+    }
+    await root.delete(recursive: true);
+  } catch (e, st) {
+    _log.warning('wipe: could not clear the note image folder', e, st);
+    leftovers.add(root.path);
+  }
+}
+
+Future<bool> _deleteQuietly(File file) async {
   try {
     if (file.existsSync()) await file.delete();
+    return true;
   } catch (e, st) {
     _log.warning('wipe: could not delete ${file.path}', e, st);
+    return false;
   }
 }
 
@@ -119,7 +271,9 @@ class HistoryRevealedNotifier extends Notifier<bool> {
     }
     final history = _history;
     final stored = history.historyPin;
-    if (await Isolate.run(() => verifyHistoryPin(pin, stored))) {
+    if (await ref.read(historyPinComputeProvider)(
+      () => verifyHistoryPin(pin, stored),
+    )) {
       if (history.historyPinFailedAttempts != 0 ||
           history.historyPinLockedUntil != 0) {
         await _updateHistory(
@@ -149,7 +303,9 @@ class HistoryRevealedNotifier extends Notifier<bool> {
   /// Stores a fresh hash of [pin] (caller validated it with
   /// [isValidHistoryPin]); a PIN implies the gate, so it is switched on.
   Future<void> setPin(String pin) async {
-    final hash = await Isolate.run(() => hashHistoryPin(pin));
+    final hash = await ref.read(historyPinComputeProvider)(
+      () => hashHistoryPin(pin),
+    );
     await _updateHistory(
       (h) => h.copyWith(
         historyHideOnOpen: true,
@@ -169,11 +325,13 @@ class HistoryRevealedNotifier extends Notifier<bool> {
   );
 
   /// "Forgot PIN?": deletes the whole history, drops the PIN and reveals the
-  /// (now empty) page. The gate itself stays on.
-  Future<void> resetForgottenPin() async {
-    await ref.read(historyWiperProvider)();
+  /// (now empty) page. The gate itself stays on. Returns what the wipe left
+  /// behind, so the caller can tell the user whether it was queued.
+  Future<HistoryWipeOutcome> resetForgottenPin() async {
+    final outcome = await ref.read(historyWiperProvider)();
     await removePin();
     _setRevealed();
+    return outcome;
   }
 
   void _setRevealed() {
@@ -198,12 +356,19 @@ final historyRevealedProvider = NotifierProvider<HistoryRevealedNotifier, bool>(
   HistoryRevealedNotifier.new,
 );
 
-/// Whether history text must be withheld from every surface: a PIN is set
-/// and the history has not been unlocked. The PIN-less gate only covers the
-/// History page itself, so it does not count here. Every surface reading
-/// this (side panel, floating button, Automation API) is only started from
-/// loaded settings, so the not-yet-loaded fallback is never consulted.
+/// Whether history text must be withheld from every surface: true only when a
+/// PIN is actually set and the history has not been unlocked. The lock never
+/// claims a PIN it does not know of: while the settings are still loading
+/// there is no PIN state yet, so nothing is withheld (every surface is only
+/// started from loaded settings). Only a settings load that failed without
+/// any previous value fails closed, because a PIN cannot be ruled out then.
+/// The PIN-less gate only covers the History page itself, so it does not
+/// count here.
 final historyContentHiddenProvider = Provider<bool>((ref) {
+  final failedWithoutValue = ref.watch(
+    settingsProvider.select((s) => s.hasError && !s.hasValue),
+  );
+  if (failedWithoutValue) return true;
   final hasPin = ref.watch(
     settingsProvider.select(
       (s) => s.value?.history.historyPin.isNotEmpty ?? false,

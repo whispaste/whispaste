@@ -116,6 +116,56 @@ void main() {
       expect(response.statusCode, 200);
     });
 
+    test('a Parakeet language gap comes back as a warning, not silently '
+        'dropped (SW-05)', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(
+                recording: true,
+                unsupportedLanguage: 'ar',
+              ),
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'language': 'ar'}),
+      );
+      final body = jsonDecode(await response.readAsString()) as Map;
+
+      expect(response.statusCode, 200);
+      expect(body['warning'], {
+        'code': 'parakeet_language_unsupported',
+        'language': 'ar',
+      });
+    });
+
+    test('no warning field when the language is supported', () async {
+      final router = buildAutomationApiRouter([
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({
+                wait = false,
+                language,
+                smartModePreset,
+                silenceTimeout,
+              }) async => const DictationTriggerResult(recording: true),
+        ),
+      ]);
+
+      final response = await router.handler(
+        postJson('/v1/dictation/trigger', {'language': 'de'}),
+      );
+      final body = jsonDecode(await response.readAsString()) as Map;
+
+      expect(body.containsKey('warning'), isFalse);
+    });
+
     test('"auto" is accepted as a `language` value', () async {
       String? receivedLanguage;
       final router = buildAutomationApiRouter([
@@ -532,7 +582,7 @@ void main() {
     });
 
     test('returns 423 history_locked without querying while the history is '
-        'PIN-locked (internal-notes)', () async {
+        'PIN-locked', () async {
       var fetched = false;
       final router = buildAutomationApiRouter([
         historyLatestRoutes(

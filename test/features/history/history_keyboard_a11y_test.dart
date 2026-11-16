@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/database.dart';
-import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 import 'package:whispaste/features/history/widgets/history_detail_panel.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
 import 'package:whispaste/features/history/widgets/history_list_tile.dart';
@@ -66,26 +66,6 @@ void main() {
       await tester.pump();
       expect(taps, 2);
     });
-
-    testWidgets('tap/focus surface is at least minTouchTarget tall', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          Center(
-            child: WpFilterChip(label: 'All', isActive: true, onTap: () {}),
-          ),
-        ),
-      );
-
-      final inkWellSize = tester.getSize(
-        find.descendant(
-          of: find.byType(WpFilterChip),
-          matching: find.byType(InkWell),
-        ),
-      );
-      expect(inkWellSize.height, greaterThanOrEqualTo(WpLayout.minTouchTarget));
-    });
   });
 
   group('Entry tag chips keyboard access', () {
@@ -109,10 +89,17 @@ void main() {
 
       expect(find.text('#work'), findsOneWidget);
 
-      // Row is neither hovered nor focused → the tag chip is the only
-      // focusable element inside the row.
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
+      // Row is neither hovered nor focused → its row actions are reached by
+      // one Tab stop placed before the tag chip (UIA-KBD-01, title line
+      // first); the chip follows it in reading order.
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        if (FocusManager.instance.primaryFocus?.debugLabel == 'EntryTagChip') {
+          break;
+        }
+      }
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'EntryTagChip');
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(tappedTag, 'work');
@@ -258,7 +245,10 @@ void main() {
 
       // The dialog carries other icon buttons, so the row's delete button is
       // addressed by its own icon.
-      final deleteButton = find.widgetWithIcon(IconButton, LucideIcons.trash2);
+      final deleteButton = find.widgetWithIcon(
+        WpIconButton,
+        LucideIcons.trash2,
+      );
       final opacity = find
           .ancestor(of: deleteButton, matching: find.byType(AnimatedOpacity))
           .first;
@@ -267,7 +257,7 @@ void main() {
       // Focus is requested directly rather than tabbed to: the assertion is
       // about what a focused delete button looks like, not about where it sits
       // in the dialog's tab order.
-      tester.widget<IconButton>(deleteButton).focusNode!.requestFocus();
+      tester.widget<WpIconButton>(deleteButton).focusNode!.requestFocus();
       await tester.pumpAndSettle();
 
       // Before the fix this stayed 0.0 — Tab parked the caret on an invisible

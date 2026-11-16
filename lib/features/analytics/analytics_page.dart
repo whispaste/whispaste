@@ -1,23 +1,29 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/accessibility/announce.dart';
 import '../../core/data/database.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/recording/recording_helpers.dart' show displayNameForModel;
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_page_notice.dart';
+import '../../widgets/wp_stat_tile.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/section.dart';
-import '../../widgets/toast.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_card.dart';
 import '../../widgets/wp_filter_chip.dart';
 import '../../core/data/analytics_provider.dart';
+import '../../services/recording_orchestrator.dart'
+    show recordingOrchestratorProvider;
 
 // ---------------------------------------------------------------------------
 // Helper data classes (kept local — only used by widgets below)
@@ -62,25 +68,68 @@ class AnalyticsPage extends ConsumerWidget {
     final asyncData = ref.watch(analyticsProvider);
     final l10n = L10n.of(context);
 
-    return asyncData.when(
-      loading: () => const _AnalyticsSkeleton(),
-      error: (e, _) => WpEmptyState(
+    Widget body(AnalyticsData data) {
+      if (data.isEmpty) {
+        // An empty period keeps the selector, so the user can widen it. Only
+        // the all-time view gets the page-level "no recordings yet" (UIA-ANA-01).
+        if (ref.watch(analyticsPeriodProvider) != AnalyticsPeriod.allTime) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Align(
+                alignment: Alignment.centerRight,
+                child: _PeriodSelector(),
+              ),
+              const SizedBox(height: WpSpacing.md),
+              WpEmptyState(
+                icon: LucideIcons.chartNoAxesColumn,
+                title: l10n.analyticsNoRecordingsInPeriod,
+                actionLabel: l10n.dockDictate,
+                actionTestId: 'analytics-period-dictate',
+                onAction: () => ref
+                    .read(recordingOrchestratorProvider.notifier)
+                    .toggleRecording(),
+              ),
+            ],
+          );
+        }
+        return WpEmptyState(
+          icon: LucideIcons.chartNoAxesColumn,
+          title: l10n.analyticsEmptyTitle,
+          hint: l10n.analyticsEmptySubtitle,
+          // Statistics fill from recordings: the first action is "Dictate".
+          actionLabel: l10n.dockDictate,
+          actionTestId: 'analytics-empty-dictate',
+          onAction: () => ref
+              .read(recordingOrchestratorProvider.notifier)
+              .toggleRecording(),
+        );
+      }
+      return _AnalyticsDashboard(data: data);
+    }
+
+    // A refresh (retry, reset) keeps the figures on screen. A reload (the
+    // period changed) must not show the previous period's numbers under the
+    // new label, so it falls through to that period's snapshot instead.
+    if (asyncData.hasValue && !asyncData.isReloading && !asyncData.hasError) {
+      return body(asyncData.requireValue);
+    }
+    if (asyncData.hasError && !asyncData.isLoading) {
+      // Only a failure outside every panel lands here (e.g. no database);
+      // a single failed query shows inside its own panel (#887).
+      return WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,
         actionLabel: l10n.actionRetry,
+        actionTestId: 'analytics-retry',
         onAction: () => ref.invalidate(analyticsProvider),
-      ),
-      data: (data) {
-        if (data.isEmpty) {
-          return WpEmptyState(
-            icon: LucideIcons.chartNoAxesColumn,
-            title: l10n.analyticsEmptyTitle,
-            hint: l10n.analyticsEmptySubtitle,
-          );
-        }
-        return _AnalyticsDashboard(data: data);
-      },
-    );
+      );
+    }
+    // Opening the page shows the last complete result at once; the full
+    // aggregation runs behind it and replaces it when done (#887).
+    final snapshot = ref.watch(analyticsSnapshotProvider).value;
+    if (snapshot != null) return body(snapshot);
+    return _AnalyticsSkeleton(label: l10n.analyticsLoading);
   }
 }
 
@@ -89,69 +138,83 @@ class AnalyticsPage extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _AnalyticsSkeleton extends StatelessWidget {
-  const _AnalyticsSkeleton();
+  const _AnalyticsSkeleton({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    const boxColor = WpColors.borderSubtle;
+    final boxColor = WpColors.borderSubtle;
 
-    return WpPageShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 4 hero stat card placeholders
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: i < 3 ? WpSpacing.sm : 0),
+    return Semantics(
+      label: label,
+      child: WpPageShell(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Key-figure placeholder, then one row of supporting tiles,
+            // matching the loaded layout (#1075).
+            Container(
+              height: 96,
+              decoration: BoxDecoration(
+                color: boxColor,
+                borderRadius: WpRadius.borderMd,
+              ),
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            Row(
+              children: List.generate(3, (i) {
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: i < 2 ? WpSpacing.sm : 0),
+                    child: Container(
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: boxColor,
+                        borderRadius: WpRadius.borderMd,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: WpSpacing.xxl),
+            // Chart area placeholder
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: boxColor,
+                borderRadius: WpRadius.borderMd,
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xxl),
+            // Two side-by-side panel placeholders
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Container(
-                    height: 88,
+                    height: 120,
                     decoration: BoxDecoration(
                       color: boxColor,
                       borderRadius: WpRadius.borderMd,
                     ),
                   ),
                 ),
-              );
-            }),
-          ),
-          const SizedBox(height: WpSpacing.xxl),
-          // Chart area placeholder
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: boxColor,
-              borderRadius: WpRadius.borderMd,
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: boxColor,
+                      borderRadius: WpRadius.borderMd,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: WpSpacing.xxl),
-          // Two side-by-side panel placeholders
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: boxColor,
-                    borderRadius: WpRadius.borderMd,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: boxColor,
-                    borderRadius: WpRadius.borderMd,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -166,6 +229,21 @@ class _AnalyticsDashboard extends StatelessWidget {
 
   final AnalyticsData data;
 
+  /// Wraps one panel: its own content, or — when that panel's query failed —
+  /// an error card with its own retry, so the rest of the page stays usable.
+  Widget _panel(
+    AnalyticsPanel panel, {
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
+    return WpCard(
+      child: data.failedPanels.contains(panel)
+          ? _PanelError(panel: panel, icon: icon, title: title)
+          : child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -174,6 +252,9 @@ class _AnalyticsDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // A failed reset says so here, under the page head where one looks
+          // (the button sits at the foot of a long page).
+          const WpPageNoticeSlot(page: WpNoticePage.analytics),
           // ── Row 1: Hero stat cards ──────────────────────────────
           //
           // The period selector rides in the section header, not at the page
@@ -186,7 +267,15 @@ class _AnalyticsDashboard extends StatelessWidget {
             subtitle: l10n.analyticsOverviewSubtitle,
             padding: EdgeInsets.zero,
             trailing: const _PeriodSelector(),
-            child: _HeroStatsRow(data: data),
+            child: data.failedPanels.contains(AnalyticsPanel.overview)
+                ? WpCard(
+                    child: _PanelError(
+                      panel: AnalyticsPanel.overview,
+                      icon: LucideIcons.gauge,
+                      title: l10n.analyticsOverview,
+                    ),
+                  )
+                : _HeroStatsRow(data: data),
           ),
 
           const SizedBox(height: WpSpacing.xxl),
@@ -196,10 +285,19 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsActivity,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _AnalyticsPanelCard(
-                child: _ActivityChartPanel(values: data.weeklyActivity),
+              left: _panel(
+                AnalyticsPanel.activity,
+                icon: LucideIcons.calendarDays,
+                title: l10n.analyticsRecordingActivity,
+                child: _ActivityHeatmapPanel(
+                  daily: data.dailyActivity,
+                  streakDays: data.streakDays,
+                ),
               ),
-              right: _AnalyticsPanelCard(
+              right: _panel(
+                AnalyticsPanel.models,
+                icon: LucideIcons.brain,
+                title: l10n.analyticsModelUsage,
                 child: _ModelUsagePanel(
                   models: data.modelUsage
                       .map(
@@ -223,12 +321,18 @@ class _AnalyticsDashboard extends StatelessWidget {
             title: l10n.analyticsInsights,
             padding: EdgeInsets.zero,
             child: WpTwoPanel(
-              left: _AnalyticsPanelCard(
+              left: _panel(
+                AnalyticsPanel.durations,
+                icon: LucideIcons.timer,
+                title: l10n.analyticsDurationDistribution,
                 child: _DurationDistPanel(
                   buckets: _buildBuckets(l10n, data.durationBuckets),
                 ),
               ),
-              right: _AnalyticsPanelCard(
+              right: _panel(
+                AnalyticsPanel.costs,
+                icon: LucideIcons.piggyBank,
+                title: l10n.analyticsCostSavings,
                 child: _CostPanel(
                   localSavingsUsd: data.localSavingsUsd,
                   cloudCostUsd: data.cloudCostUsd,
@@ -239,7 +343,37 @@ class _AnalyticsDashboard extends StatelessWidget {
 
           const SizedBox(height: WpSpacing.xxl),
 
-          // ── Row 4: Reset ───────────────────────────────────────
+          // ── Row 3b: Wording + frequent corrections ─────────────
+          WpSection(
+            title: l10n.analyticsWordingTitle,
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _panel(
+                AnalyticsPanel.wording,
+                icon: LucideIcons.textCursorInput,
+                title: l10n.analyticsWordingPanelTitle,
+                child: _WordingPanel(wording: data.wording),
+              ),
+              right: _panel(
+                AnalyticsPanel.corrections,
+                icon: LucideIcons.spellCheck,
+                title: l10n.analyticsCorrectionsTitle,
+                child: _CorrectionsPanel(corrections: data.topCorrections),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 4: what is counted, then Reset ─────────────────
+          Text(
+            l10n.analyticsPrivacyNote,
+            style: TextStyle(
+              fontSize: WpTypography.caption,
+              color: WpColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
           const _ResetRow(),
 
           const SizedBox(height: WpSpacing.xl),
@@ -248,7 +382,9 @@ class _AnalyticsDashboard extends StatelessWidget {
     );
   }
 
-  List<_DurationBucket> _buildBuckets(L10n l10n, List<int> counts) {
+  List<_DurationBucket> _buildBuckets(L10n l10n, List<int> raw) {
+    // A snapshot or fallback may carry fewer than five buckets; pad with 0.
+    final counts = [for (var i = 0; i < 5; i++) i < raw.length ? raw[i] : 0];
     final total = counts.fold<int>(0, (s, c) => s + c);
     double frac(int c) => total > 0 ? c / total : 0.0;
     return [
@@ -277,11 +413,31 @@ String _commaFormat(String localeName, int value) {
   return NumberFormat.decimalPattern(localeName).format(value);
 }
 
-String _durationFormat(L10n l10n, int totalMinutes) {
-  final h = totalMinutes ~/ 60;
-  final m = totalMinutes % 60;
-  return l10n.analyticsDurationHoursMinutes(h, m);
+/// A count in the app locale, with the same thousands separator everywhere.
+String _countText(BuildContext context, int value) =>
+    _commaFormat(Localizations.localeOf(context).toString(), value);
+
+/// Formats a whole-minute total for the hero stats in the app locale: decimal
+/// hours from one hour up ("7,1 Std." in de), whole minutes below ("45 Min.").
+/// A single compact unit keeps the 22 px hero number on its full rung; the
+/// former "7 Std. 3 Min." had to be scaled down by the FittedBox.
+String formatAnalyticsDuration(L10n l10n, String localeName, int totalMinutes) {
+  if (totalMinutes < 60) {
+    return l10n.analyticsDurationMinutes('$totalMinutes');
+  }
+  final hours = NumberFormat('#,##0.0', localeName).format(totalMinutes / 60);
+  return l10n.analyticsDurationHours(hours);
 }
+
+/// Formats a cost total in USD for the app locale: the source prices are
+/// per-transcription USD API prices, so the currency stays USD and only the
+/// rendering follows the locale ("127,05 $" in de, "$127.05" in en).
+String formatAnalyticsUsd(String localeName, double usd) =>
+    NumberFormat.currency(
+      locale: localeName,
+      symbol: r'$',
+      decimalDigits: 2,
+    ).format(usd);
 
 /// Formats a hotkey→text latency in whole milliseconds as a plain-language
 /// seconds value (e.g. "1.8s") — never raw milliseconds.
@@ -325,7 +481,7 @@ class _PanelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     return Row(
       children: [
         Icon(icon, size: WpIconSize.sm, color: accent),
@@ -334,7 +490,7 @@ class _PanelHeader extends StatelessWidget {
           child: Text(
             title,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.body,
               fontWeight: FontWeight.w600,
               color: WpColors.textPrimary,
@@ -346,38 +502,6 @@ class _PanelHeader extends StatelessWidget {
           trailing!,
         ],
       ],
-    );
-  }
-}
-
-/// The card the four analytics panels stand on.
-///
-/// Same recipe as `_AboutCard` (`about_page.dart`), and for the same reason:
-/// translucent [WpColors.cardFill] because this card sits inside the main
-/// content panel rather than on its own ground, a [WpColors.cardEdgeHighlight]
-/// rim, and no shadow — depth in this app comes from the fill step, not from a
-/// drop shadow (the Depth-Source Rule, `lib/DESIGN.md`).
-///
-/// Before Ticket 14 the panels painted no material at all: four content blocks
-/// floating on the page surface, separated only by a 16 px gap and each one's
-/// accent underline. Two panels side by side in a [WpTwoPanel] had nothing
-/// between them but that gap, so a reader scanning across the row could not
-/// see where the activity chart stopped and the model list started.
-class _AnalyticsPanelCard extends StatelessWidget {
-  const _AnalyticsPanelCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(WpSpacing.lg),
-      decoration: BoxDecoration(
-        color: WpColors.cardFill,
-        borderRadius: WpRadius.borderLg,
-        border: Border.all(color: WpColors.cardEdgeHighlight),
-      ),
-      child: child,
     );
   }
 }
@@ -397,459 +521,403 @@ class _HeroStatsRow extends StatelessWidget {
     final localeName = Localizations.localeOf(context).toString();
     String formatCount(int value) => _commaFormat(localeName, value);
     String formatDuration(int totalMinutes) =>
-        _durationFormat(l10n, totalMinutes);
+        formatAnalyticsDuration(l10n, localeName, totalMinutes);
 
+    final wpm = data.wordsPerMinute;
+    final timeSavedNote = l10n.analyticsTimeSavedNote(
+      kAnalyticsTypingWordsPerMinute,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 520;
-        final pills = [
-          _HeroPill(
-            isLead: true,
-            icon: LucideIcons.mic,
-            rawValue: data.totalRecordings,
-            formatter: formatCount,
-            label: l10n.analyticsTotalRecordings,
-          ),
-          _HeroPill(
-            icon: LucideIcons.clock,
-            rawValue: data.totalDurationMinutes,
-            formatter: formatDuration,
-            label: l10n.analyticsTotalDuration,
-          ),
-          _HeroPill(
-            icon: LucideIcons.type,
-            rawValue: data.totalWords,
-            formatter: formatCount,
-            label: l10n.analyticsWordsDictated,
-          ),
-          _HeroPill(
+        // One key moment, then the supporting detail (#1075, premium-apps:
+        // one focus per view). The words dictated are what the whole app
+        // exists to produce, so that figure takes a row of its own in the
+        // hero stage; seven equally weighted tiles left the reader to find
+        // the point themselves. The pace and what it saved follow, then the
+        // supporting counts, in a grid of 2 or 3 columns.
+        final lead = WpStatTile(
+          hero: true,
+          icon: LucideIcons.type,
+          rawValue: data.totalWords,
+          formatter: formatCount,
+          label: l10n.analyticsWordsDictated,
+        );
+        // Every supporting tile reserves the time-saved note's line, so the
+        // one tile that carries a note no longer stands taller than its
+        // neighbours; each grid row also stretches to its tallest tile in
+        // case a label wraps.
+        final tiles = [
+          if (wpm != null)
+            WpStatTile(
+              icon: LucideIcons.gauge,
+              rawValue: wpm.round(),
+              formatter: formatCount,
+              label: l10n.analyticsWordsPerMinute,
+              reserveNote: timeSavedNote,
+            ),
+          WpStatTile(
             icon: LucideIcons.zap,
             rawValue: data.timeSavedMinutes,
             formatter: formatDuration,
             label: l10n.analyticsTimeSaved,
+            note: timeSavedNote,
           ),
-          if (data.averageHotkeyLatencyMs != null)
-            _HeroPill(
-              icon: LucideIcons.gauge,
-              rawValue: data.averageHotkeyLatencyMs!.round(),
+          WpStatTile(
+            icon: LucideIcons.clock,
+            rawValue: data.totalDurationMinutes,
+            formatter: formatDuration,
+            label: l10n.analyticsTotalDuration,
+            reserveNote: timeSavedNote,
+          ),
+          WpStatTile(
+            icon: LucideIcons.mic,
+            rawValue: data.totalRecordings,
+            formatter: formatCount,
+            label: l10n.analyticsTotalRecordings,
+            reserveNote: timeSavedNote,
+          ),
+          if (data.activeDays > 0)
+            WpStatTile(
+              icon: LucideIcons.calendarCheck,
+              rawValue: data.activeDays,
+              formatter: formatCount,
+              label: l10n.analyticsActiveDays,
+              reserveNote: timeSavedNote,
+            ),
+          if (data.averageStopToTextMs != null)
+            WpStatTile(
+              icon: LucideIcons.timer,
+              rawValue: data.averageStopToTextMs!.round(),
               formatter: (ms) => _latencySecondsFormat(localeName, ms),
               label: l10n.analyticsAvgLatency,
+              reserveNote: timeSavedNote,
             ),
         ];
 
-        if (narrow) {
-          return Wrap(
-            spacing: WpSpacing.sm,
-            runSpacing: WpSpacing.sm,
-            children: pills
-                .map(
-                  (c) => SizedBox(
-                    width: (constraints.maxWidth - WpSpacing.sm) / 2,
-                    child: c,
-                  ),
-                )
-                .toList(),
+        final columns = constraints.maxWidth >= 520 ? 3 : 2;
+        final rows = <Widget>[];
+        for (var start = 0; start < tiles.length; start += columns) {
+          rows.add(
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = start; i < start + columns; i++) ...[
+                    if (i > start) const SizedBox(width: WpSpacing.sm),
+                    // An empty cell keeps a short last row on the grid
+                    // instead of stretching its tiles wider than the rest.
+                    Expanded(
+                      child: i < tiles.length
+                          ? tiles[i]
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           );
         }
-        return Row(
-          children: pills
-              .map(
-                (c) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: c == pills.last ? 0 : WpSpacing.sm,
-                    ),
-                    child: c,
-                  ),
-                ),
-              )
-              .toList(),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            lead,
+            for (final row in rows) ...[
+              const SizedBox(height: WpSpacing.sm),
+              row,
+            ],
+          ],
         );
       },
     );
   }
 }
 
-/// Pill-shaped stat block on the app's card material, with a number that counts
-/// up once on entry. Deliberately not interactive — the doc used to promise a
-/// "hover interaction" that the widget no longer has, and a stat card that
-/// lights up under the pointer would imply a click target this app does not
-/// offer here.
-///
-/// Every pill used to carry a 2 px `accentWarmGradient` strip along its top
-/// edge (ticket 32, finding B4). Two things were wrong with it. It was the
-/// brand's loudest gradient, the one the app otherwise spends only where it
-/// marks a real selection, sitting on a tile that cannot be selected or even
-/// clicked — the same broken promise the removed hover highlight made, in
-/// paint instead of motion. And it was on *all* of them, so the row was four
-/// (sometimes five) identically weighted tiles: nothing in it answered "what
-/// is this dashboard about", which is the job of the first thing a reader
-/// meets on a page.
-///
-/// Rank replaces the strip. The row's [isLead] tile — the count of the thing
-/// the whole app exists to do — sits on the elevated rung of the card material
-/// and keeps the accent icon; the rest sit on the base rung with a muted icon
-/// and read as the supporting detail they are. Geometry, padding and type are
-/// untouched, so the per-locale width measurements in `analytics_page_test.dart`
-/// still describe the tile they were taken from: this is a difference in
-/// weight, not in size, which is the only kind a row of equally sized cells can
-/// carry without one of them jumping out of the grid.
-class _HeroPill extends StatefulWidget {
-  const _HeroPill({
+// ---------------------------------------------------------------------------
+// Per-panel error state
+// ---------------------------------------------------------------------------
+
+/// What a panel shows when its own query failed (#887): its header, so one
+/// still knows which figure is missing, a plain sentence and a retry. The
+/// other panels keep their numbers; a whole-page error would hide them all.
+class _PanelError extends ConsumerWidget {
+  const _PanelError({
+    required this.panel,
     required this.icon,
-    required this.rawValue,
-    required this.formatter,
-    required this.label,
-    this.isLead = false,
+    required this.title,
   });
 
+  final AnalyticsPanel panel;
   final IconData icon;
-  final int rawValue;
-  final String Function(int) formatter;
-  final String label;
-
-  /// Whether this is the row's lead statistic. Exactly one pill sets it.
-  final bool isLead;
+  final String title;
 
   @override
-  State<_HeroPill> createState() => _HeroPillState();
-}
-
-class _HeroPillState extends State<_HeroPill>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _counter;
-  late final CurvedAnimation _curve;
-  bool _started = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // `dramatic` (500 ms) is the app's ceiling for a one-shot transition, and
-    // this count-up used to run 1200 ms — more than twice it. Every other
-    // duration above the ceiling in this codebase is either a timer or a
-    // *periodic* pulse (waveform, recording bar, overlay dot), where a long
-    // period is the point; among one-shot entrance animations these two on
-    // this screen were the only ones out of band. It matters more here than
-    // it looks: while the count-up runs, the card does not show the number
-    // smaller, it shows a *different* number — a total of 347 reads 12, then
-    // 98, then 210. That is decoration instead of the information rather than
-    // on top of it, so the time spent unreadable is the thing worth cutting.
-    _counter = AnimationController(vsync: this, duration: WpMotion.dramatic);
-    _curve = CurvedAnimation(parent: _counter, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // `forward()` bakes in `duration` at call time, so the reduced-motion
-    // duration must be set before the first (only) forward() call, not after.
-    _counter.duration = WpMotion.durationFor(context, WpMotion.dramatic);
-    if (!_started) {
-      _started = true;
-      _counter.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _curve.dispose();
-    _counter.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
-
-    // One stat, one node. The number and its caption were two unrelated
-    // fragments in the semantics tree, so the value arrived without ever
-    // saying what it counted ("1.234" … "Wörter").
-    //
-    // The hover highlight is gone: everywhere else in this app a surface that
-    // lights up under the pointer is a surface you can click, and this pill
-    // has never been tappable. It promised an interaction that does not exist.
-    return MergeSemantics(
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: widget.isLead ? WpColors.cardFillElevated : WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.cardEdgeHighlight),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    return Column(
+      key: ValueKey('analytics-${panel.name}-error'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(icon: icon, title: title),
+        const SizedBox(height: WpSpacing.md),
+        Row(
           children: [
-            // Icon — accent on the lead statistic, muted on the rest.
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Icon(
-                widget.icon,
-                size: WpIconSize.sm,
-                color: widget.isLead ? WpColors.accent : WpColors.textMuted,
-              ),
+            Icon(
+              LucideIcons.triangleAlert,
+              size: WpIconSize.sm,
+              color: WpColors.textMuted,
             ),
-            const SizedBox(height: WpSpacing.sm),
-            // Animated number — counts up, but only for the eye. The node
-            // states the final value from the first frame; announcing every
-            // intermediate step would have a screen reader read the same
-            // statistic dozens of times on its way to the real one.
-            //
-            // `headlineLarge` (22/w700), the scale's top rung, against an 11 px
-            // caption below: 2:1, where the previous `headlineMedium` made 16
-            // against 11 and left the number and its label reading as one
-            // paragraph. This is the page's single largest number and the type
-            // scale already had the rung for it.
-            //
-            // The `FittedBox` is what pays for that rung at the narrow end.
-            // Five pills across the app's 800 px minimum window leave each one
-            // about 110 px of inner width, and a seven-digit total needs 117 px
-            // at 22 px in German at 1.15× text — 124 px in Hebrew at plain 1.0×.
-            // Without it the number either wraps (and one pill in the row
-            // stands taller than its four neighbours) or, with `maxLines: 1`,
-            // is silently *clipped* — a truncated statistic that still looks
-            // like a statistic. Scaling down is the only one of the three that
-            // stays honest. It costs nothing in the ordinary case: the box only
-            // engages when the string would not have fitted anyway, so a
-            // typical dashboard renders every value at the full 22 px.
-            //
-            // Measured per locale and text scale in `analytics_page_test.dart`.
-            Semantics(
-              label: widget.formatter(widget.rawValue),
-              excludeSemantics: true,
-              child: AnimatedBuilder(
-                animation: _curve,
-                builder: (context, _) {
-                  final current = (widget.rawValue * _curve.value).round();
-                  return FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      widget.formatter(current),
-                      maxLines: 1,
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 2),
-            // Label
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: WpTypography.caption,
-                color: textSecondary,
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: Text(
+                l10n.analyticsPanelError,
+                style: TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: WpColors.textMuted,
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Row 2 — Activity chart (custom painter)
-// ---------------------------------------------------------------------------
-
-class _ActivityChartPanel extends StatefulWidget {
-  const _ActivityChartPanel({required this.values});
-
-  final List<double> values;
-
-  @override
-  State<_ActivityChartPanel> createState() => _ActivityChartPanelState();
-}
-
-class _ActivityChartPanelState extends State<_ActivityChartPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  late final CurvedAnimation _curve;
-  bool _started = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Same ceiling as the hero pills above (see `_HeroPillState`). The bars
-    // are less harmful than the count-up while they grow — a rising bar is a
-    // readable convention and its shape *is* the information — but the two
-    // animations start together on one screen, so they should also end
-    // together instead of the chart finishing 400 ms before the numbers.
-    _anim = AnimationController(vsync: this, duration: WpMotion.dramatic);
-    _curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // `forward()` bakes in `duration` at call time, so the reduced-motion
-    // duration must be set before the first (only) forward() call, not after.
-    _anim.duration = WpMotion.durationFor(context, WpMotion.dramatic);
-    if (!_started) {
-      _started = true;
-      _anim.forward();
-    }
-  }
-
-  @override
-  void dispose() {
-    _curve.dispose();
-    _anim.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _PanelHeader(
-          icon: LucideIcons.chartNoAxesColumn,
-          title: l10n.analyticsRecordingActivity,
-          trailing: Text(
-            l10n.analyticsLast7Days,
-            style: const TextStyle(
-              fontSize: WpTypography.caption,
-              color: textMuted,
-            ),
-          ),
-        ),
-        const SizedBox(height: WpSpacing.md),
-        SizedBox(
-          height: 140,
-          child: AnimatedBuilder(
-            animation: _curve,
-            builder: (context, _) => CustomPaint(
-              size: Size.infinite,
-              painter: _BarChartPainter(
-                values: widget.values,
-                labels: _activityDayLabels(l10n),
-                barColor: WpColors.accent,
-                // Same accent token, faded — was a hand-picked hex pair that
-                // had drifted from the real accent (#3CCBE6 / #06678A).
-                barColorEnd: (WpColors.accent).withValues(alpha: 0.65),
-                gridColor: WpColors.borderSubtle,
-                labelColor: WpColors.textMuted,
-                // CustomPainter TextPainter bypasses widget font inheritance.
-                // Pass fontFamily explicitly so labels render with the correct
-                // typeface in tests and on all platforms.
-                labelFontFamily: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.fontFamily,
-                animationValue: _curve.value,
-              ),
-            ),
-          ),
+        const SizedBox(height: WpSpacing.sm),
+        WpButton(
+          label: l10n.actionRetry,
+          testId: 'analytics-${panel.name}-retry',
+          variant: WpButtonVariant.secondary,
+          size: WpButtonSize.dense,
+          icon: LucideIcons.refreshCw,
+          onPressed: () => ref.invalidate(analyticsProvider),
         ),
       ],
     );
   }
 }
 
-class _BarChartPainter extends CustomPainter {
-  _BarChartPainter({
-    required this.values,
-    required this.labels,
-    required this.barColor,
-    required this.barColorEnd,
-    required this.gridColor,
+// ---------------------------------------------------------------------------
+// Row 2 — Activity heatmap (custom painter)
+// ---------------------------------------------------------------------------
+
+/// Weeks the heatmap shows: a season of use at a glance, still legible as
+/// single cells in a half-width panel.
+const _heatmapWeeks = 16;
+
+/// Lays the trailing [_heatmapWeeks] weeks of [daily] (oldest first, today
+/// last) out as week columns of seven rows, Monday on top. Cells after
+/// [today] in the current week are `null` (not painted); days before the
+/// data starts count as 0.
+@visibleForTesting
+List<int?> heatmapCells(List<int> daily, DateTime today) {
+  final cells = List<int?>.filled(_heatmapWeeks * 7, null);
+  final todayRow = today.weekday - 1;
+  for (var col = 0; col < _heatmapWeeks; col++) {
+    for (var row = 0; row < 7; row++) {
+      final daysAgo = (_heatmapWeeks - 1 - col) * 7 + (todayRow - row);
+      if (daysAgo < 0) continue;
+      final i = daily.length - 1 - daysAgo;
+      cells[col * 7 + row] = i >= 0 ? daily[i] : 0;
+    }
+  }
+  return cells;
+}
+
+class _ActivityHeatmapPanel extends StatelessWidget {
+  const _ActivityHeatmapPanel({required this.daily, required this.streakDays});
+
+  final List<int> daily;
+  final int streakDays;
+
+  static const double _gap = 3;
+  static const double _labelWidth = 28;
+  static const double _maxCell = 14;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = WpColors.textMuted;
+    final cells = heatmapCells(daily, DateTime.now());
+    final visible = cells.whereType<int>();
+    final activeDays = visible.where((v) => v > 0).length;
+    final recordings = visible.fold<int>(0, (s, v) => s + v);
+    final summary = [
+      l10n.analyticsHeatmapSummary(activeDays, recordings),
+      if (streakDays > 0) l10n.analyticsStreakDays(streakDays),
+    ].join('. ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.calendarDays,
+          title: l10n.analyticsRecordingActivity,
+          trailing: Text(
+            l10n.analyticsLast16Weeks,
+            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+        // A quiet stretch keeps its grid, but says why it is empty (UIA-ANA-06).
+        if (activeDays == 0) ...[
+          Text(
+            l10n.analyticsHeatmapEmpty,
+            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cell = math.min(
+              _maxCell,
+              (constraints.maxWidth -
+                      _labelWidth -
+                      _gap * (_heatmapWeeks - 1)) /
+                  _heatmapWeeks,
+            );
+            final size = math.max(cell, 4.0);
+            return Semantics(
+              key: const ValueKey('analytics-activity-heatmap'),
+              label: summary,
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  height: size * 7 + _gap * 6,
+                  width: double.infinity,
+                  child: CustomPaint(
+                    painter: _HeatmapPainter(
+                      cells: cells,
+                      cellSize: size,
+                      gap: _gap,
+                      labelWidth: _labelWidth,
+                      dayLabels: _activityDayLabels(l10n),
+                      fillColor: WpColors.accent,
+                      emptyColor: WpColors.borderSubtle,
+                      labelColor: textMuted,
+                      // CustomPainter TextPainter bypasses widget font
+                      // inheritance; pass the family explicitly.
+                      labelFontFamily: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.fontFamily,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        // The streak only appears while there is one: no "streak lost"
+        // message, a pause is not a failure (calm UI, Nordstern §10).
+        if (streakDays > 0) ...[
+          const SizedBox(height: WpSpacing.sm),
+          ExcludeSemantics(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: l10n.analyticsStreakDays(streakDays),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: WpColors.textPrimary,
+                    ),
+                  ),
+                  TextSpan(text: ' · ${l10n.analyticsStreakGrace}'),
+                ],
+              ),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: textMuted,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _HeatmapPainter extends CustomPainter {
+  _HeatmapPainter({
+    required this.cells,
+    required this.cellSize,
+    required this.gap,
+    required this.labelWidth,
+    required this.dayLabels,
+    required this.fillColor,
+    required this.emptyColor,
     required this.labelColor,
     this.labelFontFamily,
-    this.animationValue = 1.0,
   });
 
-  final List<double> values;
-  final List<String> labels;
-  final Color barColor;
-  final Color barColorEnd;
-  final Color gridColor;
+  final List<int?> cells;
+  final double cellSize;
+  final double gap;
+  final double labelWidth;
+  final List<String> dayLabels;
+  final Color fillColor;
+  final Color emptyColor;
   final Color labelColor;
   final String? labelFontFamily;
-  final double animationValue;
+
+  /// Four steps of the one accent hue; a fifth, empty step is the grid tone.
+  static const _alphas = [0.3, 0.5, 0.75, 1.0];
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (values.isEmpty) return;
-    final maxVal = values.reduce(math.max);
-    if (maxVal == 0) return;
+    final maxVal = cells.whereType<int>().fold<int>(0, math.max);
 
-    const labelHeight = 20.0;
-    const topPad = 4.0;
-    final chartH = size.height - labelHeight - topPad;
-    final barCount = values.length;
-    final barWidth = (size.width / barCount) * 0.50;
-    final gap = (size.width - barWidth * barCount) / (barCount + 1);
-
-    // Grid lines
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 0.5;
-    for (var i = 0; i <= 3; i++) {
-      final y = topPad + chartH * (i / 3);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    // Bars
-    for (var i = 0; i < barCount; i++) {
-      final fraction = (values[i] / maxVal) * animationValue;
-      final barH = chartH * fraction;
-      final x = gap + i * (barWidth + gap);
-      final y = topPad + chartH - barH;
-      final radius = barWidth / 2;
-
-      final rect = RRect.fromRectAndCorners(
-        Rect.fromLTWH(x, y, barWidth, barH),
-        topLeft: Radius.circular(radius),
-        topRight: Radius.circular(radius),
-      );
-
-      final paint = Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [barColor, barColorEnd],
-        ).createShader(Rect.fromLTWH(x, y, barWidth, barH));
-
-      canvas.drawRRect(rect, paint);
-
-      // Day label
+    // Monday, Wednesday, Friday: every other row, as calendars label them.
+    for (final row in const [0, 2, 4]) {
       final tp = TextPainter(
         text: TextSpan(
-          text: labels[i],
+          text: dayLabels[row],
           style: TextStyle(
-            fontSize: WpTypography.micro,
+            fontSize: WpTypography.caption,
             color: labelColor,
             fontFamily: labelFontFamily,
           ),
         ),
-        // Intentionally LTR: numeric axis labels (dates, counts) are always
-        // left-to-right regardless of app locale, including RTL languages
-        // like Hebrew.  Do NOT change this to TextDirection.rtl.
+        // Intentionally LTR, like every axis label here, also in Hebrew.
         textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(
-        canvas,
-        Offset(x + (barWidth - tp.width) / 2, topPad + chartH + 5),
+      )..layout(maxWidth: labelWidth);
+      final y = row * (cellSize + gap) + (cellSize - tp.height) / 2;
+      tp.paint(canvas, Offset(0, y));
+    }
+
+    final radius = Radius.circular(cellSize / 4);
+    final paint = Paint();
+    for (var i = 0; i < cells.length; i++) {
+      final v = cells[i];
+      if (v == null) continue;
+      final col = i ~/ 7;
+      final row = i % 7;
+      if (v == 0 || maxVal == 0) {
+        paint.color = emptyColor;
+      } else {
+        final step = ((v / maxVal) * _alphas.length).ceil().clamp(
+          1,
+          _alphas.length,
+        );
+        paint.color = fillColor.withValues(alpha: _alphas[step - 1]);
+      }
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            labelWidth + col * (cellSize + gap),
+            row * (cellSize + gap),
+            cellSize,
+            cellSize,
+          ),
+          radius,
+        ),
+        paint,
       );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _BarChartPainter old) =>
-      old.values != values ||
-      old.barColor != barColor ||
-      old.barColorEnd != barColorEnd ||
-      old.gridColor != gridColor ||
+  bool shouldRepaint(covariant _HeatmapPainter old) =>
+      !listEquals(old.cells, cells) ||
+      old.cellSize != cellSize ||
+      old.fillColor != fillColor ||
+      old.emptyColor != emptyColor ||
       old.labelColor != labelColor ||
-      old.labelFontFamily != labelFontFamily ||
-      old.animationValue != animationValue;
+      old.labelFontFamily != labelFontFamily;
 }
 
 // ---------------------------------------------------------------------------
@@ -870,8 +938,8 @@ class _ModelUsagePanel extends StatelessWidget {
         _PanelHeader(icon: LucideIcons.brain, title: l10n.analyticsModelUsage),
         const SizedBox(height: WpSpacing.md),
         if (models.isEmpty)
-          const Text(
-            '—',
+          Text(
+            l10n.analyticsNoModelData,
             style: TextStyle(
               fontSize: WpTypography.small,
               color: WpColors.textMuted,
@@ -889,7 +957,7 @@ class _ModelUsagePanel extends StatelessWidget {
 /// The bar is a **flat category color**, not the accent gradient it used to be.
 /// Models are a *nominal* scale: three of them wearing one cyan ramp said only
 /// "this is a bar", while three category slots say *which* model each bar is —
-/// the same distinction the history avatars now make. The gradient stays out on
+/// the distinction a nominal scale owes. The gradient stays out on
 /// purpose; it is the brand's own moment and spending it on a list of three
 /// bars is what made every panel on this page look equally important.
 ///
@@ -904,10 +972,10 @@ class _ModelUsageBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const trackColor = WpColors.surfaceVariant;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final trackColor = WpColors.surfaceVariant;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.sm),
@@ -919,7 +987,7 @@ class _ModelUsageBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   model.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
                     color: textPrimary,
                   ),
@@ -928,7 +996,7 @@ class _ModelUsageBar extends StatelessWidget {
               ),
               Text(
                 '${(model.fraction * 100).round()}%',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.small,
                   fontWeight: FontWeight.w700,
                   color: accent,
@@ -936,22 +1004,22 @@ class _ModelUsageBar extends StatelessWidget {
               ),
               const SizedBox(width: WpSpacing.xs),
               Text(
-                '(${model.count})',
-                style: const TextStyle(
+                '(${_countText(context, model.count)})',
+                style: TextStyle(
                   fontSize: WpTypography.caption,
                   color: textMuted,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: WpSpacing.xxs),
           ClipRRect(
             borderRadius: WpRadius.borderFull,
             child: SizedBox(
               height: 6,
               child: Stack(
                 children: [
-                  const ColoredBox(color: trackColor),
+                  ColoredBox(color: trackColor),
                   FractionallySizedBox(
                     widthFactor: model.fraction,
                     child: ColoredBox(
@@ -972,33 +1040,6 @@ class _ModelUsageBar extends StatelessWidget {
 // Row 3 — Duration distribution
 // ---------------------------------------------------------------------------
 
-/// Source slot of the duration ramp — the one hue this ordinal scale is built
-/// from.
-///
-/// Duration buckets are *ordered*, so they get a ramp rather than eight
-/// unordered hues (*The Categorical vs. Sequential Rule*). Three things picked
-/// `iris` out of the eight:
-///
-/// * **It is not the brand accent.** Ticket 11 answered ② with (b): cyan stays
-///   the accent's alone, so no ordinal ramp may be built from it — a column of
-///   graded cyans standing next to a live control reads as that control
-///   disabled. This is worth saying precisely, because the tickets call the
-///   forbidden hue "slot 0": that is the *pre-Ticket-12* palette's name for
-///   Harbor Cyan `#2A9CB2`, not `WpCategorySlot.values[0]`. Cyan is not a
-///   category slot at all any more — Ticket 12 excluded the whole 165–215°
-///   band — so taking the ramp's source from [WpCategorySlot] is what makes the
-///   exclusion structural instead of a promise.
-/// * **The hue carries no verdict.** A duration is a quantity, not a grade.
-///   Green (`fern`, `moss`) borders the success band and would praise long
-///   recordings; `brass` borders warning amber, `plum` and `ember` border error
-///   red. Violet is the one family in the palette that means nothing yet, which
-///   is exactly what a neutral quantity needs — and it is the traditional
-///   single-hue sequential family for the same reason.
-/// * **No model wears it.** `_modelSlots` in `colors.dart` deliberately skips
-///   `iris`, so the model bars one panel up never repeat this hue with a
-///   different meaning.
-const _durationRampSlot = WpCategorySlot.iris;
-
 class _DurationDistPanel extends StatelessWidget {
   const _DurationDistPanel({required this.buckets});
 
@@ -1007,9 +1048,12 @@ class _DurationDistPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    // Resolved once here, not per bar: the ramp is one scale, and a bar that
-    // asked for its own rung could not tell how many rungs there are.
-    final ramp = _durationRampSlot.ramp(buckets.length);
+    // Every bar is the accent (#1075): the page's charts speak in the design
+    // system's accent family, and the violet `iris` ramp this used to draw was
+    // a second accent the rest of the app never uses. One series needs one
+    // colour — the bucket order is already carried by the row labels, and an
+    // accent ramp could not climb far on dark grounds before its rungs turned
+    // near-white and stopped reading as the accent at all.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1018,32 +1062,27 @@ class _DurationDistPanel extends StatelessWidget {
           title: l10n.analyticsDurationDistribution,
         ),
         const SizedBox(height: WpSpacing.md),
-        for (final (i, b) in buckets.indexed)
-          _DurationBar(bucket: b, barColor: ramp[i]),
+        for (final b in buckets) _DurationBar(bucket: b),
       ],
     );
   }
 }
 
-/// One duration bucket — label, bar, count.
-///
-/// [barColor] is handed down rather than chosen here: it is one rung of the
-/// panel's ramp, and a rung only means something next to the others.
+/// One duration bucket — label, bar, count. The bar is the accent.
 class _DurationBar extends StatelessWidget {
-  const _DurationBar({required this.bucket, required this.barColor});
+  const _DurationBar({required this.bucket});
 
   final _DurationBucket bucket;
-  final Color barColor;
 
   @override
   Widget build(BuildContext context) {
     // The track is `surfaceVariant`, the same ground the model bars run on. It
     // used to be `textMuted` at a hand-rolled alpha, which *The Tint Ladder
     // Rule* forbids — and an alpha over an unknown ground is also a track no
-    // ramp rung can be measured against.
-    const trackColor = WpColors.surfaceVariant;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    // bar colour can be measured against.
+    final trackColor = WpColors.surfaceVariant;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     // The two text columns are fixed-width on purpose — that is what keeps
     // the bars starting and ending on one line down the whole panel. But a
@@ -1061,7 +1100,7 @@ class _DurationBar extends StatelessWidget {
             width: textScaler.scale(52),
             child: Text(
               bucket.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 color: textPrimary,
               ),
@@ -1075,12 +1114,12 @@ class _DurationBar extends StatelessWidget {
                 height: 8,
                 child: Stack(
                   children: [
-                    const ColoredBox(color: trackColor),
+                    ColoredBox(color: trackColor),
                     FractionallySizedBox(
                       widthFactor: bucket.fraction,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: barColor,
+                          color: WpColors.accent,
                           borderRadius: WpRadius.borderFull,
                         ),
                       ),
@@ -1094,8 +1133,8 @@ class _DurationBar extends StatelessWidget {
           SizedBox(
             width: textScaler.scale(32),
             child: Text(
-              '${bucket.count}',
-              style: const TextStyle(
+              _countText(context, bucket.count),
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 color: textMuted,
               ),
@@ -1121,9 +1160,10 @@ class _CostPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final localeName = Localizations.localeOf(context).toString();
 
-    final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
-    final costStr = '\$${cloudCostUsd.toStringAsFixed(2)}';
+    final savingsStr = formatAnalyticsUsd(localeName, localSavingsUsd);
+    final costStr = formatAnalyticsUsd(localeName, cloudCostUsd);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1135,7 +1175,7 @@ class _CostPanel extends StatelessWidget {
         const SizedBox(height: WpSpacing.lg),
 
         // Local savings
-        _CostRow(
+        _StatRow(
           icon: LucideIcons.shieldCheck,
           title: l10n.analyticsLocalSavings,
           value: l10n.analyticsSavedAmount(savingsStr),
@@ -1143,10 +1183,19 @@ class _CostPanel extends StatelessWidget {
         const SizedBox(height: WpSpacing.sm),
 
         // Cloud cost
-        _CostRow(
+        _StatRow(
           icon: LucideIcons.cloud,
           title: l10n.analyticsCloudCost,
           value: l10n.analyticsSpentAmount(costStr),
+        ),
+        // Both figures are computed from list prices, not billed (UIA-ANA-04).
+        const SizedBox(height: WpSpacing.sm),
+        Text(
+          l10n.analyticsEstimateNote,
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            color: WpColors.textMuted,
+          ),
         ),
       ],
     );
@@ -1164,8 +1213,8 @@ class _CostPanel extends StatelessWidget {
 /// finding B5. The row therefore takes no colour parameters at all any more:
 /// there is no per-row decision left to make, which is the point — the label
 /// says which number this is, and both numbers read in the same voice.
-class _CostRow extends StatelessWidget {
-  const _CostRow({
+class _StatRow extends StatelessWidget {
+  const _StatRow({
     required this.icon,
     required this.title,
     required this.value,
@@ -1177,7 +1226,7 @@ class _CostRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
+    final textPrimary = WpColors.textPrimary;
 
     return Row(
       children: [
@@ -1186,15 +1235,12 @@ class _CostRow extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textPrimary,
-            ),
+            style: TextStyle(fontSize: WpTypography.small, color: textPrimary),
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w700,
             color: textPrimary,
@@ -1273,6 +1319,7 @@ class _PeriodSelector extends ConsumerWidget {
             ),
             child: WpFilterChip(
               label: periods[i],
+              testId: 'analytics-period-${AnalyticsPeriod.values[i].name}',
               isActive: i == selectedIndex,
               onTap: () => ref
                   .read(analyticsPeriodProvider.notifier)
@@ -1306,18 +1353,23 @@ class _ResetRowState extends ConsumerState<_ResetRow> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Spacer(),
-        // Reset button
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: l10n.analyticsReset,
-          variant: WpButtonVariant.secondary,
-          tone: WpButtonTone.danger,
-          size: WpButtonSize.dense,
-          icon: LucideIcons.trash2,
-          onPressed: () => _confirmReset(context),
+        Row(
+          children: [
+            const Spacer(),
+            // Reset button
+            WpButton(
+              label: l10n.analyticsReset,
+              testId: 'analytics-reset',
+              variant: WpButtonVariant.secondary,
+              tone: WpButtonTone.danger,
+              size: WpButtonSize.dense,
+              icon: LucideIcons.trash2,
+              onPressed: () => _confirmReset(context),
+            ),
+          ],
         ),
       ],
     );
@@ -1335,16 +1387,103 @@ class _ResetRowState extends ConsumerState<_ResetRow> {
     ).then((confirmed) async {
       if (confirmed) {
         final db = ref.read(historyDatabaseProvider);
-        await db.resetDailyStats();
+        try {
+          await db.resetDailyStats();
+        } catch (_) {
+          if (context.mounted) {
+            showWpPageNotice(
+              context,
+              page: WpNoticePage.analytics,
+              notice: WpPageNotice(
+                id: 'analytics-reset-failed',
+                message: L10n.of(context).errorGeneric,
+              ),
+            );
+          }
+          return;
+        }
         ref.invalidate(analyticsProvider);
+        // The emptied dashboard is the confirmation; a screen reader hears it.
         if (context.mounted) {
-          WpToast.show(
-            context,
-            message: L10n.of(context).analyticsResetTitle,
-            type: WpToastType.success,
+          announce(
+            View.of(context),
+            L10n.of(context).analyticsResetDone,
+            Directionality.of(context),
           );
         }
       }
     });
+  }
+}
+
+/// Raw versus revised word counts and how many recordings a transform changed.
+class _WordingPanel extends StatelessWidget {
+  const _WordingPanel({required this.wording});
+
+  final AnalyticsWording wording;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.textCursorInput,
+          title: l10n.analyticsWordingPanelTitle,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+        _StatRow(
+          icon: LucideIcons.fileText,
+          title: l10n.analyticsRawWords,
+          value: _countText(context, wording.rawWords),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _StatRow(
+          icon: LucideIcons.penLine,
+          title: l10n.analyticsRevisedWords,
+          value: '${wording.revisedWords}',
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _StatRow(
+          icon: LucideIcons.sparkles,
+          title: l10n.analyticsTransformActions,
+          value: '${wording.actionCount}',
+        ),
+      ],
+    );
+  }
+}
+
+/// The most frequent corrections as "heard → corrected" lines with a count.
+class _CorrectionsPanel extends StatelessWidget {
+  const _CorrectionsPanel({required this.corrections});
+
+  final List<AnalyticsCorrection> corrections;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.spellCheck,
+          title: l10n.analyticsCorrectionsTitle,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+        if (corrections.isEmpty)
+          Text(l10n.analyticsNoCorrections)
+        else
+          for (final c in corrections) ...[
+            _StatRow(
+              icon: LucideIcons.arrowRight,
+              title: '${c.sourceText} → ${c.targetText}',
+              value: '${_countText(context, c.count)}×',
+            ),
+            const SizedBox(height: WpSpacing.sm),
+          ],
+      ],
+    );
   }
 }

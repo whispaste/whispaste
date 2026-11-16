@@ -1,7 +1,6 @@
 /**
  * Schema-Builder — reine TypeScript-Funktionen, die JSON-LD-Objekte für die
- * fünf Schema-Components der whispaste.de-Site erzeugen (Issue
- * `internal-notes`).
+ * fünf Schema-Components der whispaste.de-Site erzeugen.
  *
  * Trennung von `.astro`-Wrappern und Logik: Die Builder sind pure Funktionen
  * (Locale, Optionen → JSON-LD-Object). Sie sind vitest-testbar ohne
@@ -159,6 +158,13 @@ export const DEFAULT_FEATURE_KEYS: readonly string[] = [
   "editSelection",
   "cloud",
   "overlay",
+  "level",
+  "languages",
+  "recovery",
+  "accessibility",
+  "import",
+  "profiles",
+  "handsfree",
 ];
 
 /** Lokalisierte Default-`featureList` aus den `highlights.*.title`-Keys. */
@@ -391,8 +397,8 @@ export interface FAQPageOptions {
  */
 export const FAQ_GROUPS: readonly { readonly key: string; readonly keys: readonly string[] }[] = [
   { key: "start", keys: ["free", "windows", "sysreq", "smartscreen", "gatekeeper"] },
-  { key: "local", keys: ["offline", "privacy", "engines", "languages", "accuracy"] },
-  { key: "features", keys: ["smartmode", "snippets"] },
+  { key: "local", keys: ["offline", "privacy", "encryption", "engines", "languages", "accuracy"] },
+  { key: "features", keys: ["smartmode", "snippets", "hotkey", "accessibility"] },
 ];
 
 /**

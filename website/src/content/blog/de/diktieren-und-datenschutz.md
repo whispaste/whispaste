@@ -14,7 +14,7 @@ Nach der Transkription wird die Aufnahme verworfen, außer du aktivierst selbst 
 
 ## Welche Verbindungen trotzdem möglich sind
 
-Nutzungsstatistik und Absturzberichte sind standardmäßig eingeschaltet. Die Statistik erfasst Funktionsnutzung, enthält aber weder Audio noch Transkripte oder Verlauf. Sie kommt ohne Cookies aus und verwendet eine zufällige Kennung, die jede Woche wechselt. Absturzberichte enthalten ebenfalls weder Audio noch Text und werden vor dem Versand von personenbezogenen Daten bereinigt.
+Nutzungsstatistik und Absturzberichte sind standardmäßig eingeschaltet. Die Statistik erfasst Funktionsnutzung, enthält aber weder Audio noch Transkripte oder Verlauf. Sie kommt ohne Cookies aus und verwendet einen pseudonymen Wochenwert, der sich jede Woche ändert. Absturzberichte enthalten ebenfalls weder Audio noch Text und werden vor dem Versand von personenbezogenen Daten bereinigt.
 
 Beides kannst du unter Einstellungen → Datenschutz ausschalten. Auch die App-Prüfung auf Updates lässt sich abschalten. Wenn dir neben der lokalen Verarbeitung wichtig ist, welche Verbindungen die App aufbaut, prüfe diese Einstellungen bei der Einrichtung mit. Die Wahl einer lokalen Engine allein schaltet Statistik und Absturzberichte nicht aus.
 

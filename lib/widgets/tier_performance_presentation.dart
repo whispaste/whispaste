@@ -29,17 +29,20 @@ abstract final class WpTierPerformancePresentation {
       case TierPerformance.moderate:
         return l10n.qualityTierInfoModerate;
       case TierPerformance.slow:
-        // Show comparison vs compact tier if we have benchmark data
-        if (rtf != null && rtf > 0 && benchmarkRtf != null) {
-          final compactRtf = benchmarkRtf[QualityTier.compact];
-          if (compactRtf != null && compactRtf > 0) {
+        // Measured: the ratio to the compact tier is the honest comparison.
+        // Without a compact reference the measured wording stays qualitative;
+        // an unmeasured tier only ever gets the explicit estimate.
+        if (rtf != null && rtf > 0) {
+          final compactRtf = benchmarkRtf?[QualityTier.compact];
+          if (compactRtf != null &&
+              compactRtf > 0 &&
+              tier != QualityTier.compact) {
             final ratio = (rtf / compactRtf).toStringAsFixed(1);
             return l10n.qualityTierInfoSlowerThanCompact(ratio);
           }
-          // Fallback: just show the tier's own RTF
-          return l10n.qualityTierInfoSlow(rtf.toStringAsFixed(1));
+          return l10n.qualityTierInfoSlow;
         }
-        return l10n.qualityTierInfoSlow('2.0'); // Default fallback
+        return l10n.qualityTierInfoSlowEstimate;
       case TierPerformance.unmeasured:
         return l10n.qualityTierInfoBenchmarking;
     }
@@ -61,7 +64,7 @@ abstract final class WpTierPerformancePresentation {
   /// and green it refused stay refused.
   ///
   /// The refusal was, for a while, measurable rather than only principled: the
-  /// line renders at `WpTypography.micro` (10 px) — normal text under WCAG
+  /// line renders at `WpTypography.caption` (10 px) — normal text under WCAG
   /// 1.4.3, so it owes 4.5:1 — and on the light stack `warning` reached at
   /// most 3.11:1 against these grounds and `success` 3.74:1, so a traffic
   /// light was not renderable here at AA at any size this line uses.

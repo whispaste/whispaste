@@ -8,7 +8,7 @@
 /// (d) Exactly one retention-preset dropdown is present (no two separate ones).
 /// (e) The "hide history on open" toggle persists `historyHideOnOpen`
 ///     without touching the retention fields.
-/// PIN lock (`internal-notes`):
+/// PIN lock:
 /// (f) PIN + auto-lock rows only appear while the gate is on or a PIN is set.
 /// (g) "Set PIN" stores a verifiable hash; mismatching entries are refused.
 /// (h) Removing the PIN, and switching the gate off, require the current PIN.
@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/history/data/history_lock.dart';
 import 'package:whispaste/features/history/data/history_pin.dart';
 import 'package:whispaste/features/history/widgets/history_pin_dialogs.dart';
 import 'package:whispaste/features/settings/sections/history_section.dart';
@@ -49,12 +50,30 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 // Helpers
 // ---------------------------------------------------------------------------
 
-Widget _pump(WidgetTester tester, _FakeSettingsNotifier notifier) =>
-    makeTestable(
-      const SingleChildScrollView(child: HistorySection()),
-      overrides: [settingsProvider.overrideWith(() => notifier)],
-      locale: const Locale('en'),
-    );
+/// Tall enough that every row, including the PIN rows below the index
+/// rebuild row (#668), is on screen and tappable.
+/// Runs PIN hashing and verification on the test isolate.
+class _InlinePinCompute extends HistoryPinCompute {
+  const _InlinePinCompute();
+
+  @override
+  Future<T> call<T>(T Function() work) async => work();
+}
+
+Widget _pump(WidgetTester tester, _FakeSettingsNotifier notifier) {
+  tester.view
+    ..physicalSize = const Size(1200, 3000)
+    ..devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  return makeTestable(
+    const SingleChildScrollView(child: HistorySection()),
+    overrides: [
+      settingsProvider.overrideWith(() => notifier),
+      historyPinComputeProvider.overrideWithValue(const _InlinePinCompute()),
+    ],
+    locale: const Locale('en'),
+  );
+}
 
 /// Returns the single retention preset DropdownButton.
 Finder _presetDropdown() => find.byWidgetPredicate(
@@ -74,6 +93,12 @@ Finder _presetDropdown() => find.byWidgetPredicate(
 // ---------------------------------------------------------------------------
 
 late L10n l10n;
+
+/// The hide-on-open row's switch; the section also has the save switch.
+Finder _hideOnOpenSwitch() => find.descendant(
+  of: find.byKey(const ValueKey('settings-row-privacy-history-hide-on-open')),
+  matching: find.byType(Switch),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -332,7 +357,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.settingsHistoryHideOnOpen), findsOneWidget);
-      final toggle = find.byType(Switch);
+      final toggle = _hideOnOpenSwitch();
       expect(toggle, findsOneWidget);
       expect(tester.widget<Switch>(toggle).value, isFalse);
 
@@ -354,8 +379,8 @@ void main() {
     AppSettings withHistory(HistorySettings h) =>
         AppSettings.defaults.copyWithSections(history: h);
 
-    /// Types into the PIN dialog's field(s) and submits outside the fake
-    /// clock — hashing and verification hop to a background isolate.
+    /// Types into the PIN dialog's field(s) and submits; hashing and
+    /// verification run inline ([_InlinePinCompute]), so fake time suffices.
     Future<void> submit(
       WidgetTester tester,
       String pin, {
@@ -365,10 +390,9 @@ void main() {
       if (repeat != null) {
         await tester.enterText(find.byKey(kHistoryPinRepeatFieldKey), repeat);
       }
-      await tester.runAsync(() async {
-        await tester.tap(find.byKey(kHistoryPinSubmitKey));
-        await Future<void>.delayed(const Duration(milliseconds: 500));
-      });
+      // The primary action enables on input (UX-026): let that rebuild land.
+      await tester.pump();
+      await tester.tap(find.byKey(kHistoryPinSubmitKey));
       await tester.pumpAndSettle();
     }
 
@@ -398,13 +422,6 @@ void main() {
       expect(notifier.state.value!.history.historyPin, isEmpty);
 
       await submit(tester, '1234', repeat: '1234');
-      // Hashing at the production work factor runs off-isolate; wait for it.
-      await tester.runAsync(() async {
-        for (var i = 0; i < 100; i++) {
-          if (notifier.state.value!.history.historyPin.isNotEmpty) break;
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }
-      });
       await tester.pumpAndSettle();
       final stored = notifier.state.value!.history.historyPin;
       expect(verifyHistoryPin('1234', stored), isTrue);
@@ -443,14 +460,14 @@ void main() {
       await tester.pumpWidget(_pump(tester, notifier));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(Switch));
+      await tester.tap(_hideOnOpenSwitch());
       await tester.pumpAndSettle();
       expect(find.byKey(kHistoryPinFieldKey), findsOneWidget);
       await tester.tap(find.text(l10n.actionCancel));
       await tester.pumpAndSettle();
       expect(notifier.state.value!.history.historyHideOnOpen, isTrue);
 
-      await tester.tap(find.byType(Switch));
+      await tester.tap(_hideOnOpenSwitch());
       await tester.pumpAndSettle();
       await submit(tester, '4711');
       final history = notifier.state.value!.history;

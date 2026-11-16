@@ -5,11 +5,50 @@
 /// management, and blocklist logic are hidden behind this interface.
 library;
 
+import 'input_idle.dart';
+import 'undo_target.dart';
+
 export 'desktop_paster.dart';
+export 'input_idle.dart';
+export 'undo_target.dart';
+
+/// Implemented by a paster that can undo its last insert (DEV-165). Only the
+/// native desktop paster does; test doubles do not.
+abstract interface class UndoKeystrokeSender {
+  /// Serial of the last insert that reached the target through the native
+  /// clipboard paste. Null once a recording started, another insert ran or
+  /// the last insert was typed (the Unicode fallback), so no keystroke undo
+  /// may rely on an earlier insert.
+  int? get cleanPasteSerial;
+
+  /// Native input-idle snapshot (keyDown, left/right mouseDown, our own
+  /// synthetic keyDown). Null when unknown: [userInputSince] then counts the
+  /// input as typed, so the caller takes the safe path.
+  Future<InputIdleSnapshot?> inputIdleSnapshot();
+
+  /// What this platform's host answers for the keystroke undo. Without a
+  /// complete answer the undo takes the clipboard path.
+  Future<UndoPlatformSupport> undoPlatformSupport();
+
+  /// The window with the keyboard focus now. Null when unknown.
+  Future<ForegroundWindow?> foregroundWindow();
+
+  /// Brings the paste target [id] back to the front. False when it did not
+  /// work (or the platform cannot, e.g. Wayland).
+  Future<bool> activateTarget(String id);
+
+  /// Cmd+Z / Ctrl+Z in the frontmost app. False where the platform has no
+  /// undo keystroke.
+  Future<bool> sendUndoShortcut();
+
+  /// Puts [text] on the clipboard through the transient, history-excluded
+  /// write (the same path as the paste source). False on failure.
+  Future<bool> copyOriginalToClipboard(String text);
+}
 
 /// The outcome of a paste operation.
 enum PasteOutcome {
-  /// Text was successfully pasted into the target window.
+  /// The target app read the transcript (receipt proof on macOS/Windows).
   success,
 
   /// The target app is on the auto-paste blocklist.
@@ -36,9 +75,59 @@ enum PasteOutcome {
   /// app; WhisPaste itself needs to run elevated to paste into that window.
   elevationBlocked,
 
+  /// The captured target app is no longer frontmost (the user switched apps
+  /// during transcription). Nothing is typed or pasted; the text stays in the
+  /// clipboard.
+  targetChanged,
+
+  /// The paste shortcut was sent but no proof arrived that the text reached
+  /// the field (no clipboard read receipt). Never reported as a success.
+  /// The text stays in the clipboard.
+  unconfirmed,
+
+  /// Like [unconfirmed], but the legacy setting restored the previous
+  /// clipboard after the wait (W-E1), so the transcript is no longer on the
+  /// clipboard (#1147). The message must not claim it is; "paste again" works.
+  unconfirmedRestored,
+
+  /// Like [unconfirmed], but no read receipt could be armed: the paster has
+  /// no receipt bridge, or the native receipt write was refused. The shortcut
+  /// went out, nothing proves arrival, and the transcript stays on the
+  /// clipboard (PAR-033). Unlike [unconfirmed] it raises no warning toast: the
+  /// missing receipt says nothing about this paste.
+  unconfirmedNoBridge,
+
+  /// The platform has a receipt bridge (macOS/Windows), but the native receipt
+  /// write was refused or failed, so the target's read cannot be watched. The
+  /// shortcut went out and the transcript stays on the clipboard, unrestored
+  /// (PAR-033). Unlike [unconfirmedNoBridge] this is a real, user-visible gap:
+  /// the user gets a calm info notice (see `pasteResultNotice`), not a warning.
+  unconfirmedReceiptRefused,
+
+  /// macOS secure input is on (another app holds it, or a password field
+  /// has focus), so no paste was attempted. The transcript stays on the
+  /// clipboard. Not a warning from the paster: the reporter names the app
+  /// that holds secure input (F35-8).
+  secureInput,
+
+  /// The focused field is a password or PIN field (#948, Windows UIA
+  /// `IsPassword`), so no paste was attempted. The transcript stays on the
+  /// clipboard and in the history; the user pastes it by hand.
+  passwordField,
+
   /// Paste was attempted but the native bridge reported failure for a
   /// reason that doesn't map to a more specific outcome above.
   failed,
+}
+
+extension PasteOutcomeX on PasteOutcome {
+  /// The paste shortcut went out but nothing proves the text arrived. That is
+  /// unknown, neither a success nor a failure (review prompt, GR-015).
+  bool get isUnconfirmed =>
+      this == PasteOutcome.unconfirmed ||
+      this == PasteOutcome.unconfirmedRestored ||
+      this == PasteOutcome.unconfirmedNoBridge ||
+      this == PasteOutcome.unconfirmedReceiptRefused;
 }
 
 /// Why [PasteCapability] reports the platform isn't ready to paste.
@@ -78,13 +167,34 @@ class PasteCapability {
 
 /// Configuration for a paste operation, derived from [AppSettings].
 class PasteOptions {
-  const PasteOptions({required this.autoPasteDelayMs, required this.blocklist});
+  const PasteOptions({
+    required this.autoPasteDelayMs,
+    required this.blocklist,
+    this.copyBlockedToClipboard = true,
+    this.restoreClipboardAfterPaste = true,
+    this.restoreClipboardWithoutReceipt = false,
+  });
 
   /// User-configured delay before pasting (milliseconds).
   final int autoPasteDelayMs;
 
   /// Comma-separated list of app bundle IDs / process names to skip.
   final String blocklist;
+
+  /// Whether a blocked paste still writes the transcript to the clipboard.
+  /// `false` writes nothing on any path; the text stays in the history only.
+  final bool copyBlockedToClipboard;
+
+  /// Whether a paste that landed (or cannot be confirmed) puts the user's
+  /// previous clipboard content back. `false` keeps the dictation on the
+  /// clipboard. A receipt timeout keeps the transcript regardless.
+  final bool restoreClipboardAfterPaste;
+
+  /// Legacy switch (W-E1): when a paste was sent but its read receipt timed
+  /// out, restore the previous clipboard after the fixed wait anyway, as the
+  /// previous release did. Only with [restoreClipboardAfterPaste], and only
+  /// while WhisPaste still owns the clipboard. Off, the transcript stays.
+  final bool restoreClipboardWithoutReceipt;
 }
 
 /// Whether [text] must never fall back to synthetic Unicode-keystroke typing
@@ -125,6 +235,10 @@ abstract class Paster {
   ///
   /// When [promptIfMissing] is `true`, surfaces the OS's native permission
   /// prompt if the required permission is not yet granted (macOS only).
+  ///
+  /// Throws `TimeoutException` (dart:async) when the native side does not
+  /// answer in time. That is not a platform verdict: callers keep their last
+  /// known capability.
   Future<PasteCapability> checkCapability({bool promptIfMissing = false});
 
   /// Returns the bundle ID (macOS) / process identifier (Windows) of the

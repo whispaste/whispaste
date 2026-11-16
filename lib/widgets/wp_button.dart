@@ -2,7 +2,7 @@
 ///
 /// One component, one look: every place that lets the user *trigger an action*
 /// routes through here — dialog footers, settings rows, empty-state CTAs,
-/// toolbars. The gradient hero CTA ([WpHeroButton]) stays a separate, louder
+/// toolbars. The flat amber hero CTA ([WpHeroButton]) stays a separate, louder
 /// step above this ladder; icon-only affordances stay [IconButton].
 ///
 /// ## Why this exists
@@ -71,10 +71,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
+import '../core/theme/theme.dart' show kWpFontFallback, kWpUiFont;
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Axes
@@ -139,20 +143,50 @@ class WpButton extends StatefulWidget {
   const WpButton({
     super.key,
     required this.label,
+    this.semanticsLabel,
     required this.variant,
     required this.onPressed,
     this.tone = WpButtonTone.accent,
     this.size = WpButtonSize.standard,
     this.icon,
+    this.opensExternally = false,
     this.isLoading = false,
     this.expanded = false,
+    this.maxLabelLines = 1,
     this.autofocus = false,
     this.disabledTooltip,
+    this.testId,
+    this.focusNode,
   });
+
+  /// Label style of a [WpButtonSize.dense] button, for callers that measure
+  /// the button before placing it (the multi-select bar, #1388).
+  static TextStyle get denseTextStyle => _WpButtonSpec._dense.textStyle;
+
+  /// Painted width of a dense ghost button whose label measures
+  /// [labelWidth] in [denseTextStyle].
+  static double denseGhostWidthFor(double labelWidth, {bool hasIcon = false}) {
+    final spec = _WpButtonSpec._dense;
+    return spec.ghostPaddingX * 2 +
+        (hasIcon ? spec.iconSize + spec.gap : 0) +
+        labelWidth;
+  }
+
+  /// Stable id: a `ValueKey` for tests and the accessibility identifier, the
+  /// same way the other Wp widgets expose theirs (DEV-156).
+  final String? testId;
+
+  /// Optional focus node owned by the caller, so the caller can return focus to
+  /// this button. Null: the button keeps its own node.
+  final FocusNode? focusNode;
 
   /// Already localized, single-line. Long labels ellipsize rather than wrap:
   /// a button that grows a second line has outgrown being a button.
   final String label;
+
+  /// Optional accessible name when the visible [label] is generic (e.g. "Open")
+  /// and the row next to it names the target. Null keeps the visible label.
+  final String? semanticsLabel;
 
   /// No default on purpose — hierarchy is a decision, not a fallback.
   final WpButtonVariant variant;
@@ -167,6 +201,11 @@ class WpButton extends StatefulWidget {
   /// the component's business and can't drift per call site.
   final IconData? icon;
 
+  /// Marks a button that leaves the app for a web page: the same
+  /// external-link glyph after the label that `WpLinkKind.web` puts after a
+  /// text link, so every external target looks alike.
+  final bool opensExternally;
+
   /// Shows a spinner **in place of** [icon] and disables the button.
   ///
   /// Replacing rather than adding keeps the button's width fixed while it
@@ -178,6 +217,11 @@ class WpButton extends StatefulWidget {
   /// Fills the parent's width — replaces wrapping call sites in
   /// `SizedBox(width: double.infinity)`.
   final bool expanded;
+
+  /// Lines the label may wrap to before it is cut with an ellipsis. Stays 1
+  /// everywhere except where a label must stay whole at large text scales
+  /// (the trigger dialog, UX-085).
+  final int maxLabelLines;
 
   final bool autofocus;
 
@@ -195,6 +239,8 @@ class _WpButtonState extends State<WpButton> {
   /// activation.
   final FocusNode _focusNode = FocusNode(debugLabel: 'WpButton');
 
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _focusNode;
+
   @override
   void dispose() {
     _focusNode.dispose();
@@ -203,9 +249,17 @@ class _WpButtonState extends State<WpButton> {
 
   bool get _isDisabled => widget.onPressed == null || widget.isLoading;
 
+  /// The key that makes the button findable by its testId; null when the
+  /// caller already keys the button with it, since `find.byKey` would
+  /// otherwise find two widgets.
+  Key? _testKey() {
+    final testKey = ValueKey<String>(widget.testId!);
+    return widget.key == testKey ? null : testKey;
+  }
+
   @override
   Widget build(BuildContext context) {
-    const palette = _WpButtonPalette._palette;
+    final palette = _WpButtonPalette.current();
     final spec = _WpButtonSpec.of(widget.size);
     final tone = palette.toneOf(widget.tone);
 
@@ -274,9 +328,11 @@ class _WpButtonState extends State<WpButton> {
     final content = _WpButtonContent(
       label: widget.label,
       icon: widget.icon,
+      opensExternally: widget.opensExternally,
       isLoading: widget.isLoading,
       color: contentColor,
       spec: spec,
+      maxLines: widget.maxLabelLines,
     );
 
     final onPressed = _isDisabled ? null : widget.onPressed;
@@ -285,28 +341,28 @@ class _WpButtonState extends State<WpButton> {
       WpButtonVariant.primary => FilledButton(
         onPressed: onPressed,
         style: style,
-        focusNode: _focusNode,
+        focusNode: _effectiveFocusNode,
         autofocus: widget.autofocus,
         child: content,
       ),
       WpButtonVariant.secondary => OutlinedButton(
         onPressed: onPressed,
         style: style,
-        focusNode: _focusNode,
+        focusNode: _effectiveFocusNode,
         autofocus: widget.autofocus,
         child: content,
       ),
       WpButtonVariant.ghost => TextButton(
         onPressed: onPressed,
         style: style,
-        focusNode: _focusNode,
+        focusNode: _effectiveFocusNode,
         autofocus: widget.autofocus,
         child: content,
       ),
     };
 
     Widget result = WpFocusRing(
-      focusNode: _focusNode,
+      focusNode: _effectiveFocusNode,
       radius: spec.ringRadius,
       // Only the filled variant needs its own ring colour — see the library
       // docs; `null` keeps WpFocusRing's accent default everywhere else.
@@ -314,9 +370,46 @@ class _WpButtonState extends State<WpButton> {
       insets: spec.ringInsets,
       child: button,
     );
-
+    // Dense is the documented exception to the 48 px tap-target rule
+    // (DESIGN.md, "The Confirmed Dense-Row Exception"): its hit target stays
+    // its 32 px visual box. Every other size gets the 48 px surround.
+    // Stretch the button itself before the touch target wraps it: the
+    // target sizes to its child, so an outer SizedBox alone left an
+    // `expanded` button as wide as its label.
     if (widget.expanded) {
       result = SizedBox(width: double.infinity, child: result);
+    }
+
+    if (widget.size != WpButtonSize.dense) {
+      // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+      result = WpTouchTarget(onTap: onPressed, fillHeight: true, child: result);
+    }
+
+    if (widget.semanticsLabel != null) {
+      result = Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: widget.semanticsLabel,
+        onTap: onPressed,
+        excludeSemantics: true,
+        child: result,
+      );
+    }
+
+    if (widget.testId != null) {
+      // One node carries the label, the tap action and the identifier.
+      // excludeSemantics drops the carrier's own duplicate tap node, which
+      // would otherwise report an empty identifier (same pattern as the
+      // semanticsLabel branch above).
+      result = Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: widget.label,
+        onTap: onPressed,
+        identifier: widget.testId,
+        excludeSemantics: true,
+        child: KeyedSubtree(key: _testKey(), child: result),
+      );
     }
 
     if (_isDisabled && widget.disabledTooltip != null) {
@@ -342,16 +435,20 @@ class _WpButtonContent extends StatelessWidget {
   const _WpButtonContent({
     required this.label,
     required this.icon,
+    required this.opensExternally,
     required this.isLoading,
     required this.color,
     required this.spec,
+    this.maxLines = 1,
   });
 
   final String label;
   final IconData? icon;
+  final bool opensExternally;
   final bool isLoading;
   final Color color;
   final _WpButtonSpec spec;
+  final int maxLines;
 
   @override
   Widget build(BuildContext context) {
@@ -370,8 +467,16 @@ class _WpButtonContent extends StatelessWidget {
       children: [
         if (leading != null) ...[leading, SizedBox(width: spec.gap)],
         Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(
+            label,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
+        if (opensExternally) ...[
+          SizedBox(width: spec.gap),
+          Icon(LucideIcons.externalLink, size: spec.iconSize, color: color),
+        ],
       ],
     );
   }
@@ -462,18 +567,21 @@ class _WpButtonPalette {
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
-  static const _palette = _WpButtonPalette(
+  static _WpButtonPalette current() => _WpButtonPalette(
     disabledContent: WpColors.textMuted,
     disabledFill: WpColors.surfaceVariant,
     disabledBorder: WpColors.borderSubtle,
     focusRing: WpColors.textPrimary,
     accent: _WpButtonToneColors(
-      fill: WpColors.accent,
-      // The theme's `onPrimary` — deep navy on cyan, ~11:1. Several call sites
-      // hand-set white here today, which is ~1.9:1 on this accent.
-      onFill: WpColors.background,
+      fill: WpColors.action,
+      // The theme's `onPrimary`: deep navy on bright cyan in dark (~11:1),
+      // white on the petrol fill on light content (~7:1, #1077). Never
+      // hand-set a label colour here; it is right in one appearance only.
+      onFill: WpColors.onAction,
       content: WpColors.accent,
-      border: WpColors.borderSubtle,
+      // Outline of the secondary button: borderDefault reads as a control edge
+      // on the light ground (ticket §1 spec), borderSubtle vanished.
+      border: WpColors.controlEdge,
       hoverWash: WpColors.accentRowHover,
       pressedWash: WpColors.accentActiveFill,
     ),
@@ -483,13 +591,13 @@ class _WpButtonPalette {
       fill: WpColors.active,
       onFill: WpColors.textPrimary,
       content: WpColors.textSecondary,
-      border: WpColors.borderSubtle,
+      border: WpColors.controlEdge,
       hoverWash: WpColors.mutedRowHover,
       pressedWash: WpColors.mutedActiveFill,
     ),
     danger: _WpButtonToneColors(
       fill: WpColors.error,
-      onFill: WpColors.background,
+      onFill: WpColors.onError,
       content: WpColors.error,
       border: WpColors.errorBorder30,
       hoverWash: WpColors.errorRowHover,
@@ -542,7 +650,7 @@ class _WpButtonSpec {
   ///
   /// [MaterialTapTargetSize.padded] grows the reported box to 48 dp in any
   /// dimension below it, so a 40 dp-high button hands the ring a 48 dp box and
-  /// the glow drifts 4 dp further out top and bottom than left and right (the
+  /// the ring drifts 4 dp further out top and bottom than left and right (the
   /// label already carries the width past 48). Declaring the difference here
   /// puts the ring back on the visible contour.
   final EdgeInsets ringInsets;
@@ -559,7 +667,8 @@ class _WpButtonSpec {
     fontSize: fontSize,
     fontWeight: fontWeight,
     letterSpacing: -0.1,
-    fontFamily: 'Inter',
+    fontFamily: kWpUiFont,
+    fontFamilyFallback: kWpFontFallback,
   );
 
   /// Vertical inset re-derived for the taller box; horizontal inset
@@ -579,9 +688,9 @@ class _WpButtonSpec {
   /// buttons on one line — would risk overflow to fix nothing anyone
   /// reported.
   static final _standard = _WpButtonSpec(
-    height: WpLayout.minTouchTarget,
-    radius: WpRadius.borderSm,
-    ringRadius: WpRadius.sm,
+    height: WpLayout.controlHeight,
+    radius: BorderRadius.circular(WpRadiusTokens.sm),
+    ringRadius: WpRadiusTokens.sm,
     fontSize: WpTypography.body,
     fontWeight: FontWeight.w600,
     iconSize: WpIconSize.sm,
@@ -605,8 +714,8 @@ class _WpButtonSpec {
     // The shared height of everything that stands in a row's trailing slot —
     // key caps and the mic-permission chip carry the same token.
     height: WpLayout.denseControlHeight,
-    radius: WpRadius.borderSm,
-    ringRadius: WpRadius.sm,
+    radius: BorderRadius.circular(WpRadiusTokens.sm),
+    ringRadius: WpRadiusTokens.sm,
     fontSize: WpTypography.small,
     fontWeight: FontWeight.w600,
     iconSize: WpIconSize.xs,

@@ -1,63 +1,67 @@
+import '../../core/data/content_metadata_providers.dart';
+import '../../core/search/search_ranker.dart';
+
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 import '../../core/config/settings_provider.dart';
 import '../../core/data/reloadable_list_notifier.dart';
+import '../../core/sorting/list_sort.dart';
+import '../../core/sorting/list_sort_preference.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/snippet_picker/snippet_picker_controller.dart';
 import '../../services/snippets/interactive_snippet_composer.dart';
+import '../../services/snippets/snippets_exporter.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
-import '../../widgets/wp_list_tile_surface.dart';
+import '../../core/config/command_shortcut.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/wp_collection_list_pane.dart';
+import '../../widgets/wp_collection_page.dart';
+import '../../widgets/wp_collection_selection.dart';
+import '../../widgets/wp_collection_split.dart';
+import '../../widgets/wp_list_item_content.dart';
+import '../../widgets/wp_list_skeleton.dart';
+import '../../widgets/wp_search_field.dart';
+import '../../widgets/wp_collection_list_item.dart';
+import '../../widgets/wp_context_menu.dart';
+import '../../widgets/wp_multi_select_bar.dart';
+import '../../widgets/wp_favourite_star.dart';
 import '../../widgets/wp_row_action.dart';
+import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/dialog.dart';
-import '../../widgets/find_replace.dart';
 import '../../widgets/markdown_toolbar.dart';
+import '../../widgets/list_reveal.dart';
 import '../../widgets/searchable_list_page.dart';
-import '../../widgets/toast.dart';
+import '../../widgets/wp_notice_bar.dart';
 import '../../widgets/wp_accent_badge.dart';
+import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
-import '../../widgets/wp_text_field.dart';
-import '../settings/hotkey_flow.dart';
-import '../settings/settings_widgets.dart';
-import '../settings/snippet_picker_hotkey_flow.dart';
+import '../../widgets/wp_filter_chip.dart';
+import '../../widgets/wp_icon_button.dart';
+import '../../widgets/wp_page_notice.dart';
+import '../../widgets/wp_sort_menu_button.dart';
+import '../../widgets/wp_text_link.dart';
+import '../../core/navigation/page_state.dart';
+
 import 'package:whispaste/core/data/database.dart';
 
-// ---------------------------------------------------------------------------
-// Model
-// ---------------------------------------------------------------------------
+import '../../widgets/wp_copy_feedback.dart';
+import 'snippet_draft.dart';
+import 'snippet_item.dart';
+import 'widgets/snippet_detail_panel.dart';
+import 'widgets/snippet_editor.dart';
+import 'widgets/snippet_insert_dialog.dart';
 
-/// UI-facing snippet — named separately from the drift-generated [Snippet]
-/// row class to avoid a name collision.
-class SnippetItem {
-  const SnippetItem({
-    required this.id,
-    required this.title,
-    required this.body,
-    this.kind = 'static',
-    this.fields = const [],
-  });
-
-  final String id;
-  final String title;
-  final String body;
-
-  /// `static` (default — [body] is inserted verbatim) or `interactive`
-  /// (interactive-snippets PRD — [fields] names the guided recording
-  /// sequence's fields in order; [body] holds the user-authored template,
-  /// with an `{{fieldName}}` placeholder for each field's dictated text —
-  /// see `interactive_snippet_composer.dart`).
-  final String kind;
-
-  /// Ordered field names for an `interactive` snippet. Empty for `static`.
-  final List<String> fields;
-
-  bool get isInteractive => kind == 'interactive';
-}
+export 'snippet_item.dart';
 
 // ---------------------------------------------------------------------------
 // State management (Riverpod AsyncNotifier — persisted in Drift DB)
@@ -68,7 +72,7 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   @override
   Future<List<SnippetItem>> readAll() async {
     final db = ref.read(historyDatabaseProvider);
-    return (await db.readAllSnippetsWithFields()).map(_fromDb).toList();
+    return (await db.readAllSnippetsWithFields()).map(_snippetFromDb).toList();
   }
 
   @override
@@ -79,7 +83,8 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   // `createThenReload(persist)` helper was tried on ReloadableListNotifier:
   // it replaced this direct, linear code with a persist-callback closure for
   // no net line reduction — not worth the indirection for three lines.
-  Future<void> add(
+  /// Creates a snippet and returns its id, so the page can reveal it.
+  Future<String> add(
     String title,
     String body, {
     String kind = 'static',
@@ -96,12 +101,23 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
       fieldNames: fields,
     );
     await reload();
+    return id;
   }
 
+  /// Counts one insertion of snippet [id] (copy on the page) and reloads, so
+  /// the usage line and the "recently used" order follow at once.
+  Future<void> recordUse(String id) async {
+    await ref.read(historyDatabaseProvider).recordSnippetUse(id);
+    await reload();
+  }
+
+  /// Edits a snippet. [createdAt] is the existing creation time; the database
+  /// keeps the stored value whatever is passed.
   Future<void> updateSnippet(
     String id, {
     required String title,
     required String body,
+    required DateTime createdAt,
     String kind = 'static',
     List<String> fields = const [],
   }) async {
@@ -110,17 +126,61 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
       id: id,
       title: title,
       body: body,
-      createdAt: DateTime.now(),
+      createdAt: createdAt,
       kind: kind,
       fieldNames: fields,
     );
     await reload();
   }
 
-  Future<void> remove(String id) async {
-    final db = ref.read(historyDatabaseProvider);
-    await db.deleteSnippet(id);
+  /// Moves snippets to the trash. Nothing is lost: [restore] brings them back
+  /// exactly as they were, and the retention sweep empties the trash later.
+  Future<void> moveToTrash(List<String> ids) async {
+    await ref.read(historyDatabaseProvider).trashSnippets(ids);
     await reload();
+    ref.invalidate(snippetsTrashProvider);
+  }
+
+  /// Takes snippets out of the trash.
+  Future<void> restore(List<String> ids) async {
+    await ref.read(historyDatabaseProvider).restoreSnippetsFromTrash(ids);
+    await reload();
+    ref.invalidate(snippetsTrashProvider);
+  }
+
+  /// Stars or un-stars a snippet. Not an edit: "changed" keeps its time.
+  Future<void> setFavourite(String id, {required bool value}) async {
+    await ref
+        .read(historyDatabaseProvider)
+        .setSnippetFavorite(id, favorite: value);
+    await reload();
+  }
+
+  /// Stars or un-stars several snippets with one reload.
+  Future<void> setFavouriteMany(List<String> ids, {required bool value}) async {
+    final db = ref.read(historyDatabaseProvider);
+    for (final id in ids) {
+      await db.setSnippetFavorite(id, favorite: value);
+    }
+    await reload();
+  }
+
+  /// Permanently removes the given trashed snippets. Returns how many went.
+  Future<int> deleteForever(List<String> ids) async {
+    final removed = await ref
+        .read(historyDatabaseProvider)
+        .permanentlyDeleteTrashedSnippets(ids);
+    ref.invalidate(snippetsTrashProvider);
+    return removed;
+  }
+
+  /// Permanently removes every trashed snippet. Returns how many went.
+  Future<int> emptyTrash() async {
+    final removed = await ref
+        .read(historyDatabaseProvider)
+        .emptySnippetsTrash();
+    ref.invalidate(snippetsTrashProvider);
+    return removed;
   }
 
   /// Replaces the entire set of snippets with [items] — used by settings
@@ -132,29 +192,69 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   // [add] above, evaluated and rejected for the same reason.
   Future<void> replaceAll(List<SnippetItem> items) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.deleteAllSnippets();
     final now = DateTime.now();
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      await db.upsertSnippetWithFields(
-        id: '${now.millisecondsSinceEpoch}_$i',
-        title: item.title,
-        body: item.body,
-        createdAt: now,
-        kind: item.kind,
-        fieldNames: item.fields,
-      );
-    }
+    // One coordinated transaction: a failing row rolls back the delete too,
+    // so the old library survives a broken import (UIA-SNP-01).
+    await db.replaceAllSnippets([
+      for (var i = 0; i < items.length; i++)
+        (
+          // Zero-padded, so ids of one import sort in import order too.
+          id: '${now.millisecondsSinceEpoch}_${i.toString().padLeft(6, '0')}',
+          title: items[i].title,
+          body: items[i].body,
+          kind: items[i].kind,
+          fields: items[i].fields,
+        ),
+    ], createdAt: now);
     await reload();
   }
+}
 
-  static SnippetItem _fromDb(SnippetWithFields row) => SnippetItem(
-    id: row.row.id,
-    title: row.row.title,
-    body: row.row.body,
-    kind: row.row.kind,
-    fields: row.fields,
-  );
+SnippetItem _snippetFromDb(SnippetWithFields row) => SnippetItem(
+  id: row.row.id,
+  title: row.row.title,
+  body: row.row.body,
+  createdAt: row.row.createdAt,
+  updatedAt: row.row.updatedAt,
+  kind: row.row.kind,
+  fields: row.fields,
+  isFavorite: row.row.isFavorite,
+  useCount: row.row.useCount,
+  lastUsedAt: row.row.lastUsedAt,
+  sourceNoteId: row.row.sourceNoteId,
+);
+
+/// The snippets in the trash, most recently trashed first. Read-only: every
+/// change goes through [SnippetsNotifier], which invalidates this provider.
+final snippetsTrashProvider = FutureProvider<List<SnippetItem>>((ref) async {
+  final db = ref.read(historyDatabaseProvider);
+  return (await db.readTrashedSnippetsWithFields())
+      .map(_snippetFromDb)
+      .toList();
+});
+
+/// Opens the Textbaustein chooser over the library and inserts the pick's
+/// body verbatim at the caret of [controller] (#664) — the same text the
+/// page copies — then counts the use. A dismissed chooser only hands the
+/// focus back to the editor.
+Future<void> insertSnippetAtCursor({
+  required BuildContext context,
+  required WidgetRef ref,
+  required TextEditingController controller,
+  required FocusNode focusNode,
+}) async {
+  final items = await ref.read(snippetsProvider.future);
+  if (!context.mounted) return;
+  final picked = await pickSnippetForInsert(context, items);
+  if (picked == null) {
+    focusNode.requestFocus();
+    return;
+  }
+  WpMarkdownFormatting(
+    controller: controller,
+    focusNode: focusNode,
+  ).insertText(picked.body);
+  unawaited(ref.read(snippetsProvider.notifier).recordUse(picked.id));
 }
 
 final snippetsProvider =
@@ -166,6 +266,9 @@ final snippetsProvider =
 // Page
 // ---------------------------------------------------------------------------
 
+/// Page id of the snippets notice (see [WpPageNoticeSlot]).
+const _noticePage = WpNoticePage.snippets;
+
 /// Snippets page — named, multi-line text blocks kept in a separate settings
 /// area from Replacements (dictation-automations ticket 05).
 class SnippetsPage extends ConsumerStatefulWidget {
@@ -175,15 +278,299 @@ class SnippetsPage extends ConsumerStatefulWidget {
   ConsumerState<SnippetsPage> createState() => _SnippetsPageState();
 }
 
-class _SnippetsPageState extends ConsumerState<SnippetsPage> {
+class _SnippetsPageState extends ConsumerState<SnippetsPage>
+    with WpListRevealMixin<SnippetsPage> {
+  /// Kept for [_saveSnippet]: the editor also stores from its dispose(),
+  /// when neither `ref` nor an ancestor lookup is allowed any more.
+  late ProviderContainer _container;
+
   @override
-  // Deliberately not further extracted: WpSearchableListPage call-site
-  // parameter skeleton is feature-specific (l10n keys, icon, callbacks), only
-  // the parameter *names* repeat across features using it. A further-generic
-  // factory (e.g. keyed by notifier + string-map) was evaluated and rejected
-  // as the exact "Data Clumps"-in-reverse trade the WpSearchableListPage
-  // extraction already made — this is its irreducible residue, not
-  // unextracted duplication.
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container = ProviderScope.containerOf(context, listen: false);
+  }
+
+  /// Shows the trash instead of the active snippets. Page-local on purpose:
+  /// leaving the page lands on the active list again.
+  bool _trashView = false;
+
+  void _showTrash(bool value) {
+    if (_trashView == value) return;
+    setState(() {
+      _trashView = value;
+      _openId = null;
+      _newSessionId = null;
+      _leaveSelection();
+    });
+  }
+
+  /// Id of the snippet shown in the detail beside the list, or null.
+  String? _openId;
+
+  /// Id of the snippet created by the editor that is still open: it keeps
+  /// the new-snippet editor's identity, so the first autosave does not
+  /// remount the pane under the user's caret (#1498).
+  String? _newSessionId;
+
+  /// Counts the new-snippet editors opened on this page. Part of the new
+  /// editor's identity, so "+" always mounts a fresh, empty editor: before
+  /// (#1680), "+" right after creating a snippet kept the editor of the
+  /// created one (same identity), which still showed its text and kept
+  /// saving into it.
+  int _newEditorSession = 0;
+
+  /// The detail's identity: a just-created snippet stays the new editor.
+  String _detailId(SnippetItem s) => snippetDetailIdentity(
+    s.id,
+    newSessionId: _newSessionId,
+    newEditorSession: _newEditorSession,
+  );
+
+  /// Pre-fill of a new snippet picked from an example chip, or null.
+  SnippetDraft? _newTemplate;
+
+  void _open(SnippetItem s) => setState(() {
+    if (_openId != s.id) _newSessionId = null;
+    _openId = s.id;
+  });
+
+  void _closeDetail() => setState(() {
+    _openId = null;
+    _newSessionId = null;
+    _newTemplate = null;
+  });
+
+  /// Selection mode on or off from the toolbar's select toggle.
+  void _toggleSelecting() => setState(() {
+    if (_selecting) {
+      _leaveSelection();
+    } else {
+      _selecting = true;
+    }
+  });
+
+  // ── Selection ─────────────────────────────────────────────────────────
+
+  /// Selection mode: the rows show a checkbox and one bar offers the actions
+  /// for all marked snippets. Only in the active list, never in the trash.
+  bool _selecting = false;
+  final Set<String> _selected = {};
+
+  /// Ids the list shows right now (set while building). A selection that a
+  /// search has hidden is kept but never acted on.
+  List<SnippetItem> _visible = const [];
+
+  void _leaveSelection() {
+    _selecting = false;
+    _selected.clear();
+  }
+
+  void _toggleSelect(SnippetItem s) {
+    // The unsaved new-snippet row is no snippet yet: nothing to select.
+    if (s.id == kNewSnippetDraftKey) return;
+    setState(() {
+      _selecting = true;
+      if (!_selected.remove(s.id)) _selected.add(s.id);
+    });
+  }
+
+  List<SnippetItem> get _chosen => [
+    for (final s in _visible)
+      if (_selected.contains(s.id)) s,
+  ];
+
+  /// Esc leaves the selection first, then closes the detail (the editor
+  /// answers Esc itself while it has focus).
+  bool _onEscape() {
+    if (_selecting) {
+      setState(_leaveSelection);
+      return true;
+    }
+    if (_openId != null) {
+      _closeDetail();
+      return true;
+    }
+    return false;
+  }
+
+  void _toggleSelectAll() {
+    setState(() {
+      if (_chosen.length >= _visible.length) {
+        _selected.clear();
+      } else {
+        _selected
+          ..clear()
+          ..addAll(_visible.map((s) => s.id));
+      }
+    });
+  }
+
+  Widget? _selectionBar(BuildContext context, List<SnippetItem> visible) {
+    _visible = [
+      for (final s in visible)
+        if (s.id != kNewSnippetDraftKey) s,
+    ];
+    if (!_selecting || _trashView) return null;
+    final l10n = L10n.of(context);
+    final chosen = _chosen;
+    final has = chosen.isNotEmpty;
+    final allStarred = has && chosen.every((s) => s.isFavorite);
+    return WpMultiSelectBar(
+      idPrefix: 'snippets-multiselect',
+      selectedCount: chosen.length,
+      totalCount: _visible.length,
+      isTrashView: false,
+      isArchiveView: false,
+      onSelectAll: _toggleSelectAll,
+      onCancelSelection: () => setState(_leaveSelection),
+      onDelete: has ? _trashSelected : null,
+      onExport: has ? _exportSelected : null,
+      onFavourite: has ? () => _starSelected(!allStarred) : null,
+      favouriteLabel: allStarred
+          ? l10n.snippetsBulkUnstar
+          : l10n.snippetsBulkStar,
+      favouriteIcon: allStarred ? LucideIcons.starOff : LucideIcons.star,
+    );
+  }
+
+  Future<void> _trashSelected() async {
+    final ids = [for (final s in _chosen) s.id];
+    if (ids.isEmpty) return;
+    final notifier = ref.read(snippetsProvider.notifier);
+    final l10n = L10n.of(context);
+    try {
+      await notifier.moveToTrash(ids);
+    } catch (_) {
+      _writeFailed('delete-failed', l10n.snippetsDeleteFailed);
+      return;
+    }
+    if (!mounted) return;
+    setState(_leaveSelection);
+    showWpNotice(
+      context,
+      WpNotice(
+        id: 'snippets-trashed',
+        kind: WpNoticeKind.undo,
+        message: l10n.snippetsBulkMovedToTrash(ids.length),
+        actionLabel: l10n.snippetsUndo,
+        actionTestId: 'snippets-undo',
+        onAction: () async {
+          try {
+            await notifier.restore(ids);
+          } catch (_) {
+            _writeFailed('restore-failed', l10n.snippetsRestoreFailed);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _starSelected(bool value) async {
+    final ids = [for (final s in _chosen) s.id];
+    if (ids.isEmpty) return;
+    final l10n = L10n.of(context);
+    try {
+      await ref
+          .read(snippetsProvider.notifier)
+          .setFavouriteMany(ids, value: value);
+    } catch (_) {
+      _writeFailed('bulk-failed', l10n.snippetsBulkFailed);
+      return;
+    }
+    if (!mounted) return;
+    setState(_leaveSelection);
+    _confirm(
+      'bulk-starred',
+      value
+          ? l10n.snippetsBulkStarred(ids.length)
+          : l10n.snippetsBulkUnstarred(ids.length),
+    );
+  }
+
+  Future<void> _exportSelected() async {
+    final rows = [
+      for (final s in _chosen)
+        (
+          id: s.id,
+          title: s.title,
+          body: s.body,
+          changedAt: s.updatedAt ?? s.createdAt,
+        ),
+    ];
+    final done = await const SnippetsExporter().exportSnippets(context, rows);
+    if (done && mounted) setState(_leaveSelection);
+  }
+
+  /// A tap on a row: with Ctrl/Cmd held, or while selecting, it marks the row;
+  /// otherwise it shows the snippet in the detail beside the list.
+  void _onRowTap(SnippetItem s) {
+    final keys = HardwareKeyboard.instance;
+    if (s.id != kNewSnippetDraftKey &&
+        (_selecting || keys.isControlPressed || keys.isMetaPressed)) {
+      _toggleSelect(s);
+    } else {
+      _open(s);
+    }
+  }
+
+  Future<void> _chooseSort(ListSort sort) => saveListSort(
+    context,
+    save: () => ref.read(snippetsSortProvider.notifier).choose(sort),
+    orderLabel: (l10n) => _sortOrderLabel(l10n, sort),
+  );
+
+  String _sortOrderLabel(L10n l10n, ListSort sort) => wpSortOrderLabel(
+    l10n,
+    fieldLabel: _fieldLabel(l10n, sort.field),
+    isDate:
+        sort.field == ListSortField.added ||
+        sort.field == ListSortField.changed ||
+        sort.field == ListSortField.used,
+    reversed: sort.reversed,
+  );
+
+  String _fieldLabel(L10n l10n, ListSortField field) => switch (field) {
+    ListSortField.added => l10n.listSortFieldAdded,
+    ListSortField.changed => l10n.listSortFieldChanged,
+    ListSortField.used => l10n.listSortFieldUsed,
+    // Not offered by this list; the title is the list's own name for it.
+    ListSortField.title ||
+    ListSortField.trigger ||
+    ListSortField.result => l10n.listSortFieldTitle,
+  };
+
+  /// Search, keyboard cursor and bare keys of the list (#1498): the same
+  /// controller as on Recordings and Notes, so the keys behave alike.
+  final _selection = WpCollectionSelection<SnippetItem>(debugLabel: 'snippets');
+
+  @override
+  void initState() {
+    super.initState();
+    _selection.addListener(_onSelectionChanged);
+  }
+
+  void _onSelectionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _selection
+      ..removeListener(_onSelectionChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  static List<SearchField> _searchFields(SnippetItem s) => [
+    SearchField(s.title, SearchWeight.title),
+    SearchField(s.body, SearchWeight.body),
+  ];
+
+  /// A snippet row is 87 dp, not the single-line default (its body preview
+  /// takes two lines) — measured, see `WpListSkeleton.rowHeight`.
+  static const double _skeletonRowHeight = 87;
+
+  @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     // Narrowed to the one field this page renders: `settingsProvider` emits
@@ -200,842 +587,1038 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
     // `?? true` while the list is still loading — the "trigger does nothing
     // yet" warning must not flash before the first read lands.
     final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;
-
-    return WpSearchableListPage<SnippetItem>(
-      header: _SnippetPickerHeader(
-        trigger: trigger,
-        pageRef: ref,
-        showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
+    final sortAsync = ref.watch(snippetsSortProvider);
+    final sort = sortAsync.value ?? kSnippetsDefaultSort;
+    // Loading until the saved sort is read, so the default never flashes.
+    final trashAsync = ref.watch(snippetsTrashProvider);
+    final trashCount = trashAsync.value?.length ?? 0;
+    final trashDays =
+        ref.watch(settingsProvider).value?.history.historyAutoTrashDays ??
+        AppSettings.defaults.history.historyAutoTrashDays;
+    final inTrash = _trashView;
+    // Only which snippets have a draft (and the new draft's title for its
+    // row) rebuilds the page, not every keystroke in the editor.
+    final draftKeys = ref.watch(
+      snippetDraftsProvider.select(
+        (m) => (
+          keys: (m.keys.toList()..sort()).join('\n'),
+          newTitle: m[kNewSnippetDraftKey]?.title,
+        ),
       ),
-      asyncAll: ref.watch(snippetsProvider),
-      // ⚡ Bolt: Use precompiled case-insensitive RegExp to match fields instead
-      // of allocating lowercased strings repeatedly in tight loops.
-      searchMatches: (s, q) => q.hasMatch(s.title) || q.hasMatch(s.body),
-      searchHint: l10n.snippetsSearch,
-      searchFieldLabel: l10n.snippetsSearchFieldLabel,
-      addLabel: l10n.snippetsAdd,
-      onAdd: () => _showAddEditDialog(),
-      onRetry: () => ref.invalidate(snippetsProvider),
-      emptyIcon: LucideIcons.notebookText,
-      emptyTitle: l10n.snippetsEmpty,
-      emptyHint: l10n.snippetsEmptyHint,
-      // Same string as the empty state's hint — the page keeps explaining
-      // itself once the first snippet exists (ticket 03, point 4).
-      subtitle: l10n.snippetsEmptyHint,
-      // A snippet row is 87 dp, not the single-line default (its body
-      // preview takes two lines) — measured, see the constant's docs.
-      skeletonRowHeight: 87,
-      emptyActionLabel: l10n.snippetsAdd,
-      noMatchesTitle: l10n.snippetsNoMatches,
-      noMatchesHint: l10n.snippetsNoMatchesHint,
-      onItemActivate: (s) => _showAddEditDialog(existing: s),
-      onItemDelete: _confirmDelete,
-      itemBuilder: (context, s, isCursor) {
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _SnippetTileState.build
-        return _SnippetTile(
-          snippet: s,
-          isCursor: isCursor,
-          onTap: () => _showAddEditDialog(existing: s),
-          onDelete: () => _confirmDelete(s),
-          onCopy: () => _copySnippet(s),
-          onDuplicate: () => _duplicateSnippet(s),
-        );
+    );
+    final draftIds = draftKeys.keys.isEmpty
+        ? const <String>{}
+        : draftKeys.keys.split('\n').toSet();
+    // An unsaved new snippet shows as the list's first row while it is open
+    // or has a draft, so a closed editor never hides typed text.
+    final showNewDraft =
+        !inTrash &&
+        (_openId == kNewSnippetDraftKey ||
+            draftIds.contains(kNewSnippetDraftKey));
+    final asyncAll = inTrash
+        ? trashAsync
+        : sortAsync.isLoading && !sortAsync.hasValue
+        ? const AsyncValue<List<SnippetItem>>.loading()
+        : ref
+              .watch(snippetsProvider)
+              .whenData(
+                (items) => [
+                  if (showNewDraft) _newDraftItem(l10n),
+                  ...favouritesFirst(sortListItems(items, sort)),
+                ],
+              );
+
+    final all = asyncAll.value ?? const <SnippetItem>[];
+    final visible = asyncAll.hasValue
+        ? _selection.filter(all, _searchFields)
+        : const <SnippetItem>[];
+    final cursorItem = _selection.cursorItem(visible);
+    SnippetItem? open;
+    for (final s in all) {
+      if (s.id == _openId) {
+        open = s;
+        break;
+      }
+    }
+    final selectionBar = asyncAll.hasValue
+        ? _selectionBar(context, visible)
+        : null;
+
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        commandActivator(LogicalKeyboardKey.keyN): _startNew,
+      },
+      child: Focus(
+        autofocus: true,
+        skipTraversal: true,
+        onKeyEvent: (_, event) => _selection.handleKey(
+          event,
+          visible: visible,
+          // Enter shows the snippet beside the list, in the trash too
+          // (restore sits on the detail's header and on the row).
+          onActivate: (s) =>
+              _selecting && !inTrash ? _toggleSelect(s) : _open(s),
+          onDelete: (s) => _deleteFromList(s, inTrash: inTrash),
+          onToggleSelect: inTrash ? null : _toggleSelect,
+          onEscape: _onEscape,
+        ),
+        child: WpCollectionPage(
+          screenId: 'snippets',
+          searchFocusNode: _selection.searchFocusNode,
+          selectionBar: selectionBar,
+          notices: const [WpPageNoticeSlot(page: _noticePage)],
+          toolbar: _toolbar(
+            l10n,
+            inTrash: inTrash,
+            hasSnippets: hasSnippets,
+            trashCount: trashCount,
+            sort: sort,
+          ),
+          body: WpCollectionSplit<SnippetItem>(
+            selectedItem: open,
+            idOf: _detailId,
+            detailBuilder: (context, s) => _detail(s, inTrash: inTrash),
+            listBuilder: (context, _) => WpCollectionListPane<SnippetItem>(
+              storageKey: 'snippets-list',
+              copyTargetPrefix: 'snippet',
+              focusNode: _selection.listFocusNode,
+              focusedId: cursorItem?.id,
+              revealId: revealedId,
+              rows: [for (final s in visible) WpCollectionItemRow(s.id, s)],
+              itemBuilder: (context, s) => _row(
+                l10n,
+                s,
+                isCursor: s.id == cursorItem?.id,
+                inTrash: inTrash,
+                draftIds: draftIds,
+              ),
+              placeholder: _placeholder(
+                l10n,
+                asyncAll,
+                visible: visible,
+                inTrash: inTrash,
+                trashDays: trashDays,
+                trigger: trigger,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// What stands in for the rows: loading, error, empty, no matches; null
+  /// while there are rows to show.
+  Widget? _placeholder(
+    L10n l10n,
+    AsyncValue<List<SnippetItem>> asyncAll, {
+    required List<SnippetItem> visible,
+    required bool inTrash,
+    required int trashDays,
+    required String trigger,
+  }) {
+    return asyncAll.when<Widget?>(
+      loading: () => const WpListSkeleton(
+        rowHeight: _skeletonRowHeight,
+        padding: EdgeInsets.symmetric(vertical: WpSpacing.xs),
+      ),
+      error: (_, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        actionTestId: 'list-retry',
+        onAction: () => ref.invalidate(snippetsProvider),
+      ),
+      data: (all) {
+        if (all.isEmpty) {
+          // Like Recordings and Notes, the page explains itself here and
+          // nowhere above the rows: once snippets exist, the list starts
+          // right under the search (#1498).
+          return WpEmptyState(
+            icon: LucideIcons.notebookText,
+            title: inTrash ? l10n.snippetsTrashEmpty : l10n.snippetsEmpty,
+            hint: inTrash
+                ? l10n.snippetsTrashEmptyHint(trashDays)
+                : l10n.snippetsEmptyHint,
+            actionLabel: l10n.snippetsAdd,
+            actionTestId: 'list-empty-add',
+            onAction: _startNew,
+            // Teaches by example: each chip only pre-fills the editor,
+            // nothing is stored until Save, and the list never shows
+            // placeholder rows. The picker link follows, because a trigger
+            // word without snippets does nothing yet.
+            footer: inTrash
+                ? null
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SnippetExampleChips(onPick: _startNew),
+                      const SizedBox(height: WpSpacing.lg),
+                      _SnippetPickerSettingsLink(
+                        showEmptyListHint: trigger.trim().isNotEmpty,
+                      ),
+                    ],
+                  ),
+          );
+        }
+        if (visible.isEmpty) {
+          return WpEmptyState.searchNoMatches(
+            query: _selection.query,
+            testId: 'snippets-search-clear',
+            onClear: _selection.clearSearch,
+          );
+        }
+        return null;
       },
     );
   }
 
-  // ── Add / Edit dialog ────────────────────────────────────────────────
+  /// Toolbar places (page family). One row (#1201): the two views live in
+  /// the filter popover, the trash shows as a removable mark; "Empty trash"
+  /// is the trash's view-bound action, select and sort are the tools.
+  Widget _toolbar(
+    L10n l10n, {
+    required bool inTrash,
+    required bool hasSnippets,
+    required int trashCount,
+    required ListSort sort,
+  }) {
+    final sortOptions = _sortOptions(l10n);
+    return WpCollectionToolbar(
+      screenId: 'snippets',
+      search: WpSearchField(
+        testId: 'snippets-search',
+        controller: _selection.searchController,
+        focusNode: _selection.searchFocusNode,
+        hintText: l10n.snippetsSearch,
+        variant: WpSearchFieldVariant.outlined,
+        onChanged: _selection.setQuery,
+        semanticsLabel: l10n.snippetsSearchFieldLabel,
+      ),
+      primaryAction: Semantics(
+        identifier: 'snippets-add',
+        child: WpIconButton(
+          icon: LucideIcons.plus,
+          tooltip: l10n.snippetsAdd,
+          onPressed: _startNew,
+        ),
+      ),
+      filterSections: [
+        WpFilterSection(
+          id: 'view',
+          label: l10n.collectionFilterShow,
+          children: [
+            WpFilterChip(
+              testId: 'snippets-filter-active',
+              label: l10n.navSnippets,
+              icon: LucideIcons.notebookText,
+              isActive: !inTrash,
+              onTap: () => _showTrash(false),
+            ),
+            WpFilterChip(
+              testId: 'snippets-filter-trash',
+              label: l10n.snippetsTrash,
+              icon: LucideIcons.trash2,
+              isActive: inTrash,
+              count: trashCount > 0 ? trashCount : null,
+              onTap: () => _showTrash(true),
+            ),
+          ],
+        ),
+      ],
+      activeFilters: [
+        if (inTrash)
+          WpActiveFilter(
+            id: 'view',
+            label: l10n.snippetsTrash,
+            onRemove: () => _showTrash(false),
+          ),
+      ],
+      status: [
+        if (inTrash && trashCount > 0)
+          WpButton(
+            testId: 'snippets-empty-trash',
+            label: l10n.snippetsEmptyTrash,
+            icon: LucideIcons.trash2,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.danger,
+            size: WpButtonSize.dense,
+            onPressed: _confirmEmptyTrash,
+          ),
+      ],
+      tools: [
+        if (!inTrash && hasSnippets)
+          // Every toolbar control is the bordered icon button (#1498);
+          // `selected` makes it the toggle and announces its state.
+          WpIconButton(
+            testId: 'snippets-select-toggle',
+            icon: _selecting ? LucideIcons.checkCheck : LucideIcons.listChecks,
+            tooltip: l10n.snippetsSelectMode,
+            selected: _selecting,
+            onPressed: _toggleSelecting,
+          ),
+        if (!inTrash)
+          WpSortMenuButton<ListSortField>(
+            testId: 'snippets-sort',
+            tooltip: l10n.listSortMenuTooltip(_sortOrderLabel(l10n, sort)),
+            current: sort.field,
+            options: sortOptions,
+            onChanged: (field) => _chooseSort(ListSort(field)),
+            reversed: sort.reversed,
+            reverseLabel: l10n.listSortReverse,
+            onReversedChanged: (reversed) =>
+                _chooseSort(ListSort(sort.field, reversed: reversed)),
+          ),
+      ],
+      // On a narrow row the tools fold into one button on the same row.
+      toolsOverflow: inTrash
+          ? null
+          : Builder(
+              builder: (buttonContext) => WpIconButton(
+                testId: 'snippets-tools-more',
+                icon: LucideIcons.ellipsis,
+                tooltip: l10n.dockOverflow,
+                onPressed: () => showWpListMenu(buttonContext, [
+                  if (hasSnippets)
+                    WpListMenuAction(
+                      itemKey: const ValueKey('snippets-select-mode'),
+                      label: l10n.snippetsSelectMode,
+                      icon: LucideIcons.listChecks,
+                      checked: _selecting,
+                      onSelected: _toggleSelecting,
+                    ),
+                  for (final option in sortOptions)
+                    WpListMenuAction(
+                      itemKey: ValueKey('snippets-sort-${option.id}'),
+                      label: option.label,
+                      icon: option.icon,
+                      checked: option.value == sort.field,
+                      onSelected: () => _chooseSort(ListSort(option.value)),
+                    ),
+                ]),
+              ),
+            ),
+    );
+  }
 
-  // Deliberately not further extracted into an onCreate/onUpdate-callback
-  // helper: tried it, the result was longer than the original and replaced
-  // the direct `final (title, body) = result;` destructuring with closure
-  // indirection — net readability loss, so this stays as-is (unlike the
-  // dialog-scaffold + delete flow, which extracted cleanly into
-  // WpSearchableListPage/showWpDeleteConfirmDialog).
-  Future<void> _showAddEditDialog({SnippetItem? existing}) async {
-    final result =
-        await showWpFormDialog<(String, String, String, List<String>)>(
-          context: context,
-          builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
-        );
-    if (result == null) return;
-    final (title, body, kind, fields) = result;
-    final notifier = ref.read(snippetsProvider.notifier);
-    if (existing != null) {
-      notifier.updateSnippet(
-        existing.id,
-        title: title,
-        body: body,
-        kind: kind,
-        fields: fields,
-      );
+  static List<WpSortOption<ListSortField>> _sortOptions(L10n l10n) => [
+    WpSortOption(
+      value: ListSortField.title,
+      id: 'title',
+      label: l10n.listSortFieldTitle,
+      icon: LucideIcons.type,
+    ),
+    WpSortOption(
+      value: ListSortField.added,
+      id: 'added',
+      label: l10n.listSortFieldAdded,
+      icon: LucideIcons.calendarPlus,
+    ),
+    WpSortOption(
+      value: ListSortField.changed,
+      id: 'changed',
+      label: l10n.listSortFieldChanged,
+      icon: LucideIcons.pencilLine,
+    ),
+    WpSortOption(
+      value: ListSortField.used,
+      id: 'used',
+      label: l10n.listSortFieldUsed,
+      icon: LucideIcons.history,
+    ),
+  ];
+
+  void _deleteFromList(SnippetItem s, {required bool inTrash}) {
+    if (inTrash) {
+      _confirmDeleteForever(s);
+    } else if (s.id == kNewSnippetDraftKey) {
+      _confirmDiscardNewDraft();
+    } else if (_selecting && _selected.contains(s.id)) {
+      _trashSelected();
     } else {
-      notifier.add(title, body, kind: kind, fields: fields);
-      ref
-          .read(telemetrySessionAggregatorProvider)
-          .count(category: 'snippets', action: 'create');
+      _moveToTrashWithUndo(s);
     }
+  }
+
+  Widget _row(
+    L10n l10n,
+    SnippetItem s, {
+    required bool isCursor,
+    required bool inTrash,
+    required Set<String> draftIds,
+  }) {
+    if (inTrash) {
+      return _SnippetRow(
+        key: ValueKey('snippets-trash-row-${s.id}'),
+        snippet: s,
+        isCursor: isCursor,
+        isOpen: s.id == _openId,
+        onTap: () => _open(s),
+        actions: (visible) => WpListItemActions.trash(
+          visible: visible,
+          restore: WpRowAction(
+            key: ValueKey('snippets-restore-${s.id}'),
+            testId: 'snippets-restore-${s.id}',
+            icon: LucideIcons.undo2,
+            tooltip: l10n.snippetsRestore,
+            onTap: () => _restoreFromTrash(s),
+            dense: true,
+          ),
+          delete: WpRowAction(
+            key: ValueKey('snippets-delete-forever-${s.id}'),
+            testId: 'snippets-delete-forever-${s.id}',
+            icon: LucideIcons.trash2,
+            tooltip: l10n.snippetsDeleteForever,
+            onTap: () => _confirmDeleteForever(s),
+            isDestructive: true,
+            dense: true,
+          ),
+        ),
+      );
+    }
+    if (s.id == kNewSnippetDraftKey) {
+      return _SnippetRow(
+        key: const ValueKey('snippets-draft-row'),
+        snippet: s,
+        isCursor: isCursor,
+        isOpen: s.id == _openId,
+        badges: [
+          WpAccentBadge(
+            label: l10n.snippetsDraftBadge,
+            tone: WpAccentBadgeTone.highlight,
+          ),
+        ],
+        onTap: () => _open(s),
+        // The unsaved new snippet: nothing to copy or star yet, only the
+        // Delete slot, which discards the draft.
+        actions: (visible) => WpListItemActions(
+          visible: visible,
+          delete: WpRowAction(
+            key: const ValueKey('snippets-draft-discard'),
+            testId: 'snippets-draft-discard',
+            icon: LucideIcons.trash2,
+            tooltip: l10n.unsavedInputDiscard,
+            onTap: _confirmDiscardNewDraft,
+            isDestructive: true,
+            dense: true,
+          ),
+        ),
+      );
+    }
+    final id = s.id;
+    final isSelected = _selected.contains(id);
+    // Delete/Backspace on a focused row, the delete action and the menu all
+    // move the row (or the checked set it belongs to) to the trash, with an
+    // undo notice, the same promise as Notizen.
+    void delete() =>
+        _selecting && isSelected ? _trashSelected() : _moveToTrashWithUndo(s);
+    return _SnippetRow(
+      key: ValueKey('snippets-row-$id'),
+      snippet: s,
+      isCursor: isCursor,
+      isHighlighted: id == highlightedId,
+      isOpen: id == _openId,
+      isSelected: isSelected,
+      leading: _selecting
+          ? WpRowCheckbox(
+              key: ValueKey('snippets-select-$id'),
+              value: isSelected,
+              semanticsLabel: l10n.snippetsSelectRow(s.title),
+              onChanged: () => _onRowTap(s),
+            )
+          : null,
+      badges: [
+        if (s.isInteractive)
+          WpAccentBadge(label: l10n.snippetsInteractiveBadge),
+        if (draftIds.contains(id))
+          WpAccentBadge(
+            key: ValueKey('snippets-draft-badge-$id'),
+            label: l10n.snippetsDraftBadge,
+            tone: WpAccentBadgeTone.highlight,
+          ),
+      ],
+      showFavourite: true,
+      showUsage: true,
+      onTap: () => _onRowTap(s),
+      onDeleteKey: delete,
+      onDuplicate: () => _duplicateSnippet(s),
+      // The row's actions plus Duplicate, which has no button of its own
+      // (one action set per row: Copy, Star, Delete; #1498).
+      contextMenu: () => [
+        if (!s.isInteractive)
+          WpContextMenuEntry(
+            icon: LucideIcons.copy,
+            label: l10n.historyCopyText,
+            onSelected: () => _copySnippet(s),
+          ),
+        WpContextMenuEntry(
+          key: ValueKey('snippets-duplicate-$id'),
+          icon: LucideIcons.files,
+          label: l10n.actionDuplicate,
+          onSelected: () => _duplicateSnippet(s),
+        ),
+        WpContextMenuEntry(
+          icon: LucideIcons.star,
+          label: WpFavouriteStar.labelFor(l10n, isFavourite: s.isFavorite),
+          onSelected: () => _toggleFavourite(s),
+        ),
+        WpContextMenuEntry(
+          icon: LucideIcons.trash2,
+          label: l10n.actionDelete,
+          onSelected: delete,
+          destructive: true,
+        ),
+      ],
+      actions: (visible) => WpListItemActions(
+        visible: visible,
+        // A copy has nothing to copy for an interactive snippet: its body
+        // is a template, the composed text only exists after recording.
+        copy: s.isInteractive
+            ? null
+            : WpRowAction(
+                key: ValueKey('snippets-copy-$id'),
+                testId: 'snippets-copy-$id',
+                icon: LucideIcons.copy,
+                tooltip: l10n.historyCopyText,
+                onTap: () => _copySnippet(s),
+                dense: true,
+              ),
+        star: WpFavouriteStar(
+          key: ValueKey('snippets-favourite-$id'),
+          testId: 'snippets-favourite-$id',
+          isFavourite: s.isFavorite,
+          onToggle: () => _toggleFavourite(s),
+        ),
+        delete: WpRowAction(
+          key: ValueKey('snippets-delete-$id'),
+          testId: 'snippets-delete-$id',
+          icon: LucideIcons.trash2,
+          tooltip: l10n.actionDelete,
+          onTap: delete,
+          isDestructive: true,
+          dense: true,
+        ),
+      ),
+    );
+  }
+
+  // ── Editor (in the detail, no dialog — #864) ─────────────────────────
+
+  /// Stores the editor's valid state (#1498: autosave, Ctrl/Cmd+S, close).
+  /// Returns the snippet's id, or null when the write fails, so the editor
+  /// keeps the typed text and says so (UIA-SNP-02). A new snippet is created
+  /// once; while its editor stays open it keeps the new editor's identity.
+  /// The draft is cleared only when it is exactly the stored state.
+  Future<String?> _saveSnippet(
+    SnippetItem? existing,
+    SnippetDraft draft,
+  ) async {
+    final container = _container;
+    final notifier = container.read(snippetsProvider.notifier);
+    final drafts = container.read(snippetDraftsProvider.notifier);
+    try {
+      final String id;
+      if (existing != null) {
+        id = existing.id;
+        // A save without a change is no edit: "changed" keeps its old time.
+        if (!_isUnchanged(existing, draft)) {
+          await notifier.updateSnippet(
+            existing.id,
+            title: draft.title,
+            body: draft.body,
+            createdAt: existing.createdAt,
+            kind: draft.kind,
+            fields: draft.fields,
+          );
+        }
+      } else {
+        id = await notifier.add(
+          draft.title,
+          draft.body,
+          kind: draft.kind,
+          fields: draft.fields,
+        );
+        if (container
+                .read(snippetDraftsProvider)[kNewSnippetDraftKey]
+                ?.stored ==
+            draft) {
+          drafts.clear(kNewSnippetDraftKey);
+        }
+        if (mounted) {
+          setState(() {
+            _newTemplate = null;
+            // The editor stays where the user writes; it now edits the
+            // created snippet.
+            if (_openId == kNewSnippetDraftKey) {
+              _openId = id;
+              _newSessionId = id;
+            }
+          });
+          reveal(id);
+        }
+        container
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'snippets', action: 'create');
+      }
+      if (container.read(snippetDraftsProvider)[id]?.stored == draft) {
+        drafts.clear(id);
+      }
+      return id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The row standing for the unsaved new snippet: the draft as typed, or
+  /// the picked example before the first keystroke.
+  SnippetItem _newDraftItem(L10n l10n) {
+    final draft =
+        ref.read(snippetDraftsProvider)[kNewSnippetDraftKey] ??
+        _newTemplate ??
+        const SnippetDraft();
+    final title = draft.title.trim();
+    return SnippetItem(
+      id: kNewSnippetDraftKey,
+      title: title.isEmpty ? l10n.snippetsNewSnippet : title,
+      body: draft.body,
+      createdAt: DateTime.now(),
+      kind: draft.kind,
+      fields: draft.fields,
+    );
+  }
+
+  static bool _isUnchanged(SnippetItem existing, SnippetDraft draft) =>
+      existing.title == draft.title &&
+      existing.body == draft.body &&
+      existing.kind == draft.kind &&
+      listEquals(existing.fields, draft.fields);
+
+  /// Opens the editor for a new snippet, optionally pre-filled by an example
+  /// chip. An unsaved new draft wins over the template: it is restored, never
+  /// overwritten.
+  void _startNew([SnippetDraft? template]) {
+    setState(() {
+      _trashView = false;
+      _leaveSelection();
+      _newTemplate = template;
+      _newSessionId = null;
+      _openId = kNewSnippetDraftKey;
+      _newEditorSession++;
+    });
+  }
+
+  /// The new-snippet row's delete action: the draft goes after a
+  /// confirmation, the same question the editor's discard button asks.
+  Future<void> _confirmDiscardNewDraft() async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.unsavedInputTitle,
+      message: l10n.unsavedInputMessage,
+      confirmLabel: l10n.unsavedInputDiscard,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    ref.read(snippetDraftsProvider.notifier).clear(kNewSnippetDraftKey);
+    if (_openId == kNewSnippetDraftKey) _closeDetail();
+  }
+
+  Widget _detail(SnippetItem s, {required bool inTrash}) {
+    if (inTrash) {
+      return SnippetDetailPanel(
+        key: ValueKey('snippets-detail-${s.id}'),
+        snippet: s,
+        onClose: _closeDetail,
+        onRestore: () {
+          _closeDetail();
+          _restoreFromTrash(s);
+        },
+        onDeleteForever: () => _confirmDeleteForever(s),
+      );
+    }
+    // No read view, no edit mode (#1498): the snippet opens in its editor,
+    // written in directly, like a note.
+    final isNew = s.id == kNewSnippetDraftKey;
+    return SnippetEditor(
+      key: ValueKey('snippets-editor-${_detailId(s)}'),
+      onInsertSnippet: (controller, focusNode) => unawaited(
+        insertSnippetAtCursor(
+          context: context,
+          ref: ref,
+          controller: controller,
+          focusNode: focusNode,
+        ),
+      ),
+      existing: isNew ? null : s,
+      template: isNew ? _newTemplate : null,
+      onSave: (draft) {
+        // The created snippet once the first save of a new one is through.
+        SnippetItem? current;
+        if (!isNew) current = s;
+        final createdId = _newSessionId;
+        if (isNew && createdId != null) {
+          current = ref
+              .read(snippetsProvider)
+              .value
+              ?.where((i) => i.id == createdId)
+              .firstOrNull;
+        }
+        return _saveSnippet(current, draft);
+      },
+      onClose: _closeDetail,
+      onCopy: (text) => _copySnippet(s, text: text),
+      onToggleFavourite: () => _toggleFavourite(s),
+      onDuplicate: () => _duplicateSnippet(s),
+      onDelete: () {
+        _closeDetail();
+        _moveToTrashWithUndo(s);
+      },
+    );
   }
 
   // ── Copy action ──────────────────────────────────────────────────────
 
-  void _copySnippet(SnippetItem snippet) {
-    copyToClipboardWithToast(
-      context: context,
-      ref: ref,
-      text: snippet.body,
-      category: 'snippets',
+  void _copySnippet(SnippetItem snippet, {String? text}) {
+    unawaited(ref.read(snippetsProvider.notifier).recordUse(snippet.id));
+    unawaited(
+      copyWithFeedback(
+        context,
+        text: text ?? snippet.body,
+        target: 'snippet-${snippet.id}',
+        category: 'snippets',
+      ),
     );
   }
 
   Future<void> _duplicateSnippet(SnippetItem item) async {
-    await ref
+    final id = await ref
         .read(snippetsProvider.notifier)
         .add(
-          '${item.title} (copy)',
+          '${item.title} ${L10n.of(context).snippetCopySuffix}',
           item.body,
           kind: item.kind,
           fields: item.fields,
         );
+    if (!mounted) return;
+    // Confirms at the original row and marks the copy in place; no scroll,
+    // so the list stays where the pointer is.
+    confirmAtTrigger(context, target: 'snippet-${item.id}');
+    highlight(id);
   }
 
-  // ── Delete confirmation ──────────────────────────────────────────────
+  // ── Trash ─────────────────────────────────────────────────────────────
 
-  Future<void> _confirmDelete(SnippetItem s) {
-    final l10n = L10n.of(context);
-    return showWpDeleteConfirmDialog(
-      context: context,
-      title: l10n.snippetsDeleteTitle,
-      message: l10n.snippetsDeleteMessage(s.title),
-      onConfirm: () => ref.read(snippetsProvider.notifier).remove(s.id),
+  void _writeFailed(String id, String message) {
+    if (!mounted) return;
+    showWpPageNotice(
+      context,
+      page: _noticePage,
+      notice: WpPageNotice(id: id, message: message),
     );
+  }
+
+  /// A done action without a way back: it shows below the page head and
+  /// closes itself.
+  void _confirm(String id, String message) {
+    if (!mounted) return;
+    showWpPageNotice(
+      context,
+      page: _noticePage,
+      notice: WpPageNotice(
+        id: id,
+        message: message,
+        tone: WpBannerTone.info,
+        autoDismiss: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  Future<void> _toggleFavourite(SnippetItem s) async {
+    final l10n = L10n.of(context);
+    try {
+      await ref
+          .read(snippetsProvider.notifier)
+          .setFavourite(s.id, value: !s.isFavorite);
+    } catch (_) {
+      _writeFailed('favourite-failed', l10n.snippetsFavouriteFailed);
+    }
+  }
+
+  /// Moves to the trash at once and offers undo, like the notes and history
+  /// lists: a misclick costs nothing, and a confirmation dialog would not help
+  /// someone who confirms by reflex. The trash is the second net: the snippet
+  /// stays recoverable after the undo is gone and after a restart.
+  Future<void> _moveToTrashWithUndo(SnippetItem s) async {
+    final notifier = ref.read(snippetsProvider.notifier);
+    final l10n = L10n.of(context);
+    try {
+      await notifier.moveToTrash([s.id]);
+    } catch (_) {
+      _writeFailed('delete-failed', l10n.snippetsDeleteFailed);
+      return;
+    }
+    if (!mounted) return;
+    showWpNotice(
+      context,
+      WpNotice(
+        id: 'snippets-trashed',
+        kind: WpNoticeKind.undo,
+        message: l10n.snippetsMovedToTrash(s.title),
+        actionLabel: l10n.snippetsUndo,
+        actionTestId: 'snippets-undo',
+        onAction: () async {
+          try {
+            await notifier.restore([s.id]);
+          } catch (_) {
+            // Without this the failure would be an unhandled async error and
+            // the user would believe the snippet came back.
+            _writeFailed('restore-failed', l10n.snippetsRestoreFailed);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _restoreFromTrash(SnippetItem s) async {
+    final l10n = L10n.of(context);
+    try {
+      await ref.read(snippetsProvider.notifier).restore([s.id]);
+    } catch (_) {
+      _writeFailed('restore-failed', l10n.snippetsRestoreFailed);
+      return;
+    }
+    if (!mounted) return;
+    _confirm('restored', l10n.snippetsRestored(s.title));
+  }
+
+  Future<void> _confirmDeleteForever(SnippetItem s) async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.snippetsDeleteForeverConfirm,
+      message: l10n.snippetsDeleteForeverMessage(s.title),
+      confirmLabel: l10n.snippetsDeleteForever,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(snippetsProvider.notifier).deleteForever([s.id]);
+    } catch (_) {
+      _writeFailed('delete-failed', l10n.snippetsDeleteFailed);
+    }
+  }
+
+  Future<void> _confirmEmptyTrash() async {
+    final l10n = L10n.of(context);
+    // The count of what the purge will take, not of what a search leaves
+    // visible.
+    final pending = ref.read(snippetsTrashProvider).value?.length ?? 0;
+    if (pending == 0) return;
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.snippetsEmptyTrashConfirm,
+      message: l10n.snippetsEmptyTrashMessage(pending),
+      confirmLabel: l10n.snippetsEmptyTrash,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await ref.read(snippetsProvider.notifier).emptyTrash();
+    } catch (_) {
+      _writeFailed('delete-failed', l10n.snippetsDeleteFailed);
+    }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Picker header card: trigger word (ticket 06) + hotkey (ticket 27)
+// Settings link for the picker (UX-030)
 // ---------------------------------------------------------------------------
 
-/// Header card above the snippet list — everything about *getting to* the
-/// Snippet-Picker, in one place above the snippets themselves.
+/// The link in the empty list's footer that leads to the Settings row for the
+/// spoken trigger word and the picker hotkey.
 ///
-/// Both ways in stand here together on purpose: the spoken trigger word and
-/// the key combination are not two features but two doors to the same panel,
-/// and whoever is maintaining their snippets is exactly the person asking
-/// "how do I call these up again?". Sending them to Settings for one of the
-/// two answers is the trip this card exists to save.
-///
-/// Where the platform has no native picker at all, the card says so instead
-/// of offering either — the availability answer comes from
-/// [snippetPickerAvailabilityProvider], the same one the settings row reads
-/// (ticket 26/27), so tickets 29/30 flip one getter and both places follow.
-class _SnippetPickerHeader extends ConsumerWidget {
-  const _SnippetPickerHeader({
-    required this.trigger,
-    required this.pageRef,
-    required this.showEmptyListHint,
-  });
+/// Both are global settings that change rarely, so they live in General ›
+/// Tastenkürzel. The page names them only while the list is empty, like every
+/// collection page keeps its explanation in the empty state (#1498); with
+/// snippets, the list starts right under the search bar. Where the platform has no native picker, the page says
+/// so and offers no link: there is nothing to set.
+class _SnippetPickerSettingsLink extends ConsumerWidget {
+  const _SnippetPickerSettingsLink({required this.showEmptyListHint});
 
-  final String trigger;
-
-  /// The page's own [WidgetRef] — the trigger field commits through it.
-  final WidgetRef pageRef;
-
+  /// True when a trigger word is set: shown only on the empty list, where the
+  /// trigger does nothing yet, which this page must say out loud.
   final bool showEmptyListHint;
+
+  /// Text measure of the empty state's hint, so both read as one block.
+  static const double _measure = 300;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final available = ref.watch(snippetPickerAvailabilityProvider);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.sm,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        // Card material, not the flat `surfaceElevated` it used to be: this
-        // header is a plate on the content plane like every list row below
-        // it, and the frost fill lets the one ambient gradient keep running
-        // underneath instead of cutting an opaque band across the page.
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: available
-              ? [
-                  _SnippetPickerTriggerField(
-                    trigger: trigger,
-                    ref: pageRef,
-                    showEmptyListHint: showEmptyListHint,
-                  ),
-                  const _SnippetPickerHotkeyRow(),
-                ]
-              : [
-                  // Ganz bewusst kein abgeblendeter Umschalter und kein
-                  // Eingabefeld: hier ist nichts einzustellen, und der
-                  // Trigger würde ohne Picker still als normaler Text
-                  // eingefügt. Derselbe Satz wie in den Einstellungen.
-                  Padding(
-                    key: const Key('snippetsPickerUnavailable'),
-                    padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.md,
-                      WpSpacing.sm,
-                      WpSpacing.md,
-                      WpSpacing.sm,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          LucideIcons.info,
+    // Sits in the centred empty state, under the example chips: centred
+    // text in the hint's measure.
+    final style = TextStyle(
+      color: WpColors.textMuted,
+      fontSize: WpTypography.small,
+      height: 1.4,
+    );
+    return SizedBox(
+      width: _measure,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showEmptyListHint)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          end: WpSpacing.xs,
+                        ),
+                        child: Icon(
+                          LucideIcons.triangleAlert,
                           size: WpIconSize.xs,
-                          color: WpColors.textMuted,
+                          color: WpColors.warning,
                         ),
-                        const SizedBox(width: WpSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            l10n.snippetsPickerUnavailable,
-                            style: const TextStyle(
-                              color: WpColors.textMuted,
-                              fontSize: WpTypography.small,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The single global trigger word that opens the Snippet-Picker when a
-/// transcript matches it exactly.
-///
-/// Lives on this page (not in Settings) because the trigger only matters in
-/// the context of Snippets. Empty string means the picker is off — the
-/// subtitle copy spells that out so the off-state is legible at a glance.
-/// Debounced-commit shape copied from `_AutoPasteBlocklistField`.
-class _SnippetPickerTriggerField extends StatefulWidget {
-  const _SnippetPickerTriggerField({
-    required this.trigger,
-    required this.ref,
-    required this.showEmptyListHint,
-  });
-
-  final String trigger;
-  final WidgetRef ref;
-
-  /// True when a trigger word is set but the snippet list is empty — the
-  /// trigger currently does nothing (dictating it falls through to a normal
-  /// paste), which this card must say out loud instead of letting the user
-  /// discover it mid-dictation.
-  final bool showEmptyListHint;
-
-  @override
-  State<_SnippetPickerTriggerField> createState() =>
-      _SnippetPickerTriggerFieldState();
-}
-
-class _SnippetPickerTriggerFieldState
-    extends State<_SnippetPickerTriggerField> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.trigger);
-  }
-
-  @override
-  void didUpdateWidget(_SnippetPickerTriggerField old) {
-    super.didUpdateWidget(old);
-    // External change (e.g. settings import) — not an echo of our own commit.
-    if (old.trigger != widget.trigger && widget.trigger != _controller.text) {
-      _controller.text = widget.trigger;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      // Raw value on purpose: the dispatcher normalizes both sides via
-      // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWithSections(
-              behavior: s.behavior.copyWith(snippetPickerTrigger: value),
-            ),
-          );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingRow(
-          icon: LucideIcons.audioLines,
-          label: l10n.snippetsPickerTriggerLabel,
-          subtitle: l10n.snippetsPickerTriggerSubtitle,
-          trailing: settingsTextField(
-            context: context,
-            controller: _controller,
-            hintText: l10n.snippetsPickerTriggerHint,
-            onChanged: _onChanged,
-            semanticLabel: l10n.snippetsPickerTriggerLabel,
-          ),
-        ),
-        if (widget.showEmptyListHint)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              WpSpacing.xxs,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  LucideIcons.triangleAlert,
-                  size: WpIconSize.xs,
-                  color: WpColors.warning,
+                    TextSpan(text: l10n.snippetsPickerTriggerEmptyListHint),
+                  ],
                 ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.snippetsPickerTriggerEmptyListHint,
-                    style: const TextStyle(
-                      color: WpColors.warning,
-                      fontSize: WpTypography.small,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Picker hotkey line (ticket 27)
-// ---------------------------------------------------------------------------
-
-/// The key combination that opens the Snippet-Picker — second call site of the
-/// settings flow, not a second setting.
-///
-/// It reads [settingsProvider] and writes through [recordSnippetPickerHotkey]:
-/// the same dialog, the same collision check, the same stored state the
-/// Settings page shows. Deliberately subordinate — one row in the header card,
-/// no toggle of its own, no notice the picker itself does not need; this stays
-/// a snippets screen rather than becoming half a settings page. The switch
-/// lives in Settings, but a hotkey that is off can be turned on from right
-/// here, because "it does nothing and this page won't say why" is exactly the
-/// dead end the row exists to prevent.
-class _SnippetPickerHotkeyRow extends ConsumerStatefulWidget {
-  const _SnippetPickerHotkeyRow();
-
-  @override
-  ConsumerState<_SnippetPickerHotkeyRow> createState() =>
-      _SnippetPickerHotkeyRowState();
-}
-
-class _SnippetPickerHotkeyRowState
-    extends ConsumerState<_SnippetPickerHotkeyRow>
-    with HotkeyCollisionNotice {
-  Future<void> _record(AppSettings settings) => recordAndReport(
-    () => recordSnippetPickerHotkey(
-      context: context,
-      ref: ref,
-      settings: settings,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    // Solange die Einstellungen nicht geladen sind, behauptet die Zeile
-    // nichts — weder eine Kombination noch „ausgeschaltet". Beides wäre
-    // geraten.
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const SizedBox.shrink();
-
-    final hotkey = settings.snippetPickerHotkey;
-    final enabled = hotkey.snippetPickerHotkeyEnabled;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingRow(
-          icon: LucideIcons.keyboard,
-          label: l10n.snippetsPickerHotkeyLabel,
-          // Eingeschaltet sagt die Unterzeile, wozu die Kombination gut ist
-          // („der zweite Weg zum selben Panel") — ausgeschaltet ist sie die
-          // ganze Auskunft, die diesen Zustand überhaupt erklärt.
-          subtitle: enabled
-              ? l10n.snippetsPickerHotkeySubtitle
-              : l10n.snippetsPickerHotkeyOff,
-          trailing: enabled
-              ? const SizedBox.shrink()
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-              : WpButton(
-                  key: const Key('snippetsPickerHotkeyEnable'),
-                  label: l10n.snippetsPickerHotkeyEnable,
-                  variant: WpButtonVariant.ghost,
-                  size: WpButtonSize.dense,
-                  onPressed: () => unawaited(
-                    setSnippetPickerHotkeyEnabled(ref, enabled: true),
-                  ),
-                ),
-        ),
-        if (enabled)
-          HotkeyComboLine(
-            key: const Key('snippetsPickerHotkeyComboLine'),
-            label: l10n.settingsSnippetPickerCurrentHotkey,
-            hotkeyKey: hotkey.snippetPickerHotkeyKey,
-            hotkeyModifiers: hotkey.snippetPickerHotkeyModifiers,
-            hotkeyKeyDisplay: hotkey.snippetPickerHotkeyKeyDisplay,
-            changeButtonKey: const Key('snippetsPickerHotkeyChange'),
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              0,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            onChange: () => unawaited(_record(settings)),
-          ),
-        if (collidingAction != null)
-          Padding(
-            key: const Key('snippetsPickerHotkeyCollisionNotice'),
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              0,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  LucideIcons.circleAlert,
-                  size: WpIconSize.xs,
-                  color: WpColors.error,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.settingsSnippetPickerHotkeyCollision(collidingAction!),
-                    style: const TextStyle(
-                      color: WpColors.error,
-                      fontSize: WpTypography.small,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Add / Edit dialog
-// ---------------------------------------------------------------------------
-
-class _SnippetDialog extends StatefulWidget {
-  const _SnippetDialog({required this.animation, this.existing});
-
-  final Animation<double> animation;
-  final SnippetItem? existing;
-
-  @override
-  State<_SnippetDialog> createState() => _SnippetDialogState();
-}
-
-class _SnippetDialogState extends State<_SnippetDialog> {
-  late final TextEditingController _titleCtrl;
-  late final WpFindHighlightController _bodyCtrl;
-  final FocusNode _bodyFocus = FocusNode(debugLabel: 'snippetBody');
-
-  late String _kind;
-  late List<TextEditingController> _fieldCtrls;
-
-  bool get _isInteractive => _kind == 'interactive';
-
-  /// Minimum fields for an interactive snippet — 1, not 0: a guided
-  /// recording sequence with zero fields would have nothing left to
-  /// dictate into, but a single field is a legitimate shape (a single
-  /// prompt wrapped in a fixed template), not just a static snippet with
-  /// extra steps.
-  static const _minFields = 1;
-
-  bool get _fieldsValid =>
-      _fieldCtrls.length >= _minFields &&
-      _fieldCtrls.every((c) => c.text.trim().isNotEmpty);
-
-  /// Every named field must appear as a `{{fieldName}}` placeholder
-  /// somewhere in the template ([_bodyCtrl]) — otherwise its dictated text
-  /// would have nowhere to go once composed.
-  bool get _templateReferencesAllFields => _fieldCtrls.every((c) {
-    final name = c.text.trim();
-    return name.isEmpty ||
-        _bodyCtrl.text.contains(interactiveSnippetPlaceholder(name));
-  });
-
-  bool get _isValid =>
-      _titleCtrl.text.trim().isNotEmpty &&
-      (_isInteractive
-          ? (_fieldsValid && _templateReferencesAllFields)
-          : _bodyCtrl.text.trim().isNotEmpty);
-
-  bool get _isEditing => widget.existing != null;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleCtrl = TextEditingController(text: widget.existing?.title ?? '');
-    // Highlight-capable so the editor toolbar's find bar can tint its hits —
-    // the same controller History's transcript and the Notes editor use.
-    _bodyCtrl = WpFindHighlightController(text: widget.existing?.body ?? '');
-    // The Save button's enabled state hangs off both fields, and a
-    // replace-all from the toolbar changes the body without going through
-    // `onChanged`.
-    _bodyCtrl.addListener(_onBodyChanged);
-
-    _kind = widget.existing?.kind ?? 'static';
-    final existingFields = widget.existing?.fields ?? const [];
-    _fieldCtrls = [
-      for (final name in existingFields) _newFieldController(name),
-      // A fresh interactive snippet starts with the two required empty
-      // fields already visible instead of an editor the user must first
-      // populate from zero.
-      if (existingFields.length < _minFields)
-        for (var i = existingFields.length; i < _minFields; i++)
-          _newFieldController(),
-    ];
-  }
-
-  TextEditingController _newFieldController([String text = '']) {
-    final controller = TextEditingController(text: text);
-    controller.addListener(() {
-      if (mounted) setState(() {});
-    });
-    return controller;
-  }
-
-  @override
-  void dispose() {
-    _bodyCtrl.removeListener(_onBodyChanged);
-    _titleCtrl.dispose();
-    _bodyCtrl.dispose();
-    _bodyFocus.dispose();
-    for (final c in _fieldCtrls) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  void _onBodyChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _addField() {
-    setState(() => _fieldCtrls.add(_newFieldController()));
-  }
-
-  void _removeField(int index) {
-    setState(() {
-      _fieldCtrls.removeAt(index).dispose();
-    });
-  }
-
-  void _moveField(int index, int delta) {
-    final target = index + delta;
-    if (target < 0 || target >= _fieldCtrls.length) return;
-    setState(() {
-      final field = _fieldCtrls.removeAt(index);
-      _fieldCtrls.insert(target, field);
-    });
-  }
-
-  void _submit() {
-    if (!_isValid) return;
-    Navigator.of(context).pop((
-      _titleCtrl.text.trim(),
-      _bodyCtrl.text.trim(),
-      _kind,
-      _isInteractive
-          ? [for (final c in _fieldCtrls) c.text.trim()]
-          : const <String>[],
-    ));
-  }
-
-  /// Inserts `{{fieldName}}` into the template at the current cursor
-  /// position (or selection, which it replaces), falling back to the end of
-  /// the text when there is no active selection yet.
-  void _insertFieldPlaceholder(String fieldName) {
-    final placeholder = interactiveSnippetPlaceholder(fieldName);
-    final text = _bodyCtrl.text;
-    var start = _bodyCtrl.selection.start;
-    var end = _bodyCtrl.selection.end;
-    if (start < 0 || end < 0 || start > text.length || end > text.length) {
-      start = text.length;
-      end = text.length;
-    }
-    _bodyCtrl.text = text.replaceRange(start, end, placeholder);
-    _bodyCtrl.selection = TextSelection.collapsed(
-      offset: start + placeholder.length,
-    );
-  }
-
-  /// Named-field editor for an `interactive` snippet — add/rename/reorder/
-  /// remove, at least [_minFields] fields (PRD User Stories 3/4). Reordering
-  /// is up/down buttons rather than drag-and-drop: this dialog's fields live
-  /// inside a plain scroll view (see the body editor's own comment above),
-  /// not a scrollable-aware `ReorderableListView`.
-  List<Widget> _buildFieldEditor(L10n l10n, ThemeData theme) {
-    return [
-      Text(l10n.snippetsFieldsLabel, style: theme.textTheme.titleSmall),
-      const SizedBox(height: WpSpacing.xxs),
-      Text(
-        l10n.snippetsFieldsHint,
-        style: const TextStyle(
-          color: WpColors.textMuted,
-          fontSize: WpTypography.caption,
-        ),
-      ),
-      const SizedBox(height: WpSpacing.xs),
-      for (var i = 0; i < _fieldCtrls.length; i++)
-        Padding(
-          padding: const EdgeInsets.only(bottom: WpSpacing.xs),
-          child: Row(
-            children: [
-              Expanded(
-                child: WpTextField(
-                  controller: _fieldCtrls[i],
-                  variant: WpTextFieldVariant.form,
-                  hintText: l10n.snippetsFieldNameHint(i + 1),
-                ),
+                textAlign: TextAlign.center,
+                style: style.copyWith(color: WpColors.warning),
               ),
-              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
-              IconButton(
-                icon: const Icon(LucideIcons.plus, size: WpIconSize.xs),
-                tooltip: l10n.snippetsFieldInsertIntoTemplate,
-                onPressed: _fieldCtrls[i].text.trim().isEmpty
-                    ? null
-                    : () => _insertFieldPlaceholder(_fieldCtrls[i].text.trim()),
-              ),
-              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
-              IconButton(
-                icon: const Icon(LucideIcons.chevronUp, size: WpIconSize.xs),
-                tooltip: l10n.snippetsFieldMoveUp,
-                onPressed: i > 0 ? () => _moveField(i, -1) : null,
-              ),
-              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
-              IconButton(
-                icon: const Icon(LucideIcons.chevronDown, size: WpIconSize.xs),
-                tooltip: l10n.snippetsFieldMoveDown,
-                onPressed: i < _fieldCtrls.length - 1
-                    ? () => _moveField(i, 1)
-                    : null,
-              ),
-              // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
-              IconButton(
-                icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-                tooltip: l10n.snippetsFieldRemove,
-                onPressed: _fieldCtrls.length > _minFields
-                    ? () => _removeField(i)
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-      WpButton(
-        label: l10n.snippetsFieldAdd,
-        variant: WpButtonVariant.ghost,
-        size: WpButtonSize.dense,
-        onPressed: _addField,
-      ),
-      if (!_fieldsValid) ...[
-        const SizedBox(height: WpSpacing.xxs),
-        Text(
-          l10n.snippetsFieldsMinWarning(_minFields),
-          style: const TextStyle(
-            color: WpColors.warning,
-            fontSize: WpTypography.caption,
-          ),
-        ),
-      ],
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = L10n.of(context);
-
-    return WpFormDialogShell(
-      animation: widget.animation,
-      // A snippet body is a *document* — a prompt template runs to paragraphs,
-      // and at the standard 420 dp card with a six-line box it read as a slot
-      // to paste into rather than a place to write. Widened via the named
-      // [WpDialogSize] axis rather than a one-off width, and still a dialog
-      // rather than a full-screen sheet: the snippet list behind it is the
-      // context you are editing against, and every other create/edit surface
-      // in the app (replacements, tags) is a dialog too.
-      size: WpDialogSize.wide,
-      title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
-      subtitle: l10n.snippetsDialogHint,
-      fields: [
-        // Title
-        Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
-        const SizedBox(height: WpSpacing.xxs),
-        WpTextField(
-          controller: _titleCtrl,
-          variant: WpTextFieldVariant.form,
-          autofocus: true,
-          hintText: l10n.snippetsTitleHint,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _submit(),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // Kind: Static / Interactive (interactive-snippets PRD)
-        Text(l10n.snippetsKindLabel, style: theme.textTheme.titleSmall),
-        const SizedBox(height: WpSpacing.xxs),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(
-              value: 'static',
-              label: Text(l10n.snippetsKindStatic),
             ),
-            ButtonSegment(
-              value: 'interactive',
-              label: Text(l10n.snippetsKindInteractive),
-            ),
-          ],
-          selected: {_kind},
-          onSelectionChanged: (selection) =>
-              setState(() => _kind = selection.first),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        if (_isInteractive) ...[
-          ..._buildFieldEditor(l10n, theme),
-          const SizedBox(height: WpSpacing.md),
-          Text(l10n.snippetsTemplateLabel, style: theme.textTheme.titleSmall),
-          const SizedBox(height: WpSpacing.xxs),
-          Text(
-            l10n.snippetsTemplateHint,
-            style: const TextStyle(
-              color: WpColors.textMuted,
-              fontSize: WpTypography.caption,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
-          // Same toolbar-plus-shortcuts editor as the static body below: a
-          // template is still a document the user writes prose into, just
-          // one that also happens to carry `{{field}}` placeholders —
-          // formatting and find/replace should not disappear because of that.
-          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
-          const SizedBox(height: WpSpacing.xs),
-          CallbackShortcuts(
-            bindings: WpMarkdownFormatting(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-            ).shortcutBindings(),
-            child: WpTextField(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-              variant: WpTextFieldVariant.form,
-              hintText: l10n.snippetsTemplateFieldHint,
-              minLines: 10,
-              maxLines: 18,
-            ),
-          ),
-          if (!_templateReferencesAllFields) ...[
-            const SizedBox(height: WpSpacing.xxs),
+          if (available)
+            WpTextLink(
+              label: l10n.snippetsPickerSettingsLink,
+              kind: WpLinkKind.page,
+              testID: 'snippets-picker-settings-link',
+              onPressed: () => _openPickerSettings(ref),
+            )
+          else
+            // Deliberately no link: there is nothing to set. Same sentence as
+            // in Settings.
             Text(
-              l10n.snippetsTemplateMissingFieldsWarning,
-              style: const TextStyle(
-                color: WpColors.warning,
-                fontSize: WpTypography.caption,
-              ),
+              l10n.snippetsPickerUnavailable,
+              key: const Key('snippetsPickerUnavailable'),
+              textAlign: TextAlign.center,
+              style: style,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens Settings at the trigger-word row, the same way other pages hand a
+  /// row over.
+  void _openPickerSettings(WidgetRef ref) {
+    ref
+        .read(settingsScrollTargetProvider.notifier)
+        .set('general-snippet-picker-trigger');
+    ref.read(activePageProvider.notifier).setPage('settings');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Empty-state examples
+// ---------------------------------------------------------------------------
+
+/// Example chips in the empty snippet list plus the sentence on when a
+/// snippet fits better than a replacement. A chip opens the editor for a new
+/// snippet pre-filled with its example; nothing is stored until the user saves.
+class _SnippetExampleChips extends StatelessWidget {
+  const _SnippetExampleChips({required this.onPick});
+
+  final ValueChanged<SnippetDraft> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final first = l10n.snippetsExampleInteractiveField1;
+    final second = l10n.snippetsExampleInteractiveField2;
+    final examples = <(String, String, SnippetDraft)>[
+      (
+        'signature',
+        l10n.snippetsExampleSignatureTitle,
+        SnippetDraft(
+          title: l10n.snippetsExampleSignatureTitle,
+          body: l10n.snippetsExampleSignatureBody,
+        ),
+      ),
+      (
+        'reply',
+        l10n.snippetsExampleReplyTitle,
+        SnippetDraft(
+          title: l10n.snippetsExampleReplyTitle,
+          body: l10n.snippetsExampleReplyBody,
+        ),
+      ),
+      (
+        'interactive',
+        l10n.snippetsExampleInteractiveTitle,
+        SnippetDraft(
+          title: l10n.snippetsExampleInteractiveTitle,
+          // Placeholders built from the field names, so a translation can
+          // never leave a field without its `{{name}}` in the template.
+          body: l10n.snippetsExampleInteractiveBody(
+            interactiveSnippetPlaceholder(first),
+            interactiveSnippetPlaceholder(second),
+          ),
+          kind: 'interactive',
+          fields: [first, second],
+        ),
+      ),
+    ];
+    final muted = TextStyle(
+      fontSize: WpTypography.small,
+      color: WpColors.textMuted,
+      height: 1.4,
+    );
+    return Semantics(
+      identifier: 'snippets-examples',
+      container: true,
+      child: SizedBox(
+        key: const ValueKey('snippets-examples'),
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.snippetsExamplesLabel, style: muted),
+            const SizedBox(height: WpSpacing.xs),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: WpSpacing.sm,
+              runSpacing: WpSpacing.xs,
+              children: [
+                for (final (id, label, draft) in examples)
+                  WpFilterChip(
+                    testId: 'snippets-example-$id',
+                    label: label,
+                    isActive: false,
+                    onTap: () => onPick(draft),
+                  ),
+              ],
+            ),
+            const SizedBox(height: WpSpacing.md),
+            Text(
+              l10n.snippetsEmptyWhenSnippet,
+              key: const ValueKey('snippets-empty-when'),
+              style: muted,
+              textAlign: TextAlign.center,
             ),
           ],
-        ] else ...[
-          // Body (multi-line) — same toolbar the History transcript editor
-          // and the Notes editor carry, so bold/italic/lists and
-          // find-and-replace work identically wherever text is written in
-          // this app.
-          Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
-          const SizedBox(height: WpSpacing.xxs),
-          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
-          const SizedBox(height: WpSpacing.xs),
-          // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
-          // fields inside a SingleChildScrollView, so an unbounded height
-          // would be a layout exception. The line count does the growing
-          // instead, and the card's own viewport clamp keeps it on screen.
-          CallbackShortcuts(
-            bindings: WpMarkdownFormatting(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-            ).shortcutBindings(),
-            child: WpTextField(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-              variant: WpTextFieldVariant.form,
-              hintText: l10n.snippetsBodyHint,
-              minLines: 10,
-              maxLines: 18,
-            ),
-          ),
-        ],
-      ],
-      actions: [
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: l10n.actionCancel,
-          variant: WpButtonVariant.ghost,
-          tone: WpButtonTone.neutral,
-          onPressed: () => Navigator.of(context).pop(),
         ),
-        const SizedBox(width: WpSpacing.sm),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-          variant: WpButtonVariant.primary,
-          onPressed: _isValid ? _submit : null,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1045,233 +1628,137 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 // ---------------------------------------------------------------------------
 
 /// Collapses runs of whitespace in a snippet body preview — hoisted so the
-/// pattern compiles once instead of on every `_SnippetTileState._bodyPreview`
+/// pattern compiles once instead of on every `_bodyPreviewOf`
 /// recompute, the same house idiom as `search_query_parser.dart`'s
 /// module-level patterns.
 final RegExp _whitespaceRun = RegExp(r'\s+');
 
-class _SnippetTile extends StatefulWidget {
-  const _SnippetTile({
+/// The body preview as it is painted (UX-036).
+///
+/// Wrapped in a first-strong isolate (FSI): the body takes its direction from
+/// its own first strong letter, so a Latin body inside a right-to-left UI
+/// (Hebrew) keeps its trailing punctuation at its own end, and a Hebrew body
+/// stays right-to-left. No direction is guessed here.
+String snippetPreviewForDisplay(String body) => '\u2068$body\u2069';
+
+/// The body preview of a snippet row: an interactive snippet lists its
+/// fields, a plain one its body with newlines and runs of whitespace collapsed
+/// to single spaces, so the two preview lines show content rather than the
+/// author's line breaks.
+String _bodyPreviewOf(SnippetItem snippet) {
+  if (snippet.isInteractive) return snippet.fields.join(' · ');
+  return snippet.body.trim().replaceAll(_whitespaceRun, ' ');
+}
+
+/// One snippet row on the shared [WpCollectionListItem] (#1498): the active
+/// list, the trash and the unsaved new snippet differ only in the slots they
+/// fill. Watches the snippet's metadata so the row rebuilds when it changes.
+class _SnippetRow extends ConsumerWidget {
+  const _SnippetRow({
+    super.key,
     required this.snippet,
     required this.isCursor,
+    required this.isOpen,
     required this.onTap,
-    required this.onDelete,
-    required this.onCopy,
-    required this.onDuplicate,
+    required this.actions,
+    this.isHighlighted = false,
+    this.leading,
+    this.badges = const [],
+    this.showFavourite = false,
+    this.showUsage = false,
+    this.contextMenu,
+    this.onDeleteKey,
+    this.onDuplicate,
+    this.isSelected = false,
   });
 
   final SnippetItem snippet;
 
-  /// This row is where the list's arrow cursor currently stands
-  /// (`WpSearchableListPage`). Deliberately funnelled into the *same* two
-  /// outlets as real focus — [WpListTileSurface.isFocused] and the row's
-  /// `Semantics(selected:)` — rather than getting a treatment of its own: the
-  /// tile envelope is where a row's states are decided, and a second one
-  /// would put two answers on screen for one question.
+  /// The list's arrow cursor stands on this row. Reported to screen readers
+  /// as selected, the same as a history row: the list's real focus sits on
+  /// one page-level node, so without it nothing is announced while arrowing.
   final bool isCursor;
+
+  /// The snippet was just created: drawn with the focus treatment a moment.
+  final bool isHighlighted;
+  final bool isOpen;
+  final bool isSelected;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
-  final VoidCallback onCopy;
-  final VoidCallback onDuplicate;
+  final Widget Function(bool visible) actions;
+  final Widget? leading;
+  final List<Widget> badges;
+  final bool showFavourite;
+  final bool showUsage;
+  final List<WpContextMenuEntry> Function()? contextMenu;
+  final VoidCallback? onDeleteKey;
+
+  /// Duplicate has no button: a screen reader reaches it as a custom action.
+  final VoidCallback? onDuplicate;
 
   @override
-  State<_SnippetTile> createState() => _SnippetTileState();
-}
-
-class _SnippetTileState extends State<_SnippetTile> {
-  bool _isHovered = false;
-  bool _isFocused = false;
-
-  /// The row is "active" for pointer and for keyboard alike — the
-  /// delete action is revealed by either, so a keyboard user can reach
-  /// it at all (an unmounted button cannot be focused). The arrow cursor
-  /// counts as keyboard: `WpSearchableListPage` binds Delete/Backspace on the
-  /// cursor row, so the icon and the key appear together or not at all.
-  bool get _isActive => _isHovered || _isFocused || widget.isCursor;
-
-  /// Preview of the body — newlines and runs of whitespace collapse to
-  /// single spaces so the two rendered lines are filled by content rather
-  /// than by the author's line breaks: a snippet whose body starts with a
-  /// short salutation would otherwise spend its whole preview on it.
-  /// The Text renders `maxLines: 2` (same as the replacements row).
-  ///
-  /// Memoized once per `widget.snippet` change (initState + didUpdateWidget),
-  /// not recomputed on every build — hover/focus toggles rebuild this row via
-  /// its own `setState` without a new snippet, and re-running the trim +
-  /// regex collapse on each of those was repeated work for an unchanged
-  /// result. Same shape as the memoized fields in `HistoryEntryRow`
-  /// (`history_list_tile.dart`).
-  late String _bodyPreview = _computeBodyPreview(widget.snippet);
-
-  static String _computeBodyPreview(SnippetItem snippet) {
-    if (snippet.isInteractive) return snippet.fields.join(' · ');
-    return snippet.body.trim().replaceAll(_whitespaceRun, ' ');
-  }
-
-  @override
-  void didUpdateWidget(_SnippetTile oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.snippet != widget.snippet) {
-      _bodyPreview = _computeBodyPreview(widget.snippet);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CallbackShortcuts(
-      // Delete/Backspace remove the row that holds keyboard focus — the same
-      // two keys Notizen has always bound on its list, closing the last gap
-      // that made "manage a list without the mouse" a per-screen skill.
-      //
-      // The consequence deliberately differs from Notizen's: there the key
-      // moves a note to the trash and offers an undo toast, here it opens the
-      // delete confirmation. That is not an inconsistency but the same
-      // safety promise served by the only means each screen has — snippets
-      // have no trash to fall back on, so the confirmation is the undo.
-      //
-      // Scoped to this row on purpose: the bindings only fire while focus
-      // sits inside it, so the page's search field (a sibling, not a
-      // descendant) keeps Backspace for editing text.
-      bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
-        const SingleActivator(LogicalKeyboardKey.backspace): widget.onDelete,
-      },
-      child: _buildRow(context),
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(
+      contentMetadataProvider((kind: ContentKind.snippet, id: snippet.id)),
     );
-  }
-
-  Widget _buildRow(BuildContext context) {
-    return Semantics(
-      button: true,
-      // Affordance as `hint:`, identity from the rendered text. The label
-      // used to read "<Snippet bearbeiten>: <Titel>" around a subtree that
-      // renders that same title as Text, and a Semantics label is prepended
-      // to its subtree's text rather than substituted for it — so the title
-      // was announced twice. Keeping the identity in the rendered text also
-      // puts it first, which is what a screen-reader user scanning a list
-      // needs to hear before the affordance. `hint:` is precisely the slot
-      // for "what happens when you activate this".
-      //
-      // The house alternative (MergeSemantics around a label-less Semantics)
-      // is ruled out: the delete action mounts as a second interactive node
-      // inside this subtree the moment the row is hovered or focused, and
-      // merging would swallow it. Same treatment in _ReplacementTile.
-      hint: L10n.of(context).snippetsEditSnippet,
-      // The arrow cursor's row reports as selected, exactly as a history row
-      // does: the list's real focus sits on one page-level node, so without
-      // this flag a screen reader announces nothing at all while the user
-      // arrows down the list. Not `focused:` — the row genuinely does not
-      // hold focus, and `FocusableActionDetector` below publishes that flag
-      // itself for the Tab case.
-      selected: widget.isCursor,
-      child: FocusableActionDetector(
-        onShowFocusHighlight: (value) {
-          if (_isFocused == value) return;
-          setState(() => _isFocused = value);
-        },
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onTap();
-              return null;
-            },
-          ),
-        },
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: WpListTileSurface(
-              variant: WpListTileVariant.card,
-              isHovered: _isHovered,
-              isFocused: _isFocused || widget.isCursor,
-              actions: WpRowActions(
-                visible: _isActive,
-                children: [
-                  // A copy has nothing to copy for an interactive snippet —
-                  // its body is a template, not final text; the composed
-                  // result only exists after the guided recording.
-                  if (!widget.snippet.isInteractive)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                    WpRowAction(
-                      icon: LucideIcons.copy,
-                      tooltip: L10n.of(context).actionCopy,
-                      onTap: widget.onCopy,
-                    ),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.files,
-                    tooltip: L10n.of(context).actionDuplicate,
-                    onTap: widget.onDuplicate,
-                  ),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.trash2,
-                    tooltip: L10n.of(context).actionDelete,
-                    onTap: widget.onDelete,
-                    isDestructive: true,
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    widget.snippet.isInteractive
-                        ? LucideIcons.listChecks
-                        : LucideIcons.notebookText,
-                    size: WpIconSize.sm,
-                    color: WpColors.accent,
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                widget.snippet.title,
-                                style: const TextStyle(
-                                  color: WpColors.textPrimary,
-                                  fontSize: WpTypography.body,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (widget.snippet.isInteractive) ...[
-                              const SizedBox(width: WpSpacing.xxs),
-                              WpAccentBadge(
-                                label: L10n.of(
-                                  context,
-                                ).snippetsInteractiveBadge,
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: WpSpacing.xxs),
-                        Text(
-                          _bodyPreview,
-                          style: const TextStyle(
-                            color: WpColors.textMuted,
-                            fontSize: WpTypography.small,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+    final l10n = L10n.of(context);
+    final id = snippet.id;
+    final preview = _bodyPreviewOf(snippet);
+    final lastUsedAt = snippet.lastUsedAt;
+    final duplicate = onDuplicate;
+    return WpCollectionListItem(
+      contentKey: ValueKey('snippets-item-content-$id'),
+      semanticsIdentifier: 'snippets-item-$id',
+      typeIcon: snippet.isInteractive
+          ? LucideIcons.listChecks
+          : LucideIcons.notebookText,
+      leading: leading,
+      title: WpCollectionListItemTitle(
+        key: ValueKey('snippets-item-title-$id'),
+        snippet.title,
       ),
+      badges: badges,
+      isFavourite: showFavourite && snippet.isFavorite,
+      favouriteMarkKey: ValueKey('snippets-favourite-mark-$id'),
+      favouriteMarkLabel: l10n.listItemFavouriteMark,
+      actions: actions,
+      preview: WpListItemContent.previewDiffers(snippet.title, preview)
+          ? WpCollectionListItemPreview(snippetPreviewForDisplay(preview))
+          : null,
+      previewSemanticsLabel: WpListItemContent.spokenPreview(
+        snippet.title,
+        preview,
+      ),
+      meta: !showUsage || lastUsedAt == null
+          ? null
+          : (color) => WpListItemMeta(
+              key: ValueKey('snippets-usage-$id'),
+              color: color,
+              spans: [
+                TextSpan(
+                  text: l10n.snippetsUsageLine(
+                    snippet.useCount,
+                    DateFormat.yMd(
+                      Localizations.localeOf(context).toString(),
+                    ).format(lastUsedAt),
+                  ),
+                ),
+              ],
+            ),
+      isFocused: isCursor,
+      isHighlighted: isHighlighted,
+      isSelected: isSelected || isOpen,
+      isOpen: isOpen,
+      contextMenu: contextMenu,
+      focusable: true,
+      onDeleteKey: onDeleteKey,
+      onTap: onTap,
+      // Affordance as hint, identity from the rendered title, so the title
+      // is announced once and first.
+      semanticsHint: l10n.actionOpen,
+      semanticsSelected: isCursor,
+      customSemanticsActions: duplicate == null
+          ? null
+          : {CustomSemanticsAction(label: l10n.actionDuplicate): duplicate},
     );
   }
 }

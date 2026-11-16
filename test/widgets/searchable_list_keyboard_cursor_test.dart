@@ -11,18 +11,22 @@
 /// per-page copy of these tests would be the place it could hide.
 library;
 
-import 'dart:io' show Platform;
+import 'package:whispaste/core/search/search_ranker.dart';
+
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/widgets/wp_list_tile_surface.dart';
+import 'package:whispaste/widgets/searchable_list_page.dart';
+import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -42,7 +46,7 @@ class _Page {
     required this.rowTexts,
     required this.query,
     required this.queryMatch,
-    required this.editTitle,
+    required this.opened,
     required this.deleteTitle,
   });
 
@@ -61,7 +65,9 @@ class _Page {
   final String query;
   final String queryMatch;
 
-  final String Function(L10n) editTitle;
+  /// What Enter on a row shows: the edit dialog, or (Snippets, page family)
+  /// the detail beside the list.
+  final Finder Function(L10n) opened;
   final String Function(L10n) deleteTitle;
 }
 
@@ -78,8 +84,9 @@ final _pages = <_Page>[
     rowTexts: const ['Alpha', 'Bravo', 'Charlie'],
     query: 'Brav',
     queryMatch: 'Bravo',
-    editTitle: (l) => l.snippetsEditSnippet,
-    deleteTitle: (l) => l.snippetsDeleteTitle,
+    opened: (_) => _byId('snippets-editor'),
+    // Snippets delete at once and offer the undo toast instead of a dialog.
+    deleteTitle: (l) => l.snippetsUndo,
   ),
   _Page(
     name: 'Replacements',
@@ -92,10 +99,49 @@ final _pages = <_Page>[
     // between the row and the search field that now contains the same string.
     query: '+49',
     queryMatch: 'tel',
-    editTitle: (l) => l.replacementsEditShortcut,
+    opened: (l) => find.text(l.replacementsEditShortcut),
     deleteTitle: (l) => l.replacementsDeleteTitle,
   ),
 ];
+
+// A bare shell page with a text field in its header: the case DEV-278/279
+// guard. No product page holds such a field any more (the Snippets picker
+// trigger moved to Settings, UX-030), so the shell is driven directly here.
+const _headerFieldItems = ['Alpha', 'Bravo', 'Charlie'];
+
+final _headerFieldPage = _Page(
+  name: 'Header field',
+  build: () => WpSearchableListPage<String>(
+    asyncAll: const AsyncData<List<String>>(_headerFieldItems),
+    searchFields: (s) => [SearchField(s, SearchWeight.title)],
+    searchHint: 'Search',
+    searchFieldLabel: 'Search',
+    addLabel: 'Add',
+    onAdd: () {},
+    onRetry: () {},
+    emptyIcon: LucideIcons.notebookText,
+    emptyTitle: 'Empty',
+    emptyHint: 'Empty',
+    emptyActionLabel: 'Add',
+    header: const Padding(
+      padding: EdgeInsets.all(8),
+      child: TextField(key: ValueKey('header-field')),
+    ),
+    itemBuilder: (context, s, isCursor) => WpListTileSurface(
+      variant: WpListTileVariant.card,
+      isFocused: isCursor,
+      child: Text(s),
+    ),
+    onItemActivate: (_) {},
+  ),
+  seed: (_) async {},
+  rowTexts: _headerFieldItems,
+  query: 'Brav',
+  queryMatch: 'Bravo',
+  opened: (_) => _byId('snippets-editor'),
+  // Snippets delete at once and offer the undo toast instead of a dialog.
+  deleteTitle: (l) => l.snippetsUndo,
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,7 +149,9 @@ final _pages = <_Page>[
 
 Future<ProviderContainer> _pumpPage(WidgetTester tester, _Page page) async {
   final widget = page.build();
-  await tester.pumpWidget(makeTestable(widget, locale: const Locale('en')));
+  await tester.pumpWidget(
+    makeTestable(widget, locale: const Locale('en'), noticeBar: true),
+  );
   await tester.pumpAndSettle();
   final container = ProviderScope.containerOf(
     tester.element(find.byWidget(widget)),
@@ -192,11 +240,15 @@ void _expectNoCursor(WidgetTester tester, _Page page) {
 
 /// The search field's own focus node, identified by the debug label the shell
 /// gives it. Asserting on the node rather than on "some text field has focus"
-/// keeps the Snippets case honest, where a second field (the picker trigger)
-/// sits above the search field on macOS.
+/// keeps the header-field case honest, where a second field sits above the
+/// search field.
 bool _searchFieldHasFocus() =>
-    FocusManager.instance.primaryFocus?.debugLabel ==
-    'WpSearchableListPage search';
+    _isSearchNode(FocusManager.instance.primaryFocus);
+
+/// The shared selection controller labels its search node `<page> search`
+/// (`WpCollectionSelection`), whichever page family hosts it.
+bool _isSearchNode(FocusNode? node) =>
+    node?.debugLabel?.endsWith(' search') ?? false;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -215,6 +267,24 @@ void main() {
   });
 
   tearDownAll(() => semantics.dispose());
+
+  // Rows are 48 px tap areas (ticket), so the Replacements list does not fit
+  // the flutter_test default view (800x600): its third row would never be
+  // built. Both pages run in the 1280x800 desktop view here.
+  TestFlutterView desktopView() =>
+      TestWidgetsFlutterBinding.instance.platformDispatcher.views.single;
+
+  setUp(() {
+    desktopView()
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+  });
+
+  tearDown(() {
+    desktopView()
+      ..resetPhysicalSize()
+      ..resetDevicePixelRatio();
+  });
 
   for (final page in _pages) {
     group('${page.name} — keyboard cursor', () {
@@ -265,7 +335,7 @@ void main() {
         await _press(tester, LogicalKeyboardKey.arrowDown);
         await _press(tester, LogicalKeyboardKey.enter);
 
-        expect(find.text(page.editTitle(l10n)), findsOneWidget);
+        expect(page.opened(l10n), findsOneWidget);
         expect(
           find.text(rows[1]),
           findsWidgets,
@@ -290,16 +360,35 @@ void main() {
         _expectNoCursor(tester, page);
       });
 
+      testWidgets('J/K walk the list like the arrows, but never from the '
+          'search field (#277)', (tester) async {
+        await _pumpPage(tester, page);
+        final rows = _rowsInVisualOrder(tester, page);
+
+        await _press(tester, LogicalKeyboardKey.arrowDown);
+        await _press(tester, LogicalKeyboardKey.keyJ);
+        _expectCursorOn(tester, page, rows[1]);
+
+        await _press(tester, LogicalKeyboardKey.keyK);
+        _expectCursorOn(tester, page, rows.first);
+
+        // Back in the search field J is a letter, not a step.
+        await _press(tester, LogicalKeyboardKey.escape);
+        expect(_searchFieldHasFocus(), isTrue);
+        await _press(tester, LogicalKeyboardKey.keyJ);
+        expect(_searchFieldHasFocus(), isTrue);
+        _expectNoCursor(tester, page);
+      });
+
       testWidgets('Ctrl/Cmd+F still focuses the search field, cursor or not', (
         tester,
       ) async {
         await _pumpPage(tester, page);
         await _press(tester, LogicalKeyboardKey.arrowDown);
 
-        // `Platform.isMacOS`, not `defaultTargetPlatform` — the shell binds
-        // the chord off the host platform, so the test has to ask the same
-        // question it does.
-        final modifier = Platform.isMacOS
+        // The shell binds the chord off the platform seam
+        // (`defaultTargetPlatform`), so the test asks the same question.
+        final modifier = defaultTargetPlatform == TargetPlatform.macOS
             ? LogicalKeyboardKey.meta
             : LogicalKeyboardKey.control;
         await tester.sendKeyDownEvent(modifier);
@@ -310,7 +399,7 @@ void main() {
 
         expect(_searchFieldHasFocus(), isTrue);
         _expectNoCursor(tester, page);
-      });
+      }, variant: TargetPlatformVariant.desktop());
 
       testWidgets('the cursor walks the filtered list, not the full one', (
         tester,
@@ -320,9 +409,7 @@ void main() {
         // shell's search field is the one that carries the shell's own node.
         await tester.enterText(
           find.byWidgetPredicate(
-            (w) =>
-                w is TextField &&
-                w.focusNode?.debugLabel == 'WpSearchableListPage search',
+            (w) => w is TextField && _isSearchNode(w.focusNode),
           ),
           page.query,
         );
@@ -340,17 +427,20 @@ void main() {
         _expectCursorOn(tester, page, page.queryMatch);
 
         await _press(tester, LogicalKeyboardKey.enter);
-        expect(find.text(page.editTitle(l10n)), findsOneWidget);
+        expect(page.opened(l10n), findsOneWidget);
       });
 
-      testWidgets('the cursor row reveals its delete action and Delete opens '
-          'the confirmation', (tester) async {
+      testWidgets('the cursor row reveals its delete action and Delete starts '
+          'the delete flow (dialog or undo toast)', (tester) async {
         await _pumpPage(tester, page);
 
+        // A page may show the icon elsewhere (the Snippets "empty trash"
+        // action); the cursor row must add exactly one more.
+        final before = find.byIcon(LucideIcons.trash2).evaluate().length;
         await _press(tester, LogicalKeyboardKey.arrowDown);
         expect(
-          find.byIcon(LucideIcons.trash2),
-          findsOneWidget,
+          find.byIcon(LucideIcons.trash2).evaluate().length,
+          before + 1,
           reason:
               'the icon and the key appear together — a visible trash icon '
               'the Delete key cannot reach is the state this must not ship in',
@@ -368,10 +458,10 @@ void main() {
         await _press(tester, LogicalKeyboardKey.arrowDown);
         await _press(tester, LogicalKeyboardKey.arrowDown);
         await _press(tester, LogicalKeyboardKey.enter);
-        expect(find.text(page.editTitle(l10n)), findsOneWidget);
+        expect(page.opened(l10n), findsOneWidget);
 
         await _press(tester, LogicalKeyboardKey.escape);
-        expect(find.text(page.editTitle(l10n)), findsNothing);
+        expect(page.opened(l10n), findsNothing);
 
         _expectCursorOn(tester, page, rows[1]);
       });
@@ -405,7 +495,9 @@ void main() {
   testWidgets('the cursor scrolls itself into view on a list taller than the '
       'viewport', (tester) async {
     const page = SnippetsPage();
-    await tester.pumpWidget(makeTestable(page, locale: const Locale('en')));
+    await tester.pumpWidget(
+      makeTestable(page, locale: const Locale('en'), noticeBar: true),
+    );
     await tester.pumpAndSettle();
     final notifier = ProviderScope.containerOf(
       tester.element(find.byWidget(page)),
@@ -431,11 +523,61 @@ void main() {
     );
 
     final row = tester.getRect(cursorRow);
-    final viewport = tester.getRect(find.byType(ListView));
+    final viewport = tester.getRect(
+      find.ancestor(of: cursorRow, matching: find.byType(Scrollable)).first,
+    );
     expect(
       row.top >= viewport.top - 0.5 && row.bottom <= viewport.bottom + 0.5,
       isTrue,
       reason: 'the cursor row sits inside the viewport, not past its edge',
     );
   });
+
+  // DEV-278 / DEV-279: a text field on the page owns its own arrow and Escape
+  // keys. A field in the page's header sits inside the page's key scope, so
+  // arrows typed there must not start the list cursor, and Escape there must
+  // not clear the list search.
+  testWidgets('arrows and Escape typed in a foreign text field leave the list '
+      'cursor and the search alone', (tester) async {
+    final page = _headerFieldPage;
+    await _pumpPage(tester, page);
+
+    final search = find.descendant(
+      of: find.byType(WpSearchField),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(search, page.query);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(search).controller.text,
+      page.query,
+      reason: 'precondition: the list is filtered',
+    );
+
+    final trigger = find.descendant(
+      of: find.byKey(const ValueKey('header-field')),
+      matching: find.byType(EditableText),
+    );
+    expect(
+      find.descendant(of: find.byType(WpSearchField), matching: trigger),
+      findsNothing,
+      reason: 'precondition: the header field is not the search field',
+    );
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+
+    await _press(tester, LogicalKeyboardKey.arrowDown);
+    _expectNoCursor(tester, page);
+
+    await _press(tester, LogicalKeyboardKey.escape);
+    expect(
+      tester.widget<EditableText>(search).controller.text,
+      page.query,
+      reason: 'Escape in the trigger field must not clear the list search',
+    );
+  });
 }
+
+Finder _byId(String id) => find.byWidgetPredicate(
+  (w) => w is Semantics && w.properties.identifier == id,
+);

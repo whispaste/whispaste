@@ -1,0 +1,17 @@
+#!/bin/sh
+# AppRun of the WhisPaste AppImage (installed by build-appimage.sh through
+# linuxdeploy --custom-apprun).
+#
+# The record package starts `parecord` (recording) and `pactl` (microphone
+# list) by bare name. The AppImage ships both in usr/bin (#1608), because a
+# fresh Ubuntu 26.04 Desktop has pipewire-pulse but not pulseaudio-utils. Their
+# directory goes first in PATH so the bundled tools win over host copies, and
+# only for this process tree: nothing outside the AppImage sees the change.
+#
+# The directory comes from this file's own location, not from $APPDIR, so an
+# extracted AppImage (squashfs-root/AppRun, as in scripts/smoke/smoke-linux.sh)
+# behaves the same as a mounted one.
+HERE="$(dirname "$(readlink -f "$0")")"
+PATH="$HERE/usr/bin${PATH:+:$PATH}"
+export PATH
+exec "$HERE/usr/bin/whispaste" "$@"

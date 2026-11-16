@@ -73,6 +73,33 @@ int main() {
   chord.Feed(kOther, false);
   Expect(chord.armed, "pressing another key does not cancel key-up");
 
+  // Press length: known start only, plausible length, wrap of the clock.
+  Expect(!PressDurationMs(false, 100, 250).has_value(),
+         "unknown press start gives no length");
+  Expect(PressDurationMs(true, 100, 250) == 150L, "press length in ms");
+  Expect(PressDurationMs(true, 0xFFFFFFF0u, 0x10u) == 32L,
+         "press length across a 32-bit clock wrap");
+  Expect(!PressDurationMs(true, 0, 60001).has_value(),
+         "press longer than the cap gives no length");
+  Expect(PressDurationMs(true, 0, 60000) == 60000L, "cap itself is kept");
+  Expect(PortalPressDurationMs(true, 1000000, 1150000) == 150L,
+         "portal press length in microseconds");
+  Expect(!PortalPressDurationMs(false, 1, 2).has_value(),
+         "portal press without start gives no length");
+  Expect(!PortalPressDurationMs(true, 5000, 1000).has_value(),
+         "portal release before press gives no length");
+
+  // Unwrapped server time: grows across the 32-bit wrap, tolerates a late one.
+  UnwrappedServerTime unwrapped;
+  Expect(unwrapped.Unwrap(100) == 100u, "first stamp is kept");
+  Expect(unwrapped.Unwrap(250) == 250u, "stamps grow");
+  UnwrappedServerTime wrap;
+  wrap.Unwrap(0xFFFFFFF0u);
+  Expect(wrap.Unwrap(0x10u) == 0xFFFFFFF0ull + 32u,
+         "the 32-bit wrap keeps growing");
+  Expect(wrap.Unwrap(0x08u) == 0xFFFFFFF0ull + 24u,
+         "a slightly late event steps back, not a whole wrap");
+
   if (failures == 0) std::puts("autorepeat_filter_test: OK");
   return failures == 0 ? 0 : 1;
 }

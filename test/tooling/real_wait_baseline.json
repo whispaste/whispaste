@@ -1,0 +1,8 @@
+{
+  "test/services/audio/recovery/support/kill_writer_child.dart": 1,
+  "test/services/hotkey_chain_test.dart": 1,
+  "test/services/hotkey_registrar_test.dart": 2,
+  "test/services/hotkey_service_test.dart": 5,
+  "test/services/http_stall_detector_test.dart": 1,
+  "test/services/single_instance_service_test.dart": 1
+}

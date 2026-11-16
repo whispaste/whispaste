@@ -2,7 +2,9 @@
 
 #include <gdk/gdk.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_engine.h"
+#include "secondary_plugin_registrant.h"
+#include "positioned_window_type.h"
 
 FloatingButtonWindow::FloatingButtonWindow() = default;
 
@@ -10,9 +12,9 @@ FloatingButtonWindow::~FloatingButtonWindow() {
   Destroy();
 }
 
-void FloatingButtonWindow::Create() {
+void FloatingButtonWindow::Create(const std::vector<std::string>& boot_args) {
   // ── GtkWindow shell ──────────────────────────────────────────────────────
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   // Decorationless: no title bar, no border.
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
@@ -53,13 +55,11 @@ void FloatingButtonWindow::Create() {
   // COMPILE RISK: fl_dart_project_set_dart_entrypoint_arguments expects
   // gchar** (non-const). We cast const away — safe because the embedder
   // copies the strings internally and does not mutate them.
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
-  const gchar* button_args[] = {"--floating-button", nullptr};
-  fl_dart_project_set_dart_entrypoint_arguments(
-      project, const_cast<gchar**>(button_args));
+  g_autoptr(FlDartProject) project = secondary_project_new("--floating-button", boot_args);
 
   // fl_view_new takes its own strong ref to project; g_autoptr releases ours.
   FlView* view = fl_view_new(project);
+  secondary_view_watch_first_frame(view, "Floating button");
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   // Transparent Flutter surface: the Dart painter composites over clear pixels.
@@ -71,7 +71,7 @@ void FloatingButtonWindow::Create() {
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
 
   // Register plugins BEFORE showing so platform channels are ready at boot.
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
 
   gtk_widget_show(GTK_WIDGET(fl_view_));
 
@@ -99,6 +99,66 @@ void FloatingButtonWindow::SetDiameter(int diameter) {
   const int side = diameter + 2 * kButtonShadowPadding;
   gtk_window_resize(GTK_WINDOW(window_), side, side);
   gtk_widget_set_size_request(window_, side, side);
+}
+
+void FloatingButtonWindow::SetWindowSize(int width, int height) {
+  if (!window_) return;
+  const int w = width + 2 * kButtonShadowPadding;
+  const int h = height + 2 * kButtonShadowPadding;
+  gtk_window_resize(GTK_WINDOW(window_), w, h);
+  gtk_widget_set_size_request(window_, w, h);
+}
+
+FloatingButtonWindow::CapsulePins FloatingButtonWindow::SetWindowSizeAnchored(
+    int width, int height, bool expanded) {
+  CapsulePins pins;
+  if (!window_) return pins;
+  gint cur_x = 0, cur_y = 0, cur_w = 0, cur_h = 0;
+  gtk_window_get_position(GTK_WINDOW(window_), &cur_x, &cur_y);
+  gtk_window_get_size(GTK_WINDOW(window_), &cur_w, &cur_h);
+  if (expanded && !has_capsule_home_) {
+    home_x_ = cur_x;
+    home_y_ = cur_y;
+    home_w_ = cur_w;
+    home_h_ = cur_h;
+    has_capsule_home_ = true;
+  }
+  const int hx = has_capsule_home_ ? home_x_ : cur_x;
+  const int hy = has_capsule_home_ ? home_y_ : cur_y;
+  const int hw = has_capsule_home_ ? home_w_ : cur_w;
+  const int hh = has_capsule_home_ ? home_h_ : cur_h;
+  const int pw = width + 2 * kButtonShadowPadding;
+  const int ph = height + 2 * kButtonShadowPadding;
+
+  int x = hx;
+  int y = hy;
+  if (expanded) {
+    // Grow toward the interior of the monitor work area (CapsulePins.resolve).
+    GdkDisplay* display = gtk_widget_get_display(window_);
+    GdkMonitor* monitor = gdk_display_get_monitor_at_window(
+        display, gtk_widget_get_window(window_));
+    if (monitor) {
+      GdkRectangle work = {};
+      gdk_monitor_get_workarea(monitor, &work);
+      const int home_right = hx + hw;
+      const int home_bottom = hy + hh;
+      const bool right_fits = home_right - pw >= work.x;
+      const bool left_fits = hx + pw <= work.x + work.width;
+      const bool up_fits = home_bottom - ph >= work.y;
+      const bool down_fits = hy + ph <= work.y + work.height;
+      pins.right = !left_fits && right_fits;
+      pins.bottom = !down_fits && up_fits;
+      x = pins.right ? home_right - pw : hx;
+      y = pins.bottom ? home_bottom - ph : hy;
+    }
+  } else {
+    has_capsule_home_ = false;
+  }
+  // gtk_window_move is only honoured under X11/XWayland; Wayland never
+  // expands (no hover), so it never reaches this branch there.
+  gtk_window_move(GTK_WINDOW(window_), x, y);
+  SetWindowSize(width, height);
+  return pins;
 }
 
 void FloatingButtonWindow::MoveTo(int x, int y) {

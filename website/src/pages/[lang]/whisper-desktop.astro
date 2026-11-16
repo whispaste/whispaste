@@ -13,6 +13,7 @@ import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
 import SectionEyebrow from "../../components/SectionEyebrow.astro";
 import heroDevice from "../../assets/hero-device/hero-device-clean-en.png";
 import { t, localePath, currentLocale, prefixedLocalePaths, LOCALE_META } from "../../scripts/i18n.ts";
+import { GITHUB_REPO_URL } from "../../components/schema/builders.ts";
 
 export function getStaticPaths() {
   return prefixedLocalePaths();
@@ -33,6 +34,7 @@ const seo = {
 const hero = {
   heading: t(lang, "explainer.whisperDesktop.heroHeading"),
   lead: t(lang, "explainer.whisperDesktop.heroLead"),
+  note: t(lang, "explainer.whisperDesktop.heroNote"),
 };
 
 const cta = {
@@ -103,6 +105,21 @@ const relatedPages = [
   cta={cta}
   relatedPages={relatedPages}
 >
+  <Fragment slot="hero-actions">
+    <a href={cta.href} class="wp-cta wd-dl" data-testid="whisper-desktop-hero-download">
+      <span class="wd-dl-label wd-dl-label--generic">{cta.label}</span>
+      <span class="wd-dl-label wd-dl-label--macos">{t(lang, "explainer.whisperDesktop.cta.macos")}</span>
+      <span class="wd-dl-label wd-dl-label--windows">{t(lang, "explainer.whisperDesktop.cta.windows")}</span>
+      <span class="wd-dl-label wd-dl-label--linux">{t(lang, "explainer.whisperDesktop.cta.linux")}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+      </svg>
+    </a>
+    <a href={GITHUB_REPO_URL} class="wp-cta-ghost" target="_blank" rel="noopener" data-testid="whisper-desktop-source-link">
+      <span>{t(lang, "explainer.whisperDesktop.cta.github")}</span>
+      <span aria-hidden="true">↗</span>
+    </a>
+  </Fragment>
   {/* Benefit strip: short "why WhisPaste" triad right after the hero,
       BEFORE the search-intent-driven HowTo/FAQ block — critique.md P1
       (2026-09-04): the page previously pitched its value only implicitly
@@ -211,6 +228,8 @@ const relatedPages = [
         decoding="async"
         class="device-photo__img"
       />
+      {/* EU AI Act Art. 50(4): AI-generated, realistic — labelled. */}
+      <figcaption class="device-photo__ai" data-testid="device-photo-ai-badge">{t(lang, "ai.badge")}</figcaption>
     </figure>
     <p class="device-photo__caption">{t(lang, "explainer.whisperDesktop.devicePhoto.caption")}</p>
   </section>
@@ -294,7 +313,35 @@ const relatedPages = [
   <FAQPageSchema locale={lang} questions={faqQuestions} />
 </LandingPageLayout>
 
+<script>
+  // Cookieless engagement event for the hero download CTA (GR-042). It carries
+  // only the detected OS, the same value as "Download gestartet" in Layout; no
+  // URL, no content. Matomo's queue exists only in production builds.
+  document.querySelector('[data-testid="whisper-desktop-hero-download"]')?.addEventListener('click', () => {
+    const paq = (window as unknown as { _paq?: unknown[][] })._paq;
+    paq?.push(['trackEvent', 'Engagement', 'Erklärseite Download-CTA', document.documentElement.dataset.os || 'unbekannt']);
+  });
+</script>
+
 <style>
+  /* Download-first hero (GR-040): the label follows the visitor's OS through the
+     data-os attribute that Layout's inline detector sets before first paint, the
+     same signal as the nav and platform buttons. Unknown OS and no-JS see the
+     neutral label. */
+  .wd-dl-label {
+    display: none;
+  }
+  :global(html:not([data-os])) .wd-dl-label--generic,
+  :global(html[data-os="macos"]) .wd-dl-label--macos,
+  :global(html[data-os="windows"]) .wd-dl-label--windows,
+  :global(html[data-os="linux"]) .wd-dl-label--linux {
+    display: inline;
+  }
+  .wd-dl {
+    max-width: 100%;
+    text-align: center;
+  }
+
   /* Lead visual for "How it works": hotkey → speak → text-at-cursor, the
      same three-node story the numbered steps tell in words. Purely
      supplementary (the caption + step list already carry the content for
@@ -410,12 +457,24 @@ const relatedPages = [
      normal caption below a normal photo, like the diagram/chart captions
      elsewhere on this page, not a separate colored stripe. */
   .device-photo {
+    position: relative;
     max-width: 56rem;
     margin: 0 auto;
     border-radius: var(--radius-card);
     overflow: hidden;
     border: 1px solid var(--color-brand-border);
     box-shadow: 0 20px 44px color-mix(in srgb, var(--wp-surface-scrim) 45%, transparent);
+  }
+  .device-photo__ai {
+    position: absolute;
+    top: var(--wp-space-3);
+    left: var(--wp-space-3);
+    padding: 2px var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 500;
+    color: var(--wp-photo-label-text);
+    background: var(--wp-photo-label-fill);
   }
   .device-photo :global(.device-photo__img) {
     display: block;

@@ -15,17 +15,27 @@
 /// directly (e.g. `settings.stt.model`) and mutate via [copyWithSections].
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/database.dart';
+import '../l10n/initial_locale.dart';
 import '../logging/app_logger.dart';
 import '../onboarding/onboarding_revision.dart';
+import '../theme/overlay_customization.dart'
+    show FloatingButtonLook, OverlayAppearance, OverlayElementAvailability;
+import '../theme/overlay_design_spec.dart' show OverlayBackground, OverlayWave;
+import '../../services/factory_reset/reset_preferences.dart';
+import '../../services/hotkey_trigger.dart' show doubleTapSupportedHere;
 import '../../services/path_service.dart';
+import '../../services/system_speech/system_speech_channel.dart'
+    show systemSpeechLocaleFor;
 import '../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
 import 'quality_tier.dart' show QualityTier;
@@ -39,6 +49,14 @@ import 'settings_sections.dart';
 /// Fields are grouped into 16 immutable section objects.  Every legacy
 /// top-level field is available as a `@Deprecated` getter for backward
 /// compatibility until all call-sites are migrated to the section API.
+/// Moves a stored wave that is invalid on its background to the replacement
+/// (ticket), once, on load, so the render path only sees valid pairings.
+OverlaySettings _withValidWave(OverlaySettings overlay) {
+  final background = OverlayBackground.fromValue(overlay.overlayBackground);
+  final wave = OverlayWave.fromValue(overlay.overlayWave).validOn(background);
+  return overlay.copyWith(overlayWave: wave.value);
+}
+
 class AppSettings {
   const AppSettings({
     this.interface_ = const InterfaceSettings(),
@@ -138,7 +156,7 @@ class AppSettings {
   /// (Ticket 26). Off by default.
   final SettingsAutosaveSettings autosave;
 
-  /// Smart Mode v2 settings (`internal-notes`) — standard preset,
+  /// Smart Mode v2 settings — standard preset,
   /// off by default.
   final SmartModeSettings smartMode;
 
@@ -147,11 +165,10 @@ class AppSettings {
   final SmartModeHotkeySettings smartModeHotkey;
 
   /// "Edit selection by voice" hotkey settings
-  /// (`internal-notes`) — off by default.
+  /// — off by default.
   final SelectionEditHotkeySettings selectionEditHotkey;
 
-  /// Local automation API settings (ticket 03,
-  /// `internal-notes`) — off by default.
+  /// Local automation API settings — off by default.
   final AutomationApiSettings automationApi;
 
   // ---------------------------------------------------------------------------
@@ -230,9 +247,6 @@ class AppSettings {
 
   @Deprecated('Use overlay.overlaySize instead')
   String get overlaySize => overlay.overlaySize;
-
-  @Deprecated('Use overlay.overlayStyle instead')
-  String get overlayStyle => overlay.overlayStyle;
 
   @Deprecated('Use overlay.showFloatingButton instead')
   bool get showFloatingButton => overlay.showFloatingButton;
@@ -347,11 +361,63 @@ class AppSettings {
       OverlayStartPosition.fromValue(overlay.overlayStartPosition);
   FloatingOverlaySize get overlaySizeType =>
       FloatingOverlaySize.fromValue(overlay.overlaySize);
-  OverlayStyle get overlayStyleType =>
-      OverlayStyle.fromValue(overlay.overlayStyle);
+
+  /// Whether the during-recording preview stream is worth running: the user
+  /// opted in, the engine is on-device whisper, and the chosen overlay size
+  /// paints the text while recording
+  /// ([OverlayElementAvailability.liveTranscriptWhileRecording]; mini only
+  /// while transcribing, nano never, so a stream there would cost CPU for
+  /// nothing, #749). One gate for the audio feed and the engine; the overlay
+  /// only reads the stream, which stays null while this is false. The label
+  /// while transcribing reads the engine's partial transcript instead.
+  bool get wantsLivePreview =>
+      overlayShowLiveTranscript &&
+      sttProviderType.isLocal &&
+      onDeviceEngine == OnDeviceEngine.whisper &&
+      OverlayElementAvailability.forSize(
+        overlaySizeType.variant,
+      ).liveTranscriptWhileRecording;
+
+  /// The same gate for the system speech engine (Apple, macOS 26+, #1078):
+  /// the preview streams to the OS recognizer, which needs a fixed language.
+  /// The caller adds the OS check. Whisper's [wantsLivePreview] stays false
+  /// for it, so no whisper stream runs alongside.
+  bool get wantsSystemLivePreview =>
+      overlayShowLiveTranscript &&
+      sttProviderType.isLocal &&
+      onDeviceEngine == OnDeviceEngine.system &&
+      systemSpeechLocaleFor(sttLanguageCode) != null &&
+      OverlayElementAvailability.forSize(
+        overlaySizeType.variant,
+      ).liveTranscriptWhileRecording;
+  OverlayBackground get overlayBackgroundType =>
+      OverlayBackground.fromValue(overlay.overlayBackground);
+  OverlayWave get overlayWaveType => OverlayWave.fromValue(overlay.overlayWave);
+
+  /// The ticket appearance options as one value for the overlay snapshot.
+  OverlayAppearance get overlayAppearance => OverlayAppearance.fromValues(
+    form: overlay.overlayForm,
+    waveStyle: overlay.overlayWaveStyle,
+    waveFluid: overlay.overlayWaveFluid,
+    showTimer: overlay.overlayShowTimer,
+    showCancel: overlay.overlayShowCancel,
+    opacity: overlay.overlayOpacity,
+  );
+
+  /// The ticket floating-button look (size, shape, ring, resting opacity).
+  FloatingButtonLook get floatingButtonLook => FloatingButtonLook.fromValues(
+    size: overlay.floatingButtonSize,
+    shape: overlay.floatingButtonShape,
+    ring: overlay.floatingButtonRing,
+    idleOpacity: overlay.floatingButtonIdleOpacity,
+    idleCapsule: overlay.floatingButtonIdleCapsule,
+  );
 
   /// Whether the overlay shows the live/partial recognized text (ticket 11).
   bool get overlayShowLiveTranscript => overlay.overlayShowLiveTranscript;
+
+  /// Whether the overlay shows the quiet-microphone notice card (overlay F2).
+  bool get overlayQuietHint => overlay.overlayQuietHint;
 
   /// Resolved model ID — falls back to `whisper-medium` if empty.
   ///
@@ -370,11 +436,14 @@ class AppSettings {
   /// transcriptions would be recorded under whatever Whisper model ID
   /// happens to be selected (or the `whisper-medium` fallback), silently
   /// misattributing them in the analytics dashboard's model-usage panel.
-  String get transcriptionModelId =>
-      sttProviderType == SttProviderType.onDevice &&
-          onDeviceEngine == OnDeviceEngine.parakeet
-      ? parakeetModelId
-      : effectiveModelId;
+  String get transcriptionModelId {
+    if (sttProviderType != SttProviderType.onDevice) return effectiveModelId;
+    return switch (onDeviceEngine) {
+      OnDeviceEngine.parakeet => parakeetModelId,
+      OnDeviceEngine.system => systemSpeechModelId,
+      OnDeviceEngine.whisper => effectiveModelId,
+    };
+  }
 
   /// STT language code for the whisper server (e.g. `en`, `ru`, `auto`).
   ///
@@ -404,18 +473,36 @@ class AppSettings {
     snippetPickerHotkey: buildDefaultSnippetPickerHotkeySettings(),
     smartModeHotkey: buildDefaultSmartModeHotkeySettings(),
     selectionEditHotkey: buildDefaultSelectionEditHotkeySettings(),
+    behavior: BehaviorSettings(
+      repasteHotkeyModifiers: defaultRepasteHotkeyModifiers(),
+    ),
   );
+
+  /// Existing installs (onboarding finished before the threshold setting
+  /// existed) keep the former fixed 1000 ms; new installs take the 250 ms
+  /// default. A stored value always wins.
+  static AudioInputSettings _withLegacyHoldOrTapThreshold(
+    AudioInputSettings audio,
+    Map<String, String> values,
+  ) {
+    if (values.containsKey('hold_or_tap_threshold_ms')) return audio;
+    if (values['onboarding_completed'] != 'true') return audio;
+    return audio.copyWith(holdOrTapThresholdMs: 1000);
+  }
 
   /// Creates settings from persisted key-value storage.
   factory AppSettings.fromStorageMap(Map<String, String> values) {
     return AppSettings(
       interface_: InterfaceSettings.fromMap(values),
-      audioInput: AudioInputSettings.fromMap(values),
+      audioInput: _withLegacyHoldOrTapThreshold(
+        AudioInputSettings.fromMap(values),
+        values,
+      ),
       recordingSafety: RecordingSafetySettings.fromMap(values),
       stt: SttSettings.fromMap(values),
       sound: SoundSettings.fromMap(values),
       afterTranscriptionSection: AfterTranscriptionSettings.fromMap(values),
-      overlay: OverlaySettings.fromMap(values),
+      overlay: _withValidWave(OverlaySettings.fromMap(values)),
       cloudProvider: CloudProviderSettings.fromMap(values),
       behavior: BehaviorSettings.fromMap(values),
       audioProcessing: AudioProcessingSettings.fromMap(values),
@@ -701,9 +788,22 @@ class AppSettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayStyle,
+    String? overlayBackground,
+    String? overlayWave,
+    String? overlayForm,
+    String? overlayWaveStyle,
+    bool? overlayWaveFluid,
+    bool? overlayShowTimer,
+    bool? overlayShowCancel,
+    String? overlayOpacity,
+    String? floatingButtonSize,
+    String? floatingButtonShape,
+    bool? floatingButtonRing,
+    String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
+    bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
+    bool? overlayQuietHint,
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
@@ -714,6 +814,7 @@ class AppSettings {
     int? autoPasteDelay,
     String? autoPasteBlocklist,
     bool? textReplacementsEnabled,
+    bool? termSimilarityEnabled,
     bool? checkUpdates,
     int? historyMaxEntries,
     int? historyAutoTrashDays,
@@ -730,11 +831,13 @@ class AppSettings {
     double? windowWidth,
     double? windowHeight,
     bool? windowMaximized,
+    String? overlayPositionsByMonitor,
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
+    String? benchmarkBackend,
     bool? shareUsageStats,
     bool? retainRecentAudio,
     String? cohortPseudonymSalt,
@@ -778,9 +881,22 @@ class AppSettings {
         overlayMode: overlayMode,
         overlayStartPosition: overlayStartPosition,
         overlaySize: overlaySize,
-        overlayStyle: overlayStyle,
+        overlayBackground: overlayBackground,
+        overlayWave: overlayWave,
+        overlayForm: overlayForm,
+        overlayWaveStyle: overlayWaveStyle,
+        overlayWaveFluid: overlayWaveFluid,
+        overlayShowTimer: overlayShowTimer,
+        overlayShowCancel: overlayShowCancel,
+        overlayOpacity: overlayOpacity,
+        floatingButtonSize: floatingButtonSize,
+        floatingButtonShape: floatingButtonShape,
+        floatingButtonRing: floatingButtonRing,
+        floatingButtonIdleOpacity: floatingButtonIdleOpacity,
         showFloatingButton: showFloatingButton,
+        floatingButtonIdleCapsule: floatingButtonIdleCapsule,
         overlayShowLiveTranscript: overlayShowLiveTranscript,
+        overlayQuietHint: overlayQuietHint,
       ),
       cloudProvider: cloudProvider.copyWith(
         openAiApiKey: openAiApiKey,
@@ -795,6 +911,7 @@ class AppSettings {
         autoPasteDelay: autoPasteDelay,
         autoPasteBlocklist: autoPasteBlocklist,
         textReplacementsEnabled: textReplacementsEnabled,
+        termSimilarityEnabled: termSimilarityEnabled,
       ),
       audioProcessing: audioProcessing.copyWith(),
       updates: updates.copyWith(checkUpdates: checkUpdates),
@@ -818,6 +935,7 @@ class AppSettings {
         windowWidth: windowWidth,
         windowHeight: windowHeight,
         windowMaximized: windowMaximized,
+        overlayPositionsByMonitor: overlayPositionsByMonitor,
       ),
       onboarding: onboarding.copyWith(
         onboardingCompleted: onboardingCompleted,
@@ -827,6 +945,7 @@ class AppSettings {
         tierBenchmarkRtf: tierBenchmarkRtf,
         benchmarkHardwareId: benchmarkHardwareId,
         benchmarkTimestamp: benchmarkTimestamp,
+        benchmarkBackend: benchmarkBackend,
       ),
       privacy: privacy.copyWith(
         shareUsageStats: shareUsageStats,
@@ -934,6 +1053,106 @@ String _settingLanguageFromConfig(String languageCode) {
   return whisperLanguages.containsKey(languageCode) ? languageCode : 'auto';
 }
 
+/// How long the factory reset waits for the keyring before it moves on.
+const kDefaultSecureStoreEraseTimeout = Duration(seconds: 5);
+
+/// The limit in effect; tests shorten it.
+@visibleForTesting
+Duration secureStoreEraseTimeout = kDefaultSecureStoreEraseTimeout;
+
+/// Counts settings saves that did not reach storage. The app shell listens and
+/// tells the user about each failure (UIA-SET-01).
+class SettingsSaveFailures extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void record() => state = state + 1;
+}
+
+final settingsSaveFailuresProvider =
+    NotifierProvider<SettingsSaveFailures, int>(SettingsSaveFailures.new);
+
+/// One-shot marker in `app_settings` for the idle-timeout default move
+/// (maintainer decision 1a, 2026-10-19). Once present, the stored
+/// `stt_idle_timeout_minutes` is never rewritten by the migration again, so
+/// a value the user picks later (including 5) is kept.
+const kSttIdleDefaultMigrationKey = 'stt_idle_default_migrated';
+
+/// One-shot marker for the legacy clipboard restore default (W-E1). Written
+/// on the first load of this version, so the value is decided once: an install
+/// that had finished onboarding before keeps the previous release's restore
+/// after a receipt timeout (`restore_clipboard_without_receipt` = true), a
+/// fresh install gets receipt-only (false). Writing the marker on the fresh
+/// path too keeps an install that completes onboarding later from being
+/// mistaken for an existing one.
+const kPasteRestoreLegacyMigrationKey = 'paste_restore_legacy_migrated';
+
+/// One-shot marker for the push-to-talk default (V05, maintainer decision
+/// R-V05-1 = a). A fresh install starts in hold mode; an install that finished
+/// onboarding before never stored `push_to_talk` and keeps toggle mode. The
+/// marker is written on the first load of this version, so the default never
+/// flips an existing install later, and a stored value is never overwritten.
+const kPushToTalkDefaultMigrationKey = 'push_to_talk_default_migrated';
+
+/// One-shot marker for the old sound master toggle mapping (issue 12). Once
+/// present, "start, stop, done and warning off" is never rewritten again, as
+/// the per-sound switches make it a deliberate choice (issue 1154, see
+/// [_migrateSoundMasterToggle]).
+const kSoundMasterToggleMigrationKey = 'sound_master_toggle_migrated';
+
+/// One-shot marker for the overlay defaults of 2026-10-29 (amber background,
+/// ink wave, compact size, static outline for new installs). Once present, the
+/// stored overlay values are never pinned again (see
+/// [_migrateOverlayDefaults]).
+const kOverlayDefaultsMigrationKey = 'overlay_defaults_migrated';
+
+/// The overlay defaults before 2026-10-29, for the keys an existing install
+/// does not store yet. Those installs keep the look they had.
+const _kOverlayDefaultsBefore20261029 = OverlaySettings(
+  overlaySize: 'normal',
+  overlayBackground: 'marine',
+  overlayWave: 'cyan',
+  overlayWaveFluid: true,
+);
+
+/// One-shot marker for the side panel default of 2026-10-30 (off for new
+/// installs). An existing install without a stored `side_panel_enabled`
+/// keeps the panel it had (see [_migrateSidePanelDefault]).
+const kSidePanelDefaultMigrationKey = 'side_panel_default_migrated';
+
+/// One-shot marker for the double-tap default of 2026-10-30 (on for new
+/// installs). An existing install without a stored `hotkey_double_tap` keeps
+/// how its trigger behaved: a single-key trigger was double-tap only and keeps
+/// it (and gains hold), a combination keeps working without it (see
+/// [_migrateHotkeyDoubleTapDefault]).
+const kHotkeyDoubleTapDefaultMigrationKey =
+    'hotkey_double_tap_default_migrated';
+
+/// One-shot marker for the text replacements default of 2026-10-30 (on for
+/// new installs). An existing install without a stored
+/// `text_replacements_enabled` keeps them off (see
+/// [_migrateTextReplacementsDefault]).
+const kTextReplacementsDefaultMigrationKey =
+    'text_replacements_default_migrated';
+
+/// One-shot marker for the written-forms default of 2026-10-30 (on for new
+/// installs). An existing install without a stored `stt_written_forms` keeps
+/// the stage off, as it had no such stage (see [_migrateWrittenFormsDefault]).
+const kWrittenFormsDefaultMigrationKey = 'written_forms_default_migrated';
+
+/// Stored `stt_idle_timeout_minutes` values the one-time migration maps to
+/// the new default 0 (keep loaded): 5 was the old default, -1 the unreleased
+/// "auto" default. Every other value is kept.
+const _kLegacyIdleTimeoutMinutes = {5, -1};
+
+/// A change requested before the load, with an optional coalescing key.
+class _QueuedChange {
+  const _QueuedChange(this.key, this.updater);
+
+  final String? key;
+  final AppSettings Function(AppSettings) updater;
+}
+
 /// Central settings notifier — loads from and persists to Drift/SQLite.
 ///
 /// API keys are stored in platform-native secure storage and merged into
@@ -946,41 +1165,71 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   @visibleForTesting
   Future<void>? secureKeysFuture;
 
+  void Function()? _removeGateListener;
+
+  /// Reads the API keys again once the user allowed the key store: keys held
+  /// back by the quiet start reads arrive now, in one pass (#1161).
+  Future<void> _mergeHeldBackKeys(SecureKeyStore secureStore) =>
+      withSecureTrigger('settings after consent', () async {
+        final current = state.value;
+        if (current == null) return;
+        try {
+          final merged = await _mergeSecureKeys(current, secureStore);
+          if (state.value == current && merged != current) {
+            state = AsyncData(merged);
+          }
+        } catch (e) {
+          _log.warning('API key merge after consent failed: $e');
+        }
+      });
+
+  /// Upper bound for changes queued before the load. The oldest is dropped
+  /// beyond it, with a warning, so a stuck load cannot grow memory forever.
+  static const int _maxQueuedChanges = 100;
+
+  /// Changes requested before the stored settings were loaded. Applied in
+  /// order by [build], so the latest value wins. A change with a [key]
+  /// replaces an earlier queued change with the same key.
+  final List<_QueuedChange> _queuedUpdates = [];
+
+  /// Queued changes dropped by the cap. Visible for tests.
+  @visibleForTesting
+  int droppedQueuedChanges = 0;
+
+  /// Persist attempts of queued changes that failed. Visible for tests.
+  @visibleForTesting
+  int queuedPersistFailures = 0;
+
+  /// Number of changes waiting for the load. Visible for tests.
+  @visibleForTesting
+  int get queuedUpdateCount => _queuedUpdates.length;
+
   @override
   Future<AppSettings> build() async {
     final db = ref.watch(historyDatabaseProvider);
     final secureStore = ref.watch(secureKeyStoreProvider);
-    final values = await db.readAppSettings();
+    Map<String, String> values;
+    try {
+      values = await db.readAppSettings();
+    } catch (e) {
+      // The queue survives a failed load and is applied by the next one.
+      if (_queuedUpdates.isNotEmpty) {
+        _log.warning(
+          'Settings load failed; keeping ${_queuedUpdates.length} queued '
+          'change(s) for the next load: $e',
+        );
+      }
+      rethrow;
+    }
 
+    values = await _migrateLegacyHotkeyTriggers(db, values);
+    // An install with stored settings, or one migrated from the Go config,
+    // already has the look of the previous overlay defaults.
+    var existingInstall = values.isNotEmpty;
     AppSettings settings;
     if (values.isNotEmpty) {
       settings = AppSettings.fromStorageMap(values);
-      // One-time migration (issue 12): users who muted sounds via the old
-      // master toggle had all four sound bools set to false but soundVolume
-      // still at the default (80). Under the new scheme soundVolume==0 is
-      // the off-state, so we set it to 0 and persist once.
-      final soundSection = settings.sound;
-      if (!soundSection.recordStartSound &&
-          !soundSection.recordStopSound &&
-          !soundSection.transcriptionCompleteSound &&
-          !soundSection.durationWarningSound &&
-          soundSection.soundVolume > 0) {
-        // Also re-enable the four bools so this migration never re-fires.
-        // Under the new scheme they are always true and soundVolume==0 is the
-        // off-state; leaving them false would keep the condition true and reset
-        // the volume to 0 on every future build() if the user raised it again.
-        settings = settings.copyWithSections(
-          sound: soundSection.copyWith(
-            recordStartSound: true,
-            recordStopSound: true,
-            transcriptionCompleteSound: true,
-            durationWarningSound: true,
-            soundVolume: 0,
-          ),
-        );
-        await db.writeAppSettings(settings.toStorageMap());
-        _log.info('Sound mute migration: soundVolume set to 0');
-      }
+      settings = await _migrateSttIdleDefault(db, settings, values);
 
       // One-time migration (onboarding-revisions ticket 01): grandfathering.
       // A user who already finished onboarding before the content-revision
@@ -1032,30 +1281,88 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       // One-time migration: read the legacy Go config.json if it exists.
       final migrated = _tryMigrateGoConfig();
       if (migrated != null) {
+        existingInstall = true;
         settings = migrated;
         // Persist immediately so migration never re-runs.
-        await db.writeAppSettings(settings.toStorageMap());
+        await db.writeAppSettings({
+          ...settings.toStorageMap(),
+          kSttIdleDefaultMigrationKey: '1',
+        });
         _log.info('Migrated Go config persisted to SQLite');
       } else {
+        // Fresh install: the idle marker is stamped together with the
+        // first-start languages (_applyFirstStartLanguages), in one write, so
+        // an interrupted start neither loses the languages nor skips the stamp.
         settings = AppSettings.defaults;
       }
     }
 
+    settings = await _migrateSoundMasterToggle(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateOverlayDefaults(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateSidePanelDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateHotkeyDoubleTapDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateTextReplacementsDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateWrittenFormsDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migratePasteRestoreLegacy(db, settings, values);
+    settings = await _migratePushToTalkDefault(db, settings, values);
+
+    // First start (no stored settings at all): take the app and dictation
+    // language from the system once and persist them, so a later system
+    // change does not move the app and an explicit choice (even English) is
+    // always kept. Existing installs are never switched.
+    settings = await _applyFirstStartLanguages(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+
+    // Changes made before this load (see _applyOrQueue) are applied now, in
+    // order, and persisted once. Nothing awaits between this point and the
+    // return, so no new change can slip in between.
+    settings = _applyQueuedChanges(settings);
+
     // Defer slow secure store operations to after initial load.
     // This lets the app show its window and become interactive immediately.
     // API keys will be available within ~200ms after startup.
-    secureKeysFuture = Future.microtask(() async {
+    //
+    // Until the user allowed the key store after the data-key explanation,
+    // these reads are quiet (#1161): a key this build may not read without a
+    // system prompt is skipped and merged once the gate opens.
+    secureKeysFuture = withSecureTrigger('settings start', () async {
       try {
         await _migrateApiKeys(values, secureStore, db);
-        // Groq removal (v1.2.13): delete any residual wp_groq_api_key from
-        // secure storage so no stale credentials remain on device.
-        try {
-          await secureStore.deleteKey('wp_groq_api_key');
-        } catch (e) {
-          _log.debug(
-            'Groq key cleanup failed (non-fatal, keychain may be locked): $e',
-          );
-        }
+        await _removeGroqKeyOnce(values, secureStore, db);
         final merged = await _mergeSecureKeys(
           state.value ?? settings,
           secureStore,
@@ -1069,47 +1376,534 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         );
       }
     });
+    _removeGateListener?.call();
+    _removeGateListener = secureAccessGate.addOpenListener(
+      () => unawaited(_mergeHeldBackKeys(secureStore)),
+    );
+    ref.onDispose(() {
+      _removeGateListener?.call();
+      _removeGateListener = null;
+    });
 
     return settings;
   }
 
+  /// One-time move of the speech-model idle default (maintainer decision 1a,
+  /// 2026-10-19): a stored 5 (old default) or -1 (unreleased auto) becomes 0
+  /// (keep loaded). Runs once per install, guarded by
+  /// [kSttIdleDefaultMigrationKey]; the marker is written in the same call
+  /// as the value, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migrateSttIdleDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kSttIdleDefaultMigrationKey)) return settings;
+    final stored = settings.stt.idleTimeoutMinutes;
+    final migrate = _kLegacyIdleTimeoutMinutes.contains(stored);
+    final result = migrate
+        ? settings.copyWithSections(
+            stt: settings.stt.copyWith(idleTimeoutMinutes: 0),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (migrate) 'stt_idle_timeout_minutes': '0',
+        kSttIdleDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the stored value in memory too, so this session and the disk
+      // agree; the next start retries the whole step. Never blocks startup.
+      _log.warning('Speech model idle default migration not persisted: $e');
+      return settings;
+    }
+    if (migrate) {
+      _log.info('Speech model idle default moved from $stored to 0 (once)');
+    }
+    return result;
+  }
+
+  /// Maps the old sound master toggle onto the volume, once (issue 12, made
+  /// one-shot in issue 1154). The old toggle stored all four of start, stop,
+  /// done and warning as `false` with the volume untouched; it becomes volume
+  /// 0 with the four switched back on. Before the per-sound switches existed
+  /// that combination could only come from the toggle. Once the marker is
+  /// stored, the same combination is a deliberate choice and stays as it is,
+  /// so a fresh install only stamps the marker.
+  Future<AppSettings> _migrateSoundMasterToggle(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kSoundMasterToggleMigrationKey)) return settings;
+    final sound = settings.sound;
+    final migrate =
+        existingInstall &&
+        !sound.recordStartSound &&
+        !sound.recordStopSound &&
+        !sound.transcriptionCompleteSound &&
+        !sound.durationWarningSound &&
+        sound.soundVolume > 0;
+    final result = migrate
+        ? settings.copyWithSections(
+            sound: sound.copyWith(
+              recordStartSound: true,
+              recordStopSound: true,
+              transcriptionCompleteSound: true,
+              durationWarningSound: true,
+              soundVolume: 0,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (migrate) ...result.sound.toMap(),
+        kSoundMasterToggleMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the mapped state in memory too; the next start retries the step.
+      _log.warning('Sound master toggle migration not persisted: $e');
+      return result;
+    }
+    if (migrate) _log.info('Sound mute migration: soundVolume set to 0 (once)');
+    return result;
+  }
+
+  /// Keeps the overlay look of installs that existed before the 2026-10-29
+  /// defaults. A pinned key is one the stored settings do not have yet: it gets
+  /// its previous default, written once with the marker. A fresh install (no
+  /// stored settings) only stamps the marker and takes the new defaults.
+  Future<AppSettings> _migrateOverlayDefaults(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kOverlayDefaultsMigrationKey)) return settings;
+    const before = _kOverlayDefaultsBefore20261029;
+    final pinSize = existingInstall && !values.containsKey('overlay_size');
+    final pinBackground =
+        existingInstall && !values.containsKey('overlay_background');
+    final pinWave = existingInstall && !values.containsKey('overlay_wave');
+    final pinFluid =
+        existingInstall && !values.containsKey('overlay_wave_fluid');
+    final pinned = pinSize || pinBackground || pinWave || pinFluid;
+    final result = pinned
+        ? settings.copyWithSections(
+            overlay: settings.overlay.copyWith(
+              overlaySize: pinSize ? before.overlaySize : null,
+              overlayBackground: pinBackground
+                  ? before.overlayBackground
+                  : null,
+              overlayWave: pinWave ? before.overlayWave : null,
+              overlayWaveFluid: pinFluid ? before.overlayWaveFluid : null,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pinSize) 'overlay_size': before.overlaySize,
+        if (pinBackground) 'overlay_background': before.overlayBackground,
+        if (pinWave) 'overlay_wave': before.overlayWave,
+        if (pinFluid) 'overlay_wave_fluid': '${before.overlayWaveFluid}',
+        kOverlayDefaultsMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the pinned look in memory too; the next start retries the step.
+      _log.warning('Overlay defaults migration not persisted: $e');
+      return result;
+    }
+    if (pinned) {
+      _log.info(
+        'Overlay defaults pinned to the previous look (existing install)',
+      );
+    }
+    return result;
+  }
+
+  /// Keeps the edge side panel on for installs that existed before the
+  /// 2026-10-30 default (off): when they do not store the key yet, `true` is
+  /// written once with the marker. A fresh install only stamps the marker.
+  Future<AppSettings> _migrateSidePanelDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kSidePanelDefaultMigrationKey)) return settings;
+    final pin = existingInstall && !values.containsKey('side_panel_enabled');
+    final result = pin
+        ? settings.copyWithSections(
+            interface_: settings.interface_.copyWith(sidePanelEnabled: true),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'side_panel_enabled': 'true',
+        kSidePanelDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the panel in memory too; the next start retries the step.
+      _log.warning('Side panel default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Side panel kept on (existing install)');
+    return result;
+  }
+
+  /// Sets the double-tap default once (see
+  /// [kHotkeyDoubleTapDefaultMigrationKey]). The marker and the value are
+  /// written in one call, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migrateHotkeyDoubleTapDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kHotkeyDoubleTapDefaultMigrationKey)) {
+      return settings;
+    }
+    final pin = existingInstall && !values.containsKey('hotkey_double_tap');
+    final doubleTap = settings.hotkey.hotkeyDoubleTapKey.isNotEmpty;
+    final result = pin
+        ? settings.copyWithSections(
+            hotkey: settings.hotkey.copyWith(hotkeyDoubleTap: doubleTap),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'hotkey_double_tap': '$doubleTap',
+        kHotkeyDoubleTapDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the value in memory too; the next start retries the step.
+      _log.warning('Double-tap default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Double tap kept as before (existing install)');
+    return result;
+  }
+
+  /// Keeps text replacements off for installs that existed before the
+  /// 2026-10-30 default (on): when they do not store the key yet, `false` is
+  /// written once with the marker. A fresh install only stamps the marker and
+  /// gets the new default. A stored choice is never touched.
+  Future<AppSettings> _migrateTextReplacementsDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kTextReplacementsDefaultMigrationKey)) {
+      return settings;
+    }
+    final pin =
+        existingInstall && !values.containsKey('text_replacements_enabled');
+    final result = pin
+        ? settings.copyWithSections(
+            behavior: settings.behavior.copyWith(
+              textReplacementsEnabled: false,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'text_replacements_enabled': 'false',
+        kTextReplacementsDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the old value in memory too; the next start retries the step.
+      _log.warning('Text replacements default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Text replacements kept off (existing install)');
+    return result;
+  }
+
+  /// Keeps the written-form stage off for installs that existed before the
+  /// 2026-10-30 default (on): when they do not store `stt_written_forms` yet,
+  /// `false` is written once with the marker. A fresh install only stamps the
+  /// marker. A stored choice is never touched.
+  Future<AppSettings> _migrateWrittenFormsDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kWrittenFormsDefaultMigrationKey)) return settings;
+    final pin = existingInstall && !values.containsKey('stt_written_forms');
+    final result = pin
+        ? settings.copyWithSections(
+            stt: settings.stt.copyWith(
+              writtenForms: settings.stt.writtenForms.copyWith(enabled: false),
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'stt_written_forms': 'false',
+        kWrittenFormsDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the stage off in memory too; the next start retries the step.
+      _log.warning('Written forms default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Written forms kept off (existing install)');
+    return result;
+  }
+
+  /// Sets the legacy clipboard restore default once (W-E1, see
+  /// [kPasteRestoreLegacyMigrationKey]). The marker and the value are written
+  /// in one call, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migratePasteRestoreLegacy(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kPasteRestoreLegacyMigrationKey)) return settings;
+    final existingInstall = settings.onboarding.onboardingCompleted;
+    final result = existingInstall
+        ? settings.copyWithSections(
+            behavior: settings.behavior.copyWith(
+              restoreClipboardWithoutReceipt: true,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (existingInstall) 'restore_clipboard_without_receipt': 'true',
+        kPasteRestoreLegacyMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the default in memory too; the next start retries the step.
+      _log.warning('Clipboard restore default migration not persisted: $e');
+      return result;
+    }
+    if (existingInstall) {
+      _log.info('Clipboard restore after timeout kept for an existing install');
+    }
+    return result;
+  }
+
+  /// Persists the app and dictation language of a first start (see
+  /// [firstStartLanguages]) and the idle-migration marker in one write. The
+  /// dictation language is English only when the system names no language;
+  /// a named language Whisper does not write leaves automatic detection. The
+  /// log names the source, not the system's language list.
+  Future<AppSettings> _applyFirstStartLanguages(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (existingInstall || values.containsKey('locale')) return settings;
+    final flutterTags = ref
+        .read(systemLocalesProvider)
+        .map((l) => l.toLanguageTag())
+        .toList();
+    // Ask the platform only when Flutter names no usable language: the native
+    // call carries a timeout, and a pending timer must not leak into tests.
+    final systemPreferences = namedLanguageTags(flutterTags).isEmpty
+        ? await ref.read(systemPreferredLanguagesProvider.future)
+        : const <String>[];
+    final first = firstStartLanguages(
+      flutterLocales: flutterTags,
+      systemPreferences: systemPreferences,
+    );
+    final updated = settings
+        .copyWithSections(
+          interface_: settings.interface_.copyWith(locale: first.appLocale),
+        )
+        .copyWith(sttLanguage: first.dictationLanguage);
+    // The idle-migration marker goes into the same write: a fresh install
+    // never sees the legacy 5 as its own choice, and an abort leaves neither
+    // half behind.
+    try {
+      await db.writeAppSettings({
+        ...updated.toStorageMap(),
+        kSttIdleDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Not persisted: the app still starts with the system language, and
+      // the next start finds no stored settings and tries again.
+      _log.warning('First-start language not persisted: $e');
+    }
+    _log.info(
+      'First-start language: app ${first.appLocale}, dictation '
+      '${first.dictationLanguage}, source ${first.source.name}',
+    );
+    return updated;
+  }
+
+  /// Sets the push-to-talk default once (see [kPushToTalkDefaultMigrationKey]).
+  /// An install with a stored `push_to_talk` keeps it; one without it gets
+  /// toggle mode when it had finished onboarding and hold mode otherwise. The
+  /// value and the marker are written in one call, so an interrupted start
+  /// retries instead of skipping.
+  Future<AppSettings> _migratePushToTalkDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kPushToTalkDefaultMigrationKey)) return settings;
+    if (values.containsKey('push_to_talk')) {
+      try {
+        await db.writeAppSettings({kPushToTalkDefaultMigrationKey: '1'});
+      } catch (e) {
+        _log.warning('Push-to-talk default marker not persisted: $e');
+      }
+      return settings;
+    }
+    final existingInstall = settings.onboarding.onboardingCompleted;
+    final pushToTalk = !existingInstall;
+    final result = settings.copyWithSections(
+      audioInput: settings.audioInput.copyWith(pushToTalk: pushToTalk),
+    );
+    try {
+      await db.writeAppSettings({
+        'push_to_talk': '$pushToTalk',
+        kPushToTalkDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the default in memory too; the next start retries the step.
+      _log.warning('Push-to-talk default migration not persisted: $e');
+      return result;
+    }
+    if (existingInstall) {
+      _log.info('Push-to-talk kept off for an existing install (toggle mode)');
+    }
+    return result;
+  }
+
+  /// Moves the retired hotkey trigger values to the one-trigger model (see
+  /// [migrateLegacyHotkeyTriggers]). The cleared and moved values are written
+  /// back, so a later load has nothing left to move. A failed write keeps the
+  /// migrated values in memory and retries on the next start.
+  Future<Map<String, String>> _migrateLegacyHotkeyTriggers(
+    HistoryDatabase db,
+    Map<String, String> values,
+  ) async {
+    final migrated = migrateLegacyHotkeyTriggers(
+      values,
+      doubleTapObservable: doubleTapSupportedHere,
+    );
+    final writes = {
+      for (final entry in migrated.entries)
+        if (values[entry.key] != entry.value) entry.key: entry.value,
+    };
+    if (writes.isEmpty) return values;
+    try {
+      await db.writeAppSettings(writes);
+    } catch (e) {
+      _log.warning('Hotkey trigger migration not persisted: $e');
+    }
+    return migrated;
+  }
+
+  /// Applies the changes queued before this load, in order, and persists the
+  /// result once. Called without an await in between, so no new change can
+  /// slip in between.
+  AppSettings _applyQueuedChanges(AppSettings loaded) {
+    if (_queuedUpdates.isEmpty) return loaded;
+    final queued = List.of(_queuedUpdates);
+    _queuedUpdates.clear();
+    var settings = loaded;
+    for (final change in queued) {
+      settings = change.updater(settings);
+    }
+    _log.info('Applied ${queued.length} settings change(s) made before load');
+    unawaited(
+      _persistChange(loaded, settings).catchError((Object e) {
+        queuedPersistFailures++;
+        _log.error('Persisting queued settings failed: $e');
+      }),
+    );
+    return settings;
+  }
+
   /// Update one or more settings and persist the change.
-  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
-    final current = state.value ?? const AppSettings();
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) =>
+      _applyOrQueue(updater, key: null);
+
+  /// Like [updateSettings], but a change queued before the load replaces an
+  /// earlier queued change with the same [key].
+  Future<void> updateSettingsKeyed(
+    String key,
+    AppSettings Function(AppSettings) updater,
+  ) => _applyOrQueue(updater, key: key);
+
+  Future<void> _applyOrQueue(
+    AppSettings Function(AppSettings) updater, {
+    required String? key,
+  }) async {
+    // Without a loaded snapshot there is nothing to merge into. Writing
+    // defaults over stored values would be wrong, so the change is queued
+    // and applied by build() once the load finishes.
+    if (!state.hasValue) {
+      if (key != null) {
+        _queuedUpdates.removeWhere((q) => q.key == key);
+      }
+      _queuedUpdates.add(_QueuedChange(key, updater));
+      if (_queuedUpdates.length > _maxQueuedChanges) {
+        _queuedUpdates.removeAt(0);
+        droppedQueuedChanges++;
+        _log.warning('Settings queue full; dropped the oldest queued change');
+      }
+      _log.info('Settings change queued until settings are loaded');
+      return;
+    }
+    final current = state.requireValue;
     final updated = updater(current);
     state = AsyncData(updated);
 
-    // Persist API key changes to secure storage.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    await _syncApiKeysToSecureStorage(current, updated, secureStore);
+    try {
+      await _persistChange(current, updated);
+    } catch (e, st) {
+      _log.error('Could not save settings', e, st);
+      // Show what is stored, not the value that failed to save: the next
+      // launch loads the stored one (UIA-SET-01).
+      if (identical(state.value, updated)) state = AsyncData(current);
+      ref.read(settingsSaveFailuresProvider.notifier).record();
+    }
+  }
 
-    // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
+  /// Persists API key changes to secure storage and all non-key settings to
+  /// SQLite (toStorageMap writes '' for keys).
+  Future<void> _persistChange(AppSettings before, AppSettings after) async {
+    final secureStore = ref.read(secureKeyStoreProvider);
+    await _syncApiKeysToSecureStorage(before, after, secureStore);
     await ref
         .read(historyDatabaseProvider)
-        .writeAppSettings(updated.toStorageMap());
+        .writeAppSettings(after.toStorageMap());
   }
 
   /// Restore all settings to factory defaults.
   ///
   /// Clears secure-storage API keys, persisted settings (including window
   /// position/size and floating-button position), and daily analytics stats.
+  /// Throws [SecureKeysNotRemovedException] after the rest of the reset has
+  /// run, when at least one API key could not be removed.
   Future<void> resetToDefaults() async {
-    // Clear secure storage API keys (best-effort — keychain may be locked).
-    try {
-      final secureStore = ref.read(secureKeyStoreProvider);
-      for (final secureKey in apiKeyMapping.values) {
-        await secureStore.deleteKey(secureKey);
-      }
-    } catch (e) {
-      _log.warning('resetToDefaults: secure store cleanup failed: $e', e);
+    final failedKeys = await _eraseApiKeys();
+    await _resetSettingsAndData();
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
     }
+  }
+
+  Future<void> _resetSettingsAndData() async {
     final db = ref.read(historyDatabaseProvider);
     final previous = (state.value ?? AppSettings.defaults).history;
     await db.resetAppSettings();
+    // The wipe removed the idle-migration marker. Re-stamp it, or a 5 chosen
+    // after the reset would be moved to 0 by the next start.
+    await db.writeAppSettings({kSttIdleDefaultMigrationKey: '1'});
     await db.resetDailyStats();
     // A History PIN survives the reset, together with its gate and throttle
     // state — otherwise "Reset to defaults" would be a one-click way around
-    // it (`internal-notes`).
+    // it.
     if (previous.historyPin.isEmpty) {
       state = AsyncData(AppSettings.defaults);
       return;
@@ -1126,56 +1920,34 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await db.writeAppSettings(kept.toStorageMap());
   }
 
-  /// Full factory reset — deletes ALL user data, models, and settings.
-  ///
-  /// The caller MUST stop the STT subprocess before calling this method
-  /// (to avoid file-locking on the whisper-server binary).
-  ///
-  /// Prefer routing user-triggered resets through [FactoryResetCoordinator]
-  /// (see `lib/services/factory_reset/factory_reset_coordinator.dart`):
-  /// it splits the destructive work into phases the UI can render and
-  /// performs the multi-GB directory deletes off-isolate so the app does
-  /// not appear frozen (the Idmir-Junio 1★ store cluster). This monolithic
-  /// method remains for non-UI callers and tests that want the entire
-  /// reset in one shot.
-  Future<void> factoryReset() async {
-    final db = ref.read(historyDatabaseProvider);
-
-    // 1. Clear ALL secure storage API keys (best-effort).
-    await eraseSecureStore();
-
-    // 2. Delete all database content (history, tags, projects, etc.).
-    try {
-      await db.deleteAllData();
-    } catch (e) {
-      _log.error('Factory reset: deleteAllData failed: $e', e);
+  /// Secure-store cleanup for the [FactoryResetCoordinator]'s
+  /// `eraseSecureStore` hook.
+  /// Throws [SecureKeysNotRemovedException] when any key stays behind.
+  Future<void> eraseSecureStore() async {
+    // A locked keyring can leave the delete waiting on an unlock prompt that
+    // never appears; the reset goes on after a few seconds (XP-6-11).
+    final failedKeys = await _eraseApiKeys().timeout(
+      secureStoreEraseTimeout,
+      onTimeout: () {
+        _log.error('Secure storage did not answer during factory reset');
+        return apiKeyMapping.values.toList();
+      },
+    );
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
     }
-
-    // 3. Delete downloaded models directory.
-    _tryDeleteDir(sttDir());
-
-    // 4. Delete log files.
-    final logsDir = p.join(appDataDir(), 'logs');
-    _tryDeleteDir(logsDir);
-
-    // 5–9 — small-file cleanup + in-memory state reset. Extracted so that
-    // [FactoryResetCoordinator]'s `resetSettings` hook can reuse exactly
-    // this tail without duplicating the file list.
-    await factoryResetFinalize();
   }
 
-  /// Best-effort secure-store cleanup. Extracted from [factoryReset] so
-  /// the [FactoryResetCoordinator]'s `eraseSecureStore` hook can call it
-  /// directly.
-  Future<void> eraseSecureStore() async {
-    try {
-      final secureStore = ref.read(secureKeyStoreProvider);
-      for (final secureKey in apiKeyMapping.values) {
-        await secureStore.deleteKey(secureKey);
-      }
-    } catch (e) {
-      _log.warning('Factory reset: secure store cleanup failed: $e', e);
+  /// Deletes all API keys and logs the storage names of any that stayed
+  /// behind. Values and exception texts are never logged.
+  Future<List<String>> _eraseApiKeys() async {
+    final failedKeys = await deleteAllApiKeys(ref.read(secureKeyStoreProvider));
+    if (failedKeys.isNotEmpty) {
+      _log.error(
+        'API keys not removed from secure storage: ${failedKeys.join(', ')}',
+      );
     }
+    return failedKeys;
   }
 
   /// Tail of the factory-reset sequence: deletes PID/crash-queue/legacy
@@ -1206,16 +1978,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     // Temp WAV files.
     _cleanupTempWavFiles();
 
-    _log.info('Factory reset complete');
-  }
-
-  static void _tryDeleteDir(String path) {
+    // App preferences: prompt counters, recent searches, seen hints (XP-6-12).
     try {
-      final dir = Directory(path);
-      if (dir.existsSync()) dir.deleteSync(recursive: true);
+      await clearPreferencesForReset(await SharedPreferences.getInstance());
     } catch (e) {
-      _log.warning('Factory reset: failed to delete dir $path: $e', e);
+      _log.warning('Factory reset: failed to clear preferences: $e', e);
     }
+
+    _log.info('Factory reset complete');
   }
 
   static void _tryDeleteFile(String path) {
@@ -1290,7 +2060,12 @@ Future<void> _migrateApiKeys(
     // Only migrate if secure storage doesn't already have a value.
     final existing = await secureStore.readKey(entry.value);
     if (existing == null || existing.isEmpty) {
-      await secureStore.writeKey(entry.value, plaintext);
+      // Start-time write: must not create the Linux default collection
+      // (system "create keyring" dialog, #1164). On failure the plaintext
+      // stays in SQLite and the migration retries next start.
+      await withoutKeyringCreation(
+        () => secureStore.writeKey(entry.value, plaintext),
+      );
     }
     migrated = true;
   }
@@ -1305,6 +2080,30 @@ Future<void> _migrateApiKeys(
   }
 }
 
+/// Marker: the Groq key cleanup ran (it used to touch the key store on every
+/// start, #1161).
+const kGroqKeyCleanupDoneKey = 'groq_key_cleanup_done';
+
+/// Groq removal (v1.2.13): deletes a residual `wp_groq_api_key` once per
+/// install. Reads first (quietly before the explanation), so an install
+/// without the entry never touches it; a held-back entry retries next start.
+Future<void> _removeGroqKeyOnce(
+  Map<String, String> values,
+  SecureKeyStore secureStore,
+  HistoryDatabase db,
+) async {
+  if (values.containsKey(kGroqKeyCleanupDoneKey)) return;
+  try {
+    final existing = await secureStore.readKey('wp_groq_api_key');
+    if (existing != null) await secureStore.deleteKey('wp_groq_api_key');
+    await db.writeAppSettings({kGroqKeyCleanupDoneKey: '1'});
+  } catch (e) {
+    AppLogger(
+      'SettingsNotifier',
+    ).debug('Groq key cleanup skipped (non-fatal, retried next start): $e');
+  }
+}
+
 /// Merge API keys from secure storage into [settings].
 Future<AppSettings> _mergeSecureKeys(
   AppSettings settings,
@@ -1313,10 +2112,18 @@ Future<AppSettings> _mergeSecureKeys(
   final keys = await secureStore.readAllApiKeys();
   if (keys.isEmpty) return settings;
 
-  return settings.copyWith(
-    openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
-    deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
-  );
+  return settings
+      .copyWith(
+        openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
+        deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
+      )
+      .copyWithSections(
+        cloudProvider: settings.cloudProvider.copyWith(
+          customEndpointApiKey:
+              keys['wp_custom_endpoint_api_key'] ??
+              settings.cloudProvider.customEndpointApiKey,
+        ),
+      );
 }
 
 /// Write changed API keys to secure storage.
@@ -1333,6 +2140,10 @@ Future<void> _syncApiKeysToSecureStorage(
     'wp_deepgram_api_key': (
       old: oldSettings.deepgramApiKey,
       cur: newSettings.deepgramApiKey,
+    ),
+    'wp_custom_endpoint_api_key': (
+      old: oldSettings.cloudProvider.customEndpointApiKey,
+      cur: newSettings.cloudProvider.customEndpointApiKey,
     ),
   };
 

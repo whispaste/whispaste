@@ -1,9 +1,12 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/core/config/selectable_speech_models.dart';
 
 // ---------------------------------------------------------------------------
 // Helper: create a ProviderContainer for pure-logic tests (no widget needed).
@@ -15,7 +18,7 @@ ProviderContainer makeContainer() {
 }
 
 // ---------------------------------------------------------------------------
-// Fakes for recordingReadinessProvider tests — settings + model-download
+// Fakes for missingSelectedSpeechModelProvider tests — settings + model-download
 // state without touching disk or the real notifiers' side effects.
 // ---------------------------------------------------------------------------
 
@@ -311,41 +314,47 @@ void main() {
   // Elapsed timer
   // -------------------------------------------------------------------------
   group('RecordingNotifier elapsed timer', () {
-    test('elapsed increments while recording', () async {
-      final c = makeContainer();
-      c.read(recordingProvider.notifier).startRecording();
+    test('elapsed increments while recording', () {
+      fakeAsync((async) {
+        final c = makeContainer();
+        c.read(recordingProvider.notifier).startRecording();
 
-      // Let the 1-second periodic timer fire twice.
-      await Future<void>.delayed(const Duration(milliseconds: 2200));
+        // Let the 1-second periodic timer fire twice.
+        async.elapse(const Duration(milliseconds: 2200));
 
-      final elapsed = c.read(recordingProvider).elapsed;
-      expect(elapsed.inSeconds, greaterThanOrEqualTo(2));
+        final elapsed = c.read(recordingProvider).elapsed;
+        expect(elapsed.inSeconds, greaterThanOrEqualTo(2));
+      });
     });
 
-    test('elapsed stops on stopRecording', () async {
-      final c = makeContainer();
-      final n = c.read(recordingProvider.notifier);
-      n.startRecording();
+    test('elapsed stops on stopRecording', () {
+      fakeAsync((async) {
+        final c = makeContainer();
+        final n = c.read(recordingProvider.notifier);
+        n.startRecording();
 
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      n.stopRecording();
+        async.elapse(const Duration(milliseconds: 1200));
+        n.stopRecording();
 
-      final afterStop = c.read(recordingProvider).elapsed;
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      final later = c.read(recordingProvider).elapsed;
+        final afterStop = c.read(recordingProvider).elapsed;
+        async.elapse(const Duration(milliseconds: 1200));
+        final later = c.read(recordingProvider).elapsed;
 
-      expect(later, equals(afterStop));
+        expect(later, equals(afterStop));
+      });
     });
 
-    test('elapsed resets on reset()', () async {
-      final c = makeContainer();
-      final n = c.read(recordingProvider.notifier);
-      n.startRecording();
+    test('elapsed resets on reset()', () {
+      fakeAsync((async) {
+        final c = makeContainer();
+        final n = c.read(recordingProvider.notifier);
+        n.startRecording();
 
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      n.reset();
+        async.elapse(const Duration(milliseconds: 1200));
+        n.reset();
 
-      expect(c.read(recordingProvider).elapsed, Duration.zero);
+        expect(c.read(recordingProvider).elapsed, Duration.zero);
+      });
     });
   });
 
@@ -373,17 +382,19 @@ void main() {
       expect(c.read(audioLevelProvider), 0.42);
     });
 
-    test('recordingElapsedProvider reflects elapsed', () async {
-      final c = makeContainer();
-      expect(c.read(recordingElapsedProvider), Duration.zero);
+    test('recordingElapsedProvider reflects elapsed', () {
+      fakeAsync((async) {
+        final c = makeContainer();
+        expect(c.read(recordingElapsedProvider), Duration.zero);
 
-      c.read(recordingProvider.notifier).startRecording();
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+        c.read(recordingProvider.notifier).startRecording();
+        async.elapse(const Duration(milliseconds: 1200));
 
-      expect(
-        c.read(recordingElapsedProvider).inSeconds,
-        greaterThanOrEqualTo(1),
-      );
+        expect(
+          c.read(recordingElapsedProvider).inSeconds,
+          greaterThanOrEqualTo(1),
+        );
+      });
     });
 
     test('recordingPhaseProvider reflects phase', () {
@@ -395,77 +406,13 @@ void main() {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // recordingReadinessProvider — post server-binary-stack teardown (Issue 07)
-  // the only pre-conditions left are onboarding + the selected model file.
-  // -------------------------------------------------------------------------
-  group('recordingReadinessProvider', () {
-    test('RecordingReadiness only exposes ready and modelMissing — '
-        'the server-binary states were retired', () {
-      expect(RecordingReadiness.values, [
-        RecordingReadiness.ready,
-        RecordingReadiness.modelMissing,
-      ]);
-    });
-
-    test(
-      'reports ready once onboarding is done and the model is downloaded',
-      () async {
-        final c = ProviderContainer(
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(
-                const AppSettings(
-                  onboarding: OnboardingSettings(onboardingCompleted: true),
-                  stt: SttSettings(model: 'whisper-medium'),
-                ),
-              ),
-            ),
-            modelDownloadProvider.overrideWith(
-              () => _FakeModelDownloadNotifier({'whisper-medium'}),
-            ),
-          ],
-        );
-        addTearDown(c.dispose);
-        await c.read(settingsProvider.future);
-
-        expect(c.read(recordingReadinessProvider), RecordingReadiness.ready);
-      },
-    );
-
-    test('reports modelMissing when the effective model is not downloaded — '
-        'no server-binary check is consulted anymore', () async {
-      final c = ProviderContainer(
-        overrides: [
-          settingsProvider.overrideWith(
-            () => _FakeSettingsNotifier(
-              const AppSettings(
-                onboarding: OnboardingSettings(onboardingCompleted: true),
-                stt: SttSettings(model: 'whisper-medium'),
-              ),
-            ),
-          ),
-          modelDownloadProvider.overrideWith(
-            () => _FakeModelDownloadNotifier(const {}),
-          ),
-        ],
-      );
-      addTearDown(c.dispose);
-      await c.read(settingsProvider.future);
-
-      expect(
-        c.read(recordingReadinessProvider),
-        RecordingReadiness.modelMissing,
-      );
-    });
-  });
-
-  group('missingSttModelProvider', () {
-    Future<SttModelInfo?> read({
+  group('missingSelectedSpeechModelProvider', () {
+    Future<SelectableSpeechModel?> read({
       SttSettings stt = const SttSettings(model: 'whisper-large-v3-turbo'),
       Set<String> downloaded = const {},
       bool scanned = true,
       String? downloadingModelId,
+      bool parakeetInstalled = true,
     }) async {
       final c = ProviderContainer(
         overrides: [
@@ -484,16 +431,19 @@ void main() {
               downloadingModelId: downloadingModelId,
             ),
           ),
+          parakeetDownloadProvider.overrideWith(
+            () => _FakeParakeetDownloadNotifier(installed: parakeetInstalled),
+          ),
         ],
       );
       addTearDown(c.dispose);
       await c.read(settingsProvider.future);
-      return c.read(missingSttModelProvider);
+      return c.read(missingSelectedSpeechModelProvider);
     }
 
     test('names the selected Whisper model when its file is missing', () async {
       final missing = await read();
-      expect(missing?.id, 'whisper-large-v3-turbo');
+      expect(missing?.modelId, 'whisper-large-v3-turbo');
     });
 
     test('nothing is missing before the initial disk scan has landed — the '
@@ -521,7 +471,22 @@ void main() {
       );
     });
 
-    test('Parakeet has its own bundle and is not judged here', () async {
+    // UIA-MDL-GATE b: Parakeet is judged by its bundle, like Whisper by its
+    // file, so the dock and the hotkey say so for it too.
+    test('Parakeet without its bundle is missing', () async {
+      final missing = await read(
+        stt: const SttSettings(
+          engine: 'parakeet',
+          model: 'whisper-large-v3-turbo',
+        ),
+        downloaded: {'whisper-large-v3-turbo'},
+        parakeetInstalled: false,
+      );
+      expect(missing?.engine, SpeechModelEngine.parakeet);
+    });
+
+    test('Parakeet with its bundle is not missing, whatever Whisper file '
+        'is absent', () async {
       expect(
         await read(
           stt: const SttSettings(
@@ -734,4 +699,13 @@ void main() {
       expect(c.read(recordingTargetProvider), RecordingTarget.clipboard);
     });
   });
+}
+
+class _FakeParakeetDownloadNotifier extends ParakeetDownloadNotifier {
+  _FakeParakeetDownloadNotifier({required this.installed});
+
+  final bool installed;
+
+  @override
+  ParakeetDownloadState build() => ParakeetDownloadState(installed: installed);
 }

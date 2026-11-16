@@ -1,0 +1,126 @@
+// Generated with unchanged production method bodies by repeat_mask_runtime.ps1.
+#include <windows.h>
+#include <cstdint>
+#include <iostream>
+#include <stdexcept>
+#include "menu_mask.h"
+#include "hook_health.h"
+
+constexpr uint8_t kArmedCtrl = 1, kArmedAlt = 2, kArmedShift = 4, kArmedWin = 8;
+class KeyboardMonitorHost {
+ public:
+  bool ArmRelease(uint8_t hotkey_mods);
+  void UpdateRepeatMaskHook();
+  void UninstallRepeatMaskHook();
+  static LRESULT CALLBACK RepeatMaskHookProc(int, WPARAM, LPARAM);
+  static uint8_t HeldModifierMask();
+  bool SwallowsRepeat(WPARAM, const KBDLLHOOKSTRUCT&);
+  void EndRepeatSession();
+  static DWORD RepeatGapLimitMs();
+  bool destroyed_ = false, main_down_seen_ = false, armed_down_known_ = false;
+  USHORT watched_vk_ = 0, hotkey_vk_ = 0;
+  uint8_t armed_mods_ = 0;
+  DWORD last_main_down_ms_ = 0, repeat_gap_limit_ms_ = 0;
+  DWORD armed_down_ms_ = 0, hotkey_down_ms_ = 0;
+  HHOOK repeat_mask_hook_ = nullptr;
+  HookHealth repeat_hook_health_;
+  MenuMaskTracker menu_mask_;
+  static KeyboardMonitorHost* repeat_mask_owner_;
+  ~KeyboardMonitorHost() { UninstallRepeatMaskHook(); }
+};
+KeyboardMonitorHost* KeyboardMonitorHost::repeat_mask_owner_ = nullptr;
+// PRODUCTION_METHODS
+
+int observed_down = 0, observed_up = 0;
+LRESULT CALLBACK Observe(int code, WPARAM message, LPARAM data) {
+  if (code == HC_ACTION && reinterpret_cast<KBDLLHOOKSTRUCT*>(data)->vkCode == VK_F24) {
+    if (message == WM_KEYDOWN || message == WM_SYSKEYDOWN) ++observed_down;
+    if (message == WM_KEYUP || message == WM_SYSKEYUP) ++observed_up;
+  }
+  return CallNextHookEx(nullptr, code, message, data);
+}
+void Pump() {
+  const auto until = GetTickCount64() + 80;
+  do {
+    MSG message;
+    while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
+      TranslateMessage(&message);
+      DispatchMessageW(&message);
+    }
+    Sleep(1);
+  } while (GetTickCount64() < until);
+}
+void Check(bool condition, const char* reason) {
+  if (!condition) throw std::runtime_error(reason);
+}
+void Key(WORD vk, bool up = false) {
+  INPUT input{};
+  input.type = INPUT_KEYBOARD;
+  input.ki.wVk = vk;
+  input.ki.dwFlags = up ? KEYEVENTF_KEYUP : 0;
+  Check(SendInput(1, &input, sizeof(INPUT)) == 1, "SendInput failed");
+  Pump();
+}
+int main() {
+  DWORD session = 0;
+  ProcessIdToSessionId(GetCurrentProcessId(), &session);
+  if (session == 0) {
+    std::cerr << "SKIP: session 0 has no interactive desktop\n";
+    return 2;
+  }
+  // Refuse to interfere with keys already held by the user.
+  for (int vk = 8; vk <= 254; ++vk) {
+    if ((GetAsyncKeyState(vk) & 0x8000) != 0) {
+      std::cerr << "SKIP: a key is already held\n";
+      return 2;
+    }
+  }
+  HHOOK observer = SetWindowsHookExW(WH_KEYBOARD_LL, Observe, GetModuleHandleW(nullptr), 0);
+  if (!observer) return 3;
+  int status = 0;
+  try {
+    KeyboardMonitorHost host;
+    // S4 race: both modifiers released before Dart's arm reaches native code.
+    // F24 replaces the printable main key to avoid typing into another app.
+    Key(VK_LCONTROL); Key(VK_LMENU); Key(VK_F24);
+    Key(VK_LMENU, true); Key(VK_LCONTROL, true);
+    Check(host.HeldModifierMask() == 0, "modifiers are not released");
+    Check(host.ArmRelease(kArmedCtrl | kArmedAlt), "main key was not armed");
+    Check(host.watched_vk_ == VK_F24, "unexpected main key");
+    Check(host.armed_mods_ == 3 && host.repeat_mask_hook_, "definition mask/hook missing");
+    const int before = observed_down;
+    Key(VK_F24); Key(VK_F24); Key(VK_F24);
+    Check(observed_down == before, "S4 repeat escaped to the next hook");
+    Key(VK_F24, true);
+    Check(observed_up == 1, "main key release was swallowed");
+    host.EndRepeatSession();
+    Check(!host.repeat_mask_hook_, "repeat hook not removed");
+    Key(VK_F24); Key(VK_F24, true);
+    Check(observed_down == before + 1, "new press swallowed after disarm");
+    std::cout << "PASS: S4 synthetic modifier-before-arm race; 3 repeats blocked; release and next press pass; hook removed\n";
+
+    Key(VK_LCONTROL); Key(VK_LMENU); Key(VK_F24);
+    Check(host.ArmRelease(3), "intact combination not armed");
+    const int intact = observed_down;
+    Key(VK_F24);
+    Check(observed_down == intact + 1, "intact combination swallowed");
+    Key(VK_F24, true);
+    host.EndRepeatSession();
+    std::cout << "PASS: intact Ctrl+Alt combination passes\n";
+  } catch (const std::exception& error) {
+    std::cerr << "FAIL: " << error.what() << '\n';
+    status = 1;
+  }
+  // Always release our synthetic keys, including after an assertion failure.
+  INPUT cleanup[3]{};
+  const WORD keys[] = {VK_F24, VK_LMENU, VK_LCONTROL};
+  for (int i = 0; i < 3; ++i) {
+    cleanup[i].type = INPUT_KEYBOARD;
+    cleanup[i].ki.wVk = keys[i];
+    cleanup[i].ki.dwFlags = KEYEVENTF_KEYUP;
+  }
+  SendInput(3, cleanup, sizeof(INPUT));
+  Pump();
+  UnhookWindowsHookEx(observer);
+  return status;
+}

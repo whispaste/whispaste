@@ -1,0 +1,12 @@
+---
+import NewsletterPage from "../../components/pages/NewsletterPage.astro";
+import { currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const lang = currentLocale(Astro.params.lang);
+---
+
+<NewsletterPage lang={lang} />

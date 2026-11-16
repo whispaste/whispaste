@@ -52,7 +52,13 @@ void main() {
     await notifier.add('Greeting', 'Hello');
     final id = container.read(snippetsProvider).value!.single.id;
 
-    await notifier.updateSnippet(id, title: 'Signoff', body: 'Best regards');
+    final createdAt = container.read(snippetsProvider).value!.single.createdAt;
+    await notifier.updateSnippet(
+      id,
+      title: 'Signoff',
+      body: 'Best regards',
+      createdAt: createdAt,
+    );
 
     final result = container.read(snippetsProvider).value!;
     expect(result, hasLength(1));
@@ -60,15 +66,16 @@ void main() {
     expect(result.single.body, 'Best regards');
   });
 
-  test('remove() deletes the snippet', () async {
+  test('moveToTrash() takes the snippet off the active list', () async {
     final notifier = container.read(snippetsProvider.notifier);
     await container.read(snippetsProvider.future);
     await notifier.add('Greeting', 'Hello');
 
     final id = container.read(snippetsProvider).value!.single.id;
-    await notifier.remove(id);
+    await notifier.moveToTrash([id]);
 
     expect(container.read(snippetsProvider).value, isEmpty);
+    expect((await container.read(snippetsTrashProvider.future)).single.id, id);
   });
 
   test('build() returns snippets in creation order', () async {
@@ -89,9 +96,19 @@ void main() {
       await container.read(snippetsProvider.future);
       await notifier.add('old', 'stale body');
 
-      await notifier.replaceAll(const [
-        SnippetItem(id: '', title: 'new-1', body: 'body 1'),
-        SnippetItem(id: '', title: 'new-2', body: 'body 2'),
+      await notifier.replaceAll([
+        SnippetItem(
+          createdAt: DateTime(2026),
+          id: '',
+          title: 'new-1',
+          body: 'body 1',
+        ),
+        SnippetItem(
+          createdAt: DateTime(2026),
+          id: '',
+          title: 'new-2',
+          body: 'body 2',
+        ),
       ]);
 
       final result = container.read(snippetsProvider).value!;

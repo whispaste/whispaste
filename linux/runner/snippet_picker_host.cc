@@ -9,21 +9,14 @@
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
+
+#include "x11_window.h"
 #endif
 
 namespace {
 
 constexpr char kChannelName[] = "com.whispaste.snippet_picker";
 constexpr char kRenderChannelName[] = "com.whispaste.snippet_picker_render";
-
-#ifdef GDK_WINDOWING_X11
-// A stale/destroyed window ID passed to XSetInputFocus raises a BadWindow X
-// error, which by default terminates the whole process — install this for
-// the duration of that one call instead of crashing on a focus-restore race.
-int IgnoreXErrorHandler(Display* /*display*/, XErrorEvent* /*event*/) {
-  return 0;
-}
-#endif
 
 }  // namespace
 
@@ -72,17 +65,34 @@ void SnippetPickerHost::HandleMethodCall(FlMethodCall* method_call) {
   g_autoptr(FlMethodResponse) response = nullptr;
 
   if (strcmp(method, "show") == 0) {
-    // args: { items: [ {id, ...}, ... ] }
+    // args: { items: [ {id, ...}, ... ], query: "..." }
     FlValue* items = nullptr;
+    std::string query;
     if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
       items = fl_value_lookup_string(args, "items");
+      FlValue* q = fl_value_lookup_string(args, "query");
+      if (q && fl_value_get_type(q) == FL_VALUE_TYPE_STRING) {
+        query = fl_value_get_string(q);
+      }
     }
     EnsureWindowAndEngine();
-    Show(items);
+    Show(items, query);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "hide") == 0) {
-    Dismiss(/*fire_cancelled=*/false);
+    bool outside_click = false;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* v = fl_value_lookup_string(args, "outsideClick");
+      outside_click = v && fl_value_get_type(v) == FL_VALUE_TYPE_BOOL &&
+                      fl_value_get_bool(v);
+    }
+    Dismiss(/*fire_cancelled=*/false, /*restore_focus=*/!outside_click);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "focus") == 0) {
+    // The Snippet hotkey pressed while the picker is open but lost focus
+    // (#1680): present it again in place, search text kept.
+    if (window_ && visible_) window_->Show();
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "destroy") == 0) {
@@ -117,6 +127,7 @@ void SnippetPickerHost::EnsureWindowAndEngine() {
   render_ready_ = false;
   window_ = new SnippetPickerWindow();
   window_->SetOnFocusLost(OnWindowFocusLost, this);
+  click_watcher_.SetOnClick(OnClick, this);
   window_->Create();
   OpenRenderChannel();
 }
@@ -163,12 +174,13 @@ void SnippetPickerHost::ComputePanelOrigin(int* out_x, int* out_y) {
 
 // ── Show / Dismiss ────────────────────────────────────────────────────────
 
-void SnippetPickerHost::Show(FlValue* items) {
+void SnippetPickerHost::Show(FlValue* items, const std::string& query) {
   if (!window_) return;
 
   if (items) {
     if (pending_items_) fl_value_unref(pending_items_);
     pending_items_ = fl_value_ref(items);
+    pending_query_ = query;
     has_pending_items_ = true;
   }
 
@@ -182,14 +194,24 @@ void SnippetPickerHost::Show(FlValue* items) {
 
   SaveFocusedWindow();
   window_->Show();
+  visible_ = true;
+  // False (nothing running) when there is no X11 display; then a focus-out
+  // is the only signal and reports "unknown".
+  click_watcher_.Start();
 }
 
-void SnippetPickerHost::Dismiss(bool fire_cancelled) {
+void SnippetPickerHost::Dismiss(bool fire_cancelled, bool restore_focus) {
   if (is_dismissing_) return;
   is_dismissing_ = true;
 
+  visible_ = false;
+  click_watcher_.Stop();
   if (window_) window_->Hide();
-  RestoreFocusedWindow();
+  if (restore_focus) {
+    RestoreFocusedWindow();
+  } else {
+    saved_focus_window_ = 0;
+  }
   InvokeRenderChannel("panelHidden", nullptr);
 
   if (fire_cancelled) {
@@ -222,11 +244,11 @@ void SnippetPickerHost::RestoreFocusedWindow() {
     GdkDisplay* gdk_display = gdk_display_get_default();
     if (GDK_IS_X11_DISPLAY(gdk_display)) {
       Display* display = gdk_x11_display_get_xdisplay(gdk_display);
-      auto* previous_handler = XSetErrorHandler(IgnoreXErrorHandler);
-      XSetInputFocus(display, saved_focus_window_, RevertToParent,
-                     CurrentTime);
-      XSync(display, False);
-      XSetErrorHandler(previous_handler);
+      // The saved window may be gone; a BadWindow would end the process.
+      WithX11ErrorTrap(gdk_display, [&] {
+        XSetInputFocus(display, saved_focus_window_, RevertToParent,
+                       CurrentTime);
+      });
     }
   }
 #endif
@@ -236,7 +258,50 @@ void SnippetPickerHost::RestoreFocusedWindow() {
 // static
 void SnippetPickerHost::OnWindowFocusLost(void* user_data) {
   auto* self = static_cast<SnippetPickerHost*>(user_data);
-  self->Dismiss(/*fire_cancelled=*/true);
+  // Clicks are seen only on a real X11 session; elsewhere the focus loss is
+  // the only sign that the user went to another window.
+  const bool clicks_seen =
+      self->click_watcher_.running() && !IsWaylandSession();
+  self->ReportFocusLost(clicks_seen ? "other" : "unknown");
+}
+
+// static
+void SnippetPickerHost::OnClick(void* user_data) {
+  auto* self = static_cast<SnippetPickerHost*>(user_data);
+  if (!self->visible_ || self->window_ == nullptr) return;
+  // A click on the picker itself is no click outside. GDK returns a window
+  // only when it belongs to this process.
+  GdkDisplay* display = gdk_display_get_default();
+  GdkSeat* seat =
+      display != nullptr ? gdk_display_get_default_seat(display) : nullptr;
+  GdkDevice* pointer = seat != nullptr ? gdk_seat_get_pointer(seat) : nullptr;
+  GdkWindow* under =
+      pointer != nullptr
+          ? gdk_device_get_window_at_position(pointer, nullptr, nullptr)
+          : nullptr;
+  GdkWindow* picker = gtk_widget_get_window(self->window_->GetGtkWindow());
+  if (under != nullptr && picker != nullptr &&
+      gdk_window_get_toplevel(under) == picker) {
+    return;
+  }
+  self->ReportFocusLost("click");
+}
+
+void SnippetPickerHost::ReportFocusLost(const char* cause) {
+  if (is_dismissing_ || !visible_) return;
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "cause", fl_value_new_string(cause));
+  InvokeMainChannel("onFocusLost", args);
+}
+
+// static
+bool SnippetPickerHost::IsWaylandSession() {
+  // main.cc may drop WAYLAND_DISPLAY when it forces GDK_BACKEND=x11, so the
+  // session type is checked first.
+  const gchar* type = g_getenv("XDG_SESSION_TYPE");
+  if (type != nullptr && g_ascii_strcasecmp(type, "wayland") == 0) return true;
+  const gchar* display = g_getenv("WAYLAND_DISPLAY");
+  return display != nullptr && display[0] != '\0';
 }
 
 // ── Render channel handler (2nd engine → host) ─────────────────────────────
@@ -304,6 +369,8 @@ void SnippetPickerHost::RelayPendingItems() {
   if (!has_pending_items_ || !pending_items_) return;
   g_autoptr(FlValue) wrapper = fl_value_new_map();
   fl_value_set_string_take(wrapper, "items", fl_value_ref(pending_items_));
+  fl_value_set_string_take(wrapper, "query",
+                           fl_value_new_string(pending_query_.c_str()));
   InvokeRenderChannel("setItems", wrapper);
   has_pending_items_ = false;
 }

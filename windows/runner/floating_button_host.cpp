@@ -31,10 +31,14 @@
 //   that we received — so we cannot reliably reconstruct the capture state.
 
 #include "floating_button_host.h"
+#include "native_context_menu.h"
 
 #include <flutter/encodable_value.h>
 
+#include <algorithm>
+#include <iterator>
 #include <string>
+#include <vector>
 
 using flutter::EncodableList;
 using flutter::EncodableMap;
@@ -46,6 +50,21 @@ namespace {
 
 constexpr char kChannelName[] = "com.whispaste.floating_button";
 constexpr char kRenderChannelName[] = "com.whispaste.floating_button_render";
+
+// Preset ids the render engine understands (overlay_design_spec.dart). Any
+// other value from the method channel is replaced by the default before it is
+// cached or relayed.
+constexpr const char* kBackgroundPresets[] = {"marine", "graphit", "gletscher", "amber", "glass"};
+constexpr const char* kWavePresets[] = {"cyan", "violett", "ink", "white", "amber", "coral", "mint"};
+
+template <size_t N>
+std::string KnownPreset(const std::string& value,
+                        const char* const (&known)[N], const char* fallback) {
+  const bool is_known = std::any_of(
+      std::begin(known), std::end(known),
+      [&value](const char* id) { return value == id; });
+  return is_known ? value : fallback;
+}
 
 // ── EncodableMap helpers (unchanged from Phase 1) ────────────────────
 
@@ -72,19 +91,19 @@ int GetInt(const EncodableMap& map, const std::string& key, int fallback = 0) {
   return fallback;
 }
 
-bool GetBool(const EncodableMap& map, const std::string& key,
-             bool fallback = false) {
-  auto it = map.find(EncodableValue(key));
-  if (it == map.end()) return fallback;
-  if (auto* b = std::get_if<bool>(&it->second)) return *b;
-  return fallback;
-}
-
 std::string GetString(const EncodableMap& map, const std::string& key,
                       const std::string& fallback = "") {
   auto it = map.find(EncodableValue(key));
   if (it == map.end()) return fallback;
   if (auto* s = std::get_if<std::string>(&it->second)) return *s;
+  return fallback;
+}
+
+bool GetBool(const EncodableMap& map, const std::string& key,
+             bool fallback = true) {
+  auto it = map.find(EncodableValue(key));
+  if (it == map.end()) return fallback;
+  if (auto* b = std::get_if<bool>(&it->second)) return *b;
   return fallback;
 }
 
@@ -164,6 +183,25 @@ bool FloatingButtonHost::EnsureEngineAndShell(double lx, double ly,
   // The Windows embedder resolves it relative to the executable.
   auto project = std::make_unique<flutter::DartProject>(L"data");
   project->set_dart_entrypoint("floatingButtonMain");
+  // #977: hand the engine the last known state so its first frame already
+  // shows it (a heartbeat re-boot during a recording kept the stop button
+  // blank until the ready flush). Theme keys only once a theme arrived, so
+  // the #369 guard (no frame in default colours) still holds.
+  std::vector<std::string> boot_args{
+      "--button-boot-diameter=" + std::to_string(disc_size),
+      "--button-boot-state=" + latest_state_};
+  if (has_theme_) {
+    boot_args.push_back("--button-boot-background=" + latest_background_);
+    boot_args.push_back("--button-boot-wave=" + latest_wave_);
+    boot_args.push_back("--button-boot-shape=" + latest_shape_);
+    boot_args.push_back(std::string("--button-boot-ring=") +
+                        (latest_ring_ ? "true" : "false"));
+    boot_args.push_back("--button-boot-idleOpacity=" +
+                        std::to_string(latest_idle_opacity_));
+    boot_args.push_back(std::string("--button-boot-idleCapsule=") +
+                        (latest_idle_capsule_ ? "true" : "false"));
+  }
+  project->set_dart_entrypoint_arguments(std::move(boot_args));
 
   // Total shell size = disc + 2 * shadowPadding (8 px each side).
   int total_size = disc_size + 16;
@@ -288,11 +326,24 @@ void FloatingButtonHost::HandleMethodCall(
   }
 
   // ── setTheme ────────────────────────────────────────────────────────
-  // The render engine ignores theme (the V2 disc is theme-independent) but
-  // we forward it anyway so the Dart side can react if it ever uses it.
+  // ticket: background and wave presets, cached so the ready flush can
+  // replay them.
   if (method == "setTheme") {
-    if (map && render_ready_) {
-      RelaySetTheme(GetBool(*map, "isDark", true));
+    if (map) {
+      latest_background_ =
+          KnownPreset(GetString(*map, "background", "marine"),
+                      kBackgroundPresets, "marine");
+      latest_wave_ =
+          KnownPreset(GetString(*map, "wave", "cyan"), kWavePresets, "cyan");
+      // ticket button look. Opacity is clamped to the 40-100 % presets.
+      latest_shape_ =
+          GetString(*map, "shape", "round") == "square" ? "square" : "round";
+      latest_ring_ = GetBool(*map, "ring", true);
+      double idle = GetDouble(*map, "idleOpacity", 1.0);
+      latest_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+      latest_idle_capsule_ = GetBool(*map, "idleCapsule", false);
+      has_theme_ = true;
+      if (render_ready_) RelaySetTheme(latest_background_, latest_wave_);
     }
     result->Success();
     return;
@@ -328,39 +379,9 @@ void FloatingButtonHost::HandleMethodCall(
   }
 
   // ── setContextMenuItems ─────────────────────────────────────────────
-  // Preserve the exact "items" key unwrapping from Phase 1.
+  // {items:[...tree...], appearance} (#393, see native_context_menu.h).
   if (method == "setContextMenuItems") {
-    auto* args_map = std::get_if<EncodableMap>(call.arguments());
-    if (args_map) {
-      auto it = args_map->find(EncodableValue("items"));
-      if (it != args_map->end()) {
-        auto* list = std::get_if<EncodableList>(&it->second);
-        if (list) {
-          std::vector<std::pair<std::string, std::wstring>> items;
-          for (auto& item_val : *list) {
-            auto* item_map = std::get_if<EncodableMap>(&item_val);
-            if (!item_map) continue;
-            auto id_it = item_map->find(EncodableValue("id"));
-            auto label_it = item_map->find(EncodableValue("label"));
-            if (id_it == item_map->end() || label_it == item_map->end())
-              continue;
-            auto* id_str = std::get_if<std::string>(&id_it->second);
-            auto* label_str = std::get_if<std::string>(&label_it->second);
-            if (!id_str || !label_str) continue;
-            // Convert UTF-8 label to wstring for TrackPopupMenu.
-            int len = MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(),
-                                          -1, nullptr, 0);
-            std::wstring wlabel(len - 1, 0);
-            MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(), -1,
-                                wlabel.data(), len);
-            items.emplace_back(*id_str, std::move(wlabel));
-          }
-          context_menu_items_ = std::move(items);
-          // Keep the shell's copy in sync (used if the host needs it later).
-          if (window_) window_->SetContextMenuItems(context_menu_items_);
-        }
-      }
-    }
+    context_menu_ = ParseNativeMenu(call.arguments());
     result->Success();
     return;
   }
@@ -376,6 +397,37 @@ void FloatingButtonHost::HandleMethodCall(
     } else {
       result->Success();
     }
+    return;
+  }
+
+  // ── rebootRenderEngine ──────────────────────────────────────────────
+  // Dart's frame heartbeat found no painted frame after its re-push (see
+  // FloatingButtonService). Re-boots only the render engine, like
+  // FloatingButtonHost.swift: a fresh shell takes the old position and
+  // visibility, and the new engine's `ready` flushes the cached state.
+  if (method == "rebootRenderEngine") {
+    if (!render_controller_ || !window_) {
+      result->Success();
+      return;
+    }
+    OutputDebugStringW(
+        L"[FloatingButton] rebootRenderEngine: re-booting on request\n");
+    const bool was_visible = window_->IsVisible();
+    const auto [x, y] = window_->GetPosition();
+    render_channel_->SetMethodCallHandler(nullptr);
+    render_channel_.reset();
+    window_->Destroy();
+    window_.reset();
+    render_controller_.reset();
+    render_project_.reset();
+    render_ready_ = false;
+    // EnsureEngineAndShell can report success without a shell (its
+    // already-booted shortcut), so the shell is checked, not assumed.
+    if (EnsureEngineAndShell(x, y, latest_disc_size_) && window_ &&
+        was_visible) {
+      window_->Show();
+    }
+    result->Success();
     return;
   }
 
@@ -422,7 +474,27 @@ void FloatingButtonHost::HandleRenderCall(
     render_ready_ = true;
     RelaySetState(latest_state_);
     RelaySetDiameter(latest_disc_size_);
+    RelaySetTheme(latest_background_, latest_wave_);
     result->Success();
+    return;
+  }
+
+  // ── clicked ──────────────────────────────────────────────────────────
+  // The render engine asks for the content size of its current form (disc,
+  // idle capsule or pill). The shell adds the shadow padding (8 px a side)
+  // and keeps its top-left corner, so the window grows right and down.
+  if (method == "setWindowSize") {
+    auto* args_map = std::get_if<EncodableMap>(call.arguments());
+    EncodableMap reply;
+    if (window_ && args_map) {
+      int width = static_cast<int>(GetDouble(*args_map, "width", 56.0)) + 16;
+      int height = static_cast<int>(GetDouble(*args_map, "height", 56.0)) + 16;
+      bool expanded = GetBool(*args_map, "expanded", false);
+      auto pins = window_->SetWindowSizeAnchored(width, height, expanded);
+      reply[EncodableValue("pinnedRight")] = EncodableValue(pins.right);
+      reply[EncodableValue("pinnedBottom")] = EncodableValue(pins.bottom);
+    }
+    result->Success(EncodableValue(reply));
     return;
   }
 
@@ -450,6 +522,37 @@ void FloatingButtonHost::HandleRenderCall(
     return;
   }
 
+  // ── frameRendered ────────────────────────────────────────────────────
+  if (method == "frameRendered") {
+    // Frame heartbeat, relayed like the macOS host. The Dart service runs
+    // its stall recovery only for controllers that can re-boot the engine
+    // (macOS so far); elsewhere the event only ends a pending deadline.
+    SendEvent("onRenderFrame");
+    result->Success();
+    return;
+  }
+
+  // ── reportError ──────────────────────────────────────────────────────
+  if (method == "reportError") {
+    // Uncaught Dart error inside the render engine: relay it to the main
+    // engine's log, as the macOS host and the snippet picker do.
+    const auto* args_map = std::get_if<EncodableMap>(call.arguments());
+    if (args_map) {
+      auto it = args_map->find(EncodableValue("message"));
+      if (it != args_map->end()) {
+        if (const auto* s = std::get_if<std::string>(&it->second)) {
+          EncodableMap m;
+          m[EncodableValue("message")] = EncodableValue(*s);
+          m[EncodableValue("isError")] = EncodableValue(true);
+          SendEvent("onRenderEngineDiagnostic", EncodableValue(m));
+        }
+      }
+    }
+    OutputDebugStringW(L"[FloatingButton] Render engine reported an error\n");
+    result->Success();
+    return;
+  }
+
   result->NotImplemented();
 }
 
@@ -459,6 +562,7 @@ void FloatingButtonHost::HandleRenderCall(
 
 void FloatingButtonHost::BeginDrag() {
   if (!window_ || !window_->GetHandle()) return;
+  window_->ForgetCapsuleHome();
   HWND hwnd = window_->GetHandle();
 
   // Release any existing mouse capture (Flutter may hold it).
@@ -478,14 +582,14 @@ void FloatingButtonHost::BeginDrag() {
   // Move loop has ended. Read the final position.
   RECT rc;
   GetWindowRect(hwnd, &rc);
-  int total_phys = rc.right - rc.left;  // == total_logical_size * dpi
-  // Shell origin is the top-left; Dart tracks the disc centre.
-  // centre_physical = top-left + total/2.
-  // We store the logical centre in the shell object.
+  // The position is the window's top-left in logical pixels, the same origin
+  // as macOS and Linux, Dart's WindowPositionClamp and the `show` / `setPosition`
+  // calls. Reporting the centre here shifted the button by half its diameter
+  // every time it was re-shown after a drag.
   UINT dpi = GetDpiForWindow(hwnd);
   double dpi_scale = (dpi > 0) ? dpi / 96.0 : 1.0;
-  double fin_x = (rc.left + total_phys / 2.0) / dpi_scale;
-  double fin_y = (rc.top + total_phys / 2.0) / dpi_scale;
+  double fin_x = rc.left / dpi_scale;
+  double fin_y = rc.top / dpi_scale;
 
   // Update the shell's logical position so getPosition() is consistent.
   window_->SetPosition(fin_x, fin_y);
@@ -501,41 +605,18 @@ void FloatingButtonHost::BeginDrag() {
 // ══════════════════════════════════════════════════════════════════════
 
 void FloatingButtonHost::ShowNativeContextMenu() {
-  if (context_menu_items_.empty()) {
+  if (context_menu_.empty()) {
     // No items configured — fall back to secondary-click event, mirroring
     // macOS behaviour.
     SendEvent("onSecondaryClicked");
     return;
   }
-
-  HMENU menu = CreatePopupMenu();
-  for (size_t i = 0; i < context_menu_items_.size(); ++i) {
-    const auto& wlabel = context_menu_items_[i].second;
-    if (wlabel == L"---") {
-      // "---" is the separator convention (matches macOS).
-      AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    } else {
-      AppendMenuW(menu, MF_STRING, static_cast<UINT_PTR>(1000 + i),
-                  wlabel.c_str());
-    }
-  }
-
-  POINT pt;
-  GetCursorPos(&pt);
-
-  // TPM_RETURNCMD returns the selected item ID instead of posting WM_COMMAND.
-  int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_LEFTALIGN,
-                           pt.x, pt.y, 0,
-                           window_ ? window_->GetHandle() : owner_,
-                           nullptr);
-  DestroyMenu(menu);
-
-  if (cmd >= 1000 && cmd < 1000 + static_cast<int>(context_menu_items_.size())) {
-    const auto& selected_id = context_menu_items_[cmd - 1000].first;
-    EncodableMap m;
-    m[EncodableValue("id")] = EncodableValue(selected_id);
-    SendEvent("onContextMenu", EncodableValue(m));
-  }
+  auto chosen =
+      ShowNativeMenu(window_ ? window_->GetHandle() : owner_, context_menu_);
+  if (!chosen) return;
+  EncodableMap m;
+  m[EncodableValue("id")] = EncodableValue(*chosen);
+  SendEvent("onContextMenu", EncodableValue(m));
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -558,10 +639,16 @@ void FloatingButtonHost::RelaySetDiameter(int disc_size) {
                                 std::make_unique<EncodableValue>(m));
 }
 
-void FloatingButtonHost::RelaySetTheme(bool is_dark) {
+void FloatingButtonHost::RelaySetTheme(const std::string& background,
+                                       const std::string& wave) {
   if (!render_channel_) return;
   EncodableMap m;
-  m[EncodableValue("isDark")] = EncodableValue(is_dark);
+  m[EncodableValue("background")] = EncodableValue(background);
+  m[EncodableValue("wave")] = EncodableValue(wave);
+  m[EncodableValue("shape")] = EncodableValue(latest_shape_);
+  m[EncodableValue("ring")] = EncodableValue(latest_ring_);
+  m[EncodableValue("idleOpacity")] = EncodableValue(latest_idle_opacity_);
+  m[EncodableValue("idleCapsule")] = EncodableValue(latest_idle_capsule_);
   render_channel_->InvokeMethod("setTheme",
                                 std::make_unique<EncodableValue>(m));
 }

@@ -26,6 +26,12 @@ class FloatingButtonDragEnded extends FloatingButtonEvent {
   final double y;
 }
 
+/// The render engine painted a frame for a state message (frame heartbeat,
+/// macOS). Stops the stall deadline; see [FloatingButtonService].
+class FloatingButtonRenderFrame extends FloatingButtonEvent {
+  const FloatingButtonRenderFrame();
+}
+
 /// The native shell reported a diagnostic about the dedicated render-engine
 /// boot handshake — see [FloatingButtonHost.swift]'s `renderReady` race (the
 /// same boot-race class as `OverlayRenderEngineDiagnostic` for the recording

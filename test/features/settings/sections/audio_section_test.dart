@@ -1,7 +1,7 @@
 /// Round-trip widget tests for [AudioSection].
 ///
 /// Covers: microphone selector visibility (real vs. default-only devices),
-/// gain slider round-trip, clipping banner show/hide/dismiss.
+/// automatic level and manual volume, clipping banner show/hide/dismiss.
 library;
 
 import 'package:flutter/material.dart';
@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/features/settings/sections/recording_sections.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -85,6 +86,24 @@ void main() {
       },
     );
 
+    testWidgets('says why no microphone is offered once devices resolved', (
+      tester,
+    ) async {
+      // UIA-SET-07: the row stays, and it says no input device was found.
+      final l10n = await L10n.delegate.load(const Locale('en'));
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: AudioSection()),
+          overrides: _overrides(settings: notifier, devices: ['Default']),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsMicNoDeviceHint), findsOneWidget);
+      expect(find.text(l10n.settingsMicSystemHint), findsNothing);
+    });
+
     testWidgets('shows microphone dropdown when real devices are enumerated', (
       tester,
     ) async {
@@ -103,9 +122,48 @@ void main() {
       expect(find.byType(DropdownButton<String>), findsOneWidget);
     });
 
-    // ── Gain slider ─────────────────────────────────────────────────────────
+    testWidgets(
+      'a microphone plugged in later shows up when the page reopens',
+      (tester) async {
+        // The device list used to be cached for the whole app run, so a new
+        // microphone only appeared after a restart (XP-5-15).
+        var devices = ['Default'];
+        final shown = ValueNotifier(true);
+        addTearDown(shown.dispose);
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            ValueListenableBuilder<bool>(
+              valueListenable: shown,
+              builder: (_, show, _) => show
+                  ? const SingleChildScrollView(child: AudioSection())
+                  : const SizedBox.shrink(),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => notifier),
+              audioInputDevicesProvider.overrideWith((ref) async => devices),
+              clippingStateProvider.overrideWith(
+                () => _FakeClippingNotifier(const ClippingState()),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(DropdownButton<String>), findsNothing);
 
-    testWidgets('gain slider round-trip updates audioInput.inputGain', (
+        shown.value = false;
+        await tester.pumpAndSettle();
+        devices = ['Default', 'USB Microphone'];
+        shown.value = true;
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
+      },
+    );
+
+    // ── Volume (#1611) ──────────────────────────────────────────────────────
+
+    testWidgets('automatic level is on and hides the manual volume', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
@@ -117,15 +175,35 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final initialGain = notifier.state.value!.audioInput.inputGain;
-
-      // Slider range 0–300 (values) / 180 px wide. Center = 90 px = 150 units.
-      // Dragging +60 px → 150 px → 150/180*300 = 250 → nearest div-5 = 250.
-      // 250 ≠ 100 (default), so inputGain = 2.5 ≠ 1.0.
-      await tester.drag(find.byType(Slider).first, const Offset(60, 0));
+      expect(find.byType(Slider), findsNothing);
+      await tester.tap(find.byKey(const Key('autoLevelToggle')));
       await tester.pump();
 
-      expect(notifier.state.value!.audioInput.inputGain, isNot(initialGain));
+      expect(notifier.state.value!.audioInput.autoLevel, isFalse);
+    });
+
+    testWidgets('manual volume slider writes a bounded gain', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          audioInput: AppSettings.defaults.audioInput.copyWith(
+            autoLevel: false,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: AudioSection()),
+          overrides: _overrides(settings: notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 dB'), findsOneWidget);
+      // Dragging fully right lands on the +18 dB maximum.
+      await tester.drag(find.byType(Slider).first, const Offset(300, 0));
+      await tester.pump();
+
+      expect(notifier.state.value!.audioInput.inputGain, closeTo(7.943, 0.001));
     });
 
     // ── Clipping banner ─────────────────────────────────────────────────────

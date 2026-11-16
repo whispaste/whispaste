@@ -40,6 +40,12 @@
     "soft": { "$value": "#6FDDF01F", "$description": "Accent fill behind chips and selected rows (12%)." },
     "glow": { "$value": "#6FDDF029", "$description": "Spotlight and aura tint (16%)." }
   },
+  "coffee": {
+    "$type": "color",
+    "fill": { "$value": "{color.coffee.yellow}", "$description": "Coffee support button fill (Kaffee-Gelb)." },
+    "fill-hover": { "$value": "{color.coffee.yellow-hover}" },
+    "on-fill": { "$value": "{color.navy.900}", "$description": "Ink on the coffee fill (AA with room to spare)." }
+  },
   "highlight": {
     "$type": "color",
     "default": { "$value": "{color.amber.400}", "$description": "Warm accent for markers, hints and the one highlighted word. Never for buttons." },

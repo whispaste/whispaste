@@ -1,15 +1,23 @@
-/// Widget tests for [SmartModeSection] (ticket 01 of `internal-notes`).
+/// Widget tests for [SmartModeSection].
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show AsyncData, ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations_en.dart';
+import 'package:whispaste/core/navigation/page_state.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/sections/smart_mode_section.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
+import 'package:whispaste/services/download_error_kind.dart';
+import 'package:whispaste/services/model_download_service.dart'
+    show modelDeleteFailedError;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_text_model.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -33,6 +41,9 @@ class _FakeDownloadNotifier extends SmartModeDownloadNotifier {
 
   @override
   SmartModeDownloadState build() => _initial;
+
+  /// Stands in for a finished download.
+  void finish() => state = const SmartModeDownloadState(modelDownloaded: true);
 }
 
 List<Object> _overrides({
@@ -62,7 +73,7 @@ void main() {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: SmartModeSection()),
+          const SingleChildScrollView(child: KeyboardShortcutSection()),
           overrides: _overrides(settings: notifier),
         ),
       );
@@ -70,14 +81,12 @@ void main() {
 
       final toggle = find.byKey(const Key('selectionEditHotkeyToggle'));
       expect(toggle, findsOneWidget);
+      // Off: the combination line is folded away, no change button.
       expect(
         find.byKey(const Key('selectionEditHotkeyComboLine')),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(
-        find.byKey(const Key('selectionEditHotkeyChange')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('selectionEditHotkeyChange')), findsNothing);
       expect(
         find.byKey(const Key('selectionEditHotkeyInactiveNotice')),
         findsNothing,
@@ -90,6 +99,14 @@ void main() {
       expect(
         notifier.state.value!.selectionEditHotkey.selectionEditHotkeyEnabled,
         isTrue,
+      );
+      expect(
+        find.byKey(const Key('selectionEditHotkeyComboLine')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('selectionEditHotkeyChange')),
+        findsOneWidget,
       );
       // The Smart-Mode hotkey is a separate setting and stays untouched.
       expect(
@@ -118,7 +135,10 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const SingleChildScrollView(child: SmartModeSection()),
-          overrides: _overrides(settings: notifier),
+          overrides: _overrides(
+            settings: notifier,
+            download: const SmartModeDownloadState(modelDownloaded: true),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -153,7 +173,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Download'), findsNothing);
-      expect(find.textContaining(smartModeModel.label), findsNothing);
+      expect(find.textContaining('Q4_K_M'), findsNothing);
     });
 
     testWidgets('local engine missing: the on-device option cannot be '
@@ -178,7 +198,7 @@ void main() {
 
       await tester.tap(find.text('OpenAI'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Locally on Device').last);
+      await tester.tap(find.text('Locally on device').last);
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.smartMode.provider, 'openai');
@@ -241,7 +261,8 @@ void main() {
 
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('Download'), findsNothing);
-      expect(find.textContaining(smartModeModel.label), findsOneWidget);
+      expect(find.textContaining('Gemma 4 E2B'), findsOneWidget);
+      expect(find.textContaining('Q4_K_M'), findsNothing);
     });
 
     testWidgets(
@@ -319,7 +340,7 @@ void main() {
       );
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: SmartModeSection()),
+          const SingleChildScrollView(child: KeyboardShortcutSection()),
           overrides: _overrides(settings: notifier),
         ),
       );
@@ -342,15 +363,71 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.textContaining('shared with the transcription model'),
+          find.textContaining('shared with the speech model'),
           findsOneWidget,
         );
         expect(
-          find.textContaining('typical 50-word dictation'),
+          find.textContaining('typical 50-word recording'),
           findsOneWidget,
         );
       },
     );
+
+    // #1633: a failed download names the category in the app language; the
+    // raw technical message (HTTP status, exception text) stays in the log.
+    for (final (label, message, kind) in [
+      (
+        'HTTP 503',
+        'Download failed: HTTP 503: service unavailable',
+        DownloadErrorKind.network,
+      ),
+      (
+        'timeout',
+        'Download failed: Server antwortet nicht mehr.',
+        DownloadErrorKind.network,
+      ),
+      ('delete', modelDeleteFailedError, DownloadErrorKind.storage),
+    ]) {
+      testWidgets('a failed download ($label) shows no raw error text', (
+        tester,
+      ) async {
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: SmartModeSection()),
+            overrides: _overrides(
+              settings: notifier,
+              download: SmartModeDownloadState(
+                phase: SmartModeDownloadPhase.error,
+                errorMessage: message,
+                errorKind: kind,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final l10n = L10nEn();
+        expect(
+          find.text(
+            kind == DownloadErrorKind.storage
+                ? l10n.modelDeleteFailed
+                : l10n.modelDownloadFailed,
+          ),
+          findsOneWidget,
+        );
+        // The translated text reads 'Download failed.'; the raw one has ':'.
+        for (final raw in [
+          'HTTP',
+          'Exception',
+          'Download failed:',
+          'antwortet',
+          'model_',
+        ]) {
+          expect(find.textContaining(raw), findsNothing, reason: raw);
+        }
+      });
+    }
 
     testWidgets('shows progress bar while downloading', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
@@ -372,6 +449,159 @@ void main() {
 
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
+    });
+  });
+
+  // #1686: locked presets say why at first glance, answer a click and unlock
+  // without a restart.
+  group('locked presets', () {
+    test('each lock leads to the row that lifts it', () {
+      expect(smartModeUnlockRowId(SmartModeTextModelStatus.ready), isNull);
+      expect(
+        smartModeUnlockRowId(SmartModeTextModelStatus.localModelMissing),
+        'text-smart-mode-model',
+      );
+      expect(
+        smartModeUnlockRowId(SmartModeTextModelStatus.cloudKeyMissing),
+        'api-keys-openai',
+      );
+      expect(
+        smartModeUnlockRowId(SmartModeTextModelStatus.customEndpointMissing),
+        'text-smart-mode-endpoint-url',
+      );
+      // No download helps a build without the engine: the service row is
+      // where the user switches to a cloud provider.
+      expect(
+        smartModeUnlockRowId(SmartModeTextModelStatus.localEngineUnavailable),
+        'text-smart-mode-service',
+      );
+    });
+
+    test('the notice shows only where a fix exists', () {
+      expect(
+        smartModeLockedNoticeShown(SmartModeTextModelStatus.localModelMissing),
+        isTrue,
+      );
+      expect(
+        smartModeLockedNoticeShown(SmartModeTextModelStatus.cloudKeyMissing),
+        isTrue,
+      );
+      expect(
+        smartModeLockedNoticeShown(SmartModeTextModelStatus.ready),
+        isFalse,
+      );
+      expect(
+        smartModeLockedNoticeShown(
+          SmartModeTextModelStatus.localEngineUnavailable,
+        ),
+        isFalse,
+      );
+    });
+
+    Finder notice() => find.bySemanticsIdentifier('smart-mode-locked-notice');
+
+    testWidgets('a click on a locked preset leads to the download and keeps '
+        'the value', (tester) async {
+      final handle = tester.ensureSemantics();
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: notifier,
+            download: const SmartModeDownloadState(modelDownloaded: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(notice(), findsOneWidget);
+
+      await tester.tap(find.text('Off'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cleanup').last);
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SmartModeSection)),
+      );
+      expect(notifier.state.value!.smartMode.standardPreset, 'off');
+      expect(
+        container.read(settingsScrollTargetProvider),
+        'text-smart-mode-model',
+      );
+      expect(container.read(activePageProvider), 'smartMode');
+      handle.dispose();
+    });
+
+    testWidgets('a finished download unlocks the presets without a restart', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: notifier,
+            download: const SmartModeDownloadState(modelDownloaded: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(notice(), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SmartModeSection)),
+      );
+      (container.read(smartModeDownloadProvider.notifier)
+              as _FakeDownloadNotifier)
+          .finish();
+      await tester.pumpAndSettle();
+      expect(notice(), findsNothing);
+
+      await tester.tap(find.text('Off'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cleanup').last);
+      await tester.pumpAndSettle();
+      expect(notifier.state.value!.smartMode.standardPreset, 'cleanup');
+      handle.dispose();
+    });
+
+    testWidgets('the Smart Mode hotkey block shows the same notice', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: KeyboardShortcutSection()),
+          overrides: _overrides(
+            settings: notifier,
+            download: const SmartModeDownloadState(modelDownloaded: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(notice(), findsOneWidget);
+      handle.dispose();
+    });
+  });
+
+  group('smartModePresetExampleAfter', () {
+    final l10n = L10nEn();
+
+    test('off keeps the raw sample, cleanup and concise differ from it', () {
+      final raw = l10n.smartModeOnboardingHintExampleBefore;
+      expect(smartModePresetExampleAfter('off', l10n), raw);
+      final cleanup = smartModePresetExampleAfter('cleanup', l10n);
+      final concise = smartModePresetExampleAfter('concise', l10n);
+      expect(cleanup, isNotNull);
+      expect(concise, isNotNull);
+      expect({raw, cleanup, concise}.length, 3);
+    });
+
+    test('translate has no fixed sample', () {
+      expect(smartModePresetExampleAfter('translate', l10n), isNull);
     });
   });
 }

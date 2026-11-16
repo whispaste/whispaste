@@ -2,7 +2,8 @@
 ///
 /// Covers:
 ///   1. Stall-detection — a stream that goes silent for ≥ stallThreshold is
-///      cancelled with `DioException(type: cancel, message: 'stalled')`.
+///      resumed within the retry budget, afterwards it ends with
+///      `DioException(type: receiveTimeout, message: 'stalled')`.
 ///   2. No-stall — a stream that always pushes a chunk within the threshold
 ///      runs to completion.
 ///   3. `describeDioError` returns the exact PRD-specified German strings.
@@ -50,6 +51,25 @@ class _StreamAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// Answers each request with the next of [bodies] and records it.
+class _SequenceAdapter implements HttpClientAdapter {
+  _SequenceAdapter(this.requests, this.bodies);
+  final List<RequestOptions> requests;
+  final List<ResponseBody> bodies;
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requests.add(options);
+    return bodies.removeAt(0);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 ResponseBody _streamBody(Stream<List<int>> stream, {int? contentLength}) {
   final headers = <String, List<String>>{};
   if (contentLength != null) headers['content-length'] = ['$contentLength'];
@@ -81,8 +101,9 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   group('HttpStallDetector — stall cancellation', () {
-    test('stream that goes silent past stallThreshold is cancelled with '
-        'DioException(cancel, message: "stalled")', () async {
+    test('stream that goes silent past stallThreshold, with no retry left, '
+        'ends with DioException(receiveTimeout, message: "stalled"), not '
+        'with a cancel the UI would read as the user\'s', () async {
       // A controllable stream: emit 2 small chunks, then go silent.
       final controller = StreamController<List<int>>();
       final body = _streamBody(controller.stream, contentLength: 1000);
@@ -92,18 +113,18 @@ void main() {
         dio: dio,
         stallThreshold: const Duration(milliseconds: 300),
         stallCheckInterval: const Duration(milliseconds: 50),
+        retryBackoff: const [],
       );
 
       final destPath = p.join(tempDir.path, 'model.bin');
       final fetchFuture = fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 1000,
       );
 
       // Emit a couple of chunks within the first window.
       controller.add(List.filled(10, 0x01));
-      await Future<void>.delayed(const Duration(milliseconds: 30));
       controller.add(List.filled(10, 0x02));
 
       // Now go silent — the detector should fire within 50ms+300ms.
@@ -116,13 +137,54 @@ void main() {
         // Other errors are not acceptable here.
       }
 
-      expect(caught, isNotNull, reason: 'Expected a DioException(cancel)');
-      expect(caught!.type, DioExceptionType.cancel);
+      expect(caught, isNotNull, reason: 'Expected a DioException');
+      expect(caught!.type, DioExceptionType.receiveTimeout);
       expect(caught.message, 'stalled');
+      expect(
+        describeDioError(caught),
+        'Verbindung steht — kein Datenfortschritt seit 30 s.',
+      );
 
       // Clean up the still-open controller (the listener was cancelled
       // by Dio, but we still own the source).
       await controller.close();
+    });
+
+    test('a stall within the retry budget is resumed with a Range request '
+        'and the download completes', () async {
+      final first = StreamController<List<int>>();
+      final requests = <RequestOptions>[];
+      final dio = Dio()
+        ..httpClientAdapter = _SequenceAdapter(requests, [
+          _streamBody(first.stream, contentLength: 100),
+          ResponseBody(
+            Stream.value(Uint8List.fromList(List.filled(60, 2))),
+            206,
+            headers: {
+              'content-length': ['60'],
+              'content-range': ['bytes 40-99/100'],
+            },
+          ),
+        ]);
+      final fetcher = HttpModelFetcher(
+        dio: dio,
+        stallThreshold: const Duration(milliseconds: 200),
+        stallCheckInterval: const Duration(milliseconds: 50),
+        retryBackoff: const [Duration(milliseconds: 10)],
+      );
+      final destPath = p.join(tempDir.path, 'model.bin');
+      final future = fetcher.fetch(
+        url: 'https://huggingface.co/model.bin',
+        destPath: destPath,
+        expectedSize: 100,
+      );
+      first.add(List.filled(40, 1));
+
+      await future;
+      expect(await File(destPath).length(), 100);
+      expect(requests, hasLength(2));
+      expect(requests.last.headers['Range'], 'bytes=40-');
+      await first.close();
     });
 
     test(
@@ -147,7 +209,7 @@ void main() {
 
         final destPath = p.join(tempDir.path, 'model.bin');
         final fetchFuture = fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: totalChunks * chunkSize,
         );
@@ -161,7 +223,6 @@ void main() {
               controller.add(List.filled(chunkSize, i & 0xFF));
             }
           }
-          await Future<void>.delayed(const Duration(milliseconds: 50));
           await controller.close();
         }());
 
@@ -182,7 +243,7 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   group('describeDioError', () {
-    RequestOptions opts() => RequestOptions(path: 'https://example.com/x');
+    RequestOptions opts() => RequestOptions(path: 'https://huggingface.co/x');
 
     test('cancel + "stalled" → stall message', () {
       final e = DioException(

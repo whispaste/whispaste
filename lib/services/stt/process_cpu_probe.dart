@@ -22,6 +22,8 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+import '../../core/platform/native_libs.dart';
+
 /// This process's cumulative user+system CPU time at a point in wall-clock
 /// time — two samples let a caller derive a percentage (see
 /// [processCpuPercentBetween]).
@@ -59,6 +61,43 @@ double processCpuPercentBetween(
   return percent.clamp(0, ceiling);
 }
 
+typedef _GetrusageC = ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>);
+typedef _GetrusageDart = int Function(int, ffi.Pointer<ffi.Uint8>);
+typedef _GetProcessTimesC =
+    ffi.Int32 Function(
+      ffi.IntPtr,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+    );
+typedef _GetProcessTimesDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+      ffi.Pointer<ffi.Uint64>,
+    );
+
+// Resolved once (#337): the probe is polled every few seconds on the UI
+// isolate, so no symbol lookup may run per sample.
+final _GetrusageDart? _getrusage = resolveNative(
+  () => libc?.lookupFunction<_GetrusageC, _GetrusageDart>('getrusage'),
+);
+final _GetProcessTimesDart? _getProcessTimes = resolveNative(
+  () => kernel32?.lookupFunction<_GetProcessTimesC, _GetProcessTimesDart>(
+    'GetProcessTimes',
+  ),
+);
+
+/// The pseudo handle of this process; constant for its lifetime.
+final int? _currentProcess = resolveNative(
+  () => kernel32?.lookupFunction<ffi.IntPtr Function(), int Function()>(
+    'GetCurrentProcess',
+  )(),
+);
+
 /// Reads [ProcessCpuSample]s via `getrusage(RUSAGE_SELF)` (macOS/Linux) or
 /// `GetProcessTimes` (Windows).
 class ProcessCpuProbe {
@@ -68,8 +107,6 @@ class ProcessCpuProbe {
     cpuTime: Platform.isWindows ? _readWindows() : _readPosix(),
     wallTime: DateTime.now(),
   );
-
-  static ffi.DynamicLibrary? _libc;
 
   /// `getrusage`'s `struct rusage` starts with two back-to-back `timeval`
   /// structs (`ru_utime`, `ru_stime`). Each is 16 bytes on both macOS and
@@ -82,14 +119,10 @@ class ProcessCpuProbe {
   /// microsecond precision, which is fine for a background indicator polled
   /// every few seconds, not a real-time meter.
   Duration _readPosix() {
+    final getrusage = _getrusage;
+    if (getrusage == null) return Duration.zero;
     final buf = malloc<ffi.Uint8>(256);
     try {
-      final lib = _libc ??= ffi.DynamicLibrary.process();
-      final getrusage = lib
-          .lookupFunction<
-            ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>),
-            int Function(int, ffi.Pointer<ffi.Uint8>)
-          >('getrusage');
       const rusageSelf = 0; // RUSAGE_SELF — stable across macOS and Linux.
       if (getrusage(rusageSelf, buf) != 0) return Duration.zero;
 
@@ -106,41 +139,15 @@ class ProcessCpuProbe {
   /// through a `Uint64` pointer combines them as a little-endian 64-bit
   /// value directly, matching `GetProcessTimes`' 100ns-tick units.
   Duration _readWindows() {
-    final kernel32 = ffi.DynamicLibrary.open('kernel32.dll');
-    final getCurrentProcess = kernel32
-        .lookupFunction<ffi.IntPtr Function(), int Function()>(
-          'GetCurrentProcess',
-        );
-    final getProcessTimes = kernel32
-        .lookupFunction<
-          ffi.Int32 Function(
-            ffi.IntPtr,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-          ),
-          int Function(
-            int,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-            ffi.Pointer<ffi.Uint64>,
-          )
-        >('GetProcessTimes');
-
+    final getProcessTimes = _getProcessTimes;
+    final process = _currentProcess;
+    if (getProcessTimes == null || process == null) return Duration.zero;
     final creation = malloc<ffi.Uint64>();
     final exit = malloc<ffi.Uint64>();
     final kernelTime = malloc<ffi.Uint64>();
     final userTime = malloc<ffi.Uint64>();
     try {
-      final ok = getProcessTimes(
-        getCurrentProcess(),
-        creation,
-        exit,
-        kernelTime,
-        userTime,
-      );
+      final ok = getProcessTimes(process, creation, exit, kernelTime, userTime);
       if (ok == 0) return Duration.zero;
       final totalTicks = kernelTime.value + userTime.value;
       return Duration(microseconds: totalTicks ~/ 10);

@@ -33,12 +33,12 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    const accent = WpColors.accent;
-    const fill = WpColors.accentButtonFill;
-    const border = WpColors.accentBorder20;
-    const badgeFill = WpColors.accentChipFill;
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
+    final accent = WpColors.accent;
+    final fill = WpColors.accentButtonFill;
+    final border = WpColors.accentBorder20;
+    final badgeFill = WpColors.accentChipFill;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
 
     return Container(
       width: double.infinity,
@@ -61,7 +61,7 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
                   color: badgeFill,
                   borderRadius: WpRadius.borderSm,
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     LucideIcons.rotateCw,
                     size: WpIconSize.sm,
@@ -76,7 +76,7 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
                   children: [
                     Text(
                       l10n.pasteCapabilityRestartTitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.subheading,
                         fontWeight: FontWeight.w600,
                         color: textPrimary,
@@ -85,7 +85,7 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
                     const SizedBox(height: WpSpacing.xxs),
                     Text(
                       l10n.pasteCapabilityRestartBody,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.small,
                         color: textSecondary,
                         height: 1.4,
@@ -98,6 +98,7 @@ class WpPasteCapabilityRestartBanner extends StatelessWidget {
           ),
           const SizedBox(height: WpSpacing.sm),
           WpButton(
+            key: const ValueKey('settings-paste-restart-banner-button'),
             label: l10n.pasteCapabilityRestartButton,
             variant: WpButtonVariant.primary,
             icon: LucideIcons.rotateCw,

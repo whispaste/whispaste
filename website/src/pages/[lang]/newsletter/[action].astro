@@ -1,0 +1,13 @@
+---
+import NewsletterLinkPage from "../../../components/pages/NewsletterLinkPage.astro";
+import { NEWSLETTER_ACTIONS } from "../../../scripts/newsletter-link.ts";
+import { PREFIXED_LOCALES } from "../../../scripts/locales.ts";
+
+export function getStaticPaths() {
+  return PREFIXED_LOCALES.flatMap((lang) => NEWSLETTER_ACTIONS.map((action) => ({ params: { lang, action } })));
+}
+
+const { lang, action } = Astro.params as { lang: (typeof PREFIXED_LOCALES)[number]; action: (typeof NEWSLETTER_ACTIONS)[number] };
+---
+
+<NewsletterLinkPage lang={lang} action={action} />

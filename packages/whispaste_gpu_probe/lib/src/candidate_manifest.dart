@@ -17,6 +17,11 @@ import 'model_manifest.dart';
 import 'wav2vec2_direct_ml_candidate.dart';
 import 'whisper_cpp_candidate.dart';
 
+/// `ggerganov/whisper.cpp` pinned to one commit, shared with `model_store.dart`
+/// and the app's model registry.
+const String ggmlRepoBase =
+    'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1';
+
 // ---------------------------------------------------------------------------
 // Default model registry
 // ---------------------------------------------------------------------------
@@ -33,34 +38,35 @@ const String modelSizeLargeTurbo = 'whisper-large-v3-turbo';
 ///
 /// Acquisition (download + checksum) is handled by `acquireModel`; the manifest
 /// only declares which models exist and how to fetch them.
+///
+/// URLs are pinned to one commit of `ggerganov/whisper.cpp` (the same one the
+/// app uses); sizes and SHA-256 are the LFS values at that commit (HF tree
+/// API, 2026-11-16). `acquireModel` rejects a file whose hash differs.
 ModelManifest defaultModelManifest() => ModelManifest(
   entries: [
     ModelEntry(
       name: modelSizeSmall,
-      downloadUrl: Uri.parse(
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
-      ),
-      sha256: '',
+      downloadUrl: Uri.parse('$ggmlRepoBase/ggml-small.bin'),
+      sha256:
+          '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
       targetFilename: 'ggml-small.bin',
-      sizeBytes: 488000000,
+      sizeBytes: 487601967,
     ),
     ModelEntry(
       name: modelSizeMedium,
-      downloadUrl: Uri.parse(
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin',
-      ),
-      sha256: '',
+      downloadUrl: Uri.parse('$ggmlRepoBase/ggml-medium.bin'),
+      sha256:
+          '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208',
       targetFilename: 'ggml-medium.bin',
-      sizeBytes: 1530000000,
+      sizeBytes: 1533763059,
     ),
     ModelEntry(
       name: modelSizeLargeTurbo,
-      downloadUrl: Uri.parse(
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin',
-      ),
-      sha256: '',
+      downloadUrl: Uri.parse('$ggmlRepoBase/ggml-large-v3-turbo.bin'),
+      sha256:
+          '1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69',
       targetFilename: 'ggml-large-v3-turbo.bin',
-      sizeBytes: 1620000000,
+      sizeBytes: 1624555275,
     ),
   ],
 );
@@ -82,6 +88,12 @@ const String onnxModelSizeMedium = 'whisper-medium';
 /// The medium model carries the known `887A0006` crash risk on Kepler with
 /// DirectML in maintenance mode — include it deliberately so the probe can
 /// observe the crash empirically.
+///
+/// Unreachable since the `microsoft/whisper-*-directml` repos went private
+/// (HTTP 401, checked 2026-11-16), so there is no commit to pin and no hash
+/// to check; `acquireModel` fails on the download or on the empty hash and
+/// the candidate reports `failedToStart`/`skipped`. The live test bench uses
+/// the pinned onnx-community export in `defaultModelCatalog` instead.
 ModelManifest onnxModelManifest() => ModelManifest(
   entries: [
     ModelEntry(

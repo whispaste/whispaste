@@ -31,6 +31,12 @@ const _compileTimeVersion = String.fromEnvironment(
   defaultValue: '',
 );
 
+/// Short commit and UTC build date, baked in by `scripts/build-stamp.sh` via
+/// `--dart-define=WP_BUILD_COMMIT=…` / `WP_BUILD_DATE=…` (BUILD.md "Build
+/// stamp"). Empty when a build path passes none (IDE run, plain `flutter run`).
+const _compileTimeCommit = String.fromEnvironment('WP_BUILD_COMMIT');
+const _compileTimeBuildDate = String.fromEnvironment('WP_BUILD_DATE');
+
 String _runtimeAppVersion = 'unknown';
 
 /// Current app version (X.Y.Z).
@@ -40,6 +46,34 @@ String _runtimeAppVersion = 'unknown';
 /// during the brief window before [initAppInfo] resolves on dev builds.
 String get appVersion =>
     _compileTimeVersion.isNotEmpty ? _compileTimeVersion : _runtimeAppVersion;
+
+/// Whether a real version is known. False only on a dev run where
+/// [initAppInfo] has not resolved it yet (and in the test host). User-visible
+/// labels check this instead of printing the `'unknown'` placeholder (UX-043).
+bool get appVersionKnown =>
+    _compileTimeVersion.isNotEmpty || _runtimeAppVersion != 'unknown';
+
+/// The version line of the About page: the version, plus commit and build
+/// date when the build carries them ("1.4.2 · a1b2c3d · 2026-11-06"). Pure.
+String formatVersionLine(
+  String version, {
+  String commit = '',
+  String date = '',
+}) {
+  final parts = [
+    version,
+    if (RegExp(r'^[0-9a-f]{7,40}\+?$').hasMatch(commit)) commit,
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date)) date,
+  ];
+  return parts.join(' · ');
+}
+
+/// [appVersion] with the build's commit and date appended, when known.
+String get appVersionLine => formatVersionLine(
+  appVersion,
+  commit: _compileTimeCommit,
+  date: _compileTimeBuildDate,
+);
 
 /// User-Agent header value for HTTP requests.
 String get appUserAgent => '$appName/$appVersion';

@@ -7,6 +7,9 @@
 /// pointed at an isolated temp directory via `appDataDirOverride`.
 library;
 
+// test_bundles: own run (the logger file sink and its redaction are process-wide; another file in the
+// same isolate leaves them configured).
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

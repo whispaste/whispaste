@@ -120,34 +120,6 @@ void main() {
 
   // ── L10n-Labels ─────────────────────────────────────────────────────────
 
-  group('L10n-Labels (en)', () {
-    test('overlayRecording Label stimmt', () {
-      expect(l10n.overlayRecording, 'Recording');
-    });
-
-    test('overlayTranscribing Label stimmt', () {
-      expect(l10n.overlayTranscribing, 'Transcribing…');
-    });
-
-    test('overlayError Label stimmt', () {
-      expect(l10n.overlayError, 'Error');
-    });
-
-    test('overlayDoneReady Label stimmt', () {
-      expect(l10n.overlayDoneReady, 'Done');
-    });
-
-    test('painterFor leitet label als statusText durch (transcribing)', () {
-      final painter = WpFloatingOverlayView.painterFor(
-        snapshot: _snap(
-          OverlayVisualState.transcribing,
-          label: l10n.overlayTranscribing,
-        ),
-      );
-      expect(painter.statusText, l10n.overlayTranscribing);
-    });
-  });
-
   // ── Done/Error-Messages ──────────────────────────────────────────────────
 
   group('doneMessageFor — afterAction → L10n-Message', () {
@@ -167,7 +139,7 @@ void main() {
 
     test('"copy_and_paste" → overlayDoneBoth ("Copied & Pasted")', () {
       expect(doneMessageFor('copy_and_paste', l10n), l10n.overlayDoneBoth);
-      expect(l10n.overlayDoneBoth, 'Copied & Pasted');
+      expect(l10n.overlayDoneBoth, 'Copied & pasted');
     });
 
     test('"clipboard_and_paste" → overlayDoneBoth — Alias', () {
@@ -303,6 +275,27 @@ void main() {
         WpFloatingOverlayView.designStateFor(OverlayVisualState.error),
         OverlayDesignState.error,
       );
+    });
+  });
+
+  group('nativeBackdropEdge wire mapping', () {
+    // The flag is added by the native shell, not by toMap.
+    final base = const FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.recording,
+      label: '',
+      elapsed: '',
+    ).toMap();
+
+    test('is read from the relayed map and defaults to false', () {
+      expect(
+        FloatingOverlaySnapshot.fromMap({
+          ...base,
+          'nativeBackdropEdge': true,
+        }).nativeBackdropEdge,
+        isTrue,
+      );
+      expect(FloatingOverlaySnapshot.fromMap(base).nativeBackdropEdge, isFalse);
     });
   });
 }

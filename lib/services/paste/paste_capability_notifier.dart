@@ -18,16 +18,21 @@
 ///
 /// Why the grant-vs-restart split exists (Apple DTS, forum thread 727984):
 /// on the sandboxed Mac App Store build the permission is the CoreGraphics
-/// `PostEvent` TCC service, probed with `CGPreflightPostEventAccess()`. That
-/// value is **cached at process start and never refreshes mid-run** — after
-/// the user flips the switch in System Settings the running process keeps
-/// reading `false` until it relaunches ("that's why, when you change these
-/// values in System Settings, it offers to quit and relaunch the app").
-/// So once we've sent the user to grant and the probe is still missing, the
-/// correct recovery is a **restart**, not another trip to Settings. The
-/// non-sandboxed Developer-ID build probes `AXIsProcessTrusted()`, which
-/// *does* usually flip live under polling (matching Rectangle/Ice) — there
-/// the poll resolves to `ready` before the restart affordance is ever shown.
+/// `PostEvent` TCC service, and `CGPreflightPostEventAccess()` is **cached at
+/// process start and does not refresh mid-run** — after the user flips the
+/// switch in System Settings the running process keeps reading `false` until
+/// it relaunches ("that's why, when you change these values in System
+/// Settings, it offers to quit and relaunch the app"). The native probe
+/// therefore also asks signals outside that cache (`SyntheticEventAccess` in
+/// `DesktopPasteHost.swift`), and when one of them fires the probe simply
+/// reads `ready`. When none does, a restart is the remaining way, but the app
+/// cannot see the switch: it may still be off. So the restart is only offered
+/// once the user came back from System Settings
+/// ([PasteCapabilityState.backFromOsGrantFlow]), and next to another trip to
+/// Settings rather than instead of it. The non-sandboxed Developer-ID build
+/// probes `AXIsProcessTrusted()`, which *does* usually flip live under polling
+/// (matching Rectangle/Ice) — there the poll resolves to `ready` before the
+/// restart affordance is ever shown.
 /// Keeping [sentToOsGrantFlow] in memory (never persisted) is deliberate: a
 /// fresh process re-reads the real on-disk TCC state, so the flag resetting
 /// on relaunch is exactly right.
@@ -36,16 +41,20 @@ library;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/build_config.dart';
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/platform/macos_lifecycle_channel.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
+import '../permission_helper_service.dart';
+import '../permissions/tcc_entry_reset_confirm.dart' show l10nForLocaleCode;
 import '../single_instance_service.dart';
 import 'paster.dart';
 
@@ -114,10 +123,10 @@ enum PastePermissionAction {
   /// OS grant flow this process — offer the "Erlauben" button.
   grant,
 
-  /// Permission is missing *after* WhisPaste already handed the user to the
-  /// OS grant flow — the running process can't pick up a fresh grant, so
-  /// offer the "Neu starten" button. See [PasteCapabilityState] doc for the
-  /// Apple-DTS rationale.
+  /// Permission is missing, WhisPaste handed the user to the OS grant flow
+  /// and the user came back without any signal firing — the running process
+  /// may not be able to pick up a fresh grant, so offer the "Neu starten"
+  /// button. See [PasteCapabilityState] doc for the Apple-DTS rationale.
   restart,
 }
 
@@ -127,6 +136,7 @@ class PasteCapabilityState {
     this.capability,
     this.sentToOsGrantFlow = false,
     this.pollingPhase = PollingPhase.idle,
+    this.backFromOsGrantFlow = false,
     this.restartAttempted = false,
     this.signatureChanged = false,
   });
@@ -143,6 +153,13 @@ class PasteCapabilityState {
 
   /// Where the capability polling loop currently is. See [PollingPhase].
   final PollingPhase pollingPhase;
+
+  /// Cached-probe (Mac App Store) build only: WhisPaste came back to the front
+  /// after the last handoff to the OS grant flow, with the permission still
+  /// missing. Before that moment the user had no chance to flip the switch, or
+  /// is still in System Settings, so no surface may suggest a restart yet. The
+  /// next handoff clears it. In memory only, like [sentToOsGrantFlow].
+  final bool backFromOsGrantFlow;
 
   /// Hydrated from [kAutoPasteRestartMarkerKey] at startup and set whenever a
   /// grant-driven restart is invoked. Unlike [sentToOsGrantFlow] this
@@ -162,6 +179,7 @@ class PasteCapabilityState {
     PasteCapability? capability,
     bool? sentToOsGrantFlow,
     PollingPhase? pollingPhase,
+    bool? backFromOsGrantFlow,
     bool? restartAttempted,
     bool? signatureChanged,
   }) {
@@ -169,6 +187,7 @@ class PasteCapabilityState {
       capability: capability ?? this.capability,
       sentToOsGrantFlow: sentToOsGrantFlow ?? this.sentToOsGrantFlow,
       pollingPhase: pollingPhase ?? this.pollingPhase,
+      backFromOsGrantFlow: backFromOsGrantFlow ?? this.backFromOsGrantFlow,
       restartAttempted: restartAttempted ?? this.restartAttempted,
       signatureChanged: signatureChanged ?? this.signatureChanged,
     );
@@ -188,6 +207,11 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   bool _checkInFlight = false;
   Stopwatch? _pollStopwatch;
 
+  /// Periodic recheck while a permission surface is visible — see
+  /// [watchWhileVisible]. Separate from the grant poll above.
+  Timer? _watchTimer;
+  int _watchers = 0;
+
   /// Whether this build's capability probe is **cached at process start**.
   ///
   /// This is the single property that decides whether a restart is a
@@ -195,8 +219,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   ///
   ///   - Mac App Store (sandboxed) build → `CGPreflightPostEventAccess()`,
   ///     which Apple DTS confirms never refreshes mid-process (see the
-  ///     library doc). A relaunch is the *only* way to observe a fresh
-  ///     grant, so [PastePermissionAction.restart] is correct there.
+  ///     library doc). When the signals beside it stay silent too, a relaunch
+  ///     is the only way to observe a fresh grant, so
+  ///     [PastePermissionAction.restart] is correct there.
   ///   - Developer-ID build → `AXIsProcessTrusted()`, which flips **live**.
   ///     A relaunch can never reveal a grant that continued polling would
   ///     not have seen anyway, and it cannot fix the other failure mode
@@ -210,12 +235,19 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   @visibleForTesting
   bool usesCachedPermissionProbe = kIsMasBuild;
 
+  /// Read side of [usesCachedPermissionProbe] for the surfaces whose wording
+  /// and handoff differ on this build.
+  bool get cachedProbeBuild => usesCachedPermissionProbe;
+
   /// `false` until the first probe of this process resolves — lets [check]
   /// tag the cold-start probe breadcrumb, the one that (together with the
   /// hydrated [PasteCapabilityState.restartAttempted]) discriminates "the
   /// grant never persisted" from "the restart never produced a fresh process"
   /// on the user's next live test.
   bool _firstProbeDone = false;
+
+  /// Status of the last probe, used to log live ticks only on a change.
+  PasteCapabilityStatus? _lastLoggedStatus;
 
   /// `true` once [requestGrant] has fired `check(prompt: true)` at least once
   /// this process. macOS shows its own PostEvent/Accessibility alert at most
@@ -276,8 +308,10 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   ///   - `permissionMissing` while a grant poll is still armed
   ///     ([PollingPhase.awaitingGrant]) → [none] (the "tick the box" hint
   ///     owns the screen).
-  ///   - `permissionMissing`, poll not armed, user already sent to the OS
-  ///     grant flow this process → [restart].
+  ///   - `permissionMissing`, poll not armed, user sent to the OS grant flow
+  ///     this process and back from it → [restart].
+  ///   - `permissionMissing`, poll not armed, user sent there and not back
+  ///     yet (the poll ran out with System Settings open) → [none].
   ///   - `permissionMissing`, poll not armed, not yet sent → [grant].
   PastePermissionAction get requiredAction {
     if (state.capability?.status != PasteCapabilityStatus.permissionMissing) {
@@ -298,9 +332,10 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     if (!usesCachedPermissionProbe) {
       return PastePermissionAction.grant;
     }
-    return state.sentToOsGrantFlow
+    if (!state.sentToOsGrantFlow) return PastePermissionAction.grant;
+    return state.backFromOsGrantFlow
         ? PastePermissionAction.restart
-        : PastePermissionAction.grant;
+        : PastePermissionAction.none;
   }
 
   /// `true` once the user has been handed to the OS grant flow this process
@@ -355,7 +390,8 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// clears AppleEvents, so a user whose AppleEvents grant was fine gets
   /// re-prompted for it once.
   bool get grantRequiresEntryReset =>
-      Platform.isMacOS && !usesCachedPermissionProbe;
+      defaultTargetPlatform == TargetPlatform.macOS &&
+      !usesCachedPermissionProbe;
 
   /// Convenience: the current [requiredAction] is [PastePermissionAction.restart].
   /// The single flag every surface keys its restart affordance off — the
@@ -414,29 +450,29 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// stale entry needs the user to remove it once — see
   /// [restartForEntryRemoval].
   bool get requiresManualEntryRemoval =>
-      Platform.isMacOS && usesCachedPermissionProbe;
+      defaultTargetPlatform == TargetPlatform.macOS &&
+      usesCachedPermissionProbe;
 
-  /// `true` when the missing permission is almost certainly a stale entry on
-  /// the build that cannot remove it itself ([requiresManualEntryRemoval]).
+  /// `true` when the missing permission is a stale entry for certain on the
+  /// build that cannot remove it itself ([requiresManualEntryRemoval]).
   ///
-  /// Two independent signals, verified on macOS 26:
+  /// The one signal is [PasteCapabilityState.signatureChanged], verified on
+  /// macOS 26: the grant was bound to another signature, macOS keeps that old
+  /// entry switched on in System Settings, never shows its own dialog again,
+  /// and toggling the row off and on does not rebind it. Only removing it and
+  /// relaunching does.
   ///
-  ///   1. [PasteCapabilityState.signatureChanged] — the grant was bound to
-  ///      another signature. macOS keeps that old entry switched on in System
-  ///      Settings, never shows its own dialog again, and toggling the row
-  ///      off and on does not rebind it. Only removing it and relaunching does.
-  ///   2. [restartWasIneffective] — the grant-driven restart already ran and
-  ///      the permission is still missing. Either the user never switched it
-  ///      on, or the row they switched on is stale. Guiding the removal covers
-  ///      both: a removed entry makes the next fresh process show macOS's own
-  ///      dialog again.
+  /// A restart that changed nothing ([restartWasIneffective]) is deliberately
+  /// no evidence: the usual cause is a fresh entry whose switch is still off,
+  /// and telling that user to remove an "old" entry is plain wrong (#431). The
+  /// settings troubleshoot section still reaches the removal guide by hand.
   ///
   /// The live-probe build never needs this: [repairAndRequestGrant] clears the
   /// entry itself before every grant flow.
   bool get staleEntrySuspected =>
       requiresManualEntryRemoval &&
       state.capability?.status == PasteCapabilityStatus.permissionMissing &&
-      (state.signatureChanged || restartWasIneffective);
+      state.signatureChanged;
 
   /// Runs one capability probe through the [Paster].
   ///
@@ -462,6 +498,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // The flag stays owned by the outermost call, so a prompting call that
     // rides along inside a probe's flight window cannot clear it early and
     // re-open the duplicate-probe window it guards.
+    // The startup probe awaits between steps, so the container can be gone
+    // by the time it gets here (app shutdown); there is nothing to update.
+    if (!ref.mounted) return;
     final rodeAlong = _checkInFlight;
     if (rodeAlong && !prompt) return;
     _checkInFlight = true;
@@ -475,13 +514,28 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         );
         return;
       }
-      final result = await paster.checkCapability(promptIfMissing: prompt);
-      _log.info(
+      final PasteCapability result;
+      try {
+        result = await paster.checkCapability(promptIfMissing: prompt);
+      } on TimeoutException {
+        // The native side did not answer in time. Keep the last known state:
+        // the next check runs once the outstanding read has answered.
+        _log.debug('capability check not answered; keeping last state');
+        return;
+      }
+      if (!ref.mounted) return;
+      final wasColdStart = !_firstProbeDone;
+      _firstProbeDone = true;
+      // The onboarding page probes once per second. Only prompts, the cold
+      // start and status changes are worth an INFO line (and a Sentry
+      // breadcrumb); the steady-state ticks stay at DEBUG.
+      final notable =
+          prompt || wasColdStart || result.status != _lastLoggedStatus;
+      _lastLoggedStatus = result.status;
+      (notable ? _log.info : _log.debug)(
         'capability check: prompt=$prompt status=${result.status.name} '
         'canPrompt=${result.canPrompt} detail=${result.detail}',
       );
-      final wasColdStart = !_firstProbeDone;
-      _firstProbeDone = true;
       // The single most diagnostic breadcrumb: it records the probe result
       // AND whether this is the first probe of the process AND whether a
       // grant-driven restart already happened. On the next live test this
@@ -489,16 +543,18 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       // true + still missing) apart from "the restart mechanism itself
       // failed" (marker true but no fresh-process cold probe at all) — the
       // A-vs-B split the previous fix could not resolve.
-      _emitBreadcrumb(
-        'capability.probed',
-        data: {
-          'status': result.status.name,
-          'prompt': prompt,
-          'cold_start': wasColdStart,
-          'restart_marker': state.restartAttempted,
-          'sent_to_os_grant_flow': state.sentToOsGrantFlow,
-        },
-      );
+      if (notable) {
+        _emitBreadcrumb(
+          'capability.probed',
+          data: {
+            'status': result.status.name,
+            'prompt': prompt,
+            'cold_start': wasColdStart,
+            'restart_marker': state.restartAttempted,
+            'sent_to_os_grant_flow': state.sentToOsGrantFlow,
+          },
+        );
+      }
       state = state.copyWith(capability: result);
       // The capability is live again — clear the persisted restart marker so
       // the honest "restart didn't take" copy never lingers after a genuine
@@ -520,7 +576,8 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// skipped: macOS's own alert is expected there, and opening Settings
   /// alongside it raced the two windows, with Settings landing on top of the
   /// still-visible native alert (live user report — see
-  /// [_osPromptFiredThisProcess]).
+  /// [_osPromptFiredThisProcess]). The cached-probe build never skips it, see
+  /// [_openGrantPane].
   ///
   /// The single call every UI entry point shares — onboarding's Auto-Paste
   /// step, the Settings capability indicator, and the After-Transcription
@@ -559,6 +616,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     state = state.copyWith(
       sentToOsGrantFlow: true,
       pollingPhase: PollingPhase.awaitingGrant,
+      backFromOsGrantFlow: false,
     );
     // A restart-driven retry always starts a genuinely new process, so
     // `_osPromptFiredThisProcess` alone can't tell "this user's first-ever
@@ -577,7 +635,33 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // resolves (which can stall on slow Settings launches and in test
     // environments where the channel isn't wired).
     startPolling(interval: pollInterval, timeout: pollTimeout);
-    if (!Platform.isMacOS || skipDeepLink) return;
+    if (defaultTargetPlatform != TargetPlatform.macOS) return;
+    if (usesCachedPermissionProbe || !skipDeepLink) await _openGrantPane();
+  }
+
+  /// Opens the Accessibility pane. On the cached-probe (Mac App Store) build
+  /// the helper panel takes care of that from every surface, and
+  /// `CGRequestPostEventAccess()` has already created the row the panel points
+  /// at. No skip for the first prompt there: the panel leaves opening to the
+  /// system dialog only while that dialog is really up.
+  Future<void> _openGrantPane() async {
+    // Reached after the awaited prompted check; the provider can be gone.
+    if (!ref.mounted) return;
+    if (usesCachedPermissionProbe) {
+      final l10n = l10nForLocaleCode(ref.read(settingsProvider).value?.locale);
+      final shown = await ref
+          .read(permissionHelperProvider)
+          .show(
+            PermissionHelperKind.accessibility,
+            text: l10n.onboardingAccessibilitySwitchHint('WhisPaste'),
+            note: '',
+            closeLabel: l10n.actionClose,
+          );
+      if (shown == PermissionHelperShowResult.shown ||
+          shown == PermissionHelperShowResult.granted) {
+        return;
+      }
+    }
     try {
       await launchUrl(Uri.parse(_accessibilitySettingsUri));
     } on Exception catch (e) {
@@ -589,11 +673,12 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// handoff — the entry point for surfaces that only need to send the user
   /// to Settings without arming the full [requestGrant] poll (e.g. the
   /// failed-paste OS notification's click action). Setting the handoff bit
-  /// here is what makes the *next* surface the user sees resolve to
-  /// [PastePermissionAction.restart] instead of showing "Erlauben" again.
+  /// here is what makes the *next* surface the user sees, once they are back
+  /// from Settings, resolve to [PastePermissionAction.restart] instead of
+  /// showing "Erlauben" again.
   Future<void> openAccessibilitySettings() async {
     _markSentToOsGrantFlow();
-    if (!Platform.isMacOS) return;
+    if (defaultTargetPlatform != TargetPlatform.macOS) return;
     // Fire the OS permission request (on the MAS build this is
     // `CGRequestPostEventAccess()`) BEFORE the deep-link. PostEvent is a
     // *separate* TCC privilege from general Accessibility (Apple DTS, forum
@@ -613,12 +698,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     final skipDeepLink = !_osPromptFiredThisProcess && !state.restartAttempted;
     _osPromptFiredThisProcess = true;
     await check(prompt: true);
-    if (skipDeepLink) return;
-    try {
-      await launchUrl(Uri.parse(_accessibilitySettingsUri));
-    } on Exception catch (e) {
-      _log.warning('Could not open Accessibility settings: $e');
-    }
+    if (usesCachedPermissionProbe || !skipDeepLink) await _openGrantPane();
   }
 
   /// Hydrates [PasteCapabilityState.restartAttempted] from the persisted
@@ -627,13 +707,16 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// [restartWasIneffective] see the cross-process marker. Fire-and-forget
   /// safe: a broken prefs read never blocks the capability surface.
   Future<void> hydrateRestartMarker() async {
+    if (!ref.mounted) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!ref.mounted) return;
       final marked = prefs.getBool(kAutoPasteRestartMarkerKey) ?? false;
       if (marked && !state.restartAttempted) {
         state = state.copyWith(restartAttempted: true);
       }
       _signingRequirement ??= await readSigningRequirement();
+      if (!ref.mounted) return;
       final granted = prefs.getString(kAutoPasteGrantedSigningRequirementKey);
       final changed =
           granted != null &&
@@ -712,9 +795,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// ([markRestartAttempted]) FIRST, then asks the platform to relaunch, so
   /// the fresh process can tell an ineffective restart apart from a
   /// first-contact missing state ([restartWasIneffective]) no matter which
-  /// button the user pressed. The auto-modal path is the one exception: it
-  /// marks then hands off to the native alert, which relaunches natively on
-  /// confirm (never round-tripping through [MacOSLifecycleChannel.restart]).
+  /// button the user pressed.
   Future<void> restartForGrant() async {
     await markRestartAttempted();
     await MacOSLifecycleChannel.restart();
@@ -762,20 +843,24 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   ///
   /// On the Developer-ID build `AXIsProcessTrusted()` flips live, so the
   /// probe promotes the state straight to `ready`. On the Mac App Store
-  /// build `CGPreflightPostEventAccess()` stays cached-`false` (see class
-  /// doc) — there this call's job is to stop the now-pointless grant poll so
-  /// [requiredAction] surfaces the [PastePermissionAction.restart] affordance
-  /// immediately, instead of stranding the user on the "tick the box"
-  /// spinner until the poll times out.
+  /// build a live signal does the same; when none fired (see class doc) this
+  /// call's job is to stop the grant poll and record that the user is back,
+  /// so [requiredAction] surfaces the [PastePermissionAction.restart]
+  /// affordance immediately, instead of stranding the user on the "tick the
+  /// box" spinner until the poll times out. This is the only way to that
+  /// affordance: WhisPaste is in front here, System Settings is not.
+  ///
+  /// Probes even when the last result was `ready`: the grant can be revoked
+  /// while WhisPaste sits in the background, and a skipped probe kept the
+  /// Settings card and the tray reading "ready" while paste failed.
   Future<void> recheckOnForeground() async {
-    if (state.capability?.status == PasteCapabilityStatus.ready) return;
     await check();
     if (usesCachedPermissionProbe &&
         state.sentToOsGrantFlow &&
         state.capability?.status == PasteCapabilityStatus.permissionMissing) {
-      // Cached-probe (MAS) build only: this poll can never resolve, so end it
-      // now and let requiredAction surface the restart affordance instead of
-      // stranding the user on the "tick the box" spinner until the timeout.
+      // Cached-probe (MAS) build only: end the poll and let requiredAction
+      // surface the restart affordance instead of stranding the user on the
+      // "tick the box" spinner until the timeout.
       //
       // Deliberately NOT done on the live-probe build. TCC propagation is not
       // instantaneous, and the user routinely tabs back to WhisPaste a beat
@@ -785,12 +870,54 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       // off-cadence foreground probe 13 s into its 30 s budget, and the user
       // got relaunched instead of simply waited out.
       _disposePolling();
+      state = state.copyWith(backFromOsGrantFlow: true);
     }
   }
 
+  /// `true` when a `tccutil reset` may be offered: a live-probe build, the
+  /// permission reads missing, and there is evidence that the existing entry
+  /// is stale. The evidence is either this process handed the user to Settings
+  /// and it still reads missing ([grantDidNotTakeEffect]), or the code
+  /// signature changed since the permission last worked
+  /// ([PasteCapabilityState.signatureChanged], persisted across runs). A
+  /// switch that was simply never turned on has neither signal, so it gets a
+  /// Settings deep-link and no reset.
+  bool get staleEntryResetCandidate =>
+      grantRequiresEntryReset &&
+      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
+      (grantDidNotTakeEffect || state.signatureChanged);
+
+  /// Re-probes right after a failed paste. A failing paste is the moment the
+  /// permission is most likely to have been revoked, so the status surfaces
+  /// must not keep their last "ready" view. Same probe as [recheckOnForeground].
+  Future<void> recheckAfterPasteFailure() => recheckOnForeground();
+
+  /// Keeps the capability probed every [interval] while a permission surface
+  /// (Settings card, onboarding step) is visible. Reference-counted: each call
+  /// adds one visible surface and returns its release callback. The timer runs
+  /// while at least one surface holds a reference and stops with the last
+  /// release. The interval of the first caller applies. Release is idempotent.
+  void Function() watchWhileVisible({
+    Duration interval = const Duration(seconds: 30),
+  }) {
+    _watchers++;
+    _watchTimer ??= Timer.periodic(interval, (_) => unawaited(check()));
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      _watchers--;
+      if (_watchers <= 0) {
+        _watchers = 0;
+        _watchTimer?.cancel();
+        _watchTimer = null;
+      }
+    };
+  }
+
   void _markSentToOsGrantFlow() {
-    if (state.sentToOsGrantFlow) return;
-    state = state.copyWith(sentToOsGrantFlow: true);
+    if (state.sentToOsGrantFlow && !state.backFromOsGrantFlow) return;
+    state = state.copyWith(sentToOsGrantFlow: true, backFromOsGrantFlow: false);
   }
 
   /// Repeatedly runs [check] (without prompting) until the capability turns
@@ -858,26 +985,37 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     return result;
   }
 
-  /// The single recovery the failure-moment surfaces (failed-paste OS
-  /// notification, in-app paste-failure toast) hand the user on a build where
-  /// [grantRequiresEntryReset] holds: clear the stale TCC entry, then re-enter
-  /// the grant flow so macOS asks against the binary that is actually running.
+  /// Clears the stale Accessibility entry — the only reset path in the app.
+  ///
+  /// Runs only when [staleEntryResetCandidate] holds AND [confirmReset]
+  /// resolves `true`. [confirmReset] is asked before the reset, so the user
+  /// always sees the dialog first. A missing [confirmReset] (no UI available)
+  /// means no reset. Returns `null` when nothing was reset.
+  Future<TccRepairResult?> resetStaleEntry({
+    Future<bool> Function()? confirmReset,
+  }) async {
+    if (!staleEntryResetCandidate || confirmReset == null) return null;
+    if (!await confirmReset()) return null;
+    return repair();
+  }
+
+  /// Resets a stale entry (after confirmation, see [resetStaleEntry]), then
+  /// re-enters the grant flow so macOS asks against the binary that is
+  /// actually running. Without evidence of a stale entry this is a plain
+  /// [requestGrant]: no reset, no dialog.
   ///
   /// Composed here rather than at the call sites so the ordering is not
-  /// optional. [repair] must complete before [requestGrant] — fire both and
-  /// the prompt binds against the entry that is about to be deleted, which is
-  /// the stale state we were trying to leave. Keeping it on the notifier also
-  /// keeps [PasteCapabilityState.sentToOsGrantFlow] bookkeeping in one place.
+  /// optional. The reset must complete before [requestGrant] — fire both and
+  /// the prompt binds against the entry that is about to be deleted.
   ///
   /// The user still has to flip the toggle themselves; no API grants
-  /// Accessibility. What changes is that the row they land on is finally
-  /// honest — absent or off — instead of an already-enabled row that reads as
-  /// "nothing to do here".
+  /// Accessibility.
   Future<void> repairAndRequestGrant({
+    Future<bool> Function()? confirmReset,
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
   }) async {
-    await repair();
+    await resetStaleEntry(confirmReset: confirmReset);
     await requestGrant(pollInterval: pollInterval, pollTimeout: pollTimeout);
   }
 
@@ -894,13 +1032,17 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// report time would run yesterday's recovery.
   ///
   /// The arms are ordered by how much they assume. A pending restart is the
-  /// narrowest, most certain case, so it wins; the entry reset only applies
-  /// where a live probe rules out the "this process can't see the grant yet"
-  /// reading (see [grantRequiresEntryReset]); the Settings deep-link is the
-  /// fallback that assumes nothing.
-  Future<void> runMissingPermissionRecovery() {
+  /// narrowest, most certain case, so it wins. A stale entry (see
+  /// [staleEntryResetCandidate]) offers the confirmed reset. Everything else
+  /// is a Settings deep-link with no reset, because a switch that was never
+  /// turned on needs nothing but the link.
+  Future<void> runMissingPermissionRecovery({
+    Future<bool> Function()? confirmReset,
+  }) {
     if (needsRestart) return restartForGrant();
-    if (grantRequiresEntryReset) return repairAndRequestGrant();
+    if (staleEntryResetCandidate) {
+      return repairAndRequestGrant(confirmReset: confirmReset);
+    }
     return openAccessibilitySettings();
   }
 
@@ -949,6 +1091,8 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     _pollTimeout?.cancel();
     _pollTimeout = null;
     _pollStopwatch = null;
+    _watchTimer?.cancel();
+    _watchTimer = null;
   }
 
   void _disposePolling({_PollEnd reason = _PollEnd.cancelled}) {
@@ -1020,9 +1164,9 @@ enum _PollEnd { cancelled, success, timeout }
 
 /// Stable, PII-free platform tag for breadcrumbs.
 String _platformTag() {
-  if (Platform.isMacOS) return 'macos';
-  if (Platform.isWindows) return 'windows';
-  if (Platform.isLinux) return 'linux';
+  if (defaultTargetPlatform == TargetPlatform.macOS) return 'macos';
+  if (defaultTargetPlatform == TargetPlatform.windows) return 'windows';
+  if (defaultTargetPlatform == TargetPlatform.linux) return 'linux';
   return 'unknown';
 }
 

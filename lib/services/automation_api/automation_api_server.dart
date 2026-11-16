@@ -1,5 +1,4 @@
-/// Loopback-only HTTP transport for the local automation API (ticket 03,
-/// `internal-notes`).
+/// Loopback-only HTTP transport for the local automation API.
 ///
 /// Binds exclusively to IPv4 and IPv6 loopback (`127.0.0.1` / `::1`) — never
 /// to a wildcard/public interface, and never configurable to one. The IPv6

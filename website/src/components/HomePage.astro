@@ -90,6 +90,7 @@ const { lang } = Astro.props;
 
   <script>
     import { applyLang } from '../scripts/lang-switch';
+    import { closestFromTarget } from '../scripts/event-target';
 
     const reveal = (el: Element) => el.classList.add('visible');
     const observer = new IntersectionObserver(
@@ -116,7 +117,7 @@ const { lang } = Astro.props;
     if (matchMedia('(hover: hover)').matches) {
       document.querySelectorAll<HTMLElement>(SPOT_CARDS).forEach((el) => el.classList.add('wp-spot'));
       document.addEventListener('pointermove', (e) => {
-        const card = (e.target as Element | null)?.closest<HTMLElement>('.wp-spot');
+        const card = closestFromTarget<HTMLElement>(e.target, '.wp-spot');
         if (!card) return;
         const r = card.getBoundingClientRect();
         card.style.setProperty('--mx', `${e.clientX - r.left}px`);

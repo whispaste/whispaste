@@ -23,8 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the feedback form and History's note rows — in five different geometries.
 /// They now render `WpTextField`'s `form` variant (a field standing alone
 /// under its own label) or `embedded` (a field inside a row the caller draws
-/// because that row also holds its save/cancel buttons), and their shared
-/// geometry is measured in `form_field_geometry_consistency_test.dart`.
+/// because that row also holds its save/cancel buttons).
 ///
 /// What is left below is therefore the whole list, not a to-do: the three
 /// components and a debug-only entry point. A new name here is a regression
@@ -44,6 +43,12 @@ void main() {
       // Debug-only entry point, never shipped in a user-facing build (same
       // exemption as the dialog guard).
       'lib/main_smart_mode_debug.dart': 'debug harness, exempt by design',
+
+      // The long-note editor (#641) edits one row of a list at a time: the
+      // field has to be bare inside the shared WpTextFieldSurface, with the
+      // exact style WpTextField.styleFor gives the plain rows around it.
+      'lib/features/notes/widgets/long_note_editor.dart':
+          'one row of the long-note editor, styled by WpTextField.styleFor',
     };
 
     // Constructor-shaped: `\b` keeps this off identifiers that merely
@@ -87,6 +92,7 @@ void main() {
       'lib/widgets/wp_search_field.dart',
       'lib/widgets/tag_input.dart',
       'lib/main_smart_mode_debug.dart',
+      'lib/features/notes/widgets/long_note_editor.dart',
     };
 
     final rawTextFieldPattern = RegExp(

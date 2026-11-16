@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "side_panel_window.h"
@@ -85,6 +86,8 @@ class SidePanelHost {
   void HandleMethodCall(FlMethodCall* method_call);
   void HandleUpdateSnapshot(FlValue* args);
   void Destroy();
+  // Drops sensors/panel/render state but keeps channels (setting off).
+  void Teardown();
 
   // ── Render engine / content shell (lazy, 2nd engine) ──────────────────
   std::unique_ptr<SidePanelContentWindow> content_window_;
@@ -103,6 +106,16 @@ class SidePanelHost {
   std::vector<std::unique_ptr<SidePanelSensorWindow>> sensors_;
   gulong monitor_added_handler_id_ = 0;
   gulong monitor_removed_handler_id_ = 0;
+  // Sensors exist only between the first updateSnapshot (panel enabled,
+  // onboarding done) and "destroy" (issue #967).
+  bool sensors_armed_ = false;
+  guint rebuild_idle_id_ = 0;
+  std::string work_area_signature_;
+  std::vector<std::pair<GdkMonitor*, gulong>> monitor_notify_ids_;
+  void DisconnectMonitorNotifies();
+  std::string WorkAreaSignature() const;
+  static void OnMonitorGeometryChanged(GObject* monitor, GParamSpec* pspec,
+                                       gpointer user_data);
   static void OnMonitorChanged(GdkDisplay* display, GdkMonitor* monitor,
                                 gpointer user_data);
 

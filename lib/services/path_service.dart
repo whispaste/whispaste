@@ -13,7 +13,36 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
         modelFilenames,
         resolveModelFilename,
         appDataDir,
+        appDataFolderName,
+        isLocalBuild,
         sttDir,
         retainedAudioDir,
+        userAudioRootDir,
         whisperServerPath,
         sttModelPath;
+
+import 'package:path/path.dart' as p;
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show appDataDir, retainedAudioDir, userAudioRootDir;
+
+/// Scratch root for audio imports (decoded and copied source files of
+/// in-flight jobs). Under [userAudioRootDir], so on Windows it stays out of
+/// the roaming profile like all user audio.
+String importsRootDir() => p.join(userAudioRootDir(), 'imports');
+
+/// Paths the forgot-PIN wipe could not remove, applied at the next start.
+String pendingWipeFile() => p.join(appDataDir(), 'pending-wipe.json');
+
+/// Audio of dictations whose history save failed, kept until a retry in a
+/// later session succeeds (see `PendingAudioQueue`).
+String pendingAudioDir() => p.join(userAudioRootDir(), 'pending-audio');
+
+/// Every directory that holds user audio. Single source for all factory-reset
+/// entry points (UI coordinator and the monolithic reset): retained WAVs and
+/// their recovery journal, import scratch copies of source files, and audio
+/// waiting for a history save.
+List<String> userAudioDirectories() => [
+  retainedAudioDir(),
+  importsRootDir(),
+  pendingAudioDir(),
+];

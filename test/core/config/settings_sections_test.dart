@@ -7,6 +7,48 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 
 void main() {
+  group('PrivacySettings.retainedAudioCount', () {
+    test('existing users keep 20 and persisted choices round-trip', () {
+      expect(PrivacySettings.fromMap({}).retainedAudioCount, 20);
+      for (final count in kRetainedAudioCountStages) {
+        final chosen = PrivacySettings.defaults.copyWith(
+          retainedAudioCount: count,
+        );
+        expect(PrivacySettings.fromMap(chosen.toMap()), chosen);
+      }
+    });
+
+    test('malformed and out-of-range stored values are safe', () {
+      for (final (raw, expected) in [
+        ('bad', 20),
+        ('0', 5),
+        ('-1', 5),
+        ('101', 100),
+      ]) {
+        expect(
+          PrivacySettings.fromMap({
+            'retained_audio_count': raw,
+          }).retainedAudioCount,
+          expected,
+        );
+      }
+    });
+  });
+
+  group('SttSettings.idleTimeoutMinutes', () {
+    test('defaults to 0 (keep the speech model loaded)', () {
+      expect(SttSettings.defaults.idleTimeoutMinutes, 0);
+    });
+
+    test('an explicitly stored value wins over the default', () {
+      final settings = SttSettings.fromMap({
+        ...SttSettings.defaults.toMap(),
+        'stt_idle_timeout_minutes': '5',
+      });
+      expect(settings.idleTimeoutMinutes, 5);
+    });
+  });
+
   group('SttSettings.numericOnlyMode', () {
     test('defaults to false', () {
       expect(SttSettings.defaults.numericOnlyMode, isFalse);
@@ -126,62 +168,40 @@ void main() {
     });
   });
 
-  group('OnboardingSettings.seenFeatureSpotlightIds', () {
-    test('defaults to the empty string', () {
-      expect(OnboardingSettings.defaults.seenFeatureSpotlightIds, '');
+  group('SttSettings.spokenPunctuation', () {
+    test('defaults to off', () {
+      expect(SttSettings.defaults.spokenPunctuation, isFalse);
     });
 
-    test('toMap -> fromMap round-trip preserves a comma-separated id list', () {
-      const settings = OnboardingSettings(seenFeatureSpotlightIds: 'a,b,c');
-      final restored = OnboardingSettings.fromMap(settings.toMap());
-      expect(restored.seenFeatureSpotlightIds, 'a,b,c');
+    test('round-trips through toMap/fromMap', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.spokenPunctuation, isTrue);
     });
 
-    test('toMap -> fromMap round-trip preserves the empty default', () {
-      const settings = OnboardingSettings();
-      final restored = OnboardingSettings.fromMap(settings.toMap());
-      expect(restored.seenFeatureSpotlightIds, '');
+    test('is persisted under stt_spoken_punctuation', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      expect(settings.toMap()['stt_spoken_punctuation'], 'true');
     });
 
-    test('missing key in map falls back to the default (empty string)', () {
-      final map = Map<String, String>.from(OnboardingSettings.defaults.toMap())
-        ..remove('seen_feature_spotlight_ids');
-      final restored = OnboardingSettings.fromMap(map);
-      expect(restored.seenFeatureSpotlightIds, '');
+    test('a missing key reads as off', () {
+      final map = const SttSettings().toMap()..remove('stt_spoken_punctuation');
+      expect(SttSettings.fromMap(map).spokenPunctuation, isFalse);
     });
 
-    test('copyWith(seenFeatureSpotlightIds: ...) changes no other field', () {
-      const original = OnboardingSettings();
-      final updated = original.copyWith(seenFeatureSpotlightIds: 'x');
-
-      expect(updated.seenFeatureSpotlightIds, 'x');
-      expect(updated.onboardingCompleted, original.onboardingCompleted);
-      expect(
-        updated.autoPasteOffHintDismissed,
-        original.autoPasteOffHintDismissed,
-      );
-      expect(updated.onboardingCurrentStep, original.onboardingCurrentStep);
-      expect(updated.onboardingFlowVersion, original.onboardingFlowVersion);
-      expect(
-        updated.onboardingContentVersion,
-        original.onboardingContentVersion,
-      );
+    test('copyWith changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(spokenPunctuation: true);
+      expect(updated.spokenPunctuation, isTrue);
+      expect(updated.copyWith(spokenPunctuation: false), original);
     });
 
-    test('copyWith() without arguments keeps the previous value', () {
-      const original = OnboardingSettings(seenFeatureSpotlightIds: 'x');
-      final updated = original.copyWith();
-      expect(updated.seenFeatureSpotlightIds, 'x');
+    test('two instances differing only in spokenPunctuation are unequal', () {
+      const a = SttSettings(spokenPunctuation: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
     });
-
-    test(
-      'two instances differing only in seenFeatureSpotlightIds are unequal',
-      () {
-        const a = OnboardingSettings(seenFeatureSpotlightIds: 'a');
-        const b = OnboardingSettings(seenFeatureSpotlightIds: 'b');
-        expect(a == b, isFalse);
-      },
-    );
   });
 
   group('AutomationApiSettings.enabled', () {
@@ -272,6 +292,23 @@ void main() {
       const a = AutomationApiSettings(customPort: 9000);
       const b = AutomationApiSettings(customPort: 9001);
       expect(a == b, isFalse);
+    });
+  });
+
+  group('OnboardingSettings.dataKeyExplained', () {
+    test('defaults to false (existing installations get the explanation)', () {
+      expect(OnboardingSettings.fromMap(const {}).dataKeyExplained, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      final original = OnboardingSettings.fromMap(
+        const {},
+      ).copyWith(dataKeyExplained: true);
+      expect(
+        OnboardingSettings.fromMap(original.toMap()).dataKeyExplained,
+        isTrue,
+      );
+      expect(original.toMap()['data_key_explained'], 'true');
     });
   });
 }

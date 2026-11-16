@@ -1,60 +1,18 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
+import { featuredIndex, loadTestimonials, starCount } from '../scripts/testimonials.ts';
 
 const lang = currentLocale(Astro.currentLocale);
 
-// Testimonials.astro — Fetches approved testimonials at BUILD TIME (SSG).
-// Uses PostgREST directly (no Edge Function) — zero invocations against the
-// Supabase free-tier limit. Data is baked into static HTML at deploy time.
-
-// Supabase anon key: safe to embed in SSG source (public by design — security
-// enforced by the public_testimonials view + RLS, not by key secrecy).
-const SUPABASE_URL = 'https://cnyniyflnefxrwafuqig.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueW5peWZsbmVmeHJ3YWZ1cWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5Njc0OTIsImV4cCI6MjA5MDU0MzQ5Mn0.f3xBLIwq1a4LMwV9cmpebzLoYzNJfxxiOTWBl7Pxl3w';
-
-// PostgREST endpoint for the public_testimonials view (rating, text only — no PII).
-const API_URL =
-  `${SUPABASE_URL}/rest/v1/public_testimonials` +
-  `?select=rating,text&order=received_at.desc&limit=6`;
-
-interface Testimonial {
-  rating: number;
-  text: string;
-}
-
-let testimonials: Testimonial[] = [];
-
-try {
-  const res = await fetch(API_URL, {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-  });
-  if (res.ok) {
-    const data = await res.json();
-    // PostgREST returns an array directly (no wrapper object). The rating
-    // gate (uncurated text needs rating >= 4; curated text bypasses it) is
-    // already enforced server-side by the public_testimonials view — no
-    // need to re-check it here, and doing so would silently re-exclude
-    // curated low-rating testimonials the view now deliberately allows.
-    testimonials = (Array.isArray(data) ? data : []).filter(
-      (t: Testimonial) => !!t.text
-    );
-  }
-} catch {
-  // Build continues without testimonials — section stays hidden
-}
+// Testimonials.astro — approved in-app feedback from the WhisPaste API, read at
+// BUILD TIME (SSG) and baked into static HTML at deploy time (scripts/testimonials.ts).
+const testimonials = await loadTestimonials();
 
 // Pangram principle (tone, not motif): a few big quote tiles in different
 // tones instead of a uniform card wall. The longest quote leads as a dark
 // panel spanning two columns and rows; every third other tile is tinted.
-const featured = testimonials.reduce(
-  (best, item, i) => (item.text.length > testimonials[best].text.length ? i : best),
-  0,
-);
+const featured = featuredIndex(testimonials);
 const tone = (i: number) =>
   i === featured ? 'feature' : (i - (i > featured ? 1 : 0)) % 3 === 1 ? 'tint' : 'plain';
 
@@ -79,7 +37,7 @@ function escapeHtml(s: string): string {
 
       <div class="testimonial-grid" data-testid="testimonials-grid">
         {testimonials.map((item, i) => {
-          const r = Math.max(0, Math.min(5, Math.round(item.rating) || 0));
+          const r = starCount(item.rating);
           return (
             <figure
               class={`testimonial-card testimonial-card--${tone(i)}`}

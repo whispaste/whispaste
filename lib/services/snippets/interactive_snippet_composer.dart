@@ -1,9 +1,8 @@
 /// Composes an interactive snippet's collected field transcripts into the
 /// single text that gets pasted/copied, exactly as if it were a normal
-/// recording's result (originally `internal-notes`,
-/// "Ausgabe-Format" — a fixed heading-per-field layout; superseded by a
-/// user-authored template so fields can be placed anywhere in the user's own
-/// wording instead).
+/// recording's result. (Originally a
+/// fixed heading-per-field layout; superseded by a user-authored template so
+/// fields can be placed anywhere in the user's own wording instead.)
 library;
 
 /// The placeholder token a template must contain for [fieldName]'s dictated

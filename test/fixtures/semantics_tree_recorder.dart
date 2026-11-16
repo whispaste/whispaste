@@ -1,6 +1,6 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Test binding that mirrors every semantics update into a [SemanticsTreeRecorder]
@@ -15,17 +15,36 @@ import 'package:flutter_test/flutter_test.dart';
 /// listening, which is why the crash is machine-dependent; this binding makes
 /// the defect visible in a plain `flutter test`.
 ///
-/// Must be created before any other binding — call [ensureInitialized] at the
-/// top of `main()`.
+/// test/flutter_test_config.dart creates it as the binding of every test file
+/// ([install]), because the binding must exist before the tests register (it
+/// carries their time limit) and only one binding can exist. Recording stays
+/// off until a test file calls [ensureInitialized] at the top of `main()`;
+/// until then it behaves like [AutomatedTestWidgetsFlutterBinding].
 class SemanticsRecordingBinding extends AutomatedTestWidgetsFlutterBinding {
   SemanticsRecordingBinding._();
 
-  static SemanticsRecordingBinding ensureInitialized() {
+  /// Creates the binding without recording; returns the existing one.
+  static SemanticsRecordingBinding install() {
     if (_instance == null) SemanticsRecordingBinding._();
     return _instance!;
   }
 
+  /// Turns recording on for this test file (each file runs in its own
+  /// isolate, so other files are not affected).
+  static SemanticsRecordingBinding ensureInitialized() =>
+      install().._recording = true;
+
   static SemanticsRecordingBinding? _instance;
+
+  bool _recording = false;
+
+  /// Tests stay silent (#1491): the binding puts this into [debugPrint] at
+  /// start and before every test, and checks after every test that it is
+  /// still there. Replacing [debugPrint] from outside the binding instead
+  /// failed the first test of each file ("The value of a foundation debug
+  /// variable was changed by the test") and made the rest loud again.
+  @override
+  DebugPrintCallback get debugPrintOverride => silentDebugPrint;
 
   @override
   void initInstances() {
@@ -36,8 +55,9 @@ class SemanticsRecordingBinding extends AutomatedTestWidgetsFlutterBinding {
   final SemanticsTreeRecorder recorder = SemanticsTreeRecorder();
 
   @override
-  ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() =>
-      _RecordingUpdateBuilder(super.createSemanticsUpdateBuilder(), recorder);
+  ui.SemanticsUpdateBuilder createSemanticsUpdateBuilder() => _recording
+      ? _RecordingUpdateBuilder(super.createSemanticsUpdateBuilder(), recorder)
+      : super.createSemanticsUpdateBuilder();
 }
 
 /// Accumulates incremental semantics updates into a parent → children map,
@@ -115,3 +135,7 @@ class _RecordingUpdateBuilder implements ui.SemanticsUpdateBuilder {
     return super.noSuchMethod(invocation);
   }
 }
+
+/// The [debugPrint] of every test (#1491): drops the line. Tests that assert
+/// on debug output install their own hook and restore this one.
+void silentDebugPrint(String? message, {int? wrapWidth}) {}

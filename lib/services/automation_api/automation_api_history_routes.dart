@@ -1,12 +1,11 @@
-/// Route group: read the most-recently-transcribed history entry (ticket
-/// 04, `internal-notes`).
+/// Route group: read the most-recently-transcribed history entry.
 ///
 /// A new file rather than an addition to `automation_api_router.dart` — that
 /// file's doc comment defines [AutomationApiRouteGroup] as the seam this
 /// ticket hangs its routes on precisely so it never needs to be touched.
 /// Pure orchestration, same as `dictationTriggerRoutes`: [fetchLatestEntry]
 /// is supplied by `AutomationApiController`, which builds it from the
-/// existing `historyEntriesProvider` (recency ordering) and
+/// existing `historyHeadProvider(1)` (recency ordering) and
 /// `historyDetailProvider` (the entry's full detail) — no history query
 /// logic is duplicated here.
 library;

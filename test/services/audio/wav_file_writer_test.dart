@@ -33,8 +33,8 @@ class _RafLikeSink implements PcmSink {
     }
     _busy = true;
     try {
-      // Force a real async gap so overlapping callers are actually caught.
-      await Future<void>.delayed(const Duration(milliseconds: 2));
+      // Force an event-loop gap so overlapping callers are actually caught.
+      await Future<void>.delayed(Duration.zero);
       return await op();
     } finally {
       _busy = false;

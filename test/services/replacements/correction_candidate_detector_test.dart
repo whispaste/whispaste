@@ -1,50 +1,211 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/replacements/correction_candidate_detector.dart';
-import 'package:whispaste/services/replacements/correction_signal.dart';
-
-CorrectionSignal _signal(
-  String source,
-  String target, {
-  DateTime? at,
-  CorrectionSignalSource source_ = CorrectionSignalSource.voiceCommand,
-}) => CorrectionSignal(
-  sourceText: source,
-  targetText: target,
-  timestamp: at ?? DateTime(2026, 1, 1),
-  source: source_,
-);
 
 void main() {
   group('normalizeCorrectionKey', () {
-    test('is case-insensitive', () {
+    test('ignores case and whitespace runs', () {
       expect(
-        normalizeCorrectionKey('Teh', 'The'),
-        normalizeCorrectionKey('teh', 'the'),
-      );
-    });
-
-    test('differs when either side differs', () {
-      expect(
-        normalizeCorrectionKey('teh', 'the'),
-        isNot(normalizeCorrectionKey('teh', 'them')),
-      );
-      expect(
-        normalizeCorrectionKey('teh', 'the'),
-        isNot(normalizeCorrectionKey('hte', 'the')),
-      );
-    });
-
-    test('collapses whitespace differences', () {
-      expect(
-        normalizeCorrectionKey('foo  bar', 'baz'),
+        normalizeCorrectionKey('Foo  Bar', 'Baz'),
         normalizeCorrectionKey('foo bar', 'baz'),
+      );
+    });
+
+    test('keeps "a b" -> "c" apart from "a" -> "b c"', () {
+      expect(
+        normalizeCorrectionKey('a b', 'c'),
+        isNot(normalizeCorrectionKey('a', 'b c')),
       );
     });
   });
 
-  group('applyCorrectionSignal — threshold behavior', () {
-    test('a single observation does not become a candidate', () {
-      final outcome = applyCorrectionSignal(_signal('teh', 'the'), null);
+  group('extractCorrectionCandidates', () {
+    test('a single misspelled word yields one word-level pair', () {
+      final pairs = extractCorrectionCandidates(
+        before: 'We deploy Kubernetis tomorrow.',
+        after: 'We deploy Kubernetes tomorrow.',
+      );
+
+      expect(pairs, [
+        const CorrectionCandidatePair(
+          sourceText: 'Kubernetis',
+          targetText: 'Kubernetes',
+        ),
+      ]);
+    });
+
+    test('case-only change yields nothing', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'hello world',
+          after: 'Hello world',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('punctuation-only change yields nothing', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'see Kubernetes here',
+          after: 'see Kubernetes here.',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a rewrite of more than four changed words is dropped', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'alpha bravo charlie delta echo foxtrot',
+          after: 'one two three four five six',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a pure insertion has nothing to replace', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'the meeting ends',
+          after: 'the big meeting ends',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a pair of stop words only is dropped', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'das ist gut',
+          after: 'die ist gut',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('a pure number as source is dropped, a number as target is kept', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'Platz 1 frei',
+          after: 'Platz 2 frei',
+        ),
+        isEmpty,
+      );
+      expect(
+        extractCorrectionCandidates(before: 'drei Teile', after: '3 Teile'),
+        [const CorrectionCandidatePair(sourceText: 'drei', targetText: '3')],
+      );
+    });
+
+    test('a phrase longer than the limit is dropped', () {
+      final long = 'a' * (correctionMaxPhraseChars + 1);
+      expect(
+        extractCorrectionCandidates(before: 'x $long y', after: 'x zz y'),
+        isEmpty,
+      );
+    });
+
+    test('unspaced CJK text is dropped', () {
+      expect(
+        extractCorrectionCandidates(before: '你好世界吗', after: '你好地界吗'),
+        isEmpty,
+      );
+    });
+
+    test('empty input yields nothing', () {
+      expect(extractCorrectionCandidates(before: '', after: ''), isEmpty);
+      expect(
+        extractCorrectionCandidates(before: '', after: 'hallo welt'),
+        isEmpty,
+      );
+    });
+
+    test('at most two candidates, names and technical terms first', () {
+      final pairs = extractCorrectionCandidates(
+        before: 'alpha gamma wispaste theta delta kappa',
+        after: 'beta gamma WhisPaste theta epsilon kappa',
+      );
+
+      expect(pairs, hasLength(correctionMaxCandidatesPerCorrection));
+      expect(pairs.first.targetText, 'WhisPaste');
+    });
+
+    test(
+      'a typo fixed to a stop word is kept, a stop word replaced is not',
+      () {
+        expect(
+          extractCorrectionCandidates(before: 'teh cat', after: 'the cat'),
+          [const CorrectionCandidatePair(sourceText: 'teh', targetText: 'the')],
+        );
+        expect(
+          extractCorrectionCandidates(before: 'the cat', after: 'teh cat'),
+          isEmpty,
+        );
+      },
+    );
+
+    test('Unicode words are compared and kept', () {
+      expect(
+        extractCorrectionCandidates(
+          before: 'Die Grüße kommen',
+          after: 'Die Grüsse kommen',
+        ),
+        [
+          const CorrectionCandidatePair(
+            sourceText: 'Grüße',
+            targetText: 'Grüsse',
+          ),
+        ],
+      );
+    });
+  });
+
+  group('isDuplicateCorrectionCandidate', () {
+    const pair = CorrectionCandidatePair(
+      sourceText: 'teh',
+      targetText: 'Kubernetes',
+    );
+
+    test('a source that is already a trigger is a duplicate', () {
+      expect(
+        isDuplicateCorrectionCandidate(
+          pair,
+          existingTriggers: {'teh'},
+          existingTerms: const {},
+        ),
+        isTrue,
+      );
+    });
+
+    test('a target that is already a term is a duplicate, case ignored', () {
+      expect(
+        isDuplicateCorrectionCandidate(
+          pair,
+          existingTriggers: const {},
+          existingTerms: {'kubernetes'},
+        ),
+        isTrue,
+      );
+    });
+
+    test('an unrelated pair is not a duplicate', () {
+      expect(
+        isDuplicateCorrectionCandidate(
+          pair,
+          existingTriggers: {'other'},
+          existingTerms: {'other'},
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('applyCorrectionCandidate', () {
+    const pair = CorrectionCandidatePair(sourceText: 'teh', targetText: 'the');
+    final t0 = DateTime(2026, 1, 1);
+
+    test('the first occurrence is pending and not yet a candidate', () {
+      final outcome = applyCorrectionCandidate(pair, t0, null);
 
       expect(outcome.observation.occurrenceCount, 1);
       expect(outcome.observation.status, CorrectionObservationStatus.pending);
@@ -52,77 +213,72 @@ void main() {
       expect(isCorrectionCandidate(outcome.observation), isFalse);
     });
 
-    test(
-      'the second observation of the same correction becomes a candidate',
-      () {
-        final first = applyCorrectionSignal(_signal('teh', 'the'), null);
-        final second = applyCorrectionSignal(
-          _signal('teh', 'the'),
-          first.observation,
-        );
+    test('the second occurrence crosses the threshold exactly once', () {
+      final first = applyCorrectionCandidate(pair, t0, null);
+      final second = applyCorrectionCandidate(pair, t0, first.observation);
+      final third = applyCorrectionCandidate(pair, t0, second.observation);
 
-        expect(second.observation.occurrenceCount, 2);
-        expect(second.becameCandidate, isTrue);
-        expect(isCorrectionCandidate(second.observation), isTrue);
-      },
-    );
-
-    test('becameCandidate is only true on the crossing observation', () {
-      var observation = applyCorrectionSignal(
-        _signal('teh', 'the'),
-        null,
-      ).observation;
-      observation = applyCorrectionSignal(
-        _signal('teh', 'the'),
-        observation,
-      ).observation; // -> candidate here
-      final third = applyCorrectionSignal(_signal('teh', 'the'), observation);
-
-      expect(third.observation.occurrenceCount, 3);
+      expect(second.becameCandidate, isTrue);
+      expect(isCorrectionCandidate(second.observation), isTrue);
       expect(third.becameCandidate, isFalse);
-      expect(isCorrectionCandidate(third.observation), isTrue);
+      expect(third.observation.occurrenceCount, 3);
     });
 
-    test('tracks the most recent original-case text', () {
-      final first = applyCorrectionSignal(_signal('Teh', 'The'), null);
-      final second = applyCorrectionSignal(
-        _signal('TEH', 'THE'),
+    test('an occurrence exactly at the decay window still counts', () {
+      final first = applyCorrectionCandidate(pair, t0, null);
+      final second = applyCorrectionCandidate(
+        pair,
+        t0.add(correctionDecayWindow),
         first.observation,
       );
 
-      expect(second.observation.sourceText, 'TEH');
-      expect(second.observation.targetText, 'THE');
+      expect(second.becameCandidate, isTrue);
     });
-  });
 
-  group('applyCorrectionSignal — rejected/accepted are frozen', () {
-    test('a rejected observation is never re-counted toward candidacy', () {
-      const rejected = CorrectionObservation(
-        sourceText: 'teh',
-        targetText: 'the',
-        occurrenceCount: 5,
-        status: CorrectionObservationStatus.rejected,
+    test('an observation older than the decay window starts again at 1', () {
+      final first = applyCorrectionCandidate(pair, t0, null);
+      final later = applyCorrectionCandidate(
+        pair,
+        t0.add(correctionDecayWindow + const Duration(days: 1)),
+        first.observation,
       );
 
-      final outcome = applyCorrectionSignal(_signal('teh', 'the'), rejected);
-
-      expect(outcome.observation, rejected);
-      expect(outcome.becameCandidate, isFalse);
-      expect(isCorrectionCandidate(outcome.observation), isFalse);
+      expect(later.observation.occurrenceCount, 1);
+      expect(later.becameCandidate, isFalse);
     });
 
-    test('an accepted observation is left untouched by further repeats', () {
-      const accepted = CorrectionObservation(
+    test('an accepted observation is returned unchanged', () {
+      final accepted = CorrectionObservation(
         sourceText: 'teh',
         targetText: 'the',
         occurrenceCount: 2,
         status: CorrectionObservationStatus.accepted,
+        lastSeenAt: t0,
       );
 
-      final outcome = applyCorrectionSignal(_signal('teh', 'the'), accepted);
+      final outcome = applyCorrectionCandidate(pair, t0, accepted);
 
       expect(outcome.observation, accepted);
       expect(outcome.becameCandidate, isFalse);
+    });
+
+    test('a rejected observation never comes back as a candidate', () {
+      final rejected = CorrectionObservation(
+        sourceText: 'teh',
+        targetText: 'the',
+        occurrenceCount: 2,
+        status: CorrectionObservationStatus.rejected,
+        lastSeenAt: t0,
+      );
+
+      final outcome = applyCorrectionCandidate(
+        pair,
+        t0.add(const Duration(days: 365)),
+        rejected,
+      );
+
+      expect(outcome.observation.status, CorrectionObservationStatus.rejected);
+      expect(isCorrectionCandidate(outcome.observation), isFalse);
     });
   });
 }

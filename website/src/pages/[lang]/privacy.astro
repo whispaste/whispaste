@@ -1,0 +1,49 @@
+---
+import LegalPage from "../../components/pages/LegalPage.astro";
+import { currentLocale, localePath, prefixedLocalePaths, t } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  // en has its own static page (en/privacy.astro); this route serves the other locales.
+  return prefixedLocalePaths().filter(({ params }) => params.lang !== "en");
+}
+
+const lang = currentLocale(Astro.params.lang);
+
+/**
+ * Translations of the German binding text (src/pages/datenschutz.astro).
+ * Each fragment starts with the note that the German version is binding.
+ */
+const bodies = import.meta.glob<string>("../../legal/privacy/*.html", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+const body = bodies[`../../legal/privacy/${lang}.html`];
+
+/** Heading of the table of contents, in the page language. */
+const tocLabels: Record<string, string> = {
+  es: "Contenido",
+  pt: "Conteúdo",
+  it: "Indice",
+  ru: "Содержание",
+  zh: "目录",
+  fr: "Sommaire",
+};
+
+const breadcrumbItems = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.privacy"), item: localePath(lang, "privacy") },
+];
+---
+
+<LegalPage
+  lang={lang}
+  metaTitle={t(lang, "meta.title.privacy")}
+  metaDescription={t(lang, "meta.description.privacy")}
+  title={t(lang, "breadcrumb.privacy")}
+  crumbs={breadcrumbItems}
+  tocLabel={tocLabels[lang]}
+  testid="legal-privacy"
+>
+  <Fragment set:html={body} />
+</LegalPage>

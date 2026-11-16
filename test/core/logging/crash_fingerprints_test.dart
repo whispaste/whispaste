@@ -1,7 +1,7 @@
 /// Unit tests for the central crash-fingerprint inventory.
 ///
-/// These tests pin the canonical Sentry-fingerprint string values from
-/// `internal-notes` — Modul 6 „CrashFingerprint".
+/// These tests pin the canonical Sentry-fingerprint string values of
+/// the `CrashFingerprint` inventory.
 ///
 /// Goal: protect the inventory against silent renames or typos that would
 /// break Sentry issue grouping (the entire reason for the migration away

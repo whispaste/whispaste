@@ -28,6 +28,25 @@ void main() {
       final s = ClippingState(count: 5, recordingFinishedAt: DateTime.now());
       expect(s.shouldShowBanner, isTrue);
     });
+
+    // #1611: a single clipped sample is inaudible; the hint waits for 0.1 %.
+    test('a share below 0.1 % of the recording shows no banner', () {
+      const s = ClippingState(count: 15, sampleCount: 16000);
+      expect(s.shouldShowBanner, isFalse);
+    });
+
+    test('a share of 0.1 % or more shows the banner', () {
+      const s = ClippingState(count: 16, sampleCount: 16000);
+      expect(s.shouldShowBanner, isTrue);
+    });
+
+    test('the notifier keeps the sample count it was given', () {
+      final container = makeContainer();
+      container
+          .read(clippingStateProvider.notifier)
+          .reportRecordingFinished(1, sampleCount: 160000);
+      expect(container.read(clippingStateProvider).shouldShowBanner, isFalse);
+    });
   });
 
   group('ClippingStateNotifier', () {

@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {"path": "test", "run": "lab (fast run, affected tests via tool/lab_tests.dart, test_guard)", "file": ".internal forge/workflows/lab.yml", "needle": "dart tool/lab_tests.dart select"},
+    {"path": "packages/whispaste_diagnostics", "run": "lab/ubu package tests (test_guard)", "file": ".internal forge/workflows/lab.yml", "needle": "packages/whispaste_diagnostics"},
+    {"path": "packages/whispaste_gpu_probe", "run": "lab/ubu package tests (test_guard)", "file": ".internal forge/workflows/lab.yml", "needle": "packages/whispaste_gpu_probe"},
+    {"path": "packages/auto_updater_windows", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
+    {"path": "packages/hotkey_manager_linux", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
+    {"path": "linux/runner", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
+    {"path": "windows/runner", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
+    {"path": "scripts", "run": "lab shell helper tests", "file": ".internal forge/workflows/lab.yml", "needle": ".githooks/push-scope.test.sh"},
+    {"path": ".githooks", "run": "lab shell helper tests", "file": ".internal forge/workflows/lab.yml", "needle": ".githooks/push-scope.test.sh"},
+    {"path": "website/tests", "run": "lab-full website Playwright", "file": ".internal forge/workflows/lab-full.yml", "needle": "npm run test:ci"},
+    {"path": "website", "run": "lab website vitest", "file": ".internal forge/workflows/lab.yml", "needle": "npx vitest run"},
+    {"path": "supabase/tests", "run": "deliberate: bash supabase/tests/run_withdraw_cleanup.sh (native Postgres 16)", "file": "supabase/tests/run_withdraw_cleanup.sh", "needle": "bash supabase/tests/run_withdraw_cleanup.sh"},
+    {"path": "integration_test", "run": "lab-full lab/full-ubu (Xvfb, test_guard); 4 files headless-green, see PR #1449 for the rest", "file": ".internal forge/workflows/lab-full.yml", "needle": "integration_test/${t}_test.dart"},
+    {"path": "benchmarks", "run": "deliberate: wp-test.sh run <wt> --host mac benchmarks/<path>", "file": "benchmarks/README.md", "needle": "wp-test.sh run <worktree> --host mac benchmarks/<path>"},
+    {"path": "generators", "run": "deliberate: wp-test.sh run <wt> ... generators/<path>", "file": "generators/README.md", "needle": "generators/store/store_screenshots_test.dart"}
+  ]
+}

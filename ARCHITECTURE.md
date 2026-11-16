@@ -10,11 +10,11 @@ WhisPaste is a Flutter desktop app (macOS, Windows, Linux) with platform runners
 | `lib/features/` | UI feature modules, one folder each: `settings`, `history`, `notes`, `snippets`, `replacements`, `onboarding`, `recording`, `feedback`, `about`, `analytics` |
 | `lib/services/` | App logic without UI: hotkeys, audio capture, the recording pipeline, STT engines, Smart Mode, paste, tray, updates, the local automation API and the headless CLI |
 | `lib/widgets/` | Shared `Wp*` widgets plus the floating overlay, floating button and side panel views |
-| `macos/Runner/` | Swift hosts behind the platform channels (paste, clipboard monitor, floating windows, side panel, snippet picker, autostart, audio routing) |
-| `windows/runner/` | C++ Win32 hosts for the same channels, plus the RawInput keyboard monitor |
-| `linux/runner/` | C/GTK hosts for the same channels, plus the XInput2 / GlobalShortcuts portal keyboard monitor |
+| `macos/Runner/` | Swift hosts behind the platform channels (paste, clipboard monitor, floating windows, side panel, snippet picker, autostart, audio routing, system languages) |
+| `windows/runner/` | C++ Win32 hosts for the same channels, plus the RawInput keyboard monitor and the system languages host |
+| `linux/runner/` | C/GTK hosts for the same channels, plus the XInput2 / GlobalShortcuts portal keyboard monitor and the system languages host |
 | `native/smart_mode/` | C++ shim between Dart FFI and llama.cpp, used by on-device Smart Mode |
-| `test/`, `integration_test/` | Unit, widget and golden tests; integration tests |
+| `test/`, `integration_test/` | Unit and widget tests; integration tests |
 | `website/` | The Astro project website, separate from the app |
 
 State management is [Riverpod](https://riverpod.dev). Services are exposed as providers, and widgets read them through `ref`.
@@ -72,6 +72,7 @@ Native libraries are built from pinned sources and bundled with the app (see [BU
 | Flag | Implementation | Purpose |
 |---|---|---|
 | `--transcribe-file` | `services/headless/` | Transcribe a WAV file and report timings |
+| `--download-cuda-pack --accept-nvidia-eula` | `services/headless/` | Download the optional NVIDIA CUDA pack; refuses without the EULA flag |
 | `--diagnose` | `services/headless/` | Start probe for the package smoke tests |
 | `--toggle`, `--cancel` | single-instance service | Remote-control a running instance |
 

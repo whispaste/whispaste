@@ -1,17 +1,18 @@
-/// Widget tests for the `WpStatusBar` microphone quick-switch chip.
+/// Widget tests for the `WpRecordingDock` microphone choice, which lives in
+/// the Mehr menu (#374).
 ///
-/// The chip mirrors the tray submenu: visible only when real devices were
-/// enumerated, system-default entry first, and selection routed through the
-/// host callback (which wires it to `MicrophoneSelectionService`).
+/// It mirrors the tray submenu: visible only when real devices were
+/// enumerated, system-default entry first, the submenu names the current
+/// device, and selection is routed through the host callback (which wires it
+/// to `MicrophoneSelectionService`).
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/microphone_selection_service.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -32,7 +33,7 @@ void main() {
       Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          WpStatusBar(
+          WpRecordingDock(
             sttModeLabel: 'On device',
             sttState: SttServerState.ready,
             microphoneLabel: microphoneLabel,
@@ -61,9 +62,16 @@ void main() {
   });
 
   L10n l10nOf(WidgetTester tester) =>
-      L10n.of(tester.element(find.byType(WpStatusBar)));
+      L10n.of(tester.element(find.byType(WpRecordingDock)));
 
-  testWidgets('shows the localized system-default label when selected', (
+  Finder mehrEntry() => find.byKey(const ValueKey('dock-menu-microphone'));
+
+  Future<void> openMehr(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('dock-overflow')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('the row has no microphone selector; Mehr has the submenu', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -75,11 +83,27 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.mic), findsOneWidget);
-    expect(find.text(l10nOf(tester).settingsMicSystemDefault), findsOneWidget);
+    expect(find.byKey(const ValueKey('dock-microphone')), findsNothing);
+    await openMehr(tester);
+    expect(mehrEntry(), findsOneWidget);
   });
 
-  testWidgets('shows the raw device name when a device is selected', (
+  testWidgets('the submenu names the localized system default', (tester) async {
+    await tester.pumpWidget(
+      buildStatusBar(
+        microphoneLabel: micDefaultLabel,
+        microphoneOptions: options,
+        onChanged: (_) {},
+      ),
+    );
+    await tester.pump();
+    await openMehr(tester);
+
+    final l10n = l10nOf(tester);
+    expect(find.textContaining(l10n.settingsMicSystemDefault), findsOneWidget);
+  });
+
+  testWidgets('the submenu names the raw device when one is selected', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -90,11 +114,14 @@ void main() {
       ),
     );
     await tester.pump();
+    await openMehr(tester);
 
-    expect(find.text('Razer Seiren Mini'), findsOneWidget);
+    expect(find.textContaining('Razer Seiren Mini'), findsOneWidget);
   });
 
-  testWidgets('hides the chip when the host passes no options', (tester) async {
+  testWidgets('no microphone entry when the host passes no options', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       buildStatusBar(
         microphoneLabel: micDefaultLabel,
@@ -104,10 +131,11 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.mic), findsNothing);
+    expect(find.byKey(const ValueKey('dock-overflow')), findsNothing);
+    expect(mehrEntry(), findsNothing);
   });
 
-  testWidgets('opening the popup lists every option and reports onOpened', (
+  testWidgets('opening Mehr reports onOpened and the submenu lists options', (
     tester,
   ) async {
     var opened = 0;
@@ -120,8 +148,8 @@ void main() {
       ),
     );
     await tester.pump();
-
-    await tester.tap(find.text(l10nOf(tester).settingsMicSystemDefault));
+    await openMehr(tester);
+    await tester.tap(mehrEntry());
     await tester.pumpAndSettle();
 
     expect(opened, 1);
@@ -141,10 +169,10 @@ void main() {
       ),
     );
     await tester.pump();
-
-    await tester.tap(find.text(l10nOf(tester).settingsMicSystemDefault));
+    await openMehr(tester);
+    await tester.tap(mehrEntry());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Razer Seiren Mini'));
+    await tester.tap(find.byKey(const ValueKey('dock-menu-microphone-2')));
     await tester.pumpAndSettle();
 
     expect(selections, ['Razer Seiren Mini']);

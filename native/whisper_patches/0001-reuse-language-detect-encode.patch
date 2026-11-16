@@ -1,0 +1,37 @@
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+index 1675f33..d29444a 100644
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -6989,6 +6989,10 @@ int whisper_full_with_state(
+         }
+     }
+ 
++    // wpatch: the language detection below already encodes the window at offset 0
++    bool wp_encoded_at_zero = false;
++    int  wp_encoded_audio_ctx = 0;
++
+     // auto-detect language if not specified
+     if (params.language == nullptr || strlen(params.language) == 0 || strcmp(params.language, "auto") == 0 || params.detect_language) {
+         std::vector<float> probs(whisper_lang_max_id() + 1, 0.0f);
+@@ -7007,6 +7011,8 @@ int whisper_full_with_state(
+         }
+         state->lang_id = lang_id;
+         params.language = whisper_lang_str(lang_id);
++        wp_encoded_at_zero = true;
++        wp_encoded_audio_ctx = state->exp_n_audio_ctx;
+ 
+         WHISPER_LOG_INFO("%s: auto-detected language: %s (p = %f)\n", __func__, params.language, probs[whisper_lang_id(params.language)]);
+         if (params.detect_language) {
+@@ -7212,7 +7218,11 @@ int whisper_full_with_state(
+         }
+ 
+         // encode audio features starting at offset seek
+-        if (!whisper_encode_internal(*ctx, *state, seek, params.n_threads, params.abort_callback, params.abort_callback_user_data)) {
++        // wpatch: the detection pass just encoded this very window (same mel, same offset, same
++        // audio context), so its encoder output is still in the state: skip the second pass
++        const bool wp_reuse = wp_encoded_at_zero && seek == 0 && wp_encoded_audio_ctx == params.audio_ctx;
++        wp_encoded_at_zero = false;
++        if (!wp_reuse && !whisper_encode_internal(*ctx, *state, seek, params.n_threads, params.abort_callback, params.abort_callback_user_data)) {
+             WHISPER_LOG_ERROR("%s: failed to encode\n", __func__);
+             return -6;
+         }

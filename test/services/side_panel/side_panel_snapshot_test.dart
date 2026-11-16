@@ -45,9 +45,11 @@ void main() {
         snippets: [SidePanelRow(id: 's1', title: 'Snippet')],
         clipboardHistory: [SidePanelRow(id: 'c1', title: 'Clipboard')],
         edge: 'right',
+        clipboardLocked: true,
       );
       final restored = SidePanelSnapshot.fromMap(snapshot.toMap());
       expect(restored.visible, isTrue);
+      expect(restored.clipboardLocked, isTrue);
       expect(restored.transcriptions.single.id, 't1');
       expect(restored.snippets.single.id, 's1');
       expect(restored.clipboardHistory.single.id, 'c1');
@@ -60,6 +62,7 @@ void main() {
       expect(snapshot.transcriptions, isEmpty);
       expect(snapshot.snippets, isEmpty);
       expect(snapshot.clipboardHistory, isEmpty);
+      expect(snapshot.clipboardLocked, isFalse);
       expect(snapshot.edge, 'left');
     });
 

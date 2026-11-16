@@ -11,23 +11,22 @@
 /// design), this one *must* — its search field needs real keystrokes — so
 /// its root widget is a full `MaterialApp`/`Scaffold`, not the bare
 /// `Directionality` the gesture-only surfaces use. The `MaterialApp` carries
-/// the real WhisPaste theme (dark/light resolved from the persisted
-/// `theme_mode`, mirroring how `resolvePersistedL10n()` resolves copy), so
-/// the panel shares the main window's tokens without a Riverpod bridge.
+/// the real WhisPaste theme for the persisted appearance (AR-21, read from the
+/// appearance mirror the same way `resolvePersistedL10n()` reads the locale),
+/// so the panel shares the main window's tokens without a Riverpod bridge.
 ///
-/// The visible content is a floating glass panel in the app's Liquid-Glass
-/// language — the same no-blur glass recipe the recording overlay uses
-/// (top-down sheen, Fresnel inner band, drifting specular streak, top-lit
-/// rim; every constant from [OverlayDesignSpec], no constants of its own) —
-/// wrapped around a search field, a keyboard-navigable result list (arrows
+/// The visible content is a flat floating panel: one solid surface colour
+/// (the same flat language as the overlay pill and button), wrapped around a
+/// search field, a keyboard-navigable result list (arrows
 /// move a single *gliding* highlight, Enter inserts, Escape dismisses — a
 /// documented ticket AC) and a slim key-hint footer. The native `NSPanel` is
 /// transparent with `hasShadow = true`, so macOS draws the drop shadow
 /// around whatever rounded silhouette we paint here.
 library;
 
-import 'dart:math' as math;
-
+import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/search/search_ranker.dart';
+import 'core/sorting/list_sort.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show Bidi;
@@ -36,11 +35,15 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/overlay_design_spec.dart';
+import 'core/theme/persisted_appearance.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/tokens.dart';
+import 'services/snippet_picker/snippet_picker_protocol.dart';
 import 'services/snippet_picker/snippet_picker_render_channel.dart';
 import 'shared_render_engine_helpers.dart'
     show RenderEngineState, detachFromEmbedderAppLifecycle;
+import 'snippet_picker_field_preview.dart';
+import 'widgets/wp_icon_button.dart';
 import 'widgets/wp_search_field.dart';
 
 /// Private channel between the native picker shell and this render engine.
@@ -57,7 +60,7 @@ const String _renderChannelName = 'com.whispaste.snippet_picker_render';
 /// resolves the entrypoint name only against the root library. That thin
 /// entrypoint delegates here so the real wiring stays in this cohesive file.
 void runSnippetPickerEngine() {
-  WidgetsFlutterBinding.ensureInitialized();
+  WpRenderEngineBinding.ensureInitialized();
   // Root cause of the live "arrow keys don't visibly navigate the picker"
   // bug (verified 2026-08-13 with tagged debug instrumentation; the full log
   // evidence is in the fix commit's message): a bogus
@@ -68,27 +71,37 @@ void runSnippetPickerEngine() {
   // animation gating lives in [SnippetPickerBody.visible].
   detachFromEmbedderAppLifecycle();
   debugPrint('[snippet-picker-engine] runSnippetPickerEngine booted');
-  runApp(const _SnippetPickerRenderApp());
+  runApp(const SnippetPickerRenderApp());
 }
 
-class _SnippetPickerRenderApp extends StatefulWidget {
-  const _SnippetPickerRenderApp();
+/// The picker engine's root widget. Public only so a test can pump it with
+/// a mocked render channel; [runSnippetPickerEngine] is its one real caller.
+@visibleForTesting
+class SnippetPickerRenderApp extends StatefulWidget {
+  const SnippetPickerRenderApp({super.key});
 
   @override
-  State<_SnippetPickerRenderApp> createState() =>
-      _SnippetPickerRenderAppState();
+  State<SnippetPickerRenderApp> createState() => _SnippetPickerRenderAppState();
 }
 
 class _SnippetPickerRenderAppState
     extends
-        RenderEngineState<_SnippetPickerRenderApp, SnippetPickerRenderChannel> {
+        RenderEngineState<SnippetPickerRenderApp, SnippetPickerRenderChannel> {
   // English default until the persisted locale resolves (no `Localizations`
   // ancestor exists in a secondary engine — see `RenderEngineState` docs).
   _SnippetPickerRenderAppState()
     : super(lookupL10n(const Locale('en')).snippetsPickerSemanticsLabel);
 
   List<SnippetPickerRenderItem> _items = const [];
+
+  /// Search text the native shell pre-fills for this show ('' = none).
+  String _initialQuery = '';
   final _searchController = TextEditingController();
+
+  /// The colour set this engine paints with. Re-resolved from the appearance
+  /// mirror on every picker show, so a change in Settings reaches an engine
+  /// that was booted earlier (AR-21).
+  late WpThemeColors _colors;
 
   /// Lets [createChannel]'s `onSubmit` reach [SnippetPickerBody._submit]
   /// directly — the native shell's Return-key monitor bypasses the search
@@ -110,18 +123,35 @@ class _SnippetPickerRenderAppState
   /// flips it off. This engine is detached from the embedder's app
   /// lifecycle (see [detachFromEmbedderAppLifecycle]), so this flag is the
   /// only truthful visibility signal it has, and [SnippetPickerBody] gates
-  /// its continuous glass animations on it.
+  /// its entrance animation on it.
   bool _panelVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _colors = _resolveAppearance();
+  }
+
+  WpThemeColors _resolveAppearance() => resolvePersistedAppearance(
+    WidgetsBinding.instance.platformDispatcher.platformBrightness,
+  );
 
   @override
   SnippetPickerRenderChannel createChannel() => SnippetPickerRenderChannel(
     name: _renderChannelName,
-    onItems: (items) => setState(() {
+    onItems: (items, query) => setState(() {
       _items = items;
+      _initialQuery = query;
       _showGeneration++;
       _panelVisible = true;
+      _colors = _resolveAppearance();
+      // The engine lives for the whole app session; a language changed in
+      // the meantime reaches the panel (footer included) on the next show
+      // instead of after a restart (#1680).
+      refreshL10n();
     }),
-    onSubmit: () => _bodyKey.currentState?._submit(),
+    onSubmit: ({required sentence}) =>
+        _bodyKey.currentState?._submit(sentence: sentence),
     onPanelHidden: () => setState(() => _panelVisible = false),
     onMoveHighlight: (delta) => _bodyKey.currentState?._moveHighlight(delta),
   );
@@ -142,7 +172,7 @@ class _SnippetPickerRenderAppState
     final resolvedL10n = l10n ?? lookupL10n(const Locale('en'));
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: wpDarkTheme(),
+      theme: wpThemeFor(_colors),
       // [WpSearchField] (the capsule field below) reads `L10n.of(context)`
       // itself rather than taking [resolvedL10n] as a parameter — the shared
       // component was built for the main engine, where `app.dart` always
@@ -166,6 +196,7 @@ class _SnippetPickerRenderAppState
             child: SnippetPickerBody(
               key: _bodyKey,
               items: _items,
+              initialQuery: _initialQuery,
               showGeneration: _showGeneration,
               visible: _panelVisible,
               searchController: _searchController,
@@ -180,29 +211,36 @@ class _SnippetPickerRenderAppState
   }
 }
 
-/// The picker panel's visible content: Liquid-Glass surface, capsule search
-/// field, a result list with one gliding highlight, and a key-hint footer.
+/// The picker panel's visible content: flat surface, capsule search field,
+/// a result list with one gliding highlight, and a key-hint footer.
 ///
-/// Motion language (mirrors the recording overlay, all reduced-motion aware
-/// via [WpMotion.durationFor] / `MediaQuery.disableAnimations`):
+/// Motion language (reduced-motion aware via [WpMotion.durationFor] /
+/// `MediaQuery.disableAnimations`):
 /// - The panel springs in exactly like the overlay capsule
-///   ([OverlayDesignSpec.arc]: scale 0.88 → 1.0, easeOutCubic, 300 ms).
-/// - The glass chrome's specular streak drifts on the overlay's slow
-///   [OverlayDesignSpec.liquidDriftPeriod] cycle — an anchored highlight,
-///   never a sweeping shimmer band (ADR 0002).
+///   ([OverlayDesignSpec.arc]: scale 0.88 → 1.0, easeOutCubic, 300 ms), then
+///   stays static: no endless animation runs once it is on screen.
 /// - Arrow keys and mouse hover drive a single highlight capsule that
 ///   *glides* between rows (Spotlight register) instead of swapping
 ///   per-tile backgrounds.
-/// The picker panel's content widget — split out from the private
-/// `_SnippetPickerRenderApp` shell (and marked [visibleForTesting]) purely so
+/// The picker panel's content widget — split out from the engine's root
+/// [SnippetPickerRenderApp] shell (and marked [visibleForTesting]) purely so
 /// widget tests can pump it directly without booting a second Flutter engine
 /// or a native `NSPanel`. Not part of the public API otherwise: every other
 /// caller is [_SnippetPickerRenderAppState] in this same file.
 @visibleForTesting
+/// Transparent margin around the picker card, drawn inside the native window.
+/// The native shells size the window to the card plus this inset on every
+/// side, so the Dart-drawn shadow ([WpShadows.card], blur 14 + offset 4) is
+/// never clipped by the window edge and looks the same on macOS, Windows and
+/// Linux. Keep in sync with SnippetPickerHost.swift, snippet_picker_host.cpp
+/// and snippet_picker_window.h.
+const double kSnippetPickerShadowInset = 20;
+
 class SnippetPickerBody extends StatefulWidget {
   const SnippetPickerBody({
     super.key,
     required this.items,
+    this.initialQuery = '',
     required this.showGeneration,
     required this.visible,
     required this.searchController,
@@ -213,16 +251,18 @@ class SnippetPickerBody extends StatefulWidget {
 
   final List<SnippetPickerRenderItem> items;
 
+  /// Search text pre-filled on each show ('' = empty search field).
+  final String initialQuery;
+
   /// Incremented by the app state once per native `show()` — triggers the
   /// per-invocation reset in [_SnippetPickerBodyState.didUpdateWidget].
   final int showGeneration;
 
   /// Whether the native panel is on screen right now (see
   /// `_SnippetPickerRenderAppState._panelVisible` for the shell seam that
-  /// drives it). Gates the continuous glass animations: this engine is
-  /// detached from the embedder's app lifecycle, so frames are never
-  /// lifecycle-disabled — an un-gated drift cycle would keep repainting an
-  /// invisible panel for the whole app session.
+  /// drives it). Gates the entrance animation: this engine is detached from
+  /// the embedder's app lifecycle, so frames are never lifecycle-disabled, and
+  /// an ordered-out panel must not keep animating for the whole app session.
   final bool visible;
 
   final TextEditingController searchController;
@@ -258,6 +298,16 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   String _query = '';
   int _highlight = 0;
 
+  /// The field preview of the current show; renewed per show so every
+  /// preview starts with fresh fields.
+  GlobalKey<SnippetFieldPreviewState> _previewKey = GlobalKey();
+
+  /// Whether this show is the field preview of "In einem Satz" rather than
+  /// the snippet list (see `snippet_picker_protocol.dart`).
+  bool get _isPreview =>
+      widget.items.isNotEmpty &&
+      widget.items.first.kind == SnippetPickerItemKind.preview;
+
   /// Overlay-style spring-in (scale 0.88 → 1.0 + fade), one-shot on mount.
   late final AnimationController _appearController = AnimationController(
     vsync: this,
@@ -272,38 +322,27 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     end: 1,
   ).animate(_appear);
 
-  /// Slow liquid-glass drift phase for the specular streak — the overlay's
-  /// own 8 s cycle. Phase 0 renders the exact static frame (reduced motion).
-  late final AnimationController _driftController = AnimationController(
-    vsync: this,
-    duration: OverlayDesignSpec.liquidDriftPeriod,
-  );
-
-  /// Live filter across BOTH title and body (ticket AC), ranked by match
-  /// relevance rather than left in the original list order: a title match
-  /// is a stronger signal of intent than a body-only match, and a title
-  /// starting with the query beats one merely containing it — otherwise a
-  /// query like "impl" ranks a snippet whose body happens to mention the
-  /// word above one titled "Implementierung" (reported by the user, e.g.
-  /// "Debugging" outranking "Implementierung" for that query).
+  /// Live filter across title and body, ranked by the app's one search
+  /// ([rankSearch]) so the picker orders snippets like the Snippets page:
+  /// a title hit before a body-only hit (e.g. "Implementierung" before a
+  /// "Debugging" snippet that mentions "impl" in its body).
+  ///
+  /// Without a search term the order is A–Z by title, the same comparison as
+  /// the Snippets page. It is not the Snippets page's chosen sort: the picker
+  /// always sorts by relevance, and this only replaces creation order.
   List<SnippetPickerRenderItem> get _filtered {
-    if (_query.isEmpty) return widget.items;
-    // ⚡ Bolt: Using precompiled case-insensitive RegExp to avoid allocating
-    // new lowercased strings for title and body on every item in the tight loop.
-    final searchRegex = RegExp(RegExp.escape(_query), caseSensitive: false);
-    final lowerQuery = _query.toLowerCase();
-    final matches = <(SnippetPickerRenderItem item, int rank)>[];
-    for (final item in widget.items) {
-      final titleMatch = searchRegex.hasMatch(item.title);
-      final bodyMatch = searchRegex.hasMatch(item.body);
-      if (!titleMatch && !bodyMatch) continue;
-      final rank = titleMatch
-          ? (item.title.toLowerCase().startsWith(lowerQuery) ? 0 : 1)
-          : 2;
-      matches.add((item, rank));
+    final items = widget.items;
+    if (_query.trim().isEmpty && !_isPreview) {
+      return sortedByText(items, (item) => item.title);
     }
-    matches.sort((a, b) => a.$2.compareTo(b.$2));
-    return matches.map((m) => m.$1).toList();
+    final hits = rankSearch([
+      for (final item in items)
+        SearchDoc(item.id, [
+          SearchField(item.title, SearchWeight.title),
+          SearchField(item.body, SearchWeight.body),
+        ]),
+    ], _query);
+    return [for (final h in hits) items[h.index]];
   }
 
   @override
@@ -320,35 +359,29 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
       // the same update); _resetForShow ends in _syncAnimations itself.
       _resetForShow();
     } else if (widget.visible != oldWidget.visible) {
-      // A dismiss only flips `visible` off — stop the glass animations.
+      // A dismiss only flips `visible` off — stop the entrance animation.
       _syncAnimations();
     }
   }
 
-  /// Runs the glass animations only while the panel is actually on screen.
+  /// Runs the entrance animation only while the panel is actually on screen.
   ///
-  /// Reduced motion settles instantly on the static frame (appear complete,
-  /// drift at phase 0) — mirrors how the overlay handles the same flag.
-  /// Otherwise the drift cycle runs exactly while [SnippetPickerBody.visible]
-  /// is true: this engine is detached from the embedder's app lifecycle (see
-  /// [detachFromEmbedderAppLifecycle]), so nothing else would ever stop a
-  /// `repeat()` from repainting the ordered-out panel all session.
+  /// Reduced motion settles instantly on the static frame (appear complete).
+  /// Otherwise the entrance runs while [SnippetPickerBody.visible] is true and
+  /// is stopped on dismiss: this engine is detached from the embedder's app
+  /// lifecycle (see [detachFromEmbedderAppLifecycle]).
   void _syncAnimations() {
     if (MediaQuery.of(context).disableAnimations) {
       _appearController.value = 1;
-      _driftController.stop();
-      _driftController.value = 0;
       return;
     }
     if (!widget.visible) {
       _appearController.stop();
-      _driftController.stop();
       return;
     }
     if (!_appearController.isAnimating && !_appearController.isCompleted) {
       _appearController.forward();
     }
-    if (!_driftController.isAnimating) _driftController.repeat();
   }
 
   /// Fresh-picker guarantee on engine reuse: the native shell keeps this
@@ -357,12 +390,18 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   /// AND re-claim keyboard focus — the search field's `autofocus` fired only
   /// on the very first mount, and an Enter-submit unfocuses the field via
   /// `TextInputAction.done`, so without this the second invocation would
-  /// open with dead keyboard input.
+  /// open with dead keyboard input. The query is reset to [initialQuery]
+  /// (the spoken name of a direct trigger, or empty).
   void _resetForShow() {
-    widget.searchController.clear();
+    final query = widget.initialQuery;
+    widget.searchController.value = TextEditingValue(
+      text: query,
+      selection: TextSelection.collapsed(offset: query.length),
+    );
     setState(() {
-      _query = '';
+      _query = query;
       _highlight = 0;
+      _previewKey = GlobalKey();
     });
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _searchFocus.requestFocus();
@@ -381,7 +420,6 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   void dispose() {
     _appear.dispose();
     _appearController.dispose();
-    _driftController.dispose();
     _scrollController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -396,6 +434,10 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
   }
 
   void _moveHighlight(int delta) {
+    if (_isPreview) {
+      _previewKey.currentState?.moveFocus(delta);
+      return;
+    }
     final length = _filtered.length;
     if (length == 0) return;
     setState(() => _highlight = (_highlight + delta).clamp(0, length - 1));
@@ -429,7 +471,14 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     }
   }
 
-  void _submit() {
+  /// Enter inserts the highlighted snippet; with [sentence] (⌘/Strg+Enter)
+  /// an interactive snippet is recorded in one sentence instead. In the
+  /// field preview, Enter confirms the preview.
+  void _submit({bool sentence = false}) {
+    if (_isPreview) {
+      _previewKey.currentState?.confirm();
+      return;
+    }
     final filtered = _filtered;
     if (filtered.isEmpty) {
       // Dead-end Enter: keep the keyboard in the search field so the user
@@ -437,7 +486,12 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
       _searchFocus.requestFocus();
       return;
     }
-    widget.onSelect(filtered[_highlight.clamp(0, filtered.length - 1)].id);
+    final item = filtered[_highlight.clamp(0, filtered.length - 1)];
+    widget.onSelect(
+      sentence && item.kind == SnippetPickerItemKind.interactive
+          ? sentenceSelectionId(item.id)
+          : item.id,
+    );
   }
 
   @override
@@ -463,6 +517,12 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
         SingleActivator(LogicalKeyboardKey.escape): _CancelIntent(),
         SingleActivator(LogicalKeyboardKey.arrowDown): _MoveHighlightIntent(1),
         SingleActivator(LogicalKeyboardKey.arrowUp): _MoveHighlightIntent(-1),
+        // macOS never gets here (its native Return monitor passes ⌘ along,
+        // see `SnippetPickerRenderChannel.onSubmit`); Windows and Linux do.
+        SingleActivator(LogicalKeyboardKey.enter, control: true):
+            _SentenceIntent(),
+        SingleActivator(LogicalKeyboardKey.enter, meta: true):
+            _SentenceIntent(),
       },
       child: Actions(
         actions: {
@@ -472,94 +532,115 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
           _MoveHighlightIntent: CallbackAction<_MoveHighlightIntent>(
             onInvoke: (intent) => _moveHighlight(intent.delta),
           ),
+          _SentenceIntent: CallbackAction<_SentenceIntent>(
+            onInvoke: (_) => _submit(sentence: true),
+          ),
         },
         // Overlay-register entrance: anchored under the caret, so the
         // panel grows out of its anchor edge instead of popping from
         // nothing (calm, no overshoot — same curve/scale as the capsule).
-        child: ScaleTransition(
-          scale: _appearScale,
-          alignment: Alignment.topCenter,
-          child: FadeTransition(
-            opacity: _appear,
-            child: ClipRRect(
-              borderRadius: WpRadius.borderXl,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Opaque warm base — the panel floats over arbitrary
-                  // desktop content and the list must stay readable, so
-                  // (unlike the near-clear capsule) the fill is opaque and
-                  // the glass identity is carried by the light layers on
-                  // top of it.
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: WpColors.warmSurfaceGradient,
-                    ),
-                  ),
-                  // The overlay's glass light: sheen, Fresnel band,
-                  // drifting specular streak, top-lit rim, accent hairline.
-                  RepaintBoundary(
-                    child: AnimatedBuilder(
-                      animation: _driftController,
-                      builder: (context, _) => CustomPaint(
-                        painter: _PanelGlassPainter(
-                          phase: _driftController.value,
-                          radius: WpRadius.xl,
-                          borderColor: WpColors.accentBorder20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Column(
+        child: Padding(
+          padding: const EdgeInsets.all(kSnippetPickerShadowInset),
+          child: ScaleTransition(
+            scale: _appearScale,
+            alignment: Alignment.topCenter,
+            child: FadeTransition(
+              opacity: _appear,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: WpRadius.borderXl,
+                  boxShadow: WpShadows.card,
+                ),
+                child: ClipRRect(
+                  borderRadius: WpRadius.borderXl,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          WpSpacing.sm,
-                          WpSpacing.sm,
-                          WpSpacing.sm,
-                          WpSpacing.xs,
+                      // One flat fill, no glass layers: the same flat surface
+                      // language as the overlay pill and button. The list must
+                      // stay readable over arbitrary desktop content.
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: WpColors.surface,
+                          border: Border.all(color: WpColors.accentBorder20),
                         ),
-                        child: _buildSearchField(l10n),
                       ),
-                      Expanded(
-                        child: _buildListArea(l10n, filtered, highlight),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.md,
-                        ),
-                        child: _hairline(),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: WpSpacing.md,
-                          vertical: WpSpacing.xs,
-                        ),
-                        child: Row(
+                      if (_isPreview)
+                        SnippetFieldPreview(
+                          key: _previewKey,
+                          head: widget.items.first,
+                          fields: widget.items.sublist(1),
+                          l10n: l10n,
+                          onConfirm: widget.onSelect,
+                        )
+                      else
+                        Column(
                           children: [
-                            // The insert hint is a promise about the Enter
-                            // key. With no row to insert — no snippets
-                            // relayed at all, or a query without matches —
-                            // `_submit` deliberately does nothing but
-                            // re-focus the field, so the hint would keep
-                            // advertising an action that has no effect,
-                            // right next to the empty state that just said
-                            // there is nothing here. Escape is
-                            // unconditional because it always works.
-                            if (highlight >= 0) ...[
-                              _KeyHint(
-                                keyLabel: '↩',
-                                label: l10n.snippetsPickerInsertAction,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                WpSpacing.sm,
+                                WpSpacing.sm,
+                                WpSpacing.sm,
+                                WpSpacing.xs,
                               ),
-                              const SizedBox(width: WpSpacing.md),
-                            ],
-                            _KeyHint(keyLabel: 'esc', label: l10n.actionCancel),
+                              child: _buildSearchField(l10n),
+                            ),
+                            Expanded(
+                              child: _buildListArea(l10n, filtered, highlight),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.md,
+                              ),
+                              child: _hairline(),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.md,
+                                vertical: WpSpacing.xs,
+                              ),
+                              child: Row(
+                                children: [
+                                  // The insert hint is a promise about the Enter
+                                  // key. With no row to insert — no snippets
+                                  // relayed at all, or a query without matches —
+                                  // `_submit` deliberately does nothing but
+                                  // re-focus the field, so the hint would keep
+                                  // advertising an action that has no effect,
+                                  // right next to the empty state that just said
+                                  // there is nothing here. Escape is
+                                  // unconditional because it always works.
+                                  if (highlight >= 0) ...[
+                                    SnippetPickerKeyHint(
+                                      keyLabel: '↩',
+                                      label: l10n.snippetsPickerInsertAction,
+                                    ),
+                                    const SizedBox(width: WpSpacing.md),
+                                  ],
+                                  if (highlight >= 0 &&
+                                      filtered[highlight].kind ==
+                                          SnippetPickerItemKind
+                                              .interactive) ...[
+                                    SnippetPickerKeyHint(
+                                      keyLabel: snippetPickerSentenceKeyLabel(
+                                        l10n,
+                                      ),
+                                      label: l10n.snippetsPickerSentenceAction,
+                                    ),
+                                    const SizedBox(width: WpSpacing.md),
+                                  ],
+                                  SnippetPickerKeyHint(
+                                    keyLabel: 'esc',
+                                    label: l10n.actionCancel,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -568,8 +649,8 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     );
   }
 
-  /// Capsule search field — a soft inset glass pill (overlay silhouette DNA)
-  /// instead of the main window's rectangular input. The border eases to the
+  /// Capsule search field — a rounded pill (overlay silhouette DNA) instead
+  /// of the main window's rectangular input. The border eases to the
   /// accent tint while focused (continuous, no hard swap).
   Widget _buildSearchField(L10n l10n) {
     return WpSearchField(
@@ -605,8 +686,8 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     if (filtered.isEmpty) {
       return _EmptyState(
         icon: LucideIcons.searchX,
-        title: l10n.snippetsNoMatches,
-        hint: l10n.snippetsNoMatchesHint,
+        title: l10n.searchNoMatches,
+        hint: l10n.searchNoMatchesHint(_query.trim()),
       );
     }
     return ClipRect(
@@ -662,6 +743,8 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
                 highlighted: index == highlight,
                 onHover: () => setState(() => _highlight = index),
                 onTap: () => widget.onSelect(item.id),
+                onSentence: () => widget.onSelect(sentenceSelectionId(item.id)),
+                sentenceTooltip: l10n.snippetsPickerSentenceTooltip,
               );
             },
           ),
@@ -687,12 +770,19 @@ class _PickerTile extends StatelessWidget {
     required this.highlighted,
     required this.onHover,
     required this.onTap,
+    required this.onSentence,
+    required this.sentenceTooltip,
   });
 
   final SnippetPickerRenderItem item;
   final bool highlighted;
   final VoidCallback onHover;
   final VoidCallback onTap;
+
+  /// "In einem Satz" — only offered on interactive snippets. Sits outside
+  /// the row's merged semantics so it stays its own button.
+  final VoidCallback onSentence;
+  final String sentenceTooltip;
 
   /// Explicit line-height multiplier — pins both text lines to a known
   /// height (fontSize × 1.3) so the tile's total height is arithmetic, not
@@ -706,9 +796,9 @@ class _PickerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
-    // House idiom for a composed control (`section.dart`,
-    // `mic_permission_chip.dart`): MergeSemantics + a *label-less*
+    final textMuted = WpColors.textMuted;
+    // House idiom for a composed control (`section.dart`):
+    // MergeSemantics + a *label-less*
     // Semantics. An explicit `label: item.title` here does not replace the
     // subtree's own text, it is prepended to it — the rendered title `Text`
     // still contributes a node, so a screen reader announced the title
@@ -719,7 +809,7 @@ class _PickerTile extends StatelessWidget {
     // (the search field is the sole focus holder by design), so without
     // this flag arrow keys moved a highlight the semantics tree never
     // reported.
-    return MergeSemantics(
+    final row = MergeSemantics(
       child: Semantics(
         button: true,
         selected: highlighted,
@@ -746,7 +836,7 @@ class _PickerTile extends StatelessWidget {
                       color: WpColors.accentChipFill,
                       borderRadius: WpRadius.borderSm,
                     ),
-                    child: const Icon(
+                    child: Icon(
                       LucideIcons.notebookText,
                       size: WpIconSize.sm,
                       color: WpColors.accent,
@@ -761,7 +851,7 @@ class _PickerTile extends StatelessWidget {
                       children: [
                         Text(
                           item.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: WpColors.textPrimary,
                             fontSize: WpTypography.body,
                             fontWeight: FontWeight.w500,
@@ -770,10 +860,10 @@ class _PickerTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: WpSpacing.xxs),
                         Text(
                           _bodyPreview,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: textMuted,
                             fontSize: WpTypography.small,
                             height: _lineHeight,
@@ -792,7 +882,7 @@ class _PickerTile extends StatelessWidget {
                     opacity: highlighted ? 1 : 0,
                     duration: WpMotion.durationFor(context, WpMotion.fast),
                     curve: WpMotion.defaultCurve,
-                    child: const Icon(
+                    child: Icon(
                       LucideIcons.cornerDownLeft,
                       size: WpIconSize.xs,
                       color: textMuted,
@@ -805,234 +895,22 @@ class _PickerTile extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// Paints the recording overlay's glass light onto the picker's rounded-rect
-/// silhouette — the panel-shaped sibling of `WpOverlayPainter._drawGlassSheen`.
-///
-/// Every alpha, stop, width and drift bound comes from [OverlayDesignSpec];
-/// this class adds no design constants of its own. Differences from the
-/// capsule, both deliberate:
-/// - The base fill underneath is opaque (readability of a text list over an
-///   arbitrary desktop), so the recipe drops the near-clear fill and keeps
-///   only the light layers that carry the glass identity.
-/// - The top sheen is compressed into the upper part of the tall panel
-///   (shader rect ≈ top 45 %) — mapped over the full 420 px it would read as
-///   a milky wash, not as light on glass.
-///
-/// Like the overlay, the chrome is strictly state-neutral white light plus
-/// the fixed accent hairline; [phase] 0 renders the exact static frame.
-class _PanelGlassPainter extends CustomPainter {
-  const _PanelGlassPainter({
-    required this.phase,
-    required this.radius,
-    required this.borderColor,
-  });
-
-  /// Liquid-glass drift phase (`[0, 1)` loop) — see
-  /// [OverlayDesignSpec.liquidDriftPeriod].
-  final double phase;
-
-  /// Panel corner radius.
-  final double radius;
-
-  /// Theme-resolved accent hairline (mirrors the capsule border).
-  final Color borderColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final shape = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
-    // Edge strokes sit half a pixel inside so the ClipRRect around the panel
-    // doesn't shave their outer half.
-    final edge = RRect.fromRectAndRadius(
-      rect.deflate(0.5),
-      Radius.circular(radius - 0.5),
-    );
-
-    final wave = math.sin(2 * math.pi * phase);
-    final breathe = math.sin(4 * math.pi * phase);
-    final drift = wave * OverlayDesignSpec.liquidSpecularDriftPx;
-
-    // 1) Top-down sheen — light on curved glass, pulled off the rounded
-    //    corners and compressed into the panel's upper region; follows the
-    //    specular drift at half parallax (depth cue).
-    const sheen = OverlayDesignSpec.glassSheenOpacity;
-    final capInset = radius * OverlayDesignSpec.glassSheenCapInsetFactor;
-    final sheenRect = Rect.fromLTRB(
-      rect.left + capInset,
-      rect.top,
-      rect.right - capInset,
-      rect.top + size.height * 0.45,
-    ).shift(Offset(drift * OverlayDesignSpec.liquidSheenParallaxFactor, 0));
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFFFFFF).withValues(alpha: sheen),
-            const Color(0xFFFFFFFF).withValues(alpha: sheen * 0.35),
-            const Color(0x00FFFFFF),
-          ],
-          stops: OverlayDesignSpec.glassSheenStops,
-        ).createShader(sheenRect),
-    );
-    // 2) Hair-thin dark inner shade above the bottom light — the "mass" of
-    //    the glass slab.
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0x00000000),
-            const Color(
-              0xFF000000,
-            ).withValues(alpha: OverlayDesignSpec.glassInnerShadeOpacity),
-          ],
-          stops: OverlayDesignSpec.glassInnerShadeStops,
-        ).createShader(rect),
-    );
-    // 3) Faint bottom counter-sheen — light catching the lower glass rim.
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0x00FFFFFF),
-            const Color(0xFFFFFFFF).withValues(
-              alpha: sheen * OverlayDesignSpec.glassBottomSheenFactor,
-            ),
-          ],
-          stops: OverlayDesignSpec.glassBottomSheenStops,
-        ).createShader(rect),
-    );
-    // 4) Soft inner Fresnel band just inside the rim — the refracting
-    //    thickness of the slab, fading downward.
-    canvas.drawRRect(
-      edge.deflate(OverlayDesignSpec.glassInnerRimInset),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = OverlayDesignSpec.glassInnerRimWidth
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(
-              0xFFFFFFFF,
-            ).withValues(alpha: OverlayDesignSpec.glassInnerRimOpacity),
-            const Color(0x00FFFFFF),
-          ],
-        ).createShader(rect),
-    );
-    // 5) Crisp specular streak along the top edge — the signature drifting
-    //    reflection, with the dark under-halo that guarantees local contrast
-    //    over light fills (the overlay's measured fix).
-    final specularHalf =
-        (size.width * OverlayDesignSpec.glassSpecularWidthFactor) /
-        2 *
-        (1 + OverlayDesignSpec.liquidSpecularBreatheFactor * breathe);
-    final specularY = rect.top + OverlayDesignSpec.glassSpecularInsetTop;
-    final specularCx = rect.center.dx + drift;
-    canvas.drawLine(
-      Offset(
-        specularCx - specularHalf,
-        specularY + OverlayDesignSpec.glassSpecularHaloOffsetY,
-      ),
-      Offset(
-        specularCx + specularHalf,
-        specularY + OverlayDesignSpec.glassSpecularHaloOffsetY,
-      ),
-      Paint()
-        ..color = OverlayDesignSpec.glyphShadowColor.withValues(
-          alpha: OverlayDesignSpec.glassSpecularHaloOpacity,
-        )
-        ..strokeWidth = OverlayDesignSpec.glassSpecularHaloStrokeWidth
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(
-          BlurStyle.normal,
-          OverlayDesignSpec.glassSpecularHaloBlurSigma,
+    if (item.kind != SnippetPickerItemKind.interactive) return row;
+    return Row(
+      children: [
+        Expanded(child: row),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: WpSpacing.sm),
+          child: WpIconButton(
+            testId: 'snippet-picker-sentence-${item.id}',
+            icon: LucideIcons.messageSquareText,
+            tooltip: sentenceTooltip,
+            onPressed: onSentence,
+          ),
         ),
-    );
-    canvas.drawLine(
-      Offset(specularCx - specularHalf, specularY),
-      Offset(specularCx + specularHalf, specularY),
-      Paint()
-        ..strokeWidth = OverlayDesignSpec.glassSpecularStrokeWidth
-        ..strokeCap = StrokeCap.round
-        ..shader =
-            LinearGradient(
-              colors: [
-                const Color(0x00FFFFFF),
-                const Color(0xFFFFFFFF).withValues(
-                  alpha:
-                      (OverlayDesignSpec.glassSpecularOpacity *
-                              (1 +
-                                  OverlayDesignSpec
-                                          .liquidSpecularBrightBreatheFactor *
-                                      breathe))
-                          .clamp(0.0, 1.0),
-                ),
-                const Color(0x00FFFFFF),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ).createShader(
-              Rect.fromLTWH(
-                specularCx - specularHalf,
-                specularY - 1,
-                specularHalf * 2,
-                2,
-              ),
-            ),
-    );
-    // 6) 1 px outer rim, lit from above and breathing with the drift cycle —
-    //    a uniform outline would read as a stroke, not as edge light.
-    canvas.drawRRect(
-      edge,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFFFFFF).withValues(
-              alpha:
-                  (OverlayDesignSpec.glassRimTopOpacity *
-                          (1 +
-                              OverlayDesignSpec.liquidRimBreatheFactor *
-                                  breathe))
-                      .clamp(0.0, 1.0),
-            ),
-            const Color(
-              0xFFFFFFFF,
-            ).withValues(alpha: OverlayDesignSpec.glassRimBottomOpacity),
-          ],
-        ).createShader(rect),
-    );
-    // 7) Fixed accent hairline — the panel's sibling of the capsule border,
-    //    drawn last like the overlay's `_drawBorder`.
-    canvas.drawRRect(
-      edge,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0
-        ..color = borderColor,
+      ],
     );
   }
-
-  @override
-  bool shouldRepaint(covariant _PanelGlassPainter old) =>
-      old.phase != phase ||
-      old.radius != radius ||
-      old.borderColor != borderColor;
 }
 
 /// Compact empty-state treatment for the panel (no snippets relayed, or an
@@ -1047,7 +925,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(WpSpacing.xl),
@@ -1059,7 +937,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WpColors.textSecondary,
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w500,
@@ -1070,7 +948,7 @@ class _EmptyState extends StatelessWidget {
               Text(
                 hint,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: textMuted,
                   fontSize: WpTypography.small,
                 ),
@@ -1083,50 +961,12 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// Footer affordance: a small key-cap chip plus a muted action label.
-class _KeyHint extends StatelessWidget {
-  const _KeyHint({required this.keyLabel, required this.label});
-
-  final String keyLabel;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            color: WpColors.surfaceMutedFill,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: WpColors.borderSubtle),
-          ),
-          child: Text(
-            keyLabel,
-            style: const TextStyle(
-              color: WpColors.textSecondary,
-              fontSize: WpTypography.micro,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-        const SizedBox(width: WpSpacing.xxs),
-        Text(
-          label,
-          style: const TextStyle(
-            color: textMuted,
-            fontSize: WpTypography.caption,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _CancelIntent extends Intent {
   const _CancelIntent();
+}
+
+class _SentenceIntent extends Intent {
+  const _SentenceIntent();
 }
 
 class _MoveHighlightIntent extends Intent {

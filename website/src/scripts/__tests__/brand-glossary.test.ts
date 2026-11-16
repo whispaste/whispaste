@@ -1,7 +1,7 @@
 /**
  * Tests for the brand-glossary single-source-of-truth.
  *
- * Source of truth: `internal-notes` §D (Brand-Sprach-Mapping) +
+ * Source of truth: `src/data/brand-glossary.ts` (Brand-Sprach-Mapping) +
  * `internal-notes` §7 (Anti-Vokabular).
  *
  * The glossary is consumed by every marketing copy / i18n string / Schema
@@ -48,6 +48,13 @@ describe("brand-glossary", () => {
       // site will be case-insensitive too.
       expect(forbidden, `canonical export "${term}" collides with anti-vocabulary`)
         .not.toContain(term.toLowerCase());
+    }
+  });
+
+  it("allows dictation wording again (maintainer decision 2026-10-18)", () => {
+    const forbidden = antiVocabulary.map((entry) => entry.term.toLowerCase());
+    for (const term of ["dictation", "dictate", "diktat", "diktieren", "diktiert"]) {
+      expect(forbidden).not.toContain(term);
     }
   });
 

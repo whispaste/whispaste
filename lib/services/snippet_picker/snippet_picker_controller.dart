@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'linux_snippet_picker_controller.dart';
@@ -22,15 +23,17 @@ export 'snippet_picker_controller_interface.dart';
 /// macOS, Windows, and Linux (visual-refresh-2026 tickets 06/29/30) — full
 /// three-platform parity.
 bool get snippetPickerAvailableOnPlatform =>
-    Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+    defaultTargetPlatform == TargetPlatform.macOS ||
+    defaultTargetPlatform == TargetPlatform.windows ||
+    defaultTargetPlatform == TargetPlatform.linux;
 
 /// [snippetPickerAvailableOnPlatform] as a provider — the same answer, reached
 /// the way the UI reaches everything else.
 ///
-/// Exists because the getter reads `Platform` directly and a widget test can
-/// therefore only ever see the host it runs on: the „nicht verfügbar"-Zweig of
-/// the settings row and the Snippets page (ticket 27) would have no test at
-/// all on a macOS machine. Deliberately delegating rather than re-deriving —
+/// The getter reads `defaultTargetPlatform` (#198), so tests can pin it; the
+/// provider lets a widget test reach the „nicht verfügbar"-Zweig of the
+/// settings row and the Snippets page (ticket 27) for an unsupported
+/// platform. Deliberately delegating rather than re-deriving —
 /// ticket 30 still only needs a new branch here, and an override in a test
 /// is a stand-in for a different platform, not a second stored truth.
 final snippetPickerAvailabilityProvider = Provider<bool>(

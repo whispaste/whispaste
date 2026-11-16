@@ -1,16 +1,18 @@
 /// Clipping state — last-recording clipping counter exposed to the settings UI.
 ///
-/// The audio pipeline counts how many int16 samples saturated to the int16
-/// limits during a recording (see `PcmGainProcessor.clippedSamples`). When a
-/// recording finishes successfully, [RecordingOrchestrator] pushes that final
-/// count into this provider so the gain slider section can render a "your
-/// gain was too high" banner.
+/// The audio pipeline counts how many samples of a recording were too loud:
+/// at the int16 limits in the microphone signal (automatic level,
+/// `wav_leveler.dart`) or pushed past them by the manual volume
+/// (`PcmGainProcessor.clippedSamples`). When a recording finishes
+/// successfully, [RecordingOrchestrator] pushes that count and the recording's
+/// sample count into this provider so the audio section can render a "the
+/// last recording was too loud" banner.
 ///
-/// Semantics:
-///   - A [count] of `0` means no banner is shown.
-///   - A non-zero [count] overrides the previous value on the next successful
-///     recording — including a clean follow-up (a fresh `count == 0` clears
-///     the banner automatically).
+/// Semantics (#1611):
+///   - The banner shows only from a noticeable share
+///     ([audibleClippingShare]); a single clipped sample is inaudible.
+///   - Every successful recording overrides the previous value — a clean
+///     follow-up clears the banner automatically.
 ///   - Failed/aborted recordings do **not** touch this state.
 ///   - [dismiss] explicitly resets the counter to `0` (user clicked the
 ///     banner's close action).
@@ -19,19 +21,33 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Immutable snapshot of the last recording's clipping outcome.
-class ClippingState {
-  const ClippingState({this.count = 0, this.recordingFinishedAt});
+/// Share of too-loud samples from which the distortion is audible: 0.1 %.
+const double audibleClippingShare = 0.001;
 
-  /// Number of clipped int16 samples observed during the last successful
-  /// recording. `0` means no clipping (and no banner).
+class ClippingState {
+  const ClippingState({
+    this.count = 0,
+    this.sampleCount = 0,
+    this.recordingFinishedAt,
+  });
+
+  /// Number of too-loud samples in the last successful recording.
   final int count;
+
+  /// Samples of that recording; `0` when unknown (then [count] decides
+  /// alone, so a known clip is never hidden).
+  final int sampleCount;
 
   /// Wall-clock time at which the recording that produced [count] finished.
   /// `null` only for the initial empty state.
   final DateTime? recordingFinishedAt;
 
   /// True when the UI should render the clipping banner.
-  bool get shouldShowBanner => count > 0;
+  bool get shouldShowBanner {
+    if (count <= 0) return false;
+    if (sampleCount <= 0) return true;
+    return count / sampleCount >= audibleClippingShare;
+  }
 }
 
 /// Notifier that the [RecordingOrchestrator] pushes the final clipping
@@ -50,13 +66,13 @@ class ClippingStateNotifier extends Notifier<ClippingState> {
 
   /// Records the outcome of a freshly finished recording.
   ///
-  /// [clippedSamples] is the final counter from the recording's
-  /// `PcmGainProcessor`. The value is stored verbatim — a fresh `0` from a
-  /// clean follow-up recording overrides a previous non-zero count (which
-  /// auto-hides any banner left over from the prior recording).
-  void reportRecordingFinished(int clippedSamples) {
+  /// [clippedSamples] is the recording's too-loud count, [sampleCount] its
+  /// length in samples. Stored verbatim — a clean follow-up recording
+  /// overrides a previous count (which auto-hides a leftover banner).
+  void reportRecordingFinished(int clippedSamples, {int sampleCount = 0}) {
     state = ClippingState(
       count: clippedSamples,
+      sampleCount: sampleCount,
       recordingFinishedAt: DateTime.now(),
     );
   }
@@ -66,6 +82,7 @@ class ClippingStateNotifier extends Notifier<ClippingState> {
   void dismiss() {
     state = ClippingState(
       count: 0,
+      sampleCount: state.sampleCount,
       recordingFinishedAt: state.recordingFinishedAt,
     );
   }

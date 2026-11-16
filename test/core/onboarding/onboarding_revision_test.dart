@@ -1,5 +1,4 @@
-/// Tests for the two pure functions behind the onboarding revision registry
-/// — `internal-notes`.
+/// Tests for the two pure functions behind the onboarding revision registry.
 library;
 
 import 'package:flutter_test/flutter_test.dart';

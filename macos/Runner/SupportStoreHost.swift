@@ -16,7 +16,7 @@ private let isMasBuild = false
 /// `kIsMasBuild`. The purchase code itself compiles in every configuration
 /// so that a debug build type-checks it too.
 ///
-/// Sponsoring never unlocks a feature (`internal-notes`).
+/// Sponsoring never unlocks a feature.
 /// The verified-purchase flag below is a cosmetic supporter badge only.
 ///
 /// Deployment target is macOS 12; `AppTransaction` needs macOS 13 and is
@@ -229,5 +229,27 @@ final class SupportStoreHost {
 
   private func setVerifiedSupportFlag(_ value: Bool) {
     UserDefaults.standard.set(value, forKey: Self.verifiedSupportFlagKey)
+  }
+}
+
+/// MethodChannel host for the system rating dialog (`com.whispaste.review`).
+/// Used by the Mac App Store build instead of an own rating card (guideline
+/// 5.6.1); StoreKit limits it to three requests per 365 days.
+final class ReviewHost {
+  init(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "com.whispaste.review",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "requestReview" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      DispatchQueue.main.async {
+        SKStoreReviewController.requestReview()
+        result(nil)
+      }
+    }
   }
 }

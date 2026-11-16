@@ -1,5 +1,4 @@
-/// Review step of the vocabulary-import flow (PRD.md
-/// `internal-notes`): a scan can turn up
+/// Review step of the vocabulary-import flow: a scan can turn up
 /// thousands of candidate identifiers, so nothing is written to the database
 /// until the user has actually picked which ones should become replacements.
 ///
@@ -18,8 +17,11 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_icon_button.dart';
 import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_text_field.dart';
+import '../../widgets/page_shell.dart';
+import '../../widgets/wp_page_header.dart';
 
 /// Pushed via `Navigator.push`; pops with the list of terms the user selected
 /// to import, or `null` if they cancelled without importing anything.
@@ -29,6 +31,8 @@ class VocabularyImportReviewPage extends StatefulWidget {
     required this.candidates,
     this.title,
     this.subtitleBuilder,
+    this.confirmLabelBuilder,
+    this.initialSelection = const {},
   });
 
   /// Sorted, already deduplicated against existing triggers (the scan's
@@ -44,6 +48,13 @@ class VocabularyImportReviewPage extends StatefulWidget {
   /// Overrides the default import-flavored subtitle, given the candidate
   /// count. Same reasoning as [title].
   final String Function(int count)? subtitleBuilder;
+
+  /// Overrides the confirm button label, given the number of selected
+  /// candidates. Null keeps the import wording.
+  final String Function(int count)? confirmLabelBuilder;
+
+  /// Candidates that start selected (the export preselects everything).
+  final Set<String> initialSelection;
 
   @override
   State<VocabularyImportReviewPage> createState() =>
@@ -61,6 +72,7 @@ class _VocabularyImportReviewPageState
   void initState() {
     super.initState();
     _filtered = widget.candidates;
+    _selected.addAll(widget.initialSelection);
   }
 
   @override
@@ -109,171 +121,163 @@ class _VocabularyImportReviewPageState
 
     return Scaffold(
       backgroundColor: WpColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xl,
-            vertical: WpSpacing.lg,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).backButtonTooltip,
-                    icon: const Icon(
-                      LucideIcons.arrowLeft,
-                      color: WpColors.textPrimary,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(null),
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title ?? l10n.replacementsImportReviewTitle,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        Text(
-                          widget.subtitleBuilder?.call(
-                                widget.candidates.length,
-                              ) ??
-                              l10n.replacementsImportReviewSubtitle(
-                                widget.candidates.length,
-                              ),
-                          style: const TextStyle(
-                            color: WpColors.textMuted,
-                            fontSize: WpTypography.caption,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+      body: WpPageShell(
+        scrollable: false,
+        header: Row(
+          children: [
+            WpIconButton.ghost(
+              key: const ValueKey('dictionary-import-review-back'),
+              testId: 'dictionary-import-review-back',
+              icon: LucideIcons.arrowLeft,
+              color: WpColors.textPrimary,
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.of(context).pop(null),
+            ),
+            const SizedBox(width: WpSpacing.xs),
+            Expanded(
+              child: WpPageHeader(
+                title: widget.title ?? l10n.replacementsImportReviewTitle,
               ),
-              const SizedBox(height: WpSpacing.lg),
-              WpTextField(
-                controller: _searchCtrl,
-                variant: WpTextFieldVariant.form,
-                hintText: l10n.replacementsImportReviewSearchHint,
-                onChanged: _applyFilter,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.subtitleBuilder?.call(widget.candidates.length) ??
+                  l10n.replacementsImportReviewSubtitle(
+                    widget.candidates.length,
+                  ),
+              style: TextStyle(
+                color: WpColors.textMuted,
+                fontSize: WpTypography.caption,
               ),
-              const SizedBox(height: WpSpacing.sm),
-              Row(
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.replacementsImportReviewSelectAllFiltered,
-                    variant: WpButtonVariant.ghost,
-                    size: WpButtonSize.dense,
-                    onPressed: _filtered.isEmpty ? null : _selectAllFiltered,
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.replacementsImportReviewDeselectAll,
-                    variant: WpButtonVariant.ghost,
-                    size: WpButtonSize.dense,
-                    onPressed: _selected.isEmpty ? null : _deselectAll,
-                  ),
-                  const Spacer(),
-                  Text(
-                    l10n.replacementsImportReviewSelectedCount(
-                      _selected.length,
-                      widget.candidates.length,
-                    ),
-                    style: const TextStyle(color: WpColors.textMuted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: WpSpacing.sm),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: WpColors.cardFill,
-                    borderRadius: WpRadius.borderMd,
-                    border: Border.all(color: WpColors.borderSubtle),
-                  ),
-                  child: _filtered.isEmpty
-                      ? Center(
-                          child: Text(
-                            _query.isEmpty
-                                ? l10n.replacementsImportNothingFound
-                                : l10n.replacementsImportReviewNoMatches,
-                            style: const TextStyle(color: WpColors.textMuted),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: WpSpacing.xxs,
-                          ),
-                          itemCount: _filtered.length,
-                          itemBuilder: (context, index) {
-                            final term = _filtered[index];
-                            final checked = _selected.contains(term);
-                            return InkWell(
-                              onTap: () => _toggle(term),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: WpSpacing.sm,
-                                  vertical: WpSpacing.xxs,
-                                ),
-                                child: Row(
-                                  children: [
-                                    WpRowCheckbox(
-                                      value: checked,
-                                      onChanged: () => _toggle(term),
-                                    ),
-                                    const SizedBox(width: WpSpacing.sm),
-                                    Expanded(
-                                      child: Text(
-                                        term,
-                                        style: const TextStyle(
-                                          color: WpColors.textPrimary,
-                                          fontFamily: 'monospace',
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+            ),
+            const SizedBox(height: WpSpacing.lg),
+            WpTextField(
+              key: const ValueKey('dictionary-import-review-search'),
+              controller: _searchCtrl,
+              variant: WpTextFieldVariant.form,
+              hintText: l10n.replacementsImportReviewSearchHint,
+              onChanged: _applyFilter,
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            Row(
+              children: [
+                WpButton(
+                  key: const Key('vocabulary-import-select-all'),
+                  label: l10n.replacementsImportReviewSelectAllFiltered,
+                  variant: WpButtonVariant.secondary,
+                  tone: WpButtonTone.neutral,
+                  size: WpButtonSize.dense,
+                  onPressed: _filtered.isEmpty ? null : _selectAllFiltered,
                 ),
-              ),
-              const SizedBox(height: WpSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: MaterialLocalizations.of(context).cancelButtonLabel,
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: () => Navigator.of(context).pop(null),
+                const SizedBox(width: WpSpacing.xs),
+                WpButton(
+                  key: const Key('vocabulary-import-deselect-all'),
+                  label: l10n.replacementsImportReviewDeselectAll,
+                  variant: WpButtonVariant.secondary,
+                  tone: WpButtonTone.neutral,
+                  size: WpButtonSize.dense,
+                  onPressed: _selected.isEmpty ? null : _deselectAll,
+                ),
+                const Spacer(),
+                Text(
+                  l10n.replacementsImportReviewSelectedCount(
+                    _selected.length,
+                    widget.candidates.length,
                   ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.replacementsImportReviewImportButton(
-                      _selected.length,
-                    ),
-                    variant: WpButtonVariant.primary,
-                    onPressed: _selected.isEmpty
-                        ? null
-                        : () => Navigator.of(context).pop(_selected.toList()),
-                  ),
-                ],
+                  style: TextStyle(color: WpColors.textMuted),
+                ),
+              ],
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: WpColors.cardFill,
+                  borderRadius: WpRadius.borderMd,
+                  border: Border.all(color: WpColors.borderSubtle),
+                ),
+                child: _filtered.isEmpty
+                    ? Center(
+                        child: Text(
+                          _query.isEmpty
+                              ? l10n.replacementsImportNothingFound
+                              : l10n.replacementsImportReviewNoMatches,
+                          style: TextStyle(color: WpColors.textMuted),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: WpSpacing.xxs,
+                        ),
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final term = _filtered[index];
+                          final checked = _selected.contains(term);
+                          return InkWell(
+                            key: ValueKey('dictionary-import-review-row-$term'),
+                            onTap: () => _toggle(term),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: WpSpacing.sm,
+                                vertical: WpSpacing.xxs,
+                              ),
+                              child: Row(
+                                children: [
+                                  WpRowCheckbox(
+                                    value: checked,
+                                    semanticsLabel: term,
+                                    onChanged: () => _toggle(term),
+                                  ),
+                                  const SizedBox(width: WpSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      term,
+                                      style: TextStyle(
+                                        color: WpColors.textPrimary,
+                                        fontFamily: 'monospace',
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: WpSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                WpButton(
+                  key: const ValueKey('dictionary-import-review-cancel'),
+                  label: MaterialLocalizations.of(context).cancelButtonLabel,
+                  variant: WpButtonVariant.ghost,
+                  tone: WpButtonTone.neutral,
+                  onPressed: () => Navigator.of(context).pop(null),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                WpButton(
+                  key: const Key('vocabulary-import-confirm'),
+                  label:
+                      widget.confirmLabelBuilder?.call(_selected.length) ??
+                      l10n.replacementsImportReviewImportButton(
+                        _selected.length,
+                      ),
+                  variant: WpButtonVariant.primary,
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(_selected.toList()),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

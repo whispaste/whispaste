@@ -23,7 +23,6 @@ Future<HotkeyRecordResult> recordSnippetPickerHotkey({
   required BuildContext context,
   required WidgetRef ref,
   required AppSettings settings,
-  // loam-ignore: code-duplicates – Zwilling zu `recordQuickNoteHotkey`, Begründung im Doc-Kommentar dort
 }) {
   final snippetPicker = settings.snippetPickerHotkey;
   return recordHotkey(

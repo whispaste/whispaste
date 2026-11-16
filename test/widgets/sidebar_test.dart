@@ -13,37 +13,10 @@ void main() {
       icon: LucideIcons.settings,
       label: 'Settings',
     ),
-    const WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
+    const WpNavItem(id: 'help', icon: LucideIcons.circleHelp, label: 'Help'),
   ];
 
   group('WpSidebar', () {
-    testWidgets('renders without error', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          WpSidebar(items: testItems, activeId: 'home', onItemTap: (_) {}),
-        ),
-      );
-
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('shows expected number of navigation icons', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          WpSidebar(items: testItems, activeId: 'home', onItemTap: (_) {}),
-        ),
-      );
-
-      // Each nav item has a Tooltip with the item label
-      for (final item in testItems) {
-        expect(
-          find.byTooltip(item.label),
-          findsOneWidget,
-          reason: 'Nav item "${item.label}" should have a Tooltip',
-        );
-      }
-    });
-
     testWidgets('tapping a nav item calls the selection callback', (
       tester,
     ) async {
@@ -79,8 +52,8 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('About'));
-      expect(tappedId, 'about');
+      await tester.tap(find.byTooltip('Help'));
+      expect(tappedId, 'help');
     });
 
     testWidgets('WpNavItem data class stores id, icon, and label', (_) async {

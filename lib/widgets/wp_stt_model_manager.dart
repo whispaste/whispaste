@@ -11,12 +11,15 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/accessibility/announce.dart';
+import '../core/app_info.dart' as app;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../features/settings/stt_model_selector.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
-import 'toast.dart';
+import '../services/stt/benchmark_freshness.dart';
+import 'model_ram_precheck_dialog.dart';
 
 /// Settings-aware wrapper around [SttModelSelector].
 ///
@@ -33,18 +36,18 @@ class WpSttModelManager extends ConsumerWidget {
     // just-finished action (the Earned-Green Rule, `lib/DESIGN.md`) — and the
     // completion itself had never been announced anywhere: the row simply
     // turned green at some point while the user was elsewhere on the page.
-    // Reporting it as a toast is what the rule asks for and is also the only
-    // way the user learns *when* the model became usable. Edge-triggered, so
+    // The row shows the result; the announcement tells a screen reader *when*
+    // the model became usable. Edge-triggered, so
     // a rebuild in the `done` phase cannot re-fire it. Onboarding does the
     // same thing at `model_step.dart:258`.
     ref.listen<ModelDownloadState>(modelDownloadProvider, (previous, next) {
       if (next.phase != DownloadPhase.done) return;
       if (previous?.phase == DownloadPhase.done) return;
       if (!context.mounted) return;
-      WpToast.show(
-        context,
-        message: L10n.of(context).modelDownloadComplete,
-        type: WpToastType.success,
+      announce(
+        View.of(context),
+        L10n.of(context).modelDownloadComplete,
+        Directionality.of(context),
       );
     });
 
@@ -52,14 +55,35 @@ class WpSttModelManager extends ConsumerWidget {
     final gpu = gpuAsync.value;
     final settings = ref.watch(settingsProvider).value;
     final currentModelId = settings?.effectiveModelId;
+    // Only results measured on this machine, build and compute path count.
+    final benchmarkRtf = settings == null || gpu == null
+        ? null
+        : benchmarkRtfForMachine(
+            benchmark: settings.benchmark,
+            gpu: gpu,
+            appVersion: app.appVersion,
+          );
 
     return SttModelSelector(
       currentModelId: currentModelId,
-      benchmarkRtf: settings?.tierBenchmarkRtf,
+      benchmarkRtf: benchmarkRtf,
       gpu: gpu,
-      onModelSelected: (modelId) => ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(sttModel: modelId)),
+      onModelSelected: (modelId) async {
+        // Explicit choice is the one place that asks before a clearly
+        // too-large local model loads (decision 9a). Cancel keeps the model.
+        final current = ref.read(settingsProvider).value;
+        if (current != null &&
+            !await confirmSttSettingsRam(
+              context: context,
+              settings: current.copyWith(sttModel: modelId),
+            )) {
+          return;
+        }
+        if (!context.mounted) return;
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(sttModel: modelId));
+      },
     );
   }
 }

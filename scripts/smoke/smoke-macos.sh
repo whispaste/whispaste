@@ -155,6 +155,11 @@ for lib in libwhisper.dylib libsmartmode_shim.dylib; do
     otool -L "$APP/Contents/Frameworks/$lib"
   fi
 done
+# Whisper guard inside the app: libwhisper without a loadable wp_ffi_guard of the
+# current ABI silently disables all GPU backends (see internal-notes, GPU-Laufzeit-Schutz).
+if [ -f "$APP/Contents/Frameworks/libwhisper.dylib" ]; then
+  bash "$(dirname "$0")/../check-libwhisper-guard.sh" "$APP/Contents/Frameworks"
+fi
 
 # 3. Start probe.
 if [ "$SKIP_LAUNCH" = "1" ]; then

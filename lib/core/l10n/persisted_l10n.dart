@@ -28,7 +28,12 @@ final _supported = L10n.supportedLocales.map((l) => l.languageCode).toSet();
 /// Falls back to English when nothing is mirrored yet (only reachable before
 /// the main engine has loaded settings once) or the mirrored code is not a
 /// supported locale.
-Future<L10n> resolvePersistedL10n() async {
+Future<L10n> resolvePersistedL10n() async => resolvePersistedL10nNow();
+
+/// [resolvePersistedL10n] without the `Future`: the mirror is a plain file
+/// read, so an engine that stays alive across app-language changes (the
+/// snippet picker) can re-read it synchronously on every show (#1680).
+L10n resolvePersistedL10nNow() {
   const fallback = 'en';
   final stored = readLocaleMirror();
   final code = stored != null && _supported.contains(stored)

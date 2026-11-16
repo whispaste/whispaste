@@ -14,7 +14,7 @@ Once transcription finishes, the recording is discarded unless you enable audio 
 
 ## What can still use the network
 
-Usage statistics and crash reports are enabled by default. Statistics record feature use but exclude audio, transcripts and history. They use no cookies and rely on a random ID that changes every week. Crash reports also exclude audio and text, and personal data is removed before they are sent.
+Usage statistics and crash reports are enabled by default. Statistics record feature use but exclude audio, transcripts and history. They use no cookies and rely on a pseudonymous weekly value that changes every week. Crash reports also exclude audio and text, and personal data is removed before they are sent.
 
 You can turn both off under Settings → Privacy. The app’s update check can be disabled too. If you care about the connections the app makes as well as where transcription happens, review these settings during setup. Choosing a local engine does not switch off statistics or crash reports.
 

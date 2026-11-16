@@ -27,6 +27,8 @@ const workflows = [
 
 <!-- Use cases: three entries into the use-case pages. Each card is a scene
      (photo) with the field the person writes in, then title, text and link.
+     No aria-label: the link takes its name from the visible title, text and
+     "more" (WCAG 2.5.3 Label in Name, #1630); the scene is aria-hidden.
      Stacked on phones/tablets, three columns from lg. -->
 <section id="use-cases" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
   <div class="relative wp-container">
@@ -44,8 +46,6 @@ const workflows = [
         <a
           href={href}
           class="use-case-card"
-          aria-label={t(lang, `useCaseCards.${key}.ariaLabel`)}
-          data-i18n-aria={`useCaseCards.${key}.ariaLabel`}
           data-testid={`use-cases-${key}`}
         >
           <div class="use-case-card__scene">
@@ -62,8 +62,10 @@ const workflows = [
                 decoding="async"
               />
             </picture>
-            <!-- EU AI Act Art. 50(4): AI-generated, realistic — labelled. -->
-            <span class="use-case-card__ai" data-i18n="ai.badge">{t(lang, 'ai.badge')}</span>
+            <!-- EU AI Act Art. 50(4): AI-generated, realistic — labelled.
+                 Hidden from assistive tech like the photo it labels, so the
+                 link's accessible name starts with the visible title. -->
+            <span class="use-case-card__ai" aria-hidden="true" data-i18n="ai.badge">{t(lang, 'ai.badge')}</span>
             <div class="use-case-card__field" aria-hidden="true" style={`--uc-tilt: ${i % 2 === 0 ? -2 : 2}deg`}>
               <span class="use-case-card__tab">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d={icon} /></svg>
@@ -149,9 +151,9 @@ const workflows = [
     border-radius: var(--wp-radius-chip);
     font-size: var(--wp-font-size-2xs);
     font-weight: 500;
-    color: var(--wp-color-frost-200);
+    color: var(--wp-photo-label-text);
     /* Opaque: the band is light, so the label must not rely on the photo. */
-    background: var(--wp-overlay-fill);
+    background: var(--wp-photo-label-fill);
   }
   /* The field the person is writing in, laid onto the scene like a sticker:
      an amber tab names it (the one accent), the dictated text sits inside. */

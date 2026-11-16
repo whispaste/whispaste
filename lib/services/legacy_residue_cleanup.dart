@@ -1,7 +1,6 @@
 /// Legacy pre-FFI server-binary residue cleanup — removes stray files that
 /// the whisper-server download/subprocess stack (removed in the 2026
-/// whisper-ffi-engine migration, see `internal-notes
-/// 07-abbau-server-binary-acquisition-stack.md`) used to place in
+/// whisper-ffi-engine migration) used to place in
 /// `sttDir()`. The engine has run in-process via `dart:ffi` against a
 /// bundled `libwhisper` (next to the executable, NOT in `sttDir()`) ever
 /// since, so any of these files found in `sttDir()` today are guaranteed

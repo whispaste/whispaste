@@ -4,12 +4,9 @@
 /// history export flow lives elsewhere.
 ///
 /// Use [showWpExportFormatPicker] to display it. The returned future resolves
-/// with the selected [ExportFormat] or `null` if dismissed (barrier tap or
-/// Escape).
+/// with the selected [ExportFormat] or `null` if dismissed (Cancel, Escape or
+/// a tap outside).
 library;
-
-import 'dart:io' show Platform;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +18,7 @@ import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../features/history/data/export_service.dart';
+import 'dialog.dart';
 
 final _log = AppLogger('ExportFormatPicker');
 
@@ -28,33 +26,30 @@ final _log = AppLogger('ExportFormatPicker');
 // Public API
 // ---------------------------------------------------------------------------
 
-/// Shows the export-format picker as a modal dialog.
+/// Shows the export-format picker as a WhisPaste dialog: the formats as rows,
+/// one Cancel action.
 ///
 /// Resolves with the chosen [ExportFormat] when the user taps an option or
-/// confirms the highlighted option with Enter. Resolves with `null` if the
-/// user taps the barrier or presses Escape.
+/// confirms the highlighted option with Enter. Resolves with `null` on Cancel,
+/// Escape or a tap outside.
 ///
 /// [formats] narrows the offered options; defaults to all five formats.
 Future<ExportFormat?> showWpExportFormatPicker(
   BuildContext context, {
   List<ExportFormat> formats = _orderedFormats,
 }) {
-  return showGeneralDialog<ExportFormat>(
+  final l10n = L10n.of(context);
+  return showWpDialog<ExportFormat>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: Colors.transparent, // painted by the transition builder
-    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
-    pageBuilder: (_, _, _) => const SizedBox.shrink(),
-    transitionBuilder: (ctx, animation, secondaryAnimation, child) {
-      return _PickerBarrier(
-        animation: animation,
-        child: _ExportFormatPickerDialog(
-          animation: animation,
-          formats: formats,
-        ),
-      );
-    },
+    title: l10n.exportFormatPickerTitle,
+    content: _ExportFormatList(formats: formats),
+    actions: [
+      WpDialogAction(
+        label: l10n.actionCancel,
+        testId: 'export-format-cancel',
+        role: WpDialogActionRole.cancel,
+      ),
+    ],
   );
 }
 
@@ -95,68 +90,26 @@ IconData _iconFor(ExportFormat format) => switch (format) {
 };
 
 // ---------------------------------------------------------------------------
-// Barrier — mirrors WpDialog frosted-glass treatment
+// Content — the format rows, with keyboard navigation
 // ---------------------------------------------------------------------------
 
-class _PickerBarrier extends StatelessWidget {
-  const _PickerBarrier({required this.animation, required this.child});
+/// The rows of the picker. The dialog around it supplies the title, the card
+/// and the Cancel action; this widget owns the highlight and the keys.
+class _ExportFormatList extends StatefulWidget {
+  const _ExportFormatList({required this.formats});
 
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
-
-    final bool useBlur = !Platform.isWindows;
-
-    final barrierColor = WpColors.background.withValues(alpha: 0.92);
-
-    return FadeTransition(
-      opacity: opacity,
-      child: Stack(
-        children: [
-          // Painted barrier — also acts as dismiss target so a tap anywhere
-          // outside the dialog panel pops the route with `null`.
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop<ExportFormat>(),
-              child: useBlur
-                  ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(color: wpDialogBarrierColor()),
-                    )
-                  : ColoredBox(color: barrierColor),
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Dialog — list of selectable formats with keyboard navigation
-// ---------------------------------------------------------------------------
-
-class _ExportFormatPickerDialog extends StatefulWidget {
-  const _ExportFormatPickerDialog({
-    required this.animation,
-    required this.formats,
-  });
-
-  final Animation<double> animation;
   final List<ExportFormat> formats;
 
   @override
-  State<_ExportFormatPickerDialog> createState() =>
-      _ExportFormatPickerDialogState();
+  State<_ExportFormatList> createState() => _ExportFormatListState();
 }
 
-class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
-  static const _prefsKey = 'last_export_format_index';
+class _ExportFormatListState extends State<_ExportFormatList> {
+  static const _prefsKey = 'last_export_format';
+
+  /// Legacy key: an index into the caller's list, meaningless across callers
+  /// (history, snippets and notes offer different lists). Migrated once.
+  static const _legacyPrefsKey = 'last_export_format_index';
   int _highlightedIndex = 0;
   late final FocusNode _focusNode;
 
@@ -170,8 +123,23 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
   Future<void> _loadLastFormat() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final idx = prefs.getInt(_prefsKey);
-      if (idx != null && idx >= 0 && idx < widget.formats.length && mounted) {
+      var name = prefs.get(_prefsKey);
+      if (name is! String) {
+        name = null;
+        final legacy = prefs.get(_legacyPrefsKey);
+        if (legacy != null) {
+          // The legacy index referred to this caller's list at save time.
+          if (legacy is int && legacy >= 0 && legacy < widget.formats.length) {
+            name = widget.formats[legacy].name;
+            await prefs.setString(_prefsKey, name);
+          }
+          await prefs.remove(_legacyPrefsKey);
+        }
+      }
+      if (name == null) return;
+      // A name this caller does not offer keeps the first-option default.
+      final idx = widget.formats.indexWhere((f) => f.name == name);
+      if (idx >= 0 && mounted) {
         setState(() => _highlightedIndex = idx);
       }
     } on Exception catch (e) {
@@ -191,14 +159,12 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
     // Fire-and-forget save so the dialog closes instantly
     SharedPreferences.getInstance()
         .then((prefs) {
-          final idx = widget.formats.indexOf(format);
-          if (idx >= 0) {
-            prefs.setInt(_prefsKey, idx);
-          }
+          return prefs.setString(_prefsKey, format.name);
         })
         .catchError((Object e) {
           // Non-fatal — the choice just won't be remembered this run.
           _log.debug('Failed to persist last export format (non-fatal): $e');
+          return false;
         });
 
     Navigator.of(context).pop<ExportFormat>(format);
@@ -244,62 +210,30 @@ class _ExportFormatPickerDialogState extends State<_ExportFormatPickerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final slide = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: widget.animation, curve: Curves.easeOut));
-
-    final theme = Theme.of(context);
     final l10n = L10n.of(context);
-
-    return Center(
-      child: SlideTransition(
-        position: slide,
-        child: Material(
-          color: Colors.transparent,
-          child: Focus(
-            focusNode: _focusNode,
-            autofocus: true,
-            onKeyEvent: _onKey,
-            child: Container(
-              width: 420,
-              constraints: const BoxConstraints(maxWidth: 420),
-              padding: const EdgeInsets.all(WpSpacing.lg),
-              decoration: BoxDecoration(
-                color: WpColors.surfaceElevated,
-                borderRadius: WpRadius.borderLg,
-                border: Border.all(color: WpColors.borderSubtle),
-                boxShadow: WpShadows.elevated,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.exportFormatPickerTitle,
-                    style: theme.textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: WpSpacing.sm),
-                  for (var i = 0; i < widget.formats.length; i++)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _FormatOption.build
-                    _FormatOption(
-                      format: widget.formats[i],
-                      label: _labelFor(widget.formats[i], l10n),
-                      extension: _extensionFor(widget.formats[i]),
-                      icon: _iconFor(widget.formats[i]),
-                      highlighted: i == _highlightedIndex,
-                      onTap: () => _select(widget.formats[i]),
-                      onHover: () {
-                        if (_highlightedIndex != i) {
-                          setState(() => _highlightedIndex = i);
-                        }
-                      },
-                    ),
-                ],
-              ),
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < widget.formats.length; i++)
+            _FormatOption(
+              format: widget.formats[i],
+              label: _labelFor(widget.formats[i], l10n),
+              extension: _extensionFor(widget.formats[i]),
+              icon: _iconFor(widget.formats[i]),
+              highlighted: i == _highlightedIndex,
+              onTap: () => _select(widget.formats[i]),
+              onHover: () {
+                if (_highlightedIndex != i) {
+                  setState(() => _highlightedIndex = i);
+                }
+              },
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -328,9 +262,9 @@ class _FormatOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    const highlightColor = WpColors.surfaceVariant;
+    final highlightColor = WpColors.surfaceVariant;
 
-    const mutedText = WpColors.textMuted;
+    final mutedText = WpColors.textMuted;
 
     // Same construction as the snippet picker, and for the same two reasons.
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
@@ -349,11 +283,12 @@ class _FormatOption extends StatelessWidget {
         button: true,
         selected: highlighted,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs / 2),
+          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxxs),
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
             onEnter: (_) => onHover(),
             child: InkWell(
+              key: ValueKey('export-format-${format.name}'),
               borderRadius: WpRadius.borderMd,
               onTap: onTap,
               child: AnimatedContainer(

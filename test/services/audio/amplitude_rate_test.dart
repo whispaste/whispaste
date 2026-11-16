@@ -40,7 +40,10 @@ void main() {
     // sample. With a correctly-tuned rate, the limit hits at
     // `maxDur * amplitudeSamplesPerSecond` samples.
     const limitSamples = maxDur * amplitudeSamplesPerSecond;
-    final amplitudes = List.filled(limitSamples + 5, 0.5);
+    final amplitudes = List.filled(
+      limitSamples + 5,
+      const GuardSample(dbFs: -20, level: 0.5),
+    );
 
     final events = <SafetyEvent>[];
     await Stream.fromIterable(

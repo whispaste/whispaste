@@ -11,9 +11,10 @@
 /// channels.
 library;
 
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -31,6 +32,12 @@ late L10n l10n;
 /// The history detail panel has long-standing tight-fit overflow on certain
 /// localised labels (tracked elsewhere). It is out of scope for issue 12 to
 /// fix that — these tests assert wiring, not layout.
+void _useWideView(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1800, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 void _ignoreOverflowErrors(WidgetTester tester) {
   final originalHandler = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -67,7 +74,11 @@ List<Object> _sampleOverrides() {
   final archived = all.where((e) => e.archived && e.deletedAt == null).toList();
   final trash = all.where((e) => e.deletedAt != null).toList();
   return [
-    historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
+    pagedHistoryProvider.overrideWith((ref) => Stream.value(active)),
+    // The list carries no full text since #1333; the detail panel loads it.
+    historyFullEntryProvider.overrideWith(
+      (ref, id) => Stream.value(all.where((e) => e.id == id).firstOrNull),
+    ),
     archivedEntriesProvider.overrideWith((ref) => Stream.value(archived)),
     trashEntriesProvider.overrideWith((ref) => Stream.value(trash)),
   ];
@@ -85,11 +96,24 @@ void main() {
       tester,
     ) async {
       _ignoreOverflowErrors(tester);
+      _useWideView(tester);
       final fake = _FakeExporter();
+      // The detail panel loads its entry from the database by id.
+      final first = generateSampleEntries().first;
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: first.id,
+          timestamp: first.timestamp,
+          content: Value(first.content),
+          title: Value(first.title),
+        ),
+      );
 
       await tester.pumpWidget(
         makeTestable(
           HistoryPage(exportFn: fake.call),
+          db: db,
           // Use an extra-wide viewport so the master/detail split has room
           // for the detail panel's full action row.
           size: const Size(1800, 900),
@@ -106,7 +130,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Open the overflow menu inside the detail panel.
-      await tester.tap(find.byIcon(LucideIcons.ellipsisVertical));
+      await tester.tap(find.bySemanticsIdentifier('history-detail-menu'));
       await tester.pumpAndSettle();
 
       // Tap the localised "Export…" item.
@@ -132,6 +156,7 @@ void main() {
       'multi-select Export action invokes exportFn with all selected entries',
       (tester) async {
         _ignoreOverflowErrors(tester);
+        _useWideView(tester);
         final fake = _FakeExporter();
 
         await tester.pumpWidget(
@@ -147,7 +172,20 @@ void main() {
         await tester.pumpAndSettle();
 
         // Enter multi-select mode via the toolbar toggle.
-        await tester.tap(find.byIcon(LucideIcons.listChecks));
+        // The toolbar collapses its tools into an overflow menu when the list
+        // pane is narrow, so use whichever of the two is on screen.
+        final toggle = find.byKey(const ValueKey('history-select-toggle'));
+        if (toggle.evaluate().isNotEmpty) {
+          await tester.tap(toggle);
+        } else {
+          await tester.tap(
+            find.byKey(const ValueKey('history-toolbar-overflow')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('history-toolbar-select')),
+          );
+        }
         await tester.pumpAndSettle();
 
         // Seed selection: tap an entry to add a first item — the
@@ -160,16 +198,13 @@ void main() {
         await tester.tap(find.text(l10n.historySelectAll));
         await tester.pumpAndSettle();
 
-        // The multi-select bar should now show the new "Export…" action.
-        expect(find.text(l10n.historyExportAction), findsOneWidget);
-        // Scroll the action into view if the horizontal action list pushed it
-        // out, then tap.
-        await tester.ensureVisible(find.text(l10n.historyExportAction));
-        await tester.pumpAndSettle();
+        // Export lives in the multi-select bar's overflow menu (UIA-HIS-18).
         await tester.tap(
-          find.text(l10n.historyExportAction),
-          warnIfMissed: false,
+          find.byKey(const ValueKey('history-multiselect-more')),
         );
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.historyExportAction), findsOneWidget);
+        await tester.tap(find.text(l10n.historyExportAction));
         await tester.pumpAndSettle();
 
         // The exporter received a single batched call with multiple entries.

@@ -1,5 +1,5 @@
 /// Widget tests for the "Spoken line breaks" toggle inside
-/// [SpeechRecognitionSection]. Mirrors `remove_filler_words_toggle_test.dart`
+/// [TextProcessingSection]. Mirrors `remove_filler_words_toggle_test.dart`
 /// (same cloud-mode setup, same fake notifier), default on.
 library;
 
@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/settings/sections/stt_section.dart';
+import 'package:whispaste/features/settings/sections/text_processing_section.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -39,7 +39,7 @@ Future<_FakeSettingsNotifier> _pumpSection(
   final notifier = _FakeSettingsNotifier(settings);
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(child: SpeechRecognitionSection()),
+      const SingleChildScrollView(child: TextProcessingSection()),
       overrides: [settingsProvider.overrideWith(() => notifier)],
       locale: const Locale('en'),
     ),

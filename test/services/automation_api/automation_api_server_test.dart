@@ -11,6 +11,11 @@ import 'package:shelf/shelf.dart';
 import 'package:whispaste/services/automation_api/automation_api_server.dart';
 
 void main() {
+  // test/flutter_test_config.dart installs the widget-test binding for every
+  // file, which fakes all dart:io HTTP with a synthetic 400. These tests talk
+  // to the real loopback server, so they need the real HttpClient.
+  setUpAll(() => HttpOverrides.global = null);
+
   group('AutomationApiServer', () {
     late AutomationApiServer server;
 

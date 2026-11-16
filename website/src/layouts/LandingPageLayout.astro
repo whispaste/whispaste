@@ -35,6 +35,8 @@ interface CrumbItem {
 interface HeroProps {
   readonly heading: string;
   readonly lead: string;
+  /** Optional one-sentence line under the H1 (e.g. a product disambiguation). */
+  readonly note?: string;
 }
 
 interface CtaProps {
@@ -83,16 +85,21 @@ import PageSheet from "../components/PageSheet.astro";
   <PageHero
     title={hero.heading}
     lead={hero.lead}
+    note={hero.note}
     crumbs={breadcrumbs}
-    artLabel={photo ? undefined : art.toUpperCase()}
+    artLabel={photo ? undefined : t(lang, `art.label.${art}`).toUpperCase()}
     testid="lp-hero"
   >
-    <a slot="actions" href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
-      <span>{cta.label}</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-      </svg>
-    </a>
+    <Fragment slot="actions">
+      {Astro.slots.has("hero-actions") ? <slot name="hero-actions" /> : (
+        <a href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
+          <span>{cta.label}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+          </svg>
+        </a>
+      )}
+    </Fragment>
     <div slot="art" class="lp-art">
       {photo && (
         <figure class="lp-photo" data-testid="lp-photo">
@@ -210,8 +217,8 @@ import PageSheet from "../components/PageSheet.astro";
     border-radius: var(--wp-radius-chip);
     font-size: var(--wp-font-size-2xs);
     font-weight: 500;
-    color: var(--wp-color-frost-200);
-    background: var(--wp-overlay-fill);
+    color: var(--wp-photo-label-text);
+    background: var(--wp-photo-label-fill);
   }
   .lp-art :global(svg) {
     display: block;

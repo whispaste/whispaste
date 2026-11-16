@@ -1,0 +1,8 @@
+---
+import NewsletterPage from "../components/pages/NewsletterPage.astro";
+import { currentLocale } from "../scripts/i18n.ts";
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<NewsletterPage lang={lang} />

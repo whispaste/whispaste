@@ -1,5 +1,4 @@
-/// Route group: insert a named, existing snippet (ticket 04,
-/// `internal-notes`).
+/// Route group: insert a named, existing snippet.
 ///
 /// A new file rather than an addition to `automation_api_router.dart` — see
 /// `automation_api_history_routes.dart`'s doc comment for why. Pure
@@ -27,6 +26,7 @@ enum AutomationApiSnippetInsertOutcome {
   notFound,
   interactiveNotSupported,
   pasteFailed,
+  previewCancelled,
 }
 
 /// Route group: inserts a named, existing, `static` snippet.
@@ -71,6 +71,8 @@ AutomationApiRouteGroup snippetInsertRoutes({
             return _jsonResponse(409, {'error': 'snippet_not_static'});
           case AutomationApiSnippetInsertOutcome.pasteFailed:
             return _jsonResponse(500, {'error': 'insert_failed'});
+          case AutomationApiSnippetInsertOutcome.previewCancelled:
+            return _jsonResponse(409, {'error': 'preview_cancelled'});
         }
       } catch (e, st) {
         _log.warning('POST /v1/snippets/insert: insertByName threw', e, st);

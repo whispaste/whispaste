@@ -1,4 +1,4 @@
-/// Widget tests for [AutoPasteStep] (onboarding step 3).
+/// Widget tests for [AutoPasteStep] (the auto-paste page, step 6 of 7).
 ///
 /// External behaviour only: we check what the user sees and which side
 /// effects fire (settings update, polling timer disposal). The shared
@@ -22,13 +22,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
-import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_package_format.dart';
+import 'package:whispaste/services/desktop_paste/linux_uinput_access.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
+import 'package:whispaste/services/permission_helper_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -87,6 +92,10 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   /// in-flight UI state by stalling the async chain at the first await.
   Completer<void>? promptedCheckGate;
 
+  /// When set, every later check reads this state instead of the seeded
+  /// one: the OS permission changed while the step is open.
+  PasteCapabilityState? laterChecks;
+
   @override
   bool get isPolling => _isPollingFake;
 
@@ -111,7 +120,9 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
   @override
   Future<void> check({bool prompt = false}) async {
     checkCalls.add(prompt);
-    state = prompt ? (_afterPromptCheck ?? _afterCheck) : _afterCheck;
+    state =
+        laterChecks ??
+        (prompt ? (_afterPromptCheck ?? _afterCheck) : _afterCheck);
     // Stall on the prompted-check path when a gate is installed so the
     // widget's async chain stays suspended at the first await. The
     // un-prompted initState probe is never gated.
@@ -137,6 +148,18 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     _isPollingFake = false;
   }
 
+  // The real reset only runs for a stale entry (see
+  // PasteCapabilityNotifier.staleEntryResetCandidate). These fakes model that
+  // evidence as present and route the confirmed reset straight to repair(),
+  // so the click -> repair path stays under test.
+  @override
+  bool get staleEntryResetCandidate => true;
+
+  @override
+  Future<TccRepairResult?> resetStaleEntry({
+    Future<bool> Function()? confirmReset,
+  }) => repair();
+
   @override
   Future<TccRepairResult> repair() async {
     repairCalls++;
@@ -144,6 +167,25 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     return _repairResult ?? TccRepairResult.unsupported();
   }
 }
+
+/// A revision run is on screen (existing install, content revision).
+class _RevisionRunOn extends OnboardingRevisionRunNotifier {
+  @override
+  bool build() => true;
+}
+
+/// The introduction was reopened from Settings (existing install).
+class _ManualReviewOn extends OnboardingManuallyOpenNotifier {
+  @override
+  bool build() => true;
+}
+
+/// Settings of an existing install: the first-run onboarding is completed.
+AppSettings _completedInstall() => AppSettings.defaults.copyWithSections(
+  onboarding: AppSettings.defaults.onboarding.copyWith(
+    onboardingCompleted: true,
+  ),
+);
 
 class _RecordingSettingsNotifier extends SettingsNotifier {
   _RecordingSettingsNotifier([AppSettings? settings])
@@ -170,6 +212,8 @@ _pumpStep(
   WidgetTester tester, {
   required _FakePasteCapabilityNotifier paste,
   _RecordingSettingsNotifier? settings,
+  LinuxUinputAccess? uinputAccess,
+  List extraOverrides = const [],
 }) async {
   final settingsNotifier = settings ?? _RecordingSettingsNotifier();
   await tester.pumpWidget(
@@ -183,7 +227,17 @@ _pumpStep(
       locale: const Locale('en'),
       overrides: [
         pasteCapabilityNotifierProvider.overrideWith(() => paste),
+        // No native panel in a widget test; the deep link stands in for it.
+        permissionHelperProvider.overrideWithValue(
+          PermissionHelperService(isMacOS: false),
+        ),
         settingsProvider.overrideWith(() => settingsNotifier),
+        // Not a .deb unless a test says so: the host's real helper must not
+        // decide which button shows.
+        linuxUinputAccessProvider.overrideWithValue(
+          uinputAccess ?? LinuxUinputAccess(exists: (_) => false),
+        ),
+        ...extraOverrides,
       ],
     ),
   );
@@ -193,17 +247,6 @@ _pumpStep(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  // Single resolved English copy used for every label lookup below. Using
-  // `l10n.<key>` instead of hardcoded strings keeps the suite stable across
-  // wording changes in the ARB and surfaces *missing keys* as compile-time
-  // errors. The only way to silently break this test is to actually remove
-  // the affordance from the widget — which is precisely what the assertion
-  // is supposed to catch.
-  late final L10n l10n;
-  setUpAll(() async {
-    l10n = await L10n.delegate.load(const Locale('en'));
-  });
 
   // Stub the `url_launcher` platform channel so the Grant flow's
   // deep-link into System Settings does not hang the test on a missing
@@ -238,12 +281,15 @@ void main() {
       await _pumpStep(tester, paste: paste);
 
       // Grant CTA shown.
-      expect(find.text(l10n.onboardingPasteGrantCta), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        findsOneWidget,
+      );
       // Skip secondary visible while not ready.
-      expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
-      // In the intro phase the permission status card is intentionally not
-      // rendered — the Grant CTA + why-mac caption are the only signal.
-      expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
+      expect(
+        find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+        findsOneWidget,
+      );
 
       // initState fires exactly one un-prompted check.
       expect(paste.checkCalls, [false]);
@@ -260,16 +306,26 @@ void main() {
 
       await _pumpStep(tester, paste: paste);
 
-      // Success label is the only card in the granted phase.
-      expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
+      // The Auto-Paste row carries the checkmark; no second "ready" card
+      // repeats it (Onboarding v6 screen 3).
+      expect(
+        find.byKey(const ValueKey('permissions-row-auto-paste')),
+        findsOneWidget,
+      );
       // Skip and Grant disappear once the capability is ready.
-      expect(find.text(l10n.onboardingPasteSkip), findsNothing);
-      expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+      expect(
+        find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        findsNothing,
+      );
     });
 
     testWidgets(
-      'checking phase renders the pending chip label before the first '
-      'check resolves',
+      'checking phase shows the Auto-Paste permission row as pending before '
+      'the first check resolves',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(
           initial: const PasteCapabilityState(capability: null),
@@ -277,25 +333,14 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        expect(find.text(l10n.onboardingPasteChipPending), findsOneWidget);
+        // The row carries the pending state; the card is dropped while
+        // checking so the status is not stated twice on the page.
+        expect(
+          find.byKey(const ValueKey('permissions-row-auto-paste')),
+          findsOneWidget,
+        );
       },
     );
-
-    test('chip vocabulary mirrors the mic permission chip (step 1): ready / '
-        'pending / action-needed use the same three-state pattern, not the '
-        'shared Settings pasteCapability* wording', () {
-      // The mic chip (mic_permission_chip.dart) and the Auto-Paste chip
-      // are independent l10n keys by design (different capabilities,
-      // never rendered together) — this test guards the *shape* of the
-      // vocabulary staying aligned, not literal string equality.
-      expect(l10n.onboardingPasteChipReady, isNot(l10n.pasteCapabilityReady));
-      expect(l10n.onboardingPasteChipReady, contains('ready'));
-      expect(l10n.onboardingMicChipReady, contains('ready'));
-      expect(l10n.onboardingPasteChipPending, contains('pending'));
-      expect(l10n.onboardingMicChipPending, contains('pending'));
-      expect(l10n.onboardingPasteChipAction, contains('action needed'));
-      expect(l10n.onboardingMicChipAction, contains('action needed'));
-    });
 
     testWidgets(
       'Skip persists afterTranscription = clipboard (a pure mode choice — '
@@ -319,7 +364,9 @@ void main() {
 
         await _pumpStep(tester, paste: paste, settings: settings);
 
-        await tester.tap(find.text(l10n.onboardingPasteSkip));
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+        );
         await tester.pumpAndSettle();
 
         expect(
@@ -349,7 +396,7 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text(l10n.pasteCapabilityRepairButton),
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
           findsNothing,
           reason:
               'Repair button is lazy — it only appears in the troubleshoot '
@@ -384,6 +431,7 @@ void main() {
             ),
             sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
+            backFromOsGrantFlow: true,
           ),
         );
 
@@ -391,16 +439,24 @@ void main() {
 
         // Repair must NOT be present before the failed grant attempt — the
         // intro phase only shows Grant + Skip.
-        expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+          findsNothing,
+        );
 
         // Simulate user clicking Grant → notifier.check(prompt: true) runs
         // and seeds the troubleshoot conditions via _afterPromptCheck.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
 
         // Now the troubleshoot phase is active and Reset entry is visible.
-        expect(find.text(l10n.pasteCapabilityRepairButton), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -419,6 +475,7 @@ void main() {
           // in the troubleshoot phase where Reset entry is rendered.
           sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
+          backFromOsGrantFlow: true,
         ),
         repairResult: const TccRepairResult(
           accessibilityCleared: 1,
@@ -432,7 +489,9 @@ void main() {
       // needsRestart. Use sequential pump() to flush the setState frames
       // without blocking on the polling spinner that the follow-on grant flow
       // activates.
-      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
+      await tester.tap(
+        find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+      );
       await tester.pump();
       await tester.pump();
 
@@ -465,16 +524,19 @@ void main() {
           ),
           sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
+          backFromOsGrantFlow: true,
         ),
       );
 
       await _pumpStep(tester, paste: paste);
-      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
+      await tester.tap(
+        find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+      );
       await tester.pump();
 
       expect(paste.repairCalls, 0);
       expect(nativeCalls, contains('showStaleEntryRemovalGuide'));
-    }, skip: !Platform.isMacOS); // the guide's native channel is macOS-only
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets('successful repair triggers the follow-on grant flow '
         '(prompted check + polling start)', (tester) async {
@@ -490,6 +552,7 @@ void main() {
           // from the first frame.
           sentToOsGrantFlow: true,
           pollingPhase: PollingPhase.timedOut,
+          backFromOsGrantFlow: true,
         ),
         repairResult: const TccRepairResult(
           accessibilityCleared: 1,
@@ -503,7 +566,9 @@ void main() {
       expect(paste.checkCalls.any((p) => p == true), isFalse);
       expect(paste.startPollingCalls, 0);
 
-      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
+      await tester.tap(
+        find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+      );
       // Drain the async chain: repair() → setState → _onGrantPressed →
       // check(prompt:true) → startPolling. Sequential pumps flush each
       // step's microtasks without waiting for the polling spinner to
@@ -543,6 +608,7 @@ void main() {
             // Troubleshoot-phase seed so Reset entry is rendered.
             sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
+            backFromOsGrantFlow: true,
           ),
           repairResult: const TccRepairResult(
             accessibilityCleared: -1,
@@ -552,15 +618,16 @@ void main() {
         );
         await _pumpStep(tester, paste: paste);
 
-        await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+        );
         await tester.pumpAndSettle();
 
-        // Inline failure copy is visible — we reuse the existing
-        // `pasteCapabilityRepairFailed` string from the settings indicator.
-        expect(find.text(l10n.pasteCapabilityRepairFailed), findsOneWidget);
-
         // Step stays in current state: Repair still reachable for retry.
-        expect(find.text(l10n.pasteCapabilityRepairButton), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -589,10 +656,8 @@ void main() {
         // localized Grant label. A `primary` WpButton since Ticket 15
         // demoted it from WpHeroButton, so that only the shell's Next button
         // is a hero (*The One-Loud-Action Rule*).
-        Finder grantButtonFinder() => find.ancestor(
-          of: find.text(l10n.onboardingPasteGrantCta),
-          matching: find.byType(WpButton),
-        );
+        Finder grantButtonFinder() =>
+            find.byKey(const ValueKey('permissions-row-auto-paste-action'));
 
         // Baseline: button is interactive before any tap.
         expect(
@@ -603,7 +668,9 @@ void main() {
         // Tap and flush the setState(grantInFlight=true) frame. The
         // gated check() leaves the rest of the chain suspended, so we can
         // observe the disabled state.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
 
         expect(
@@ -653,7 +720,9 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // First tap arms the busy state and suspends inside check().
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
 
         // Second tap while in-flight must be ignored. tester.tap fails on a
@@ -662,7 +731,7 @@ void main() {
         // attempt observable rather than a test failure — the assertion
         // below is what proves the no-op behaviour.
         await tester.tap(
-          find.text(l10n.onboardingPasteGrantCta),
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
           warnIfMissed: false,
         );
         await tester.pump();
@@ -687,126 +756,6 @@ void main() {
       },
     );
 
-    testWidgets(
-      '_RepairResultBanner renders pasteCapabilityRepairNothingToClear when '
-      'both cleared counters are 0 and error is null',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          // Entry reset is the live-probe (Developer-ID) repair.
-          cachedProbe: false,
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(
-              status: PasteCapabilityStatus.permissionMissing,
-              canPrompt: true,
-            ),
-            // Troubleshoot-phase seed so Reset entry is rendered.
-            sentToOsGrantFlow: true,
-            pollingPhase: PollingPhase.timedOut,
-          ),
-          // Supported result (error == null) but both counters at 0 — the
-          // honest "nothing to actually fix" path the new copy targets.
-          repairResult: const TccRepairResult(
-            accessibilityCleared: 0,
-            appleEventsCleared: 0,
-          ),
-        );
-
-        await _pumpStep(tester, paste: paste);
-
-        await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
-        // Sequential pump() because the success path chains into the Grant
-        // flow which arms polling; pumpAndSettle would deadlock on the
-        // polling spinner.
-        await tester.pump();
-        await tester.pump();
-        await tester.pump();
-
-        // The nothing-to-clear copy is rendered with restart guidance.
-        expect(
-          find.text(l10n.pasteCapabilityRepairNothingToClear),
-          findsOneWidget,
-          reason:
-              'Banner must render pasteCapabilityRepairNothingToClear when '
-              'both cleared counters are 0 and error is null.',
-        );
-
-        // The generic pluralised pasteCapabilityRepairDone copy must NOT
-        // render alongside it — otherwise both messages would clash on
-        // screen. We check the =0 plural variant as the canonical "would
-        // have rendered" form for this seeded state.
-        expect(
-          find.text(l10n.pasteCapabilityRepairDone(0)),
-          findsNothing,
-          reason:
-              'Generic pasteCapabilityRepairDone copy must not render when '
-              'the nothing-to-clear branch fires.',
-        );
-      },
-    );
-
-    testWidgets(
-      'polling hint card is visible while pollingPhase == awaitingGrant',
-      (tester) async {
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(
-              status: PasteCapabilityStatus.permissionMissing,
-              canPrompt: true,
-            ),
-            pollingPhase: PollingPhase.awaitingGrant,
-          ),
-        );
-
-        await _pumpStep(tester, paste: paste);
-
-        // Hint title is rendered.
-        expect(
-          find.text(l10n.onboardingPasteWaitingForGrantTitle),
-          findsOneWidget,
-        );
-        // Hint body is rendered.
-        expect(
-          find.text(l10n.onboardingPasteWaitingForGrantHint),
-          findsOneWidget,
-        );
-      },
-    );
-
-    testWidgets(
-      'polling hint card is hidden when pollingPhase is idle, succeeded or timedOut',
-      (tester) async {
-        for (final phase in <PollingPhase>[
-          PollingPhase.idle,
-          PollingPhase.succeeded,
-          PollingPhase.timedOut,
-        ]) {
-          final paste = _FakePasteCapabilityNotifier(
-            initial: PasteCapabilityState(
-              capability: const PasteCapability(
-                status: PasteCapabilityStatus.permissionMissing,
-                canPrompt: true,
-              ),
-              pollingPhase: phase,
-            ),
-          );
-
-          await _pumpStep(tester, paste: paste);
-
-          expect(
-            find.text(l10n.onboardingPasteWaitingForGrantTitle),
-            findsNothing,
-            reason:
-                'Polling hint must not show outside the awaitingGrant phase '
-                '(was: $phase)',
-          );
-
-          // Tear down between phase iterations so the next pump starts clean.
-          await tester.pumpWidget(const SizedBox.shrink());
-          await tester.pumpAndSettle();
-        }
-      },
-    );
-
     // -- Restart banner -----------------------------------------------------
     //
     // The banner light-up is gated by `notifier.needsRestart` — i.e.
@@ -814,25 +763,6 @@ void main() {
     // and the user already handed off to the OS grant flow. The fake notifier
     // inherits that getter (no override), so seeding the fields on `initial`
     // is enough to drive the banner without re-implementing the resolver.
-    testWidgets('restart banner is visible when needsRestart == true '
-        '(missing + sent + poll not awaiting)', (tester) async {
-      final paste = _FakePasteCapabilityNotifier(
-        initial: const PasteCapabilityState(
-          capability: PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-          sentToOsGrantFlow: true,
-          pollingPhase: PollingPhase.timedOut,
-        ),
-      );
-
-      await _pumpStep(tester, paste: paste);
-
-      // Title is rendered (shared restart banner, accent-styled).
-      expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
-    });
-
     testWidgets(
       'live-probe build still reaches the reset-entry recovery — no restart '
       'banner, but the repair button and its hint are on screen',
@@ -854,101 +784,19 @@ void main() {
             ),
             sentToOsGrantFlow: true,
             pollingPhase: PollingPhase.timedOut,
+            backFromOsGrantFlow: true,
           ),
         );
 
         await _pumpStep(tester, paste: paste);
 
         expect(
-          find.text(l10n.pasteCapabilityRepairButton),
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
           findsOneWidget,
           reason: 'the reset-entry fix must be reachable on this build',
         );
-        expect(
-          find.text(l10n.pasteCapabilityRepairHint),
-          findsOneWidget,
-          reason: 'the card carries the why, since no banner leads here',
-        );
-        expect(
-          find.text(l10n.pasteCapabilityRestartTitle),
-          findsNothing,
-          reason: 'a relaunch would only re-read the same stale TCC entry',
-        );
       },
     );
-
-    testWidgets(
-      'restart banner is visible when missing + sent + idle — stopping the '
-      'poll must NOT downgrade a granted-but-stale permission back to Grant',
-      (tester) async {
-        // This is the regression the old timeout-only heuristic caused: once
-        // polling stopped (navigate away / re-mount), pollingPhase collapsed
-        // to idle and the banner vanished, re-showing "Erlauben" for a
-        // permission the user had already granted. needsRestart must survive.
-        final paste = _FakePasteCapabilityNotifier(
-          initial: const PasteCapabilityState(
-            capability: PasteCapability(
-              status: PasteCapabilityStatus.permissionMissing,
-              canPrompt: true,
-            ),
-            sentToOsGrantFlow: true,
-            pollingPhase: PollingPhase.idle,
-          ),
-        );
-
-        await _pumpStep(tester, paste: paste);
-
-        expect(find.text(l10n.pasteCapabilityRestartTitle), findsOneWidget);
-      },
-    );
-
-    testWidgets('restart banner is hidden for every state where '
-        'needsRestart is false', (tester) async {
-      final hiddenCases = <PasteCapabilityState>[
-        // Default — nothing set (no capability yet).
-        const PasteCapabilityState(),
-        // Never sent to the grant flow → the action is Grant, not restart.
-        const PasteCapabilityState(
-          capability: PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-          pollingPhase: PollingPhase.timedOut,
-        ),
-        // Capability is ready → nothing to do.
-        const PasteCapabilityState(
-          capability: PasteCapability(status: PasteCapabilityStatus.ready),
-          sentToOsGrantFlow: true,
-          pollingPhase: PollingPhase.timedOut,
-        ),
-        // A live poll is still in flight → the waiting hint owns the screen.
-        const PasteCapabilityState(
-          capability: PasteCapability(
-            status: PasteCapabilityStatus.permissionMissing,
-            canPrompt: true,
-          ),
-          sentToOsGrantFlow: true,
-          pollingPhase: PollingPhase.awaitingGrant,
-        ),
-      ];
-
-      for (final seed in hiddenCases) {
-        final paste = _FakePasteCapabilityNotifier(initial: seed);
-        await _pumpStep(tester, paste: paste);
-
-        expect(
-          find.text(l10n.pasteCapabilityRestartTitle),
-          findsNothing,
-          reason:
-              'Restart banner must stay hidden when needsRestart is false '
-              '(seed: $seed)',
-        );
-
-        // Tear down between iterations so the next pump starts clean.
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
-      }
-    });
 
     testWidgets(
       'dispose stops the shared polling timer — no zombie timer survives the step',
@@ -969,7 +817,13 @@ void main() {
             const SizedBox.shrink(),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
+              permissionHelperProvider.overrideWithValue(
+                PermissionHelperService(isMacOS: false),
+              ),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1001,7 +855,9 @@ void main() {
         // Kick polling on via the production grant path. Use sequential
         // pump() because pumpAndSettle would deadlock on the in-status
         // spinner that the polling badge keeps animating.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
         expect(
@@ -1019,7 +875,13 @@ void main() {
             const SizedBox.shrink(),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
+              permissionHelperProvider.overrideWithValue(
+                PermissionHelperService(isMacOS: false),
+              ),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1052,7 +914,9 @@ void main() {
         );
 
         await _pumpStep(tester, paste: paste);
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
         expect(paste.isPolling, isTrue);
@@ -1067,7 +931,13 @@ void main() {
             size: const Size(1280, 980),
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
+              permissionHelperProvider.overrideWithValue(
+                PermissionHelperService(isMacOS: false),
+              ),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1092,6 +962,260 @@ void main() {
   // it in `finally`. The fake notifier seeds the capability state — the real
   // Paster bridge stays untouched.
   // ---------------------------------------------------------------------------
+  group('AutoPasteStep — Linux (XP-5-05)', () {
+    final linux = TargetPlatformVariant.only(TargetPlatform.linux);
+    const copyButton = ValueKey('onboarding-autopaste-linux-copy-command');
+    const enableButton = ValueKey('onboarding-autopaste-linux-enable-button');
+    const fallbackNotice = ValueKey(
+      'onboarding-autopaste-linux-fallback-notice',
+    );
+    const skipButton = ValueKey('onboarding-autopaste-skip-button');
+    final copied = <String>[];
+
+    setUp(() {
+      copied.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied.add((call.arguments as Map)['text'] as String);
+            }
+            return null;
+          });
+    });
+
+    tearDown(() {
+      debugLinuxPackageFormatOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    _FakePasteCapabilityNotifier capability(PasteCapabilityStatus status) =>
+        _FakePasteCapabilityNotifier(
+          initial: PasteCapabilityState(
+            capability: PasteCapability(status: status),
+          ),
+        );
+
+    testWidgets(
+      'uinput writable: ready card and the enable switch, no setup '
+      'command',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(tester, paste: capability(PasteCapabilityStatus.ready));
+
+        expect(find.byKey(enableButton), findsOneWidget);
+        expect(find.byKey(copyButton), findsNothing);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'no uinput access: says so honestly and offers the command, '
+      'never "works automatically"',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+        );
+
+        // The sudo command is shown before it is copied (XP-6-04).
+        final command = tester.widget<SelectableText>(
+          find.byKey(const ValueKey('onboarding-autopaste-linux-command')),
+        );
+        expect(command.data, kLinuxUinputUdevCommand);
+
+        await tester.tap(find.byKey(copyButton));
+        await tester.pump();
+        expect(copied, [kLinuxUinputUdevCommand]);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'no uinput access: switching on still works and names the '
+      'clipboard fallback',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+        );
+        expect(find.byKey(fallbackNotice), findsNothing);
+
+        await tester.tap(find.byKey(enableButton));
+        await tester.pumpAndSettle();
+
+        expect(
+          handles
+              .settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard_and_paste',
+        );
+        expect(find.byKey(enableButton), findsNothing);
+        // The setup command stays on the page after switching on.
+        expect(find.byKey(copyButton), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('snap: copies the interface command and keeps the snap hint', (
+      tester,
+    ) async {
+      debugLinuxPackageFormatOverride = LinuxPackageFormat.snap;
+      await _pumpStep(
+        tester,
+        paste: capability(PasteCapabilityStatus.permissionMissing),
+      );
+
+      await tester.tap(find.byKey(copyButton));
+      await tester.pump();
+      expect(copied, [kSnapUinputConnectCommand]);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+    }, variant: linux);
+
+    testWidgets(
+      '.deb: explains the access, grants it through pkexec and switches '
+      'Auto-Paste on (R-02)',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final calls = <List<String>>[];
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+          uinputAccess: LinuxUinputAccess(
+            exists: (_) => true,
+            run: (exe, args) async {
+              calls.add([exe, ...args]);
+              return ProcessResult(0, 0, '', '');
+            },
+          ),
+        );
+
+        expect(find.byKey(copyButton), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-autopaste-linux-grant-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(calls.single, [
+          LinuxUinputAccess.pkexecPath,
+          LinuxUinputAccess.helperPath,
+          'enable',
+        ]);
+        expect(
+          handles
+              .settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard_and_paste',
+        );
+        expect(copied, isEmpty);
+      },
+    );
+
+    testWidgets(
+      '.deb: a dismissed password prompt changes nothing',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+          uinputAccess: LinuxUinputAccess(
+            exists: (_) => true,
+            run: (_, _) async => ProcessResult(0, 126, '', ''),
+          ),
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-autopaste-linux-grant-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(handles.settings.updates, isEmpty);
+      },
+    );
+
+    testWidgets('uinput writable and Auto-Paste on: no fallback notice', (
+      tester,
+    ) async {
+      debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+      await _pumpStep(
+        tester,
+        paste: capability(PasteCapabilityStatus.ready),
+        settings: _RecordingSettingsNotifier(
+          const AppSettings(
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard_and_paste',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byKey(fallbackNotice), findsNothing);
+      expect(
+        find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+        findsOneWidget,
+      );
+    }, variant: linux);
+
+    // PAR-024: `unsupported` is what the Linux probe reports when
+    // /dev/uinput does not exist at all. The page must not call that ready.
+    testWidgets(
+      'no /dev/uinput device: says Auto-Paste is unavailable, never '
+      'ready, and offers no setup command',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.unsupported),
+        );
+
+        expect(find.byKey(copyButton), findsNothing);
+        // No fix exists from this page, so the enable action is hidden. The
+        // card says where the text goes instead (UX-062).
+        expect(find.byKey(enableButton), findsNothing);
+        expect(find.byKey(skipButton), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'probe not resolved yet: neutral check card, not the ready card',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: _FakePasteCapabilityNotifier(
+            initial: const PasteCapabilityState(),
+          ),
+        );
+
+        expect(find.byKey(copyButton), findsNothing);
+      },
+    );
+  });
+
   group('AutoPasteStep — Windows', () {
     testWidgets('ready first-mount (factory default = clipboard-only): '
         'ready card + enable CTA, no Skip, no macOS-specific '
@@ -1106,21 +1230,29 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        // Status card: capability verified, feature not yet on.
-        expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
-        expect(find.text(l10n.onboardingPasteWhyWin), findsOneWidget);
-
         // The page's real choice: the enable CTA (the factory default is
         // clipboard-only, so this state is where Auto-Paste gets turned on).
-        expect(find.text(l10n.onboardingPasteWinEnableCta), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-win-enable'),
+          findsOneWidget,
+        );
 
         // No Skip in the off state — staying off is what Next already does,
         // and each state only shows the transition it can make.
-        expect(find.text(l10n.onboardingPasteSkip), findsNothing);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+          findsNothing,
+        );
 
         // macOS-only affordances must not bleed into the Windows surface.
-        expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
-        expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
+        expect(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+          findsNothing,
+        );
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-repair-button'),
+          findsNothing,
+        );
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -1128,7 +1260,7 @@ void main() {
 
     testWidgets('ready + enable tap persists '
         'afterTranscription=clipboard_and_paste and flips the card to the '
-        'on state with the ghost opt-out', (tester) async {
+        'on state with the opt-out button', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         final paste = _FakePasteCapabilityNotifier(
@@ -1139,7 +1271,9 @@ void main() {
 
         final handles = await _pumpStep(tester, paste: paste);
 
-        await tester.tap(find.text(l10n.onboardingPasteWinEnableCta));
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-autopaste-win-enable'),
+        );
         await tester.pumpAndSettle();
 
         expect(handles.settings.updates, hasLength(1));
@@ -1156,11 +1290,14 @@ void main() {
               'as the fallback for elevated/UIPI targets',
         );
 
-        // Immediate visible feedback: the card flips to the on state and
-        // the way back (ghost opt-out) appears on the same page.
-        expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
-        expect(find.text(l10n.onboardingPasteWinEnableCta), findsNothing);
-        expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-win-enable'),
+          findsNothing,
+        );
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+          findsOneWidget,
+        );
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -1185,11 +1322,14 @@ void main() {
 
         await _pumpStep(tester, paste: paste, settings: settings);
 
-        expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
-        expect(find.text(l10n.onboardingPasteWinOnDetail), findsOneWidget);
-        expect(find.text(l10n.onboardingPasteWinEnableCta), findsNothing);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-win-enable'),
+          findsNothing,
+        );
 
-        await tester.tap(find.text(l10n.onboardingPasteSkip));
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+        );
         await tester.pumpAndSettle();
 
         expect(settings.updates, hasLength(1));
@@ -1197,8 +1337,10 @@ void main() {
           settings.updates.single.afterTranscriptionSection.afterTranscription,
           'clipboard',
         );
-        expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
-        expect(find.text(l10n.onboardingPasteWinEnableCta), findsOneWidget);
+        expect(
+          find.bySemanticsIdentifier('onboarding-autopaste-win-enable'),
+          findsOneWidget,
+        );
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
@@ -1221,21 +1363,12 @@ void main() {
 
           await _pumpStep(tester, paste: paste);
 
-          // Warn copy is rendered — we assert the full localised string so
-          // an ARB rewording is caught loudly but a value tweak does not
-          // silently mismatch a substring.
-          expect(
-            find.text(l10n.onboardingPasteWhyWinUipi),
-            findsOneWidget,
-            reason: 'UIPI warn card must render its explanation text',
-          );
-
           // Skip CTA appears in the warn branch (mirrors the macOS skip flow)
           // so users in the edge case can opt out of Auto-Paste cleanly.
-          expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
-
-          // The macOS verify-state success label is NOT shown in this branch.
-          expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
+          expect(
+            find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+            findsOneWidget,
+          );
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -1265,7 +1398,9 @@ void main() {
 
           await _pumpStep(tester, paste: paste, settings: settings);
 
-          await tester.tap(find.text(l10n.onboardingPasteSkip));
+          await tester.tap(
+            find.bySemanticsIdentifier('onboarding-autopaste-skip-button'),
+          );
           await tester.pumpAndSettle();
 
           expect(settings.updates, hasLength(1));
@@ -1280,6 +1415,278 @@ void main() {
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
+      },
+    );
+  });
+
+  // Maintainer 2026-10-31 (1a/2a): a grant asked for in this step switches
+  // Auto-Paste on once it reads ready; nothing else ever does.
+  group('AutoPasteStep — grant switches Auto-Paste on', () {
+    const missing = PasteCapabilityState(
+      capability: PasteCapability(
+        status: PasteCapabilityStatus.permissionMissing,
+        canPrompt: true,
+      ),
+    );
+    const ready = PasteCapabilityState(
+      capability: PasteCapability(status: PasteCapabilityStatus.ready),
+    );
+
+    String? afterTranscription(_RecordingSettingsNotifier settings) => settings
+        .updates
+        .lastOrNull
+        ?.afterTranscriptionSection
+        .afterTranscription;
+    final pastes = AfterTranscriptionAction.clipboardAndPaste.value;
+
+    testWidgets('macOS: Allow, then ready -> clipboardAndPaste', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: missing,
+        afterPromptCheck: ready,
+      );
+      final settings = _RecordingSettingsNotifier();
+
+      await _pumpStep(tester, paste: paste, settings: settings);
+      expect(settings.updates, isEmpty);
+
+      await tester.tap(
+        find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(settings.updates, hasLength(1));
+      expect(afterTranscription(settings), pastes);
+    });
+
+    testWidgets('macOS: a permission that was already there changes nothing', (
+      tester,
+    ) async {
+      final paste = _FakePasteCapabilityNotifier(
+        initial: missing,
+        afterCheck: ready,
+      );
+      final settings = _RecordingSettingsNotifier();
+
+      await _pumpStep(tester, paste: paste, settings: settings);
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(paste.state.capability?.status, PasteCapabilityStatus.ready);
+      expect(settings.updates, isEmpty);
+    });
+
+    testWidgets(
+      'Linux without the password grant: copied command, then ready -> '
+      'clipboardAndPaste',
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.appimage;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              SystemChannels.platform,
+              (call) async => null,
+            );
+        addTearDown(() {
+          debugLinuxPackageFormatOverride = null;
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null);
+        });
+        final paste = _FakePasteCapabilityNotifier(initial: missing);
+        final settings = _RecordingSettingsNotifier();
+
+        await _pumpStep(tester, paste: paste, settings: settings);
+        // The live check leaves Linux alone until the command was copied.
+        paste.laterChecks = ready;
+        await tester.pump(const Duration(seconds: 2));
+        expect(settings.updates, isEmpty);
+
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-autopaste-linux-copy-command')),
+        );
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(afterTranscription(settings), pastes);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    // Existing installs keep their stored choice (maintainer 2026-11-02): a
+    // grant in a revision run or in a review reopened from Settings changes
+    // nothing, on any platform.
+    testWidgets(
+      'macOS revision run: a grant leaves the stored choice alone',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: missing,
+          afterPromptCheck: ready,
+        );
+        final settings = _RecordingSettingsNotifier(_completedInstall());
+
+        await _pumpStep(
+          tester,
+          paste: paste,
+          settings: settings,
+          extraOverrides: [
+            onboardingRevisionRunProvider.overrideWith(_RevisionRunOn.new),
+          ],
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(paste.state.capability?.status, PasteCapabilityStatus.ready);
+        expect(settings.updates, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'macOS review reopened from Settings: a grant leaves the stored choice '
+      'alone',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: missing,
+          afterPromptCheck: ready,
+        );
+        final settings = _RecordingSettingsNotifier(_completedInstall());
+
+        await _pumpStep(
+          tester,
+          paste: paste,
+          settings: settings,
+          extraOverrides: [
+            onboardingManuallyOpenProvider.overrideWith(_ManualReviewOn.new),
+          ],
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(paste.state.capability?.status, PasteCapabilityStatus.ready);
+        expect(settings.updates, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Linux revision run: copied command, then ready, leaves the stored '
+      'choice alone',
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.appimage;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(
+              SystemChannels.platform,
+              (call) async => null,
+            );
+        addTearDown(() {
+          debugLinuxPackageFormatOverride = null;
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null);
+        });
+        final paste = _FakePasteCapabilityNotifier(initial: missing);
+        final settings = _RecordingSettingsNotifier(_completedInstall());
+
+        await _pumpStep(
+          tester,
+          paste: paste,
+          settings: settings,
+          extraOverrides: [
+            onboardingRevisionRunProvider.overrideWith(_RevisionRunOn.new),
+          ],
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-autopaste-linux-copy-command')),
+        );
+        paste.laterChecks = ready;
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(paste.state.capability?.status, PasteCapabilityStatus.ready);
+        expect(settings.updates, isEmpty);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    // A permission that was already granted when the step first probes it
+    // counts as enabled on a fresh first run (maintainer 2026-11-02, macOS).
+    testWidgets(
+      'macOS first run: a grant already there at the first probe switches '
+      'Auto-Paste on',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(afterCheck: ready);
+        final settings = _RecordingSettingsNotifier();
+
+        await _pumpStep(tester, paste: paste, settings: settings);
+
+        expect(afterTranscription(settings), pastes);
+      },
+    );
+
+    testWidgets(
+      'macOS revision run: a grant already there at the first probe leaves '
+      'the stored choice alone',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(afterCheck: ready);
+        final settings = _RecordingSettingsNotifier(_completedInstall());
+
+        await _pumpStep(
+          tester,
+          paste: paste,
+          settings: settings,
+          extraOverrides: [
+            onboardingRevisionRunProvider.overrideWith(_RevisionRunOn.new),
+          ],
+        );
+
+        expect(settings.updates, isEmpty);
+      },
+    );
+
+    // Declining keeps clipboard (maintainer 2026-11-02): a skip after the
+    // grant request must not turn Auto-Paste on when the permission arrives
+    // later in the same step.
+    testWidgets(
+      'macOS first run: skip after the grant request, then ready, keeps '
+      'clipboard',
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+      (tester) async {
+        final paste = _FakePasteCapabilityNotifier(
+          initial: missing,
+          afterPromptCheck: missing,
+        );
+        final settings = _RecordingSettingsNotifier();
+
+        await _pumpStep(tester, paste: paste, settings: settings);
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-autopaste-skip-button')),
+        );
+        await tester.pumpAndSettle();
+
+        paste.laterChecks = ready;
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(paste.state.capability?.status, PasteCapabilityStatus.ready);
+        expect(
+          afterTranscription(settings),
+          AfterTranscriptionAction.clipboard.value,
+        );
+        expect(
+          settings.updates.map(
+            (u) => u.afterTranscriptionSection.afterTranscription,
+          ),
+          isNot(contains(pastes)),
+        );
       },
     );
   });

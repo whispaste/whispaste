@@ -1,6 +1,6 @@
 # build-cuda-pack-windows.ps1 — builds the optional Windows CUDA backend pack
 # WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64.zip: ggml-cuda.dll plus the
-# CUDA 12.8.1 runtime DLLs it imports. Runs on SilviosPC under Windows
+# CUDA 12.8.1 runtime DLLs it imports. Runs on the test-lab VM win-vm under Windows
 # PowerShell 5.1. tool/cuda_pack_build.sh starts it detached and polls the
 # build-windows.done marker in the work directory.
 #
@@ -29,10 +29,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $PackId = 'WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64'
-$WhisperTag = 'v1.9.5'
-$WhisperPinnedCommit = 'd1be6fde11ac6e0407606b4e42fe72d34add8037'
 $CudaVersion = '12.8.1'
 $ScriptDir = $PSScriptRoot
+# whisper.cpp pin: scripts\whisper-cpp.pin, synced next to this script.
+$Pin = @{}
+Get-Content (Join-Path $ScriptDir 'whisper-cpp.pin') | ForEach-Object {
+  if ($_ -match '^\s*([A-Z0-9_]+)=(.*)$') { $Pin[$Matches[1]] = $Matches[2].Trim() }
+}
+$WhisperTag = $Pin['WHISPER_TAG']
+$WhisperPinnedCommit = $Pin['WHISPER_COMMIT']
+if (-not $WhisperTag -or -not $WhisperPinnedCommit) { throw 'whisper-cpp.pin needs WHISPER_TAG and WHISPER_COMMIT' }
+# The pack id names the whisper.cpp version; a raised pin needs a new pack id.
+if (-not $PackId.Contains("-ggml-$WhisperTag-")) { throw "PackId $PackId does not match whisper-cpp.pin ($WhisperTag)" }
 
 # Versioned by tag: an upgrade clones fresh instead of failing the pin check.
 $Src = Join-Path $WorkDir "src\whisper.cpp-$WhisperTag"
@@ -40,6 +48,8 @@ $CudaHome = Join-Path $WorkDir 'cuda'
 $Build = Join-Path $WorkDir "build-$WhisperTag"
 $Stage = Join-Path $WorkDir ('stage\' + $PackId)
 $OutDir = Join-Path $WorkDir 'out'
+$LicenseFile = Join-Path $ScriptDir 'LICENSE-NVIDIA.txt'
+$LicenseSha256 = '95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3'
 $DoneMarker = Join-Path $WorkDir 'build-windows.done'
 $LogFile = Join-Path $WorkDir 'build-windows.log'
 
@@ -135,7 +145,19 @@ function Install-Prereqs {
   Write-Host 'prerequisites checked; start the build in a new session so PATH is current'
 }
 
+function Test-LicenseFile([string]$Path = $LicenseFile) {
+  # The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
+  # The text is pinned by SHA-256: a changed file is a deliberate bump, not a silent update.
+  if (-not (Test-Path $Path)) { throw "$Path missing (NVIDIA CUDA EULA text is required in every pack)" }
+  if ([IO.File]::ReadAllText($Path).Trim().Length -eq 0) { throw "$Path is empty" }
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLower()
+  if ($actual -ne $LicenseSha256) {
+    throw "$Path text changed, bump the pinned hash deliberately (expected $LicenseSha256, got $actual)"
+  }
+}
+
 function Invoke-Pack {
+  Test-LicenseFile
   Write-Step 'toolchain'
   Import-VsDevEnvironment
   foreach ($tool in 'cmake', 'ninja', 'git', 'dumpbin') {
@@ -177,6 +199,11 @@ function Invoke-Pack {
     '-DGGML_CUDA=ON',
     "-DCMAKE_CUDA_ARCHITECTURES=$CudaArchs",
     '-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler',
+    # /Z7 + /DEBUG: PDB for Sentry; /OPT:REF /OPT:ICF restored because /DEBUG
+    # alone switches the linker to NOREF. Same flags as libwhisper/libllama.
+    '-DCMAKE_C_FLAGS=/Z7',
+    '-DCMAKE_CXX_FLAGS=/Z7',
+    '-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF',
     '-DGGML_VULKAN=OFF',
     '-DGGML_NATIVE=OFF',
     '-DGGML_OPENMP=OFF',
@@ -190,6 +217,15 @@ function Invoke-Pack {
   $module = @(Get-ChildItem -Path $Build -Recurse -Filter 'ggml-cuda.dll' -File)
   if ($module.Count -ne 1) { throw "expected exactly one ggml-cuda.dll, found $($module.Count)" }
   $modulePath = $module[0].FullName
+
+  # ggml-cuda.pdb goes to $WorkDir\pdb for a manual Sentry upload. It stays out
+  # of the stage on purpose: the pack zip is built from the stage directory.
+  $pdbDir = Join-Path $WorkDir 'pdb'
+  Remove-Item $pdbDir -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $pdbDir | Out-Null
+  $modulePdb = [IO.Path]::ChangeExtension($modulePath, '.pdb')
+  if (-not (Test-Path $modulePdb)) { throw "ggml-cuda.pdb missing next to $modulePath -- /Z7 + /DEBUG lost?" }
+  Copy-Item $modulePdb $pdbDir -Force
 
   Write-Step '[4/6] staging ggml-cuda.dll + CUDA runtime DLLs'
   Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
@@ -222,6 +258,8 @@ function Invoke-Pack {
   $license = [IO.File]::ReadAllText((Join-Path $Src 'LICENSE')).Replace("`r`n", "`n").TrimEnd("`n")
   $template = [IO.File]::ReadAllText((Join-Path $ScriptDir 'cuda-pack-NOTICE.template.txt')).Replace("`r`n", "`n")
   Write-Utf8NoBom (Join-Path $Stage 'NOTICE.txt') $template.Replace('@WHISPER_LICENSE@', $license)
+  Copy-Item $LicenseFile (Join-Path $Stage 'LICENSE-NVIDIA.txt')
+  Test-LicenseFile (Join-Path $Stage 'LICENSE-NVIDIA.txt')
 
   Write-Step '[5/6] SHA256SUMS + verify'
   $names = @(Get-ChildItem -Path $Stage -File | ForEach-Object { $_.Name })
@@ -232,7 +270,7 @@ function Invoke-Pack {
   }
   Write-Utf8NoBom (Join-Path $Stage 'SHA256SUMS') (($sums -join "`n") + "`n")
   $names += 'SHA256SUMS'
-  foreach ($required in 'ggml-cuda.dll', 'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll', 'NOTICE.txt', 'SHA256SUMS') {
+  foreach ($required in 'ggml-cuda.dll', 'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll', 'NOTICE.txt', 'LICENSE-NVIDIA.txt', 'SHA256SUMS') {
     if ($names -notcontains $required) { throw "pack is missing $required" }
   }
 

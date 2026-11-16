@@ -5,7 +5,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string>
+#include <vector>
+
+#include "ole_drag_source.h"
 
 using flutter::EncodableMap;
 using flutter::EncodableValue;
@@ -50,6 +54,30 @@ std::wstring Utf8ToWide(const std::string& utf8) {
   ::MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(),
                         static_cast<int>(utf8.size()), wide.data(), needed);
   return wide;
+}
+
+// Reads a byte list argument. Dart sends `List<int>` (an EncodableList of
+// ints) unless the value is a Uint8List; both are accepted.
+std::vector<uint8_t> BytesArgument(const EncodableMap& args, const char* key) {
+  std::vector<uint8_t> bytes;
+  auto it = args.find(EncodableValue(key));
+  if (it == args.end()) return bytes;
+  if (const auto* raw = std::get_if<std::vector<uint8_t>>(&it->second)) {
+    return *raw;
+  }
+  if (const auto* list = std::get_if<flutter::EncodableList>(&it->second)) {
+    bytes.reserve(list->size());
+    for (const auto& value : *list) {
+      if (const auto* i = std::get_if<int32_t>(&value)) {
+        bytes.push_back(static_cast<uint8_t>(*i));
+      } else if (const auto* l = std::get_if<int64_t>(&value)) {
+        bytes.push_back(static_cast<uint8_t>(*l));
+      } else {
+        return {};
+      }
+    }
+  }
+  return bytes;
 }
 
 }  // namespace
@@ -578,6 +606,49 @@ void SidePanelHost::HandleRenderCall(
     // SidePanelHost.swift's handleRenderCall("hoverLeft").
     SendEvent("hoverLeft");
     result->Success();
+    return;
+  }
+
+  // ── beginDrag ────────────────────────────────────────────────────────
+  if (method == "beginDrag") {
+    // OS drag-out of a row (issue 11), see SidePanelHost.swift's
+    // beginNativeDrag. The reply goes out first: DoDragDrop runs a modal
+    // loop on this thread until the drop, and the render engine does not
+    // wait for an answer anyway.
+    std::wstring text;
+    std::vector<uint8_t> png;
+    bool image = false;
+    if (const auto* args = std::get_if<EncodableMap>(call.arguments())) {
+      auto kind = args->find(EncodableValue("kind"));
+      if (kind != args->end()) {
+        if (const auto* k = std::get_if<std::string>(&kind->second)) {
+          image = *k == "image";
+        }
+      }
+      auto content = args->find(EncodableValue("content"));
+      if (content != args->end()) {
+        if (const auto* c = std::get_if<std::string>(&content->second)) {
+          text = Utf8ToWide(*c);
+        }
+      }
+      png = BytesArgument(*args, "imageBytes");
+    }
+    result->Success();
+    const bool started = image && !png.empty()
+                             ? OleDragSource::DragPng(png)
+                             : OleDragSource::DragText(text);
+    if (!started) {
+      OutputDebugStringW(L"[SidePanel] beginDrag: nothing to drag\n");
+    }
+    // The drag loop swallowed the button release, so the render engine
+    // still holds the row's drag gesture. Hand its view the release.
+    if (render_controller_ && render_controller_->view()) {
+      HWND view = render_controller_->view()->GetNativeWindow();
+      POINT cursor;
+      if (view && GetCursorPos(&cursor) && ScreenToClient(view, &cursor)) {
+        PostMessage(view, WM_LBUTTONUP, 0, MAKELPARAM(cursor.x, cursor.y));
+      }
+    }
     return;
   }
 

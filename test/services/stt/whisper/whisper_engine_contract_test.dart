@@ -6,6 +6,10 @@
 /// `FakeSttService`) — a configurable, handwritten fake, no Mockito.
 library;
 
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -34,7 +38,7 @@ class _FakeWhisperEngine implements WhisperEngine {
   _FakeWhisperEngine({
     this.transcript = 'fake transcript',
     this.throwOnTranscribe,
-    this.transcribeDelay,
+    this.transcribeGate,
     this.backend = WhisperBackend.cpu,
   });
 
@@ -44,8 +48,9 @@ class _FakeWhisperEngine implements WhisperEngine {
   /// If set, [transcribe] throws this instead of returning [transcript].
   Object? throwOnTranscribe;
 
-  /// If set, [transcribe] waits this long before completing (simulated work).
-  Duration? transcribeDelay;
+  /// If set, [transcribe] holds until this completes (simulated work that
+  /// runs exactly as long as the test decides).
+  Completer<void>? transcribeGate;
 
   final WhisperBackend backend;
 
@@ -80,9 +85,8 @@ class _FakeWhisperEngine implements WhisperEngine {
     transcribeCallCount++;
     _lastLanguage = language;
     _lastPrompt = prompt;
-    if (transcribeDelay != null) {
-      await Future<void>.delayed(transcribeDelay!);
-    }
+    final gate = transcribeGate;
+    if (gate != null) await gate.future;
     final err = throwOnTranscribe;
     if (err != null) throw err;
     return transcript;
@@ -133,17 +137,19 @@ void main() {
       );
     });
 
-    test('simulates a transcription delay', () async {
-      final engine = _FakeWhisperEngine(
-        transcribeDelay: const Duration(milliseconds: 120),
-      );
-      await engine.load(modelPath: '/fake/model.bin');
-
-      final sw = Stopwatch()..start();
-      await engine.transcribe(const [0, 1, 2]);
-      sw.stop();
-
-      expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(100));
+    test('simulates a running transcription until it is released', () {
+      fakeAsync((async) {
+        final gate = Completer<void>();
+        final engine = _FakeWhisperEngine(transcribeGate: gate);
+        engine.load(modelPath: '/fake/model.bin');
+        String? result;
+        engine.transcribe(const [0, 1, 2]).then((value) => result = value);
+        async.elapse(const Duration(minutes: 1));
+        expect(result, isNull);
+        gate.complete();
+        async.flushMicrotasks();
+        expect(result, 'fake transcript');
+      });
     });
 
     test('reports load state and backend via status', () async {
@@ -188,10 +194,12 @@ void main() {
     Future<WhisperBackend> backendForGpu(
       GpuInfo gpu, {
       String gpuAcceleration = 'auto',
+      bool guardUsable = true,
     }) async {
       final container = ProviderContainer(
         overrides: [
           gpuInfoProvider.overrideWith((_) async => gpu),
+          whisperGuardUsableProvider.overrideWithValue(guardUsable),
           settingsProvider.overrideWith(
             () => _FakeSettingsNotifier(
               AppSettings.defaults.copyWith(gpuAcceleration: gpuAcceleration),
@@ -239,6 +247,38 @@ void main() {
       );
       expect(backend, WhisperBackend.vulkan);
     });
+
+    test(
+      'without a usable wp_ffi_guard a GPU is never selected (Befund 28)',
+      () async {
+        for (final gpu in const [
+          GpuInfo(
+            vendor: GpuVendor.nvidia,
+            name: 'NVIDIA RTX 4090',
+            vramMB: 24576,
+            cudaAvailable: true,
+            vulkanAvailable: true,
+          ),
+          GpuInfo(vendor: GpuVendor.apple, name: 'Apple M2 Pro'),
+          GpuInfo(vendor: GpuVendor.amd, name: 'AMD Radeon RX 7900 XTX'),
+        ]) {
+          expect(
+            await backendForGpu(gpu, guardUsable: false),
+            WhisperBackend.cpu,
+            reason: gpu.name,
+          );
+          expect(
+            await backendForGpu(
+              gpu,
+              gpuAcceleration: 'enabled',
+              guardUsable: false,
+            ),
+            WhisperBackend.cpu,
+            reason: '${gpu.name} (enabled)',
+          );
+        }
+      },
+    );
 
     test('no/incompatible GPU → CPU backend', () async {
       final backend = await backendForGpu(

@@ -26,6 +26,7 @@ import 'package:whispaste/services/floating_overlay/floating_overlay_controller.
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
 import 'package:whispaste/services/floating_platform_service_base.dart';
+import 'package:whispaste/core/theme/overlay_customization.dart';
 
 // ── Minimal base-class test harness ──────────────────────────────────────────
 
@@ -102,8 +103,18 @@ class _ButtonFake implements FloatingButtonController {
   Future<void> setPosition(double x, double y) async {}
   @override
   Future<void> setSize(int size) async {}
+
   @override
-  Future<void> setContextMenuItems(List<Map<String, String>> items) async {}
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  }) async {}
+  @override
+  Future<void> setContextMenuItems(
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) async {}
   @override
   Future<({double x, double y})?> getPosition() async => null;
 }
@@ -165,8 +176,9 @@ class _OverlayFake implements FloatingOverlayController {
   ) async {}
   @override
   Future<void> setContextMenuItems(
-    List<({String id, String label})> items,
-  ) async {}
+    List<Map<String, Object?>> items, {
+    String appearance = 'system',
+  }) async {}
 }
 
 /// [FloatingOverlayService] subclass configured for leak testing.

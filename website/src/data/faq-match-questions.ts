@@ -1,0 +1,177 @@
+/**
+ * Labelled questions of the FAQ matcher (#351), in two separate sets:
+ *   - CALIBRATION picks the thresholds (`calibrate()`),
+ *   - TEST checks them on questions the calibration never saw.
+ * Both cover paraphrases, typos, negations, ambiguous and unknown questions
+ * in all 8 site languages. Never move a question from TEST to CALIBRATION to
+ * make a test pass; add a new one instead.
+ */
+
+import type { LabelledQuestion } from '../scripts/faq-match/calibrate.ts';
+
+export const CALIBRATION: readonly LabelledQuestion[] = [
+  // de
+  { locale: 'de', q: 'Muss ich für WhisPaste bezahlen?', expect: 'free' },
+  { locale: 'de', q: 'Funktioniert die Spracherkennung auch offline?', expect: 'offline' },
+  { locale: 'de', q: 'Welche Hardware brauche ich mindestens?', expect: 'sysreq' },
+  { locale: 'de', q: 'Kann ich Schweizerdeutsch oder Englisch diktieren?', expect: 'languages' },
+  { locale: 'de', q: 'Windows sagt der Installer sei gefährlich', expect: 'smartscreen' },
+  { locale: 'de', q: 'Gibt es eine Andorid App?', expect: 'windows' },
+  { locale: 'de', q: 'Wird mein Audio in die Cloud geschickt?', expect: 'privacy' },
+  { locale: 'de', q: 'Wie richte ich einen Textbaustein ein?', expect: 'snippets' },
+  { locale: 'de', q: 'Welches Modell passt zu meiner Grafikkarte?', expect: 'choose', keys: ['accuracy', 'sysreq'] },
+  { locale: 'de', q: 'Wie ändere ich das Tastenkürzel?', expect: 'hotkey' },
+  { locale: 'de', q: 'Mein Mikrofon wird nicht erkannt', expect: 'unknown' },
+  // en
+  { locale: 'en', q: 'Do I have to pay for it?', expect: 'free' },
+  { locale: 'en', q: 'Can I use it on a plane without wifi?', expect: 'offline' },
+  { locale: 'en', q: 'how much ram do i need', expect: 'sysreq' },
+  { locale: 'en', q: 'Is Parakeet faster than Whisper?', expect: 'engines' },
+  { locale: 'en', q: 'Can it fix my punctuation and filler words?', expect: 'smartmode' },
+  { locale: 'en', q: 'Does it run on an Intel Mac?', expect: 'windows' },
+  { locale: 'en', q: 'macOS says the app is damaged', expect: 'gatekeeper' },
+  { locale: 'en', q: 'Is my voice data sent anywhere?', expect: 'privacy' },
+  { locale: 'en', q: 'I see a warning when I install it', expect: 'choose', keys: ['smartscreen', 'gatekeeper'] },
+  { locale: 'en', q: 'Can I get a refund?', expect: 'unknown' },
+  { locale: 'en', q: 'Do you have a job opening?', expect: 'unknown' },
+  // es
+  { locale: 'es', q: '¿Tengo que pagar algo?', expect: 'free' },
+  { locale: 'es', q: '¿Funciona sin internet?', expect: 'offline' },
+  { locale: 'es', q: '¿Qué tarjeta gráfica necesito?', expect: 'choose', keys: ['sysreq', 'accuracy'] },
+  { locale: 'es', q: '¿Se puede traducir el texto?', expect: 'smartmode' },
+  { locale: 'es', q: '¿Hay app para iPhone?', expect: 'windows' },
+  { locale: 'es', q: '¿Cómo cambio el atajo de teclado?', expect: 'hotkey' },
+  // pt
+  { locale: 'pt', q: 'Preciso pagar pelo WhisPaste?', expect: 'free' },
+  { locale: 'pt', q: 'Funciona offline?', expect: 'offline' },
+  { locale: 'pt', q: 'Quais idiomas são reconhecidos?', expect: 'languages' },
+  { locale: 'pt', q: 'O Windows mostra um alerta de vírus', expect: 'smartscreen' },
+  { locale: 'pt', q: 'Minhas gravações vão para a nuvem?', expect: 'privacy' },
+  { locale: 'pt', q: 'Como faço para desinstalar?', expect: 'unknown' },
+  // it
+  { locale: 'it', q: 'Devo pagare per usarlo?', expect: 'free' },
+  { locale: 'it', q: 'Di quanta RAM ho bisogno?', expect: 'sysreq' },
+  { locale: 'it', q: 'Meglio Whisper o Parakeet?', expect: 'engines' },
+  { locale: 'it', q: 'Come inserisco un testo predefinito?', expect: 'snippets' },
+  { locale: 'it', q: 'Funziona su Linux?', expect: 'windows' },
+  { locale: 'it', q: 'Il microfono non funziona', expect: 'unknown' },
+  // ru
+  { locale: 'ru', q: 'Нужно ли платить за программу?', expect: 'free' },
+  { locale: 'ru', q: 'Работает ли без интернета?', expect: 'offline' },
+  { locale: 'ru', q: 'Какую модель выбрать?', expect: 'accuracy' },
+  { locale: 'ru', q: 'Есть ли версия для Android?', expect: 'windows' },
+  { locale: 'ru', q: 'Windows пишет что файл опасен', expect: 'smartscreen' },
+  { locale: 'ru', q: 'Как вернуть деньги?', expect: 'unknown' },
+  // zh
+  { locale: 'zh', q: 'WhisPaste 要钱吗？', expect: 'free' },
+  { locale: 'zh', q: '离线可以用吗？', expect: 'offline' },
+  { locale: 'zh', q: '支持哪些语言？', expect: 'languages' },
+  { locale: 'zh', q: '我的录音会被上传吗？', expect: 'privacy' },
+  { locale: 'zh', q: '有安卓版吗？', expect: 'windows' },
+  { locale: 'zh', q: '怎么修改快捷键？', expect: 'hotkey' },
+  // fr
+  { locale: 'fr', q: 'Est-ce que c’est payant ?', expect: 'free' },
+  { locale: 'fr', q: 'Ça marche hors ligne ?', expect: 'offline' },
+  { locale: 'fr', q: 'Quelle carte graphique faut-il ?', expect: 'choose', keys: ['sysreq', 'accuracy'] },
+  { locale: 'fr', q: 'Peut-il traduire mon texte ?', expect: 'smartmode' },
+  { locale: 'fr', q: 'macOS dit que l’app est endommagée', expect: 'gatekeeper' },
+  { locale: 'fr', q: 'Comment changer le raccourci clavier ?', expect: 'hotkey' },
+  // encryption and accessibility (#1650)
+  { locale: 'de', q: 'Werden meine Notizen verschlüsselt gespeichert?', expect: 'encryption' },
+  { locale: 'en', q: 'Does it work with a screen reader?', expect: 'accessibility' },
+  { locale: 'es', q: '¿Se guardan cifradas mis transcripciones?', expect: 'encryption' },
+  { locale: 'pt', q: 'Funciona com leitor de tela?', expect: 'accessibility' },
+  { locale: 'it', q: 'Le mie note sono crittografate?', expect: 'encryption' },
+  { locale: 'ru', q: 'Работает ли программа с экранным диктором?', expect: 'accessibility' },
+  { locale: 'zh', q: '转写内容是加密保存的吗？', expect: 'encryption' },
+  { locale: 'fr', q: 'Est-ce compatible avec un lecteur d’écran ?', expect: 'accessibility' },
+];
+
+export const TEST: readonly LabelledQuestion[] = [
+  // de
+  { locale: 'de', q: 'Was kostet die Store Version?', expect: 'free' },
+  { locale: 'de', q: 'kostenlos?', expect: 'free' },
+  { locale: 'de', q: 'Geht WhisPaste ohne Internetverbindung?', expect: 'offline' },
+  { locale: 'de', q: 'Wieviel Arbeitsspeicher brauch ich', expect: 'sysreq' },
+  { locale: 'de', q: 'Whisper oder Parakeet, was ist schneller?', expect: 'engines' },
+  { locale: 'de', q: 'Kann der Smart Mode meinen Text übersetzen?', expect: 'smartmode' },
+  { locale: 'de', q: 'Läuft das auf einem Intel Mac?', expect: 'windows' },
+  { locale: 'de', q: 'Mac öffnet die App nicht, Entwickler nicht verifiziert', expect: 'gatekeeper' },
+  { locale: 'de', q: 'Datenschutz: wird etwas hochgeladen?', expect: 'privacy' },
+  { locale: 'de', q: 'Textbausteine einfügen', expect: 'snippets' },
+  { locale: 'de', q: 'Smartscren Warnung', expect: 'smartscreen' },
+  { locale: 'de', q: 'Warnung beim Installieren', expect: 'choose', keys: ['smartscreen', 'gatekeeper'] },
+  { locale: 'de', q: 'Kann ich mein Geld zurückbekommen?', expect: 'unknown' },
+  { locale: 'de', q: 'Wo finde ich das Impressum?', expect: 'unknown' },
+  // en
+  { locale: 'en', q: 'Whats the price', expect: 'free' },
+  { locale: 'en', q: 'Does it need internet?', expect: 'offline' },
+  { locale: 'en', q: 'Minimum system requirements?', expect: 'sysreq' },
+  { locale: 'en', q: 'Does it understand Spanish?', expect: 'languages' },
+  { locale: 'en', q: 'Can I insert saved text templates?', expect: 'snippets' },
+  { locale: 'en', q: 'Is there an iOS app?', expect: 'windows' },
+  { locale: 'en', q: 'Windows Defender blocks the installer', expect: 'smartscreen' },
+  { locale: 'en', q: 'Which model gives the best accuracy?', expect: 'accuracy' },
+  { locale: 'en', q: 'Which model for my GPU?', expect: 'choose', keys: ['accuracy', 'sysreq'] },
+  { locale: 'en', q: 'How do I change the hotkey?', expect: 'hotkey' },
+  { locale: 'en', q: 'My Bluetooth headset is not detected', expect: 'unknown' },
+  // es
+  { locale: 'es', q: '¿Es gratuito?', expect: 'free' },
+  { locale: 'es', q: '¿Mis grabaciones se suben a la nube?', expect: 'privacy' },
+  { locale: 'es', q: '¿Qué idiomas reconoce?', expect: 'languages' },
+  { locale: 'es', q: 'Windows dice que el instalador no es seguro', expect: 'smartscreen' },
+  { locale: 'es', q: '¿Funciona en un Mac con Intel?', expect: 'windows' },
+  { locale: 'es', q: '¿Me devuelven el dinero?', expect: 'unknown' },
+  // pt
+  { locale: 'pt', q: 'É gratuito?', expect: 'free' },
+  { locale: 'pt', q: 'Quanta memória RAM preciso?', expect: 'sysreq' },
+  { locale: 'pt', q: 'Whisper ou Parakeet, qual é mais rápido?', expect: 'engines' },
+  { locale: 'pt', q: 'Tem versão para Android?', expect: 'windows' },
+  { locale: 'pt', q: 'O microfone não é reconhecido', expect: 'unknown' },
+  // it
+  { locale: 'it', q: 'È gratuito?', expect: 'free' },
+  { locale: 'it', q: 'Funziona senza connessione?', expect: 'offline' },
+  { locale: 'it', q: 'Le registrazioni vengono inviate nel cloud?', expect: 'privacy' },
+  { locale: 'it', q: 'Può tradurre il testo?', expect: 'smartmode' },
+  { locale: 'it', q: 'Windows mostra un avviso SmartScreen', expect: 'smartscreen' },
+  { locale: 'it', q: 'Come cambio la scorciatoia?', expect: 'hotkey' },
+  // ru
+  { locale: 'ru', q: 'Это бесплатно?', expect: 'free' },
+  { locale: 'ru', q: 'Сколько нужно оперативной памяти?', expect: 'sysreq' },
+  { locale: 'ru', q: 'Какие языки поддерживаются?', expect: 'languages' },
+  { locale: 'ru', q: 'Мои записи отправляются в облако?', expect: 'privacy' },
+  { locale: 'ru', q: 'Как вставить шаблон текста?', expect: 'snippets' },
+  { locale: 'ru', q: 'Не работает микрофон', expect: 'unknown' },
+  // zh
+  { locale: 'zh', q: '需要什么配置？', expect: 'sysreq' },
+  { locale: 'zh', q: 'Whisper 和 Parakeet 哪个快？', expect: 'engines' },
+  { locale: 'zh', q: '可以翻译吗？', expect: 'smartmode' },
+  { locale: 'zh', q: 'Windows 显示安全警告', expect: 'smartscreen' },
+  { locale: 'zh', q: '可以退款吗？', expect: 'unknown' },
+  // fr
+  { locale: 'fr', q: 'C’est gratuit ?', expect: 'free' },
+  { locale: 'fr', q: 'Mes enregistrements partent-ils dans le cloud ?', expect: 'privacy' },
+  { locale: 'fr', q: 'Quelles langues sont reconnues ?', expect: 'languages' },
+  { locale: 'fr', q: 'Y a-t-il une version Android ?', expect: 'windows' },
+  { locale: 'fr', q: 'Windows bloque l’installateur', expect: 'smartscreen' },
+  { locale: 'fr', q: 'Puis-je être remboursé ?', expect: 'unknown' },
+  // hotkey (#510)
+  { locale: 'de', q: 'Kann ich die Taste zum Diktieren selbst festlegen?', expect: 'hotkey' },
+  { locale: 'en', q: 'Which keys start dictation and can I pick my own?', expect: 'hotkey' },
+  { locale: 'es', q: '¿Puedo elegir otra combinación de teclas para grabar?', expect: 'hotkey' },
+  { locale: 'pt', q: 'Posso trocar a tecla que inicia a gravação?', expect: 'hotkey' },
+  { locale: 'it', q: 'Posso scegliere un\'altra combinazione di tasti per registrare?', expect: 'hotkey' },
+  { locale: 'it', q: 'Le cuffie Bluetooth non vengono riconosciute', expect: 'unknown' },
+  { locale: 'ru', q: 'Можно ли поменять сочетание клавиш для записи?', expect: 'hotkey' },
+  { locale: 'zh', q: '可以自定义开始录音的按键吗？', expect: 'hotkey' },
+  { locale: 'fr', q: 'Puis-je choisir une autre combinaison de touches pour dicter ?', expect: 'hotkey' },
+  // encryption and accessibility (#1650)
+  { locale: 'de', q: 'Kann ich WhisPaste mit dem Screenreader bedienen?', expect: 'accessibility' },
+  { locale: 'en', q: 'Are my transcripts stored encrypted?', expect: 'encryption' },
+  { locale: 'es', q: '¿Funciona con lector de pantalla?', expect: 'accessibility' },
+  { locale: 'pt', q: 'Minhas notas ficam criptografadas?', expect: 'encryption' },
+  { locale: 'it', q: 'Si può usare solo con la tastiera, senza mouse?', expect: 'accessibility' },
+  { locale: 'ru', q: 'Шифруются ли мои заметки?', expect: 'encryption' },
+  { locale: 'zh', q: '支持屏幕阅读器吗？', expect: 'accessibility' },
+  { locale: 'fr', q: 'Mes notes sont-elles chiffrées ?', expect: 'encryption' },
+];

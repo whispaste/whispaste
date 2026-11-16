@@ -6,23 +6,30 @@ library;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../core/accessibility/announce.dart';
 import '../core/config/settings_labels.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/hotkey_self_heal.dart';
+import '../services/floating_button/floating_button_support.dart'
+    show LinuxSessionType, linuxSessionTypeFrom;
+import '../services/globe_key_action.dart';
 import '../services/hotkey_conflicts.dart';
 import '../services/hotkey_key_resolver.dart' as key_resolver;
+import '../services/modifier_key_monitor.dart';
 import '../services/win_layout_label.dart';
 import 'dialog.dart';
 import 'wp_button.dart';
+import 'wp_keycap.dart';
 
 // ---------------------------------------------------------------------------
 // Data class
@@ -34,6 +41,7 @@ class WpHotkeyResult {
     required this.key,
     required this.modifiers,
     this.displayKey = '',
+    this.singleKey = '',
   });
 
   /// The canonical non-modifier key token used by the registrar (e.g. `'D'`,
@@ -49,9 +57,15 @@ class WpHotkeyResult {
   /// `semicolon` position is stored as `key=';'`).
   final String displayKey;
 
+  /// A [ModifierHotkey] name when the user pressed one key alone (only offered
+  /// with [WpHotkeyRecorderDialog.singleKeys]); [key] and [modifiers] are then
+  /// empty. Empty for a combination.
+  final String singleKey;
+
   @override
   String toString() =>
-      'WpHotkeyResult(key: $key, displayKey: $displayKey, modifiers: $modifiers)';
+      'WpHotkeyResult(key: $key, displayKey: $displayKey, modifiers: $modifiers, '
+      'singleKey: $singleKey)';
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +86,36 @@ class WpHotkeyRecorderDialog extends StatefulWidget {
     this.initialDisplayKey = '',
     this.initialModifiers = 'ctrl+shift',
     this.onSubmit,
+    this.holderOf,
+    this.isWayland,
+    this.onOpenSystemSettings,
+    this.singleKeys,
+    this.initialSingleKey = '',
+    this.animation,
   });
+
+  /// The dialog route's animation. Set by [show]: the recorder then wears the
+  /// shared form card and footer ([WpFormDialogShell]).
+  final Animation<double>? animation;
+
+  /// The single keys this action may use on its own (the dictation trigger).
+  /// Null records combinations only. When set, a modifier pressed and let go
+  /// alone is recorded as that key, left and right apart; one outside the set
+  /// shows why it cannot be used.
+  final Set<ModifierHotkey>? singleKeys;
+
+  /// The [ModifierHotkey] name in use when the dialog opens, or empty.
+  final String initialSingleKey;
+
+  /// Whether the desktop is a Linux Wayland session. Null reads it from the
+  /// environment; tests pass a value. On Wayland the desktop, not WhisPaste,
+  /// decides the shortcut, so the dialog says so before Save (PAR-060).
+  final bool? isWayland;
+
+  /// Opens the desktop's page for WhisPaste's bound shortcuts. Null where
+  /// there is none; on Wayland the dialog then only names who owns the
+  /// shortcut.
+  final VoidCallback? onOpenSystemSettings;
 
   /// The current canonical non-modifier key token (e.g. `'D'`, `';'`).
   final String initialKey;
@@ -93,17 +136,32 @@ class WpHotkeyRecorderDialog extends StatefulWidget {
   /// next to a conflict warning rather than presenting it as a dialog.
   final ValueChanged<WpHotkeyResult>? onSubmit;
 
+  /// Live check against the other WhisPaste actions. Returns the name of the
+  /// action that already holds the canonical combination (modifiers, key), or
+  /// null when it is free. While a holder exists, Save stays disabled and the
+  /// holder is named under the key caps.
+  final String? Function(String modifiers, String key)? holderOf;
+
   /// Platform-aware default modifier string.
   static String get _defaultModifiers =>
-      Platform.isMacOS ? 'meta+shift' : 'ctrl+shift';
+      defaultTargetPlatform == TargetPlatform.macOS
+      ? 'meta+shift'
+      : 'ctrl+shift';
 
   /// Shows the dialog and returns the new [WpHotkeyResult], or `null` if
   /// the user cancelled.
+  /// [isWayland] is passed through like on the constructor: null reads the
+  /// session, a test passes a value to reach the Wayland hint (UX-109).
   static Future<WpHotkeyResult?> show(
     BuildContext context, {
     String? initialKey,
     String? initialDisplayKey,
     String? initialModifiers,
+    String? Function(String modifiers, String key)? holderOf,
+    bool? isWayland,
+    VoidCallback? onOpenSystemSettings,
+    Set<ModifierHotkey>? singleKeys,
+    String initialSingleKey = '',
   }) {
     return showWpFormDialog<WpHotkeyResult>(
       context: context,
@@ -111,6 +169,12 @@ class WpHotkeyRecorderDialog extends StatefulWidget {
         initialKey: initialKey ?? 'D',
         initialDisplayKey: initialDisplayKey ?? '',
         initialModifiers: initialModifiers ?? _defaultModifiers,
+        holderOf: holderOf,
+        isWayland: isWayland,
+        onOpenSystemSettings: onOpenSystemSettings,
+        singleKeys: singleKeys,
+        initialSingleKey: initialSingleKey,
+        animation: a,
       ),
     );
   }
@@ -128,7 +192,7 @@ class WpHotkeyRecorderDialog extends StatefulWidget {
   /// Returns a human-readable label for a [LogicalKeyboardKey].
   ///
   /// Delegates to [key_resolver.labelForKey] for the canonical resolver table
-  /// (letters A–Z, F1–F12, arrow keys, named keys). Falls back to Flutter's
+  /// (letters A–Z, F1–F24, arrow keys, named keys). Falls back to Flutter's
   /// own [LogicalKeyboardKey.keyLabel] for any key not in the resolver's table
   /// (e.g. digit keys, media keys).
   static String keyLabel(LogicalKeyboardKey key) {
@@ -167,6 +231,19 @@ final _modifierKeys = <LogicalKeyboardKey>{
   LogicalKeyboardKey.metaRight,
 };
 
+/// The single key each physical modifier stands for, left and right apart.
+final _singleKeyOf = <LogicalKeyboardKey, ModifierHotkey>{
+  LogicalKeyboardKey.fn: ModifierHotkey.fn,
+  LogicalKeyboardKey.shiftLeft: ModifierHotkey.leftShift,
+  LogicalKeyboardKey.shiftRight: ModifierHotkey.rightShift,
+  LogicalKeyboardKey.controlLeft: ModifierHotkey.leftControl,
+  LogicalKeyboardKey.controlRight: ModifierHotkey.rightControl,
+  LogicalKeyboardKey.altLeft: ModifierHotkey.leftAlt,
+  LogicalKeyboardKey.altRight: ModifierHotkey.rightAlt,
+  LogicalKeyboardKey.metaLeft: ModifierHotkey.leftMeta,
+  LogicalKeyboardKey.metaRight: ModifierHotkey.rightMeta,
+};
+
 /// Keys that may be bound as hotkeys *without* any modifier key.
 ///
 /// Kept intentionally narrow — function keys and a few media keys that
@@ -192,6 +269,18 @@ final Set<LogicalKeyboardKey> singleKeyWhitelist = {
   LogicalKeyboardKey.f10,
   LogicalKeyboardKey.f11,
   LogicalKeyboardKey.f12,
+  LogicalKeyboardKey.f13,
+  LogicalKeyboardKey.f14,
+  LogicalKeyboardKey.f15,
+  LogicalKeyboardKey.f16,
+  LogicalKeyboardKey.f17,
+  LogicalKeyboardKey.f18,
+  LogicalKeyboardKey.f19,
+  LogicalKeyboardKey.f20,
+  LogicalKeyboardKey.f21,
+  LogicalKeyboardKey.f22,
+  LogicalKeyboardKey.f23,
+  LogicalKeyboardKey.f24,
   // Media keys
   LogicalKeyboardKey.mediaPlayPause,
   LogicalKeyboardKey.mediaStop,
@@ -230,11 +319,37 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   bool _isAltGr = false;
 
   /// True when the current [_keyLabel] was set by a whitelisted single key
-  /// (F1–F12 or selected media keys) pressed without any modifier.
+  /// (F1–F24 or selected media keys) pressed without any modifier.
   bool _isSingleKey = false;
 
   /// Non-null when the current combo matches a known system-reserved shortcut.
   ConflictEntry? _conflict;
+
+  /// The read "Press 🌐 key to" setting while Fn is recorded on macOS, null
+  /// until it is read (#778). Nothing about Fn shows before that, so the
+  /// warning does not flicker from generic to specific.
+  GlobeKeyAction? _globeAction;
+
+  /// The recorded single key ([ModifierHotkey] name), or empty. Set only
+  /// with [WpHotkeyRecorderDialog.singleKeys]; a combination clears it.
+  String _singleKey = '';
+
+  /// The modifier pressed first while nothing else was down. Let go without
+  /// any other key in between, it becomes [_singleKey].
+  ModifierHotkey? _soloCandidate;
+
+  /// Fn is not a combination modifier, so it is tracked apart.
+  bool _fnHeld = false;
+
+  /// A single key the user pressed alone that this action cannot use here.
+  ModifierHotkey? _rejectedSingleKey;
+
+  /// A key joined the held modifiers during this press, so the display shows
+  /// the recorded combination instead of the live modifiers.
+  bool _keyThisPress = false;
+
+  /// Something was recorded or cleared since the dialog opened.
+  bool _changed = false;
 
   /// True while the most recent key press was not recordable. Stays visible
   /// until the user presses a valid key or hits Clear — earlier auto-hide
@@ -243,9 +358,66 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
   final FocusNode _focusNode = FocusNode();
 
+  /// This recorder's place in [HotkeyCaptureGuard]. Null while it does not
+  /// listen: after its listening time ran out, or before a click re-arms it
+  /// (inline). Keys are then not recorded and the hotkeys stay on.
+  Object? _listenToken;
+
+  /// Inline only: the listening time ran out and the card went back to the
+  /// saved combination. Shows the calm hint under the card until a new
+  /// recording starts (#113).
+  bool _captureTimedOut = false;
+
   @override
   void initState() {
     super.initState();
+    // Takes the app's registered hotkeys off the system while the recorder
+    // listens, so a combination that is already in use reaches it.
+    _startListening();
+    HotkeyCaptureGuard.listenLimitExpired.addListener(_onListenLimitExpired);
+    _loadInitialCombo();
+  }
+
+  void _startListening() {
+    _listenToken ??= HotkeyCaptureGuard.beginListening();
+  }
+
+  void _stopListening() {
+    final token = _listenToken;
+    _listenToken = null;
+    if (token != null) HotkeyCaptureGuard.endListening(token);
+  }
+
+  /// The listening time ran out (#113): the hotkeys are back, so the recorder
+  /// closes as if cancelled. The saved combination stays. Embedded inline the
+  /// card returns to the saved combination and records again after a click.
+  void _onListenLimitExpired() {
+    if (!mounted) return;
+    _listenToken = null;
+    _heldModifiers.clear();
+    _isAltGr = false;
+    _fnHeld = false;
+    if (widget.onSubmit != null) {
+      setState(() {
+        _loadInitialCombo();
+        _showInvalidKeyHint = false;
+        _captureTimedOut = true;
+      });
+      return;
+    }
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    if (route.isCurrent) {
+      Navigator.of(context).pop();
+    } else {
+      // Another route (a confirmation) is on top: remove this one directly.
+      Navigator.of(context).removeRoute(route);
+    }
+  }
+
+  /// Loads the combo the recorder was opened with. Also the inline mode's
+  /// Escape: it discards what was recorded and shows the saved combo again.
+  void _loadInitialCombo() {
     _modifiersStorage = widget.initialModifiers;
     // Validate the persisted key before trusting it as a valid combo.
     // Pre-fix DBs may contain non-resolvable tokens (e.g. raw `'Ö'`) that the
@@ -270,6 +442,9 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
     _conflict = _storageKey.isEmpty
         ? null
         : findConflict(widget.initialModifiers, _storageKey);
+    _singleKey = widget.singleKeys == null ? '' : widget.initialSingleKey;
+    _soloCandidate = null;
+    _rejectedSingleKey = null;
   }
 
   static bool _isResolvable(String label) {
@@ -292,41 +467,184 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
     );
   }
 
+  /// Reads the macOS setting "Press 🌐 key to" once Fn is recorded (#778).
+  Future<void> _readGlobeKeyAction() async {
+    final action = await ModifierKeyMonitor().globeKeyAction();
+    if (mounted) setState(() => _globeAction = action);
+  }
+
+  /// Opens System Settings → Keyboard, where the user sets "Press 🌐 key to"
+  /// to "Do Nothing". WhisPaste never changes the setting itself (#778).
+  static Future<void> _openKeyboardSettings() async {
+    if (await launchUrl(Uri.parse(keyboardSettingsUrl))) return;
+    await launchUrl(Uri.parse(keyboardSettingsFallbackUrl));
+  }
+
+  /// The double-tap warning for [single]. Fn on macOS waits for the read
+  /// "Press 🌐 key to" setting and stays silent at "Do Nothing" (#778).
+  ConflictEntry? _doubleTapWarning(
+    ModifierHotkey single, {
+    required bool isMac,
+  }) {
+    final entry = findDoubleTapConflict(single.name);
+    if (entry == null || !isMac || single != ModifierHotkey.fn) return entry;
+    final action = _globeAction;
+    return action == null ? null : globeKeyConflict(entry, action);
+  }
+
   @override
   void dispose() {
+    HotkeyCaptureGuard.listenLimitExpired.removeListener(_onListenLimitExpired);
+    _stopListening();
     _focusNode.dispose();
     super.dispose();
   }
 
   // ── Key event handling ─────────────────────────────────────────────
 
+  /// Enter confirms a recorded combination, like the default button of a
+  /// dialog (UX-084). Enter without a modifier is never recordable, so while a
+  /// valid combination is recorded it means Save; otherwise it falls through
+  /// to the usual invalid-key hint. Held modifiers (e.g. Ctrl+Enter) keep
+  /// recording Enter as part of a combination. This listener also sees events
+  /// of the card's buttons: a focused button keeps its own Enter (R14-2), so
+  /// Enter is consumed here only while the recorder itself has focus.
+  /// Returns true when the event is consumed.
+  bool _handleEnter(KeyEvent event) {
+    final key = event.logicalKey;
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
+      return false;
+    }
+    if (!_focusNode.hasPrimaryFocus) return true;
+    final canSave =
+        _heldModifiers.isEmpty &&
+        (_singleKey.isNotEmpty ||
+            (_storageKey.isNotEmpty &&
+                (_modifiersStorage.isNotEmpty || _isSingleKey)));
+    if (event is KeyDownEvent && canSave) {
+      _save();
+      return true;
+    }
+    return false;
+  }
+
   void _handleKeyEvent(KeyEvent event) {
+    // Not listening (its time ran out, or no click since): keys are not
+    // recorded, so a combination reaches the registered hotkeys (#113).
+    if (_listenToken == null) return;
     final key = event.logicalKey;
 
     // Escape closes the dialog instead of being treated as an (invalid)
     // recordable key — without this, a keyboard-only user has no way out of
-    // the recorder besides clicking Cancel with the mouse. Only relevant in
-    // modal mode: embedded mode has no route to pop and no Cancel button.
-    if (event is KeyDownEvent &&
-        key == LogicalKeyboardKey.escape &&
-        widget.onSubmit == null) {
-      Navigator.of(context).pop();
+    // the recorder besides clicking Cancel with the mouse. Embedded inline
+    // there is no route to pop, so Escape discards the recorded combo and
+    // restores the saved one instead (UIA-ONB-08).
+    if (event is KeyDownEvent && key == LogicalKeyboardKey.escape) {
+      if (widget.onSubmit == null) {
+        // maybePop, so a recorded key asks before it is dropped.
+        unawaited(Navigator.of(context).maybePop());
+      } else {
+        _heldModifiers.clear();
+        _isAltGr = false;
+        _fnHeld = false;
+        setState(() {
+          _loadInitialCombo();
+          _showInvalidKeyHint = false;
+        });
+      }
       return;
     }
 
+    if (_handleEnter(event)) return;
+
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      if (_modifierKeys.contains(key)) {
-        _heldModifiers.add(key);
-        _detectAltGr(key);
-      } else if (_heldModifiers.isNotEmpty ||
+      _onKeyDown(event, key);
+    } else if (event is KeyUpEvent) {
+      _onKeyUp(key);
+    }
+  }
+
+  void _onKeyDown(KeyEvent event, LogicalKeyboardKey key) {
+    final singleKeys = widget.singleKeys != null;
+    final isFn = key == LogicalKeyboardKey.fn;
+    if (!_modifierKeys.contains(key) && !(singleKeys && isFn)) {
+      _soloCandidate = null;
+      if (_heldModifiers.isNotEmpty ||
           singleKeyWhitelist.contains(key) ||
           key_resolver.canonicalRecordableKey(event) != null) {
         _recordKey(event, key);
       }
-    } else if (event is KeyUpEvent) {
-      _heldModifiers.remove(key);
-      if (key == LogicalKeyboardKey.altRight) _isAltGr = false;
+      return;
     }
+    if (event is KeyDownEvent && singleKeys) _trackSolo(key);
+    if (isFn) {
+      _fnHeld = true;
+      return;
+    }
+    // Rebuilt so the held modifiers show while the user builds the
+    // combination.
+    setState(() => _heldModifiers.add(key));
+    _detectAltGr(key);
+  }
+
+  void _onKeyUp(LogicalKeyboardKey key) {
+    final solo = _soloCandidate;
+    if (solo != null && _singleKeyOf[key] == solo) {
+      _soloCandidate = null;
+      _recordSingleKey(solo);
+    }
+    if (key == LogicalKeyboardKey.fn) _fnHeld = false;
+    if (_heldModifiers.contains(key)) {
+      setState(() {
+        _heldModifiers.remove(key);
+        if (_heldModifiers.isEmpty) _keyThisPress = false;
+      });
+    }
+    if (key == LogicalKeyboardKey.altRight) _isAltGr = false;
+  }
+
+  /// A modifier pressed while nothing else is down may become a single key;
+  /// a second one joining turns the press into a combination.
+  void _trackSolo(LogicalKeyboardKey key) {
+    final alreadyHeld =
+        _heldModifiers.contains(key) ||
+        (key == LogicalKeyboardKey.fn && _fnHeld);
+    if (alreadyHeld) return;
+    _soloCandidate = _heldModifiers.isEmpty && !_fnHeld
+        ? _singleKeyOf[key]
+        : null;
+  }
+
+  /// Records [key] pressed and let go alone, or says why it cannot be used.
+  void _recordSingleKey(ModifierHotkey key) {
+    if (!widget.singleKeys!.contains(key)) {
+      setState(() {
+        _rejectedSingleKey = key;
+        _showInvalidKeyHint = false;
+      });
+      return;
+    }
+    setState(() {
+      _changed = true;
+      _singleKey = key.name;
+      _modifiersStorage = '';
+      _storageKey = '';
+      _keyLabel = '';
+      _isSingleKey = false;
+      _conflict = null;
+      _rejectedSingleKey = null;
+      _showInvalidKeyHint = false;
+    });
+    if (key == ModifierHotkey.fn &&
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      unawaited(_readGlobeKeyAction());
+    }
+    announce(
+      View.of(context),
+      modifierOnlyLabel(L10n.of(context), key.name),
+      Directionality.of(context),
+    );
   }
 
   /// Marks the held Alt as AltGr (Windows only). Pressing AltGr (physical
@@ -374,11 +692,17 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
     final pressedLabel = WpHotkeyRecorderDialog.keyLabel(key);
     final displayLabel =
         (canonical != key &&
+            !(canonical.keyId >= LogicalKeyboardKey.f13.keyId &&
+                canonical.keyId <= LogicalKeyboardKey.f24.keyId) &&
             pressedLabel.isNotEmpty &&
             pressedLabel != storageLabel)
         ? pressedLabel
         : storageLabel;
     setState(() {
+      _changed = true;
+      _keyThisPress = true;
+      _singleKey = '';
+      _rejectedSingleKey = null;
       _modifiersStorage = serializedMods;
       _storageKey = storageLabel;
       _keyLabel = displayLabel;
@@ -389,7 +713,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
     });
     // Screen-reader users can't see the key-cap display update — announce the
     // newly recorded combo so they know what was captured.
-    SemanticsService.sendAnnouncement(
+    announce(
       View.of(context),
       formatHotkeyShortcut(
         serializedMods,
@@ -461,6 +785,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
   void _clear() {
     setState(() {
+      _changed = true;
       _modifiersStorage = '';
       _keyLabel = '';
       _storageKey = '';
@@ -469,17 +794,35 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
       _heldModifiers.clear();
       _isAltGr = false;
       _showInvalidKeyHint = false;
+      _singleKey = '';
+      _soloCandidate = null;
+      _fnHeld = false;
+      _rejectedSingleKey = null;
     });
   }
 
+  /// The action that already holds the recorded combination, or null.
+  String? _holderLabel() => _storageKey.isEmpty
+      ? null
+      : widget.holderOf?.call(_modifiersStorage, _storageKey);
+
   void _save() {
-    if (_storageKey.isEmpty) return;
+    if (_singleKey.isNotEmpty) {
+      _deliver(WpHotkeyResult(key: '', modifiers: '', singleKey: _singleKey));
+      return;
+    }
+    if (_storageKey.isEmpty || _holderLabel() != null) return;
     final displayForResult = _keyLabel != _storageKey ? _keyLabel : '';
-    final result = WpHotkeyResult(
-      key: _storageKey,
-      modifiers: _modifiersStorage,
-      displayKey: displayForResult,
+    _deliver(
+      WpHotkeyResult(
+        key: _storageKey,
+        modifiers: _modifiersStorage,
+        displayKey: displayForResult,
+      ),
     );
+  }
+
+  void _deliver(WpHotkeyResult result) {
     final onSubmit = widget.onSubmit;
     if (onSubmit != null) {
       // Inline mode (e.g. embedded in ReadyStep) — hand the result to the
@@ -492,203 +835,402 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
     }
   }
 
-  // ── Build ──────────────────────────────────────────────────────────
-
-  @override
-  Widget build(BuildContext context) {
-    const bg = WpColors.surfaceElevated;
-    const border = WpColors.borderDefault;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
-    final l10n = L10n.of(context);
-
-    // Modifier chips, derived from the canonical storage tokens at render time
-    // so they stay localized AND platform-correct (Strg/Option/AltGr/Win …).
-    final modifierLabels = hotkeyModifierLabels(_modifiersStorage, l10n: l10n);
-
-    // A valid combo requires a resolvable storage key plus either a modifier
-    // or a whitelisted single key (F1–F12, media keys — stored in
-    // _isSingleKey). Driven by the canonical storage key, not the display
-    // label, so a stale DB value (e.g. `'Ö'`) that initState rejected keeps
-    // Save disabled.
-    final hasCombo =
-        _storageKey.isNotEmpty &&
-        (_modifiersStorage.isNotEmpty || _isSingleKey);
-
-    final card = Material(
-      color: Colors.transparent,
-      child: AnimatedContainer(
-        duration: WpMotion.durationFor(context, WpMotion.smooth),
-        curve: WpMotion.defaultCurve,
-        width: _kCardWidth,
-        padding: const EdgeInsets.all(WpSpacing.xl),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: WpRadius.borderLg,
-          border: Border.all(color: border),
-          boxShadow: WpShadows.elevated,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────
-            Row(
-              children: [
-                const Icon(
-                  LucideIcons.keyboard,
-                  size: WpIconSize.md,
-                  color: accent,
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                Expanded(
-                  child: Text(
-                    l10n.settingsHotkeyRecorderTitle,
-                    style: const TextStyle(
-                      color: textPrimary,
-                      fontSize: WpTypography.heading,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: WpSpacing.xs),
-            Text(
-              l10n.settingsHotkeyRecorderHint,
-              style: const TextStyle(
-                color: textMuted,
-                fontSize: WpTypography.small,
-              ),
-            ),
-            const SizedBox(height: WpSpacing.xl),
-
-            // ── Key cap display ─────────────────────────────
-            Center(
-              child: AnimatedSwitcher(
-                duration: WpMotion.durationFor(context, WpMotion.fast),
-                switchInCurve: WpMotion.defaultCurve,
-                switchOutCurve: WpMotion.defaultCurve,
-                child: _KeyComboDisplay(
-                  key: ValueKey('$modifierLabels-$_keyLabel'),
-                  modifiers: modifierLabels,
-                  keyLabel: _keyLabel,
-                ),
-              ),
-            ),
-            const SizedBox(height: WpSpacing.md),
-
-            // ── Modifier hint ───────────────────────────────
-            Center(
+  /// Inline, a click on the card records again after the listening time ran
+  /// out (#113). A dialog's recorder listens until it closes.
+  Widget _listenTarget(Widget content) {
+    if (widget.onSubmit == null) return content;
+    return GestureDetector(
+      key: const ValueKey('hotkey-recorder-field'),
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        _focusNode.requestFocus();
+        _startListening();
+        if (_captureTimedOut) setState(() => _captureTimedOut = false);
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          content,
+          if (_captureTimedOut)
+            Padding(
+              padding: const EdgeInsets.only(top: WpSpacing.xs),
               child: Text(
-                l10n.settingsHotkeyRecorderModifierHint,
+                L10n.of(context).hotkeyCaptureTimedOut,
+                key: const ValueKey('onboarding-hotkey-capture-timeout-hint'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: textMuted,
+                style: TextStyle(
+                  color: WpColors.textMuted,
                   fontSize: WpTypography.caption,
                 ),
               ),
             ),
-            const SizedBox(height: WpSpacing.xs),
+        ],
+      ),
+    );
+  }
 
-            // ── Invalid-key hint (non-blocking; auto-hides) ─────
-            if (_showInvalidKeyHint)
-              Padding(
-                padding: const EdgeInsets.only(bottom: WpSpacing.xs),
-                child: Center(
-                  child: Text(
-                    l10n.settingsHotkeyRecorderInvalidKey,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: WpColors.warning,
-                      fontSize: WpTypography.caption,
-                    ),
-                  ),
-                ),
+  // ── Build ──────────────────────────────────────────────────────────
+
+  /// The caps the field shows: the held modifiers live while a combination
+  /// is still being built (a modifier held alone as its single key), else the
+  /// recorded single key or combination.
+  List<_Cap> _shownCaps(L10n l10n, {required bool live}) {
+    final solo = _soloCandidate;
+    if (live && solo != null) return [singleKeyCap(l10n, solo.name)];
+    if (live) {
+      return _capsOf(
+        l10n,
+        WpHotkeyRecorderDialog.serializeModifiers(_heldModifiers),
+        '',
+      );
+    }
+    if (_singleKey.isNotEmpty) return [singleKeyCap(l10n, _singleKey)];
+    return _capsOf(l10n, _modifiersStorage, _keyLabel);
+  }
+
+  /// The keys in effect when the dialog opened.
+  List<_Cap> _currentCaps(L10n l10n, {required bool dictation}) =>
+      dictation && widget.initialSingleKey.isNotEmpty
+      ? [singleKeyCap(l10n, widget.initialSingleKey)]
+      : _capsOf(
+          l10n,
+          widget.initialModifiers,
+          widget.initialDisplayKey.trim().isNotEmpty
+              ? widget.initialDisplayKey
+              : widget.initialKey,
+        );
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = WpColors.surfaceElevated;
+    final border = WpColors.borderDefault;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final l10n = L10n.of(context);
+    final dictation = widget.singleKeys != null;
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+
+    // Modifier chips, derived from the canonical storage tokens at render time
+    // so they stay localized AND platform-correct (Strg/Option/AltGr/Win …).
+    // While the user still builds a combination, the held modifiers show
+    // live; a modifier held alone shows as its single key.
+    final live = _heldModifiers.isNotEmpty && !_keyThisPress;
+    final caps = _shownCaps(l10n, live: live);
+    // Until the first press the field waits, visibly empty: the key in
+    // effect stands above it, so pressing that same key again still shows.
+    final listening = !live && !_changed;
+    final current = _currentCaps(l10n, dictation: dictation);
+    final examples = hotkeyRecorderExamples(l10n: l10n);
+    final holder = _holderLabel();
+    final single = ModifierHotkey.values
+        .where((k) => k.name == _singleKey)
+        .firstOrNull;
+    final rejected = _rejectedSingleKey;
+
+    // A valid combo requires a resolvable storage key plus either a modifier
+    // or a whitelisted single key (F1–F24, media keys — stored in
+    // _isSingleKey). Driven by the canonical storage key, not the display
+    // label, so a stale DB value (e.g. `'Ö'`) that initState rejected keeps
+    // Save disabled.
+    final hasCombo =
+        _singleKey.isNotEmpty ||
+        (_storageKey.isNotEmpty &&
+            (_modifiersStorage.isNotEmpty || _isSingleKey));
+    final muted = TextStyle(
+      color: textMuted,
+      fontSize: WpTypography.small,
+      height: 1.4,
+    );
+
+    final inline = widget.onSubmit != null;
+    final title = dictation
+        ? l10n.settingsHotkeyRecorderDictationTitle
+        : l10n.settingsHotkeyRecorderTitle;
+    final subtitle = dictation
+        ? l10n.settingsHotkeyRecorderDictationHint(
+            modifierOnlyLabel(l10n, modifierOnlySuggestion(isMacOS: isMac)),
+          )
+        : l10n.settingsHotkeyRecorderHint;
+    final canSave = hasCombo && holder == null && _changed;
+
+    final fields = <Widget>[
+      // ── The key in effect, then the field that records ──
+      if (current.isNotEmpty) ...[
+        _CurrentKeys(label: l10n.settingsHotkeyRecorderCurrent, caps: current),
+        const SizedBox(height: WpSpacing.sm),
+      ],
+      _KeyField(
+        caps: caps,
+        listening: listening,
+        lit: live,
+        listeningText: l10n.settingsHotkeyRecorderListening,
+      ),
+      const SizedBox(height: WpSpacing.md),
+
+      // ── Modifier hint ───────────────────────────────
+      if (!dictation)
+        Center(
+          child: Text(
+            l10n.settingsHotkeyRecorderModifierHint(
+              examples[0],
+              examples[1],
+              examples[2],
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: textMuted, fontSize: WpTypography.caption),
+          ),
+        ),
+      const SizedBox(height: WpSpacing.xs),
+
+      // ── Invalid-key hint (non-blocking; auto-hides) ─────
+      if (_showInvalidKeyHint)
+        Padding(
+          padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+          child: Center(
+            child: Text(
+              l10n.settingsHotkeyRecorderInvalidKey,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: WpColors.warning,
+                fontSize: WpTypography.caption,
               ),
-            const SizedBox(height: WpSpacing.xs),
+            ),
+          ),
+        ),
 
-            // ── Conflict warning ─────────────────────────────
-            if (_conflict != null)
-              _ConflictWarning(conflict: _conflict!, l10n: l10n),
-            if (_conflict != null) const SizedBox(height: WpSpacing.md),
+      if (dictation)
+        Padding(
+          padding: const EdgeInsets.only(bottom: WpSpacing.sm),
+          child: Text(
+            l10n.settingsHotkeyRecorderFunctionKeys,
+            key: const ValueKey('hotkey-recorder-function-keys'),
+            style: muted,
+          ),
+        ),
 
-            // ── Action buttons ──────────────────────────────
-            // Wrap (not Row) so long translations (e.g. DE
-            // "Speichern"/"Abbrechen"/"Zurücksetzen") flow to a second
-            // line instead of overflowing the 420 px dialog and pushing
-            // the Save button off-screen.
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: WpSpacing.sm,
-              runSpacing: WpSpacing.xs,
-              children: [
-                // Clear
-                WpButton(
-                  label: l10n.settingsHotkeyRecorderClear,
-                  variant: WpButtonVariant.ghost,
-                  tone: WpButtonTone.neutral,
-                  icon: LucideIcons.eraser,
-                  onPressed: _clear,
-                ),
-                // Cancel + Save grouped so they stay together when wrapping.
-                Wrap(
-                  spacing: WpSpacing.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    // Cancel only makes sense in modal mode — when the
-                    // recorder is embedded inline (no enclosing route to
-                    // pop), there is nothing to dismiss, so the button is
-                    // hidden to avoid a dead control.
-                    if (widget.onSubmit == null)
-                      WpButton(
-                        label: l10n.settingsHotkeyRecorderCancel,
-                        variant: WpButtonVariant.ghost,
-                        tone: WpButtonTone.neutral,
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    WpButton(
-                      label: l10n.settingsHotkeyRecorderSave,
-                      variant: WpButtonVariant.primary,
-                      onPressed: hasCombo ? _save : null,
-                    ),
-                  ],
-                ),
-              ],
+      // ── Single key: why it cannot be used, or what to know ──
+      if (rejected != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: WpSpacing.sm),
+          child: Text(
+            rejected == ModifierHotkey.fn && !isMac
+                ? l10n.settingsTriggerKeyUnsupportedFn
+                : l10n.settingsTriggerKeyUnsupportedWayland,
+            key: const ValueKey('hotkey-recorder-single-unsupported'),
+            style: muted.copyWith(color: WpColors.warning),
+          ),
+        ),
+      if (single != null && _changed) ...[
+        if (isMac)
+          Padding(
+            padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+            child: Text(l10n.settingsHotkeyRecorderSingleKeyMac, style: muted),
+          ),
+        if (single.isBusy)
+          Padding(
+            padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+            child: Text(l10n.settingsTriggerDoubleTapHint, style: muted),
+          ),
+        // Right Alt is AltGr on many layouts: every @ or € would start a
+        // recording for a moment.
+        if (single == ModifierHotkey.rightAlt && !isMac)
+          Padding(
+            padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+            child: Text(
+              l10n.settingsTriggerRightAltAltGr,
+              key: const ValueKey('hotkey-recorder-altgr'),
+              style: muted,
+            ),
+          ),
+        // A double tap the OS also uses (Fn on macOS): a warning with the way
+        // out, never a block.
+        if (_doubleTapWarning(single, isMac: isMac) case final entry?) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+            child: WpHotkeyConflictWarning(conflict: entry, l10n: l10n),
+          ),
+          // Only the way to the setting; the user's choice stays untouched.
+          if (isMac && single == ModifierHotkey.fn)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+              child: WpButton(
+                testId: 'hotkey-recorder-globe-open-settings',
+                label: l10n.hotkeyConflictOpenKeyboardSettings,
+                icon: LucideIcons.settings,
+                variant: WpButtonVariant.secondary,
+                tone: WpButtonTone.neutral,
+                size: WpButtonSize.dense,
+                onPressed: () => unawaited(_openKeyboardSettings()),
+              ),
+            ),
+        ],
+      ],
+
+      // ── Conflict warning ─────────────────────────────
+      if (_conflict != null && _changed) ...[
+        const SizedBox(height: WpSpacing.xs),
+        WpHotkeyConflictWarning(conflict: _conflict!, l10n: l10n),
+      ],
+      if (widget.isWayland ?? isLinuxWaylandSession()) ...[
+        Padding(
+          padding: const EdgeInsets.only(top: WpSpacing.xs),
+          child: WpDesktopShortcutHint(l10n: l10n),
+        ),
+        if (widget.onOpenSystemSettings != null)
+          Padding(
+            padding: const EdgeInsets.only(top: WpSpacing.xs),
+            child: WpButton(
+              testId: 'hotkey-recorder-open-system-settings',
+              label: l10n.waylandHotkeyOpenSystemSettings,
+              icon: LucideIcons.settings,
+              variant: WpButtonVariant.secondary,
+              tone: WpButtonTone.neutral,
+              size: WpButtonSize.dense,
+              onPressed: widget.onOpenSystemSettings,
+            ),
+          ),
+      ],
+      if (holder != null && _changed)
+        Padding(
+          padding: const EdgeInsets.only(top: WpSpacing.xs),
+          child: Text(
+            l10n.settingsDictationHotkeyCollision(holder),
+            key: const ValueKey('hotkey-recorder-holder'),
+            style: TextStyle(color: textPrimary, fontSize: WpTypography.small),
+          ),
+        ),
+    ];
+
+    final animation = widget.animation;
+    final Widget content;
+    if (!inline && animation != null) {
+      // As a dialog: the shared form card and footer, like every dialog. A
+      // recorded key is input: a stray tap outside asks before dropping it.
+      content = WpUnsavedInputGuard(
+        dirty: _changed,
+        child: WpFormDialogShell(
+          animation: animation,
+          title: title,
+          subtitle: subtitle,
+          fields: fields,
+          actions: [
+            WpDialogAction(
+              label: l10n.settingsHotkeyRecorderCancel,
+              testId: 'hotkey-recorder-cancel',
+              role: WpDialogActionRole.cancel,
+            ),
+            // Clear. Not for the dictation key: the next press simply
+            // replaces what was recorded, and an action needs a trigger.
+            if (!dictation)
+              WpDialogAction(
+                label: l10n.settingsHotkeyRecorderClear,
+                testId: 'hotkey-recorder-clear',
+                onPressed: _clear,
+              ),
+            WpDialogAction(
+              label: l10n.settingsHotkeyRecorderSave,
+              testId: 'hotkey-recorder-save',
+              role: WpDialogActionRole.primary,
+              enabled: canSave,
+              onPressed: _save,
             ),
           ],
         ),
-      ),
-    );
-
-    return _IntrinsicWidthClamp(
-      width: _kCardWidth,
-      child: Center(
-        child: KeyboardListener(
-          focusNode: _focusNode,
-          autofocus: true,
-          onKeyEvent: _handleKeyEvent,
-          // The blur backdrop only makes sense in modal mode, where it frosts
-          // the modal barrier behind the card. Two exceptions render the card
-          // bare instead:
-          //   • Windows — BackdropFilter + ImageFilter.blur is broken on
-          //     frameless windows (see _WpDialogBarrier in dialog.dart), so
-          //     the blur would show up as a visibly broken dialog.
-          //   • Inline mode (onSubmit != null, e.g. the onboarding trigger
-          //     page) — there is no barrier back there, just real page
-          //     content. The blur would smear the heading and the conflict
-          //     warning that explain why the recorder appeared in the first
-          //     place.
-          child: Platform.isWindows || widget.onSubmit != null
-              ? card
-              : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: card,
+      );
+    } else {
+      // Embedded on a page (onboarding's conflict branch): the recorder's own
+      // card, with Clear and Save. There is no route to cancel.
+      content = _IntrinsicWidthClamp(
+        width: _kCardWidth,
+        child: Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: _kCardWidth,
+              padding: const EdgeInsets.all(WpSpacing.md),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: WpRadius.borderLg,
+                border: Border.all(color: border),
+                // No shadow: embedded in the onboarding page, the card is a
+                // resting surface, so fill and edge carry its depth (#280).
+              ),
+              // Scrolls when the space is shorter than the card: the v6 rows
+              // (current keys, holder line) make it taller than its frame at
+              // large text sizes or small windows.
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.keyboard,
+                          size: WpIconSize.md,
+                          color: accent,
+                        ),
+                        const SizedBox(width: WpSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: WpTypography.heading,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: WpSpacing.xs),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: WpTypography.small,
+                      ),
+                    ),
+                    const SizedBox(height: WpSpacing.md),
+                    ...fields,
+                    const SizedBox(height: WpSpacing.md),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: WpSpacing.sm,
+                      runSpacing: WpSpacing.xs,
+                      children: [
+                        if (!dictation)
+                          WpButton(
+                            label: l10n.settingsHotkeyRecorderClear,
+                            variant: WpButtonVariant.ghost,
+                            tone: WpButtonTone.neutral,
+                            icon: LucideIcons.eraser,
+                            onPressed: _clear,
+                          ),
+                        WpButton(
+                          testId: 'hotkey-recorder-save',
+                          label: l10n.settingsHotkeyRecorderSave,
+                          variant: WpButtonVariant.primary,
+                          onPressed: canSave ? _save : null,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+            ),
+          ),
         ),
-      ),
+      );
+    }
+
+    return KeyboardListener(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: _listenTarget(content),
     );
   }
 }
@@ -746,130 +1288,129 @@ class _RenderIntrinsicWidthClamp extends RenderProxyBox {
       super.computeMaxIntrinsicHeight(_clamp(width));
 }
 
-// ---------------------------------------------------------------------------
-// Key cap combo display
-// ---------------------------------------------------------------------------
+typedef _Cap = ({String cap, String? side});
 
-/// Renders modifier + key labels as styled key caps with "+" separators.
-class _KeyComboDisplay extends StatelessWidget {
-  const _KeyComboDisplay({
-    super.key,
-    required this.modifiers,
-    required this.keyLabel,
-  });
+/// Key caps for a stored modifier string and key label.
+List<_Cap> _capsOf(L10n l10n, String modifiers, String key) => [
+  for (final m in hotkeyModifierLabels(modifiers, l10n: l10n))
+    (cap: m, side: null),
+  if (key.isNotEmpty) (cap: key, side: null),
+];
 
-  final List<String> modifiers;
-  final String keyLabel;
+/// "Aktuell: ⇧ ⌘ D" — the key in effect, small, above the field.
+class _CurrentKeys extends StatelessWidget {
+  const _CurrentKeys({required this.label, required this.caps});
+
+  final String label;
+  final List<_Cap> caps;
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
+    return Wrap(
+      key: const ValueKey('hotkey-recorder-current'),
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: WpSpacing.xxs,
+      runSpacing: WpSpacing.xxs,
+      children: [
+        Padding(
+          padding: const EdgeInsetsDirectional.only(end: WpSpacing.xxs),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: WpColors.textMuted,
+              fontSize: WpTypography.small,
+            ),
+          ),
+        ),
+        for (final c in caps)
+          WpKeycap(label: c.side == null ? c.cap : '${c.cap} ${c.side}'),
+      ],
+    );
+  }
+}
 
-    // Nothing recorded yet — show placeholder
-    if (modifiers.isEmpty && keyLabel.isEmpty) {
-      return Container(
-        // `minHeight`, not a fixed `height` — the populated branch below
-        // already uses the constraint form, and a hard 48 clipped this text
-        // once the system font scaler pushed the 17 px placeholder past the
-        // box. Both branches now reserve the same 48 dp floor and grow.
-        constraints: const BoxConstraints(minHeight: 48),
-        alignment: Alignment.center,
-        child: const Text(
-          '—',
-          style: TextStyle(color: textMuted, fontSize: WpTypography.title),
+/// The recording field: empty and waiting with an accent rim, then the
+/// pressed keys as large caps that light while held.
+class _KeyField extends StatelessWidget {
+  const _KeyField({
+    required this.caps,
+    required this.listening,
+    required this.lit,
+    required this.listeningText,
+  });
+
+  final List<_Cap> caps;
+  final bool listening;
+  final bool lit;
+  final String listeningText;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = WpColors.accent;
+    final Widget child;
+    if (listening || caps.isEmpty) {
+      child = Column(
+        key: const ValueKey('hotkey-recorder-listening'),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.keyboard, size: WpIconSize.lg, color: accent),
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            listeningText,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: WpColors.textPrimary,
+              fontSize: WpTypography.body,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Shortcut order is left to right in every locale (UX-024).
+      child = Directionality(
+        key: ValueKey(caps.map((c) => '${c.cap}${c.side}').join('+')),
+        textDirection: TextDirection.ltr,
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: WpSpacing.sm,
+          runSpacing: WpSpacing.sm,
+          children: [
+            for (final c in caps)
+              WpKeycap.large(
+                label: c.cap,
+                sublabel: c.side,
+                lit: lit,
+                extent: 64,
+              ),
+          ],
         ),
       );
     }
-
-    final caps = <Widget>[];
-
-    for (var i = 0; i < modifiers.length; i++) {
-      if (i > 0) caps.add(const _PlusSeparator());
-      caps.add(_KeyCap(label: modifiers[i]));
-    }
-
-    if (keyLabel.isNotEmpty) {
-      if (caps.isNotEmpty) caps.add(const _PlusSeparator());
-      caps.add(_KeyCap(label: keyLabel, isPrimary: true));
-    }
-
-    return Container(
-      constraints: const BoxConstraints(minHeight: 48),
-      alignment: Alignment.center,
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: WpSpacing.xxs,
-        runSpacing: WpSpacing.xs,
-        children: caps,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Individual key cap
-// ---------------------------------------------------------------------------
-
-class _KeyCap extends StatelessWidget {
-  const _KeyCap({required this.label, this.isPrimary = false});
-
-  final String label;
-  final bool isPrimary;
-
-  @override
-  Widget build(BuildContext context) {
-    const bgColor = WpColors.surfaceVariant;
-    const borderColor = WpColors.borderSubtle;
-    const textColor = WpColors.textPrimary;
-    const accentColor = WpColors.accent;
-
+    final waiting = listening || caps.isEmpty;
     return AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),
       curve: WpMotion.defaultCurve,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xxs + 2,
-      ),
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 112),
+      padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
-        color: isPrimary ? (WpColors.active) : bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
+        color: waiting ? accent.withValues(alpha: 0.06) : WpColors.surface,
+        borderRadius: WpRadius.borderLg,
         border: Border.all(
-          color: isPrimary ? accentColor.withValues(alpha: 0.4) : borderColor,
-        ),
-        boxShadow: WpShadows.subtle,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          fontWeight: FontWeight.w700,
-          color: isPrimary ? accentColor : textColor,
-          letterSpacing: 0.3,
+          color: waiting
+              ? accent.withValues(alpha: 0.6)
+              : WpColors.borderDefault,
+          width: waiting ? 1.5 : 1,
         ),
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Plus separator
-// ---------------------------------------------------------------------------
-
-class _PlusSeparator extends StatelessWidget {
-  const _PlusSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-      child: Text(
-        '+',
-        style: TextStyle(
-          fontSize: WpTypography.subheading,
-          fontWeight: FontWeight.w600,
-          color: WpColors.textMuted,
-        ),
+      alignment: Alignment.center,
+      child: AnimatedSwitcher(
+        duration: WpMotion.durationFor(context, WpMotion.fast),
+        switchInCurve: WpMotion.defaultCurve,
+        switchOutCurve: WpMotion.defaultCurve,
+        child: child,
       ),
     );
   }
@@ -879,35 +1420,82 @@ class _PlusSeparator extends StatelessWidget {
 // Conflict warning banner
 // ---------------------------------------------------------------------------
 
-/// Visible warning shown when the recorded hotkey is a known system shortcut.
-///
-/// Non-blocking: the Save button remains enabled. The user retains full
-/// control over whether to accept the potential conflict.
-class _ConflictWarning extends StatelessWidget {
-  const _ConflictWarning({required this.conflict, required this.l10n});
+/// Linux Wayland: the desktop sets the shortcut (GlobalShortcuts portal, or the
+/// desktop's own binding), so the dialog says so before the user saves. Same
+/// sentence as the Settings notice after the binding (`waylandHotkeyBoundNoTrigger`).
+/// Left-aligned at body size like the other hints in the dialog (UX-108): a
+/// centred caption between them read as an afterthought.
+class WpDesktopShortcutHint extends StatelessWidget {
+  const WpDesktopShortcutHint({super.key, required this.l10n});
+
+  final L10n l10n;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    l10n.waylandHotkeyBoundNoTrigger,
+    key: const Key('hotkeyDesktopBindingHint'),
+    textAlign: TextAlign.start,
+    style: TextStyle(
+      color: WpColors.textMuted,
+      fontSize: WpTypography.body,
+      height: 1.4,
+    ),
+  );
+}
+
+/// True in a Linux Wayland session (XDG_SESSION_TYPE, WAYLAND_DISPLAY fallback).
+bool isLinuxWaylandSession() =>
+    defaultTargetPlatform == TargetPlatform.linux &&
+    linuxSessionTypeFrom(Platform.environment) == LinuxSessionType.wayland;
+
+/// Warning for a reserved hotkey: what the OS reserves, and the next steps
+/// ([conflictActionLines]). Non-blocking; the user may still save.
+class WpHotkeyConflictWarning extends StatelessWidget {
+  const WpHotkeyConflictWarning({
+    super.key,
+    required this.conflict,
+    required this.l10n,
+    this.isLinux,
+  });
 
   final ConflictEntry conflict;
   final L10n l10n;
 
+  /// Linux reserves through the desktop, so the text names the desktop (no
+  /// "reserved by Linux"). Null reads [defaultTargetPlatform].
+  final bool? isLinux;
+
+  String _warningText() {
+    final note = conflict.note == null
+        ? conflict.key
+        : conflictNoteLabel(l10n, conflict.note!);
+    if (isLinux ?? defaultTargetPlatform == TargetPlatform.linux) {
+      return l10n.hotkeyConflictWarningDesktop(note);
+    }
+    return l10n.hotkeyConflictWarning(_platformName(), note);
+  }
+
   static String _platformName() {
-    if (Platform.isMacOS) return 'macOS';
-    if (Platform.isWindows) return 'Windows';
-    if (Platform.isLinux) return 'Linux';
+    if (defaultTargetPlatform == TargetPlatform.macOS) return 'macOS';
+    if (defaultTargetPlatform == TargetPlatform.windows) return 'Windows';
+    if (defaultTargetPlatform == TargetPlatform.linux) return 'Linux';
     return 'OS';
   }
 
   @override
   Widget build(BuildContext context) {
-    const warningColor = WpColors.warning;
+    final warningColor = WpColors.warning;
     final warningBg = warningColor.withValues(alpha: 0.12);
     final warningBorder = warningColor.withValues(alpha: 0.35);
 
+    // Compact on purpose (UX-107): a thin frame and one line per way out, so
+    // the box plus the buttons fit the 800 px window at text scale 1.3.
     return Container(
       key: const Key('hotkeyConflictWarning'),
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xs,
+        vertical: WpSpacing.xxs,
       ),
       decoration: BoxDecoration(
         color: warningBg,
@@ -917,23 +1505,43 @@ class _ConflictWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.sm,
             color: warningColor,
           ),
           const SizedBox(width: WpSpacing.xs),
           Expanded(
-            child: Text(
-              l10n.hotkeyConflictWarning(
-                _platformName(),
-                conflict.note.isNotEmpty ? conflict.note : conflict.key,
-              ),
-              style: const TextStyle(
-                color: warningColor,
-                fontSize: WpTypography.caption,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _warningText(),
+                  style: TextStyle(
+                    color: warningColor,
+                    fontSize: WpTypography.caption,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xxs),
+                // One line per way out: the system switch first, then the
+                // other combination (UX-107).
+                Column(
+                  key: const Key('hotkeyConflictAction'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final line in conflictActionLines(l10n, conflict))
+                      Text(
+                        line,
+                        style: TextStyle(
+                          color: warningColor,
+                          fontSize: WpTypography.caption,
+                          height: 1.4,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

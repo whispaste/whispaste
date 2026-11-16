@@ -20,6 +20,15 @@ enum NativePasteStatus {
   /// specific — restart WhisPaste elevated — not "just retry".
   foregroundBlocked,
   postFailed,
+
+  /// The captured target is no longer the frontmost app: the user switched
+  /// away during transcription. Nothing is pasted into the wrong window.
+  targetChanged,
+
+  /// macOS 15.4+: the user denied WhisPaste access to the general pasteboard
+  /// (NSPasteboard accessBehavior "always deny"). Nothing is read or
+  /// overwritten, so the clipboard stays as the user left it.
+  clipboardAccessDenied,
   unknown;
 
   static NativePasteStatus fromCode(String? code) => switch (code) {
@@ -29,6 +38,8 @@ enum NativePasteStatus {
     'permission_missing' => NativePasteStatus.permissionMissing,
     'foreground_blocked' => NativePasteStatus.foregroundBlocked,
     'post_failed' || 'send_input_failed' => NativePasteStatus.postFailed,
+    'target_changed' => NativePasteStatus.targetChanged,
+    'clipboard_access_denied' => NativePasteStatus.clipboardAccessDenied,
     _ => NativePasteStatus.unknown,
   };
 }
@@ -168,6 +179,74 @@ enum ClipboardReadReceipt {
   };
 }
 
+/// Whether the OS currently routes keystrokes into a secure input field
+/// (macOS `IsSecureEventInputEnabled`, e.g. a password field). Only macOS
+/// has such a system signal; elsewhere the answer is [unsupported].
+enum SecureInputState {
+  active,
+  inactive,
+  unsupported;
+
+  static SecureInputState fromCode(String? code) => switch (code) {
+    'active' => SecureInputState.active,
+    'inactive' => SecureInputState.inactive,
+    _ => SecureInputState.unsupported,
+  };
+}
+
+/// The app that holds macOS secure input right now (F35-8). All fields are
+/// optional: a holder without a name or bundle id gets the generic notice.
+class SecureInputHolder {
+  const SecureInputHolder({this.name, this.bundleId, this.pid});
+
+  /// The localized app name, e.g. "Terminal".
+  final String? name;
+
+  /// The bundle id, e.g. "com.apple.Terminal", for app-specific tips.
+  final String? bundleId;
+
+  /// The process id, for the secure input log line.
+  final int? pid;
+}
+
+/// Implemented by controllers that can ask the OS about secure input (W-E1).
+abstract interface class SecureInputProbe {
+  Future<SecureInputState> secureInputState();
+
+  /// The app holding secure input, or null when none is known. Only read
+  /// after a paste was skipped, never on the paste path (F35-8).
+  Future<SecureInputHolder?> secureInputHolder();
+}
+
+/// The kind of the field that has keyboard focus in the target app (#948).
+/// Only the type crosses the channel, never the field's content.
+///
+/// Wire codes: `password`, `normal`, `unknown`. Anything else, a missing
+/// handler, an error or a slow answer reads as [unknown].
+enum FocusedFieldType {
+  /// A password or PIN field (Windows UIA `IsPassword`).
+  password,
+
+  /// A real text field that is proven not to be a password field.
+  normal,
+
+  /// No information: the paste runs as before.
+  unknown;
+
+  static FocusedFieldType fromCode(String? code) => switch (code) {
+    'password' => FocusedFieldType.password,
+    'normal' => FocusedFieldType.normal,
+    _ => FocusedFieldType.unknown,
+  };
+}
+
+/// Implemented by controllers that can tell the type of the focused field
+/// (#948: Windows, #949: macOS; Linux #950 reports [FocusedFieldType.unknown]
+/// until then by not implementing it). Reads role and attributes only.
+abstract interface class FocusedFieldTypeProbe {
+  Future<FocusedFieldType> focusedFieldType();
+}
+
 /// Outcome of [ClipboardReceiptBridge.restoreClipboardTextIfOwner].
 enum ClipboardRestoreOutcome {
   restored,
@@ -183,17 +262,17 @@ enum ClipboardRestoreOutcome {
   };
 }
 
-/// Receipt-based clipboard restore (macOS/Windows only — Linux keeps its
-/// fixed-delay uinput path).
+/// Receipt-based clipboard restore on all three desktop platforms.
 ///
 /// Instead of "write transcript → paste → wait a fixed buffer → restore",
 /// the transcript is put on the clipboard *lazily* (macOS
 /// `NSPasteboardItemDataProvider`, Windows delayed rendering via
-/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`), so the native host
-/// learns the moment the target app actually reads it. The restore then
-/// happens right after that read, and only while WhisPaste still owns the
-/// clipboard (macOS `changeCount`, Windows `WM_DESTROYCLIPBOARD`/
-/// `GetClipboardOwner`).
+/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`, Linux
+/// `gtk_clipboard_set_with_data`, served per X selection request), so the
+/// native host learns the moment the target app actually reads it. The
+/// restore then happens right after that read, and only while WhisPaste
+/// still owns the clipboard (macOS `changeCount`, Windows
+/// `WM_DESTROYCLIPBOARD`/`GetClipboardOwner`, Linux the selection clear).
 abstract interface class ClipboardReceiptBridge {
   /// Writes [text] as a lazily rendered, history-excluded clipboard item
   /// (macOS: marked `org.nspasteboard.TransientType` + `ConcealedType`).
@@ -209,6 +288,13 @@ abstract interface class ClipboardReceiptBridge {
   /// Writes [text] back (history-excluded) only if WhisPaste is still the
   /// clipboard owner since the receipt write.
   Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(String text);
+}
+
+/// Optional extra of a [ClipboardReceiptBridge]: a log-only summary of the
+/// reads of the armed receipt (reads before the keystroke, delay of the first
+/// read after it). Never used for a decision.
+abstract interface class ClipboardReceiptDiagnostics {
+  Future<String> receiptDiagnostics();
 }
 
 /// Platform-agnostic interface for desktop clipboard pasting.
@@ -241,8 +327,15 @@ abstract class DesktopPasteController {
   /// Same [NativePasteResult] vocabulary as [pasteClipboard].
   Future<NativePasteResult> copySelection({required Duration delay});
 
-  /// Restores the captured target and types [text] directly via synthetic
-  /// Unicode keystrokes — no clipboard involved at all.
+  /// Restores the captured target and types [text].
+  ///
+  /// Only macOS types directly via synthetic Unicode keystrokes, without the
+  /// clipboard. Windows and Linux route through the same clipboard + Ctrl+V
+  /// path as [pasteClipboard] (on Windows, Unicode SendInput corrupts text in
+  /// Notepad's TSF control) and back up and restore the clipboard around it,
+  /// so they are no independent second way in: after a failed paste status
+  /// they could insert the text twice. The typing retry after a failed paste
+  /// therefore runs on macOS only (P1.2).
   ///
   /// Returns the same [NativePasteResult] shape as [pasteClipboard] so
   /// callers can distinguish the same silent failure modes.
@@ -252,10 +345,14 @@ abstract class DesktopPasteController {
   /// history / cloud-clipboard opt-out formats where available (Windows'
   /// `ExcludeClipboardContentFromMonitorProcessing` etc.), so a transient
   /// write never surfaces as a new entry in e.g. Windows' Win+V history.
+  /// On macOS the native write marks the item `org.nspasteboard.TransientType`
+  /// and `ConcealedType` (BIZ-61). On Linux it sets the
+  /// `x-kde-passwordManagerHint` target, which only Klipper honours; GPaste
+  /// and other managers still record the text.
   ///
-  /// Returns `false` on platforms with no such mechanism (macOS, Linux) or
-  /// on any channel failure — callers then fall back to an ordinary
-  /// clipboard write that the OS may record in its own history.
+  /// Returns `false` on any channel failure — callers then fall back to an
+  /// ordinary clipboard write that the OS may record in its own history. The
+  /// fallback is a warning on Windows and macOS, info on Linux (6c+a).
   Future<bool> writeClipboardTextExcludingHistory(String text);
 
   /// Probes whether the OS would allow Auto-Paste right now — without
@@ -327,4 +424,78 @@ class TccRepairResult {
     appleEventsCleared: 0,
     error: 'unsupported_platform',
   );
+}
+
+/// What [ClipboardSnapshotBridge.snapshotClipboard] saved.
+enum ClipboardSnapshotStatus {
+  /// Every readable format is held natively, ready for the restore.
+  saved,
+
+  /// The clipboard holds nothing: there is nothing to restore.
+  empty,
+
+  /// macOS pasteboard privacy: WhisPaste may not read the clipboard.
+  denied,
+
+  /// No native snapshot (unsupported, too large, too slow, channel error):
+  /// the caller falls back to the plain-text snapshot.
+  failed;
+
+  static ClipboardSnapshotStatus fromCode(String? code) => switch (code) {
+    'saved' => ClipboardSnapshotStatus.saved,
+    'empty' => ClipboardSnapshotStatus.empty,
+    'denied' => ClipboardSnapshotStatus.denied,
+    _ => ClipboardSnapshotStatus.failed,
+  };
+}
+
+/// Result of [ClipboardSnapshotBridge.snapshotClipboard]. [text] is the
+/// plain-text form of the saved content, when it has one, so the restore can
+/// be marked as WhisPaste's own write; [formats] and [bytes] are for the log.
+class ClipboardSnapshot {
+  const ClipboardSnapshot(
+    this.status, {
+    this.text,
+    this.formats = 0,
+    this.bytes = 0,
+  });
+
+  final ClipboardSnapshotStatus status;
+  final String? text;
+  final int formats;
+  final int bytes;
+
+  factory ClipboardSnapshot.fromMap(Object? raw) {
+    if (raw is! Map) {
+      return const ClipboardSnapshot(ClipboardSnapshotStatus.failed);
+    }
+    return ClipboardSnapshot(
+      ClipboardSnapshotStatus.fromCode(raw['status'] as String?),
+      text: raw['text'] as String?,
+      formats: (raw['formats'] as num?)?.toInt() ?? 0,
+      bytes: (raw['bytes'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Full clipboard backup around a paste (P1.1): every format the user had
+/// copied (image, files, rich text, HTML, ...) comes back, not only plain
+/// text. The native host keeps the snapshot (macOS all pasteboard item types,
+/// Windows every memory-backed clipboard format, Linux every selection
+/// target), so the data never crosses the channel.
+///
+/// The restore runs under the same owner check as
+/// [ClipboardReceiptBridge.restoreClipboardTextIfOwner] and is
+/// history-excluded the same way.
+abstract interface class ClipboardSnapshotBridge {
+  /// Saves the current clipboard natively, replacing an earlier snapshot.
+  Future<ClipboardSnapshot> snapshotClipboard();
+
+  /// Writes the saved snapshot back only while WhisPaste still owns the
+  /// clipboard since the receipt write. [ClipboardRestoreOutcome.failed]
+  /// when no snapshot is held.
+  Future<ClipboardRestoreOutcome> restoreClipboardSnapshotIfOwner();
+
+  /// Drops the saved snapshot without restoring it.
+  Future<void> discardClipboardSnapshot();
 }

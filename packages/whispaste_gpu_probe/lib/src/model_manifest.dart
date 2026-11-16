@@ -103,7 +103,7 @@ Future<CandidateResult?> acquireModel({
 
   // --- fast path: file already present and checksum matches -----------------
   if (target.existsSync()) {
-    final digest = _sha256OfFile(target);
+    final digest = await _sha256OfFile(target);
     if (digest == entry.sha256) {
       // Reuse — do NOT call the downloader.
       return null; // success
@@ -122,7 +122,7 @@ Future<CandidateResult?> acquireModel({
   }
 
   // Verify after download.
-  final digest = _sha256OfFile(target);
+  final digest = await _sha256OfFile(target);
   if (digest != entry.sha256) {
     return CandidateResult(
       candidateId: candidateId,
@@ -140,11 +140,10 @@ Future<CandidateResult?> acquireModel({
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Computes the SHA-256 hex digest of [file].
-String _sha256OfFile(File file) {
-  final bytes = file.readAsBytesSync();
-  return sha256.convert(bytes).toString();
-}
+/// Computes the SHA-256 hex digest of [file], streamed (model files reach
+/// several GB).
+Future<String> _sha256OfFile(File file) async =>
+    (await sha256.bind(file.openRead()).first).toString();
 
 /// Computes the SHA-256 hex digest of raw [bytes].
 ///

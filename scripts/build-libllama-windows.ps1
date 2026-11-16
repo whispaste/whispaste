@@ -1,5 +1,5 @@
 # build-libllama-windows.ps1 — reproducible build of the bundled `llama` +
-# `ggml` shared libraries (llama.cpp b10150, Vulkan + CPU backends) for the
+# `ggml` shared libraries (llama.cpp from scripts\llama-cpp.pin, Vulkan + CPU backends) for the
 # Windows build. Produces flat DLLs plus a SHA-256 manifest, staged where
 # `bundle-libllama-windows.ps1` picks them up and copies them next to
 # `whispaste.exe` under a dedicated `smart_mode\` subdirectory.
@@ -36,10 +36,9 @@
 # Usage:  pwsh scripts/build-libllama-windows.ps1
 # Output: .build\libllama\windows\{llama.dll,ggml*.dll,SHA256SUMS}
 #
-# Requires: cmake + Ninja on PATH, run from a Developer PowerShell / Developer
-# Command Prompt for VS 2022 (so cl.exe/link.exe resolve — same requirement
-# as build-smartmode-shim-windows.ps1, which must run right after this in the
-# same shell), a checked-out llama.cpp source tree (see LLAMA_SRC below).
+# Requires: cmake + Ninja on PATH, the VS 2022 C++ build tools (activated
+# through windows-msvc-env.ps1 when cl.exe is not on PATH), the Vulkan SDK,
+# a checked-out llama.cpp source tree (see LLAMA_SRC below).
 #
 # Uses the Ninja generator, NOT "Visual Studio 17 2022" — see
 # bundle-libwhisper-windows.ps1's sibling CI job comment: the VS IDE
@@ -54,10 +53,18 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
-# --- Pinned source provenance (identical pin to build-libllama-macos.sh) ----
-$LlamaTag = "b10150"
+# --- Pinned source provenance ------------------------------------------------
+# Pinned source: scripts\llama-cpp.pin (one pin for all platforms).
+$Pin = @{}
+Get-Content (Join-Path $RepoRoot 'scripts\llama-cpp.pin') | ForEach-Object {
+  if ($_ -match '^\s*([A-Z0-9_]+)=(.*)$') { $Pin[$Matches[1]] = $Matches[2].Trim() }
+}
+$LlamaTag = $Pin['LLAMA_TAG']
+$LlamaPinnedCommit = $Pin['LLAMA_COMMIT']
+if (-not $LlamaTag -or -not $LlamaPinnedCommit) {
+  throw "scripts\llama-cpp.pin needs LLAMA_TAG and LLAMA_COMMIT"
+}
 $LlamaSrc = Join-Path $RepoRoot ".build\deps\llama.cpp\$LlamaTag"
-$LlamaPinnedCommit = "dee2a846b82f15d27f84a48fa387cb53e0d99c25"
 
 $BuildDir = Join-Path $RepoRoot ".build\libllama\windows-build"
 $StageDir = Join-Path $RepoRoot ".build\libllama\windows"
@@ -75,11 +82,23 @@ if ($actualCommit -ne $LlamaPinnedCommit) {
   exit 1
 }
 Write-Host "[1/3] source verified: $LlamaTag @ $LlamaPinnedCommit"
+. (Join-Path $PSScriptRoot 'windows-msvc-env.ps1')
 
 # --- 2. Configure + build shared libs (Vulkan + CPU, backend-dl) -----------
 Write-Host "[2/3] cmake configure + build (Vulkan + CPU variants, shared, backend-dl) ..."
 # Renames the core ggml DLLs (see "ggml namespacing" above). Included right
 # after ggml's own project() call, so it only affects targets in ggml/.
+# A CMake cache left by another pin points at that pin's source tree and makes
+# cmake refuse to configure; drop the build dir then so it is configured afresh.
+$CacheFile = Join-Path $BuildDir 'CMakeCache.txt'
+if (Test-Path $CacheFile) {
+  $cached = Select-String -Path $CacheFile -Pattern '^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$' |
+    ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Select-Object -First 1
+  if ($cached -and ((($cached -replace '\\','/').TrimEnd('/')) -ne (($LlamaSrc -replace '\\','/').TrimEnd('/')))) {
+    Write-Host "      stale cmake cache ($cached) -- discarding $BuildDir"
+    Remove-Item $BuildDir -Recurse -Force
+  }
+}
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 $GgmlSuffixInclude = Join-Path $BuildDir "ggml-llama-suffix.cmake"
 'set(CMAKE_SHARED_LIBRARY_SUFFIX "-llama.dll")' | Set-Content -Encoding ascii $GgmlSuffixInclude
@@ -106,7 +125,9 @@ cmake -S $LlamaSrc -B $BuildDir -G Ninja `
   -DLLAMA_BUILD_APP=OFF `
   -DLLAMA_OPENSSL=OFF `
   | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "cmake configure failed (exit $LASTEXITCODE)" }
 cmake --build $BuildDir --config Release -j | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "cmake build failed (exit $LASTEXITCODE)" }
 Write-Host "      built."
 
 # --- 3. Stage DLLs + SHA-256 manifest ---------------------------------------

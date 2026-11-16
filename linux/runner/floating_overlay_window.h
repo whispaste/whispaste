@@ -7,25 +7,35 @@
 #include <string>
 
 // Window dimensions that mirror OverlayDesignSpec.windowSizeFor in Dart.
-// Normal: 346×80 / Compact: 236×56 / Mini: 166×50 (same as macOS/Windows).
+// Normal: 346×80 / Compact: 236×56 / Mini: 166×50 / Nano: 104×40 (same as
+// macOS/Windows).
 constexpr int kOverlayNormalW = 346;
 constexpr int kOverlayNormalH = 80;
 constexpr int kOverlayCompactW = 236;
 constexpr int kOverlayCompactH = 56;
 constexpr int kOverlayMiniW = 166;
 constexpr int kOverlayMiniH = 50;
+constexpr int kOverlayNanoW = 104;
+constexpr int kOverlayNanoH = 40;
+// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
+constexpr int kOverlayNoticeW = 346;
+constexpr int kOverlayNoticeH = 164;
 
-// Logical shell size for a size class ("normal" | "compact" | "mini",
+// Logical shell size for a size class ("normal" | "compact" | "mini" | "nano",
 // mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
 inline int OverlayLogicalW(const std::string& size_class) {
   if (size_class == "compact") return kOverlayCompactW;
   if (size_class == "mini") return kOverlayMiniW;
+  if (size_class == "nano") return kOverlayNanoW;
+  if (size_class == "notice") return kOverlayNoticeW;
   return kOverlayNormalW;
 }
 
 inline int OverlayLogicalH(const std::string& size_class) {
   if (size_class == "compact") return kOverlayCompactH;
   if (size_class == "mini") return kOverlayMiniH;
+  if (size_class == "nano") return kOverlayNanoH;
+  if (size_class == "notice") return kOverlayNoticeH;
   return kOverlayNormalH;
 }
 
@@ -61,7 +71,7 @@ class FloatingOverlayWindow {
   // present in flutter_linux >= 3.3. Older SDK builds may need a version guard.
   FlBinaryMessenger* GetRenderMessenger();
 
-  // Resize the shell to the given size class ("normal" | "compact" | "mini").
+  // Resize the shell to the given size class ("normal" | "compact" | "mini" | "nano").
   // May be called before Create(): the stored size is then applied when the
   // window is created (previously a compact-at-first-show snapshot was
   // silently dropped because the GtkWindow did not exist yet).

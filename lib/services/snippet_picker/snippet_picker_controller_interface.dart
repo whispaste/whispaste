@@ -57,10 +57,26 @@ abstract class SnippetPickerController {
   /// panel vertically except near screen center, where they coincide.
   /// [items] are `{'id': ..., 'title': ..., 'body': ...}` maps; `body` is
   /// included so the panel's search can filter on it, not just the title.
-  Future<void> show({required List<Map<String, String>> items});
+  /// [query] pre-fills the search field; empty shows everything.
+  Future<void> show({
+    required List<Map<String, String>> items,
+    String query = '',
+  });
 
   /// Hides the panel (keeps the native window for reuse).
-  Future<void> hide();
+  ///
+  /// [outsideClick]: the user clicked elsewhere, so the shell must not hand
+  /// focus back to the app that was in front before the picker (macOS
+  /// `restorePreviousFrontApp`, Linux `RestoreFocusedWindow`) — the clicked
+  /// window is taking it, and pulling focus back would undo the click.
+  Future<void> hide({bool outsideClick = false});
+
+  /// Gives the open panel keyboard focus again, in place, keeping its search
+  /// text: the Snippet hotkey pressed while the picker is open but lost focus
+  /// to a window the user did not choose (#1680). Without it, a keyboard
+  /// user would have no way back into the picker, because Esc only reaches a
+  /// focused panel.
+  Future<void> focus();
 
   /// Stream of events from the native panel — an item pick, a dismissal, or
   /// a render-engine boot diagnostic.

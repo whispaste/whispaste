@@ -32,8 +32,9 @@ abstract class OnDeviceEngineLifecycle {
   EngineLifecycleStatus get status;
 
   /// Starts the backend if not already running (may take seconds — model
-  /// load / cold start). Throws on failure.
-  Future<void> ensureRunning();
+  /// load / cold start). Throws on failure. [warmup] = false skips the
+  /// warm-up inference for a load whose real transcription follows.
+  Future<void> ensureRunning({bool warmup = true});
 
   /// Best-effort warm-up so the first recording after app start doesn't pay
   /// the cold-start penalty. Failures are non-fatal.
@@ -77,13 +78,18 @@ class WhisperEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   }
 
   @override
-  Future<void> ensureRunning() => _notifier.ensureRunning();
+  Future<void> ensureRunning({bool warmup = true}) =>
+      _notifier.ensureRunning(warmup: warmup);
 
   @override
   Future<void> prewarm() => _notifier.prewarm();
 
   @override
   Future<void> stop() => _notifier.stop();
+
+  /// Quit variant of [stop]: never waits for a native call (see
+  /// [SttServerStateNotifier.stopForQuit]).
+  Future<void> stopForQuit() => _notifier.stopForQuit();
 
   @override
   void notifyRecordingStarted() => _notifier.notifyRecordingStarted();

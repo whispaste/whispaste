@@ -3,8 +3,7 @@
 // Pattern follows llama.cpp's own examples/simple-chat/simple-chat.cpp
 // (model load -> context -> sampler chain -> tokenize/decode loop), extended
 // with common/chat.h's Jinja-based chat-templating so `enable_thinking` is
-// reachable — the exact switch the Smart-Mode-v2 spike test (see
-// internal-notes) found necessary for
+// reachable — the exact switch the Smart-Mode-v2 spike test found necessary for
 // Gemma-4-E2B to answer fast AND correctly instead of stalling in an
 // internal ~600-token "thinking" preamble.
 #include "llama.h"
@@ -31,8 +30,13 @@ namespace {
 
 bool g_backends_loaded = false;
 
-void ensure_backends_loaded() {
-  if (g_backends_loaded) return;
+#if defined(_WIN32) || defined(__linux__)
+// Any address inside this module identifies it to GetModuleHandleExW/dladdr.
+// A dedicated anchor keeps that independent of function declaration order.
+const char g_module_anchor = 0;
+#endif
+
+void load_backends() {
 #if defined(_WIN32)
   // ggml_backend_load_all() (no explicit path) searches only the *executable's*
   // directory and the current working directory (see
@@ -46,7 +50,7 @@ void ensure_backends_loaded() {
   HMODULE self_module = nullptr;
   if (GetModuleHandleExW(
           GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-          reinterpret_cast<LPCWSTR>(&ensure_backends_loaded),
+          reinterpret_cast<LPCWSTR>(&g_module_anchor),
           &self_module)) {
     wchar_t path[MAX_PATH];
     DWORD len = GetModuleFileNameW(self_module, path, MAX_PATH);
@@ -60,7 +64,6 @@ void ensure_backends_loaded() {
           std::string dir_utf8(static_cast<size_t>(utf8_len) - 1, '\0');
           WideCharToMultiByte(CP_UTF8, 0, dir.c_str(), -1, dir_utf8.data(), utf8_len, nullptr, nullptr);
           ggml_backend_load_all_from_path(dir_utf8.c_str());
-          g_backends_loaded = true;
           return;
         }
       }
@@ -74,18 +77,29 @@ void ensure_backends_loaded() {
   // exactly this directory also keeps ggml from ever picking up libwhisper's
   // own backend modules one level up in <bundle>/lib/.
   Dl_info info;
-  if (dladdr(reinterpret_cast<void*>(&ensure_backends_loaded), &info) != 0 &&
+  if (dladdr(static_cast<const void*>(&g_module_anchor), &info) != 0 &&
       info.dli_fname != nullptr) {
     std::string path(info.dli_fname);
     auto last_slash = path.find_last_of('/');
     if (last_slash != std::string::npos) {
       ggml_backend_load_all_from_path(path.substr(0, last_slash).c_str());
-      g_backends_loaded = true;
       return;
     }
   }
 #endif
   ggml_backend_load_all();
+}
+
+// ggml backend loading is native code outside wp_ffi_guard. An exception from
+// it must not unwind across the C ABI into Dart: the shim then runs on the CPU
+// backend that is already compiled in, and the load is not retried.
+void ensure_backends_loaded() {
+  if (g_backends_loaded) return;
+  try {
+    load_backends();
+  } catch (...) {
+    // Swallowed on purpose, see above.
+  }
   g_backends_loaded = true;
 }
 
@@ -215,7 +229,7 @@ extern "C" char* smart_mode_generate(
   inputs.messages.push_back(user_msg);
 
   common_chat_params chat_params = common_chat_templates_apply(session->tmpls.get(), inputs);
-  const std::string& prompt = chat_params.prompt;
+  const std::string prompt = chat_params.prompt.str();
 
   // --- sampler chain (temperature -> top_k -> top_p -> dist) ---------------
   llama_sampler* smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());

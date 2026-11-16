@@ -141,6 +141,47 @@ void main() {
       HistoryEntriesCompanion.insert(id: id, timestamp: timestamp),
     );
 
+    test(
+      'watchLatestAudioPaths maps only the asked entries with audio to their newest WAV',
+      () async {
+        for (final id in ['a', 'b', 'c']) {
+          await insertEntry(id, DateTime(2025, 1, 1));
+        }
+        Future<void> attach(String id, String entry, String path, int day) => db
+            .into(db.entryAttachments)
+            .insert(
+              EntryAttachmentsCompanion.insert(
+                id: id,
+                entryId: entry,
+                filename: path,
+                filepath: path,
+                mimeType: const Value('audio/wav'),
+                createdAt: DateTime(2025, 1, day),
+              ),
+            );
+        await attach('1', 'a', '/old.wav', 1);
+        await attach('2', 'a', '/new.wav', 2);
+        await attach('3', 'c', '/c.wav', 1);
+        await db
+            .into(db.entryAttachments)
+            .insert(
+              EntryAttachmentsCompanion.insert(
+                id: '4',
+                entryId: 'b',
+                filename: 'shot.png',
+                filepath: '/shot.png',
+                mimeType: const Value('image/png'),
+                createdAt: DateTime(2025, 1, 1),
+              ),
+            );
+
+        expect(await db.watchLatestAudioPaths(['a', 'b']).first, {
+          'a': '/new.wav',
+        });
+        expect(await db.watchLatestAudioPaths(const []).first, isEmpty);
+      },
+    );
+
     test('insertAudioAttachment links a WAV to its entry', () async {
       await insertEntry('entry-1', DateTime(2025, 1, 15));
 
@@ -730,7 +771,7 @@ void main() {
         ),
       );
 
-      // Simulate a live historyEntriesProvider subscription still open.
+      // Simulate a live list subscription still open.
       final subscription = db.watchEntries().listen((_) {});
 
       // First close: should complete the watch stream and close the connection.

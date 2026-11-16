@@ -34,13 +34,19 @@ void main() {
     'hotkey_modifiers': 'ctrl+alt',
   };
 
-  const sampleReplacements = [
+  final sampleReplacements = [
     Replacement(
+      createdAt: DateTime(2026),
       id: 'a',
       triggers: ['mfg', 'mfg2'],
       replacement: 'Mit freundlichen Grüßen',
     ),
-    Replacement(id: 'b', triggers: ['lg'], replacement: 'Liebe Grüße'),
+    Replacement(
+      createdAt: DateTime(2026),
+      id: 'b',
+      triggers: ['lg'],
+      replacement: 'Liebe Grüße',
+    ),
   ];
 
   SettingsExportBundle sampleBundle() => SettingsExportBundle(
@@ -102,8 +108,9 @@ void main() {
         ..['theme_mode'] = 'light'
         ..['locale'] = 'de'
         ..['stt_model'] = 'whisper-large-v3-turbo',
-      replacements: const [
+      replacements: [
         Replacement(
+          createdAt: DateTime(2026),
           id: 'x',
           triggers: ['tel', 'telefon'],
           replacement: '+49 123 456789',
@@ -115,6 +122,8 @@ void main() {
     final restored = await service.importFromFile('/roundtrip.json');
 
     for (final key in settingsPortabilityPortableKeysForTest) {
+      // Exported, but import never applies these (ticket C-M-5).
+      if (settingsImportRefusedKeys.contains(key)) continue;
       expect(restored.settings[key], bundle.settings[key], reason: key);
     }
     expect(restored.replacements, hasLength(bundle.replacements.length));
@@ -183,6 +192,21 @@ void main() {
     expect(merged.behavior.maxRecordDuration, 600);
   });
 
+  test('a stored "off" for replacements survives the import, although the '
+      'default is on', () async {
+    final off = Map.of(sampleSettings)..['text_replacements_enabled'] = 'false';
+    final bundle = SettingsExportBundle(settings: off, replacements: const []);
+
+    await service.exportToFile('/replacements-off.json', bundle);
+    final restored = await service.importFromFile('/replacements-off.json');
+    final merged = mergeImportedSettings(
+      AppSettings.defaults,
+      restored.settings,
+    );
+
+    expect(merged.behavior.textReplacementsEnabled, isFalse);
+  });
+
   test('importing a settings map with a key unknown to this build is silently '
       'dropped — no throw, neighbouring known keys still merge', () async {
     final imported = Map.of(sampleSettings)
@@ -196,8 +220,42 @@ void main() {
     expect(merged.customVocabulary, sampleSettings['custom_vocabulary']);
   });
 
-  test('an import can neither replace nor clear the History PIN '
-      '(internal-notes)', () {
+  test('an import that moves the own endpoint to another address drops the '
+      'stored endpoint key (W-M3)', () {
+    final local = AppSettings.defaults.copyWithSections(
+      cloudProvider: AppSettings.defaults.cloudProvider.copyWith(
+        customEndpointUrl: 'http://localhost:1234/v1',
+        customEndpointApiKey: 'local-key',
+      ),
+    );
+
+    final merged = mergeImportedSettings(local, {
+      'custom_endpoint_url': 'https://attacker.example/v1',
+    });
+
+    expect(
+      merged.cloudProvider.customEndpointUrl,
+      'https://attacker.example/v1',
+    );
+    expect(merged.cloudProvider.customEndpointApiKey, isEmpty);
+  });
+
+  test('an import of the same own endpoint address keeps the stored key', () {
+    final local = AppSettings.defaults.copyWithSections(
+      cloudProvider: AppSettings.defaults.cloudProvider.copyWith(
+        customEndpointUrl: 'http://localhost:1234/v1',
+        customEndpointApiKey: 'local-key',
+      ),
+    );
+
+    final merged = mergeImportedSettings(local, {
+      'custom_endpoint_url': 'http://localhost:1234/v1',
+    });
+
+    expect(merged.cloudProvider.customEndpointApiKey, 'local-key');
+  });
+
+  test('an import can neither replace nor clear the History PIN', () {
     final local = AppSettings.defaults.copyWithSections(
       history: const HistorySettings(
         historyHideOnOpen: true,
@@ -217,6 +275,20 @@ void main() {
     expect(merged.history.historyPin, 'local-hash');
     expect(merged.history.historyPinFailedAttempts, 3);
     expect(merged.history.historyAutoLockMinutes, 15, reason: 'portable');
+  });
+
+  test('an import cannot grant the NVIDIA CUDA EULA acceptance: consent is '
+      'per installation, the acceptance never travels', () {
+    final local = AppSettings.defaults;
+    final imported = {
+      'cuda_eula_accepted': 'ggml-v1.9.5-cu12.8-r1',
+      'cuda_acceleration': 'false',
+    };
+
+    final merged = mergeImportedSettings(local, imported);
+
+    expect(merged.behavior.cudaEulaAccepted, isEmpty);
+    expect(merged.behavior.cudaAcceleration, isFalse, reason: 'portable');
   });
 
   // ---------------------------------------------------------------------------
@@ -546,8 +618,13 @@ void main() {
     final bundle = SettingsExportBundle(
       settings: Map.of(sampleSettings),
       replacements: const [],
-      snippets: const [
-        SnippetItem(id: 'x', title: 'Signature', body: 'Best,\nSilvio'),
+      snippets: [
+        SnippetItem(
+          createdAt: DateTime(2026),
+          id: 'x',
+          title: 'Signature',
+          body: 'Best,\nSilvio',
+        ),
       ],
     );
 
@@ -564,9 +641,19 @@ void main() {
     final bundle = SettingsExportBundle(
       settings: Map.of(sampleSettings),
       replacements: const [],
-      snippets: const [
-        SnippetItem(id: 'a', title: 'Signature', body: 'Best,\nSilvio'),
-        SnippetItem(id: 'b', title: 'Greeting', body: 'Hi there'),
+      snippets: [
+        SnippetItem(
+          createdAt: DateTime(2026),
+          id: 'a',
+          title: 'Signature',
+          body: 'Best,\nSilvio',
+        ),
+        SnippetItem(
+          createdAt: DateTime(2026),
+          id: 'b',
+          title: 'Greeting',
+          body: 'Hi there',
+        ),
       ],
     );
 
@@ -585,8 +672,9 @@ void main() {
     final bundle = SettingsExportBundle(
       settings: Map.of(sampleSettings),
       replacements: const [],
-      snippets: const [
+      snippets: [
         SnippetItem(
+          createdAt: DateTime(2026),
           id: 'a',
           title: 'Bug Report',
           body: '',
@@ -733,4 +821,22 @@ void main() {
       );
     },
   );
+
+  test('a legacy key left in storage is not exported (#266, L-14 F10b)', () {
+    // `seen_feature_spotlight_ids` is no longer written but can still sit
+    // in older installations. The export reads only the typed sections, so
+    // it must not reach the file even though it left the deny list.
+    final settings = AppSettings.fromStorageMap({
+      ...const AppSettings().toStorageMap(),
+      'seen_feature_spotlight_ids': '["legacy"]',
+    });
+    final bundle = buildSettingsExportBundle(
+      settings: settings,
+      replacements: const [],
+      snippets: const [],
+    );
+
+    expect(bundle.settings.keys, isNot(contains('seen_feature_spotlight_ids')));
+    expect(service.encode(bundle), isNot(contains('seen_feature_spotlight')));
+  });
 }

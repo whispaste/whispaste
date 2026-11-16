@@ -1,13 +1,14 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 
 import 'dialog.dart';
-import 'wp_button.dart';
+
+/// Key of the notice under the cloud action: the recordings leave the device.
+const Key kOomRecoveryCloudNoticeKey = Key('oomRecoveryCloudNotice');
 
 enum WpOomRecoveryChoice {
   trySmallerModel,
@@ -16,222 +17,136 @@ enum WpOomRecoveryChoice {
   cancel,
 }
 
+/// The one primary action of the recovery dialog (UX-019): the smaller model
+/// when it is offered, otherwise the cloud switch, otherwise the settings
+/// route. Every other choice renders as secondary.
+WpOomRecoveryChoice oomRecoveryPrimaryChoice({
+  required bool isPermanentFail,
+  required bool hasModel,
+  required bool hasCloudConfigured,
+}) {
+  if (!isPermanentFail && hasModel) return WpOomRecoveryChoice.trySmallerModel;
+  if (hasCloudConfigured) return WpOomRecoveryChoice.switchToCloud;
+  return WpOomRecoveryChoice.openSettings;
+}
+
+/// Shows the recovery dialog. Resolves to the chosen action, or `null` when
+/// the dialog is dismissed (Esc, a tap outside).
 Future<WpOomRecoveryChoice?> showWpOomRecoveryDialog({
   required BuildContext context,
   required L10n l10n,
   required String? modelName,
   required bool hasCloudConfigured,
   required bool isPermanentFail,
+  String? cloudProviderName,
 }) {
-  return showWpFormDialog<WpOomRecoveryChoice>(
+  final showTrySmaller = !isPermanentFail && modelName != null;
+  final showCloud = hasCloudConfigured;
+  final showSettings = isPermanentFail || !hasCloudConfigured;
+  final primary = oomRecoveryPrimaryChoice(
+    isPermanentFail: isPermanentFail,
+    hasModel: modelName != null,
+    hasCloudConfigured: hasCloudConfigured,
+  );
+
+  WpDialogAction<WpOomRecoveryChoice> choice(
+    WpOomRecoveryChoice value,
+    String label,
+    String testId,
+  ) => WpDialogAction(
+    label: label,
+    testId: testId,
+    role: value == primary
+        ? WpDialogActionRole.primary
+        : WpDialogActionRole.alternative,
+    value: value,
+  );
+
+  return showWpDialog<WpOomRecoveryChoice>(
     context: context,
-    builder: (context, animation) {
-      return _OomRecoveryDialog(
-        animation: animation,
-        l10n: l10n,
-        modelName: modelName,
-        hasCloudConfigured: hasCloudConfigured,
-        isPermanentFail: isPermanentFail,
-      );
-    },
+    title: isPermanentFail
+        ? l10n.oomRecoveryPermanentTitle
+        : l10n.oomRecoveryTitle,
+    content: _OomRecoveryBody(
+      message: isPermanentFail
+          ? l10n.oomRecoveryPermanentMessage
+          : l10n.oomRecoveryMessage,
+      trySmallerHint: !isPermanentFail && modelName != null
+          ? l10n.oomRecoveryTrySmallerHint(modelName)
+          : null,
+      cloudHint: showCloud ? l10n.oomRecoverySwitchCloudHint : null,
+      // The configured provider gets the audio, so say so right next to the
+      // action that sends it there.
+      cloudNotice: showCloud && cloudProviderName != null
+          ? l10n.oomRecoveryCloudNotice(cloudProviderName)
+          : null,
+    ),
+    actions: [
+      if (showTrySmaller)
+        choice(
+          WpOomRecoveryChoice.trySmallerModel,
+          l10n.oomRecoveryTrySmaller,
+          'oom-recovery-try-smaller',
+        ),
+      if (showCloud)
+        choice(
+          WpOomRecoveryChoice.switchToCloud,
+          l10n.oomRecoverySwitchCloud,
+          'oom-recovery-switch-cloud',
+        ),
+      if (showSettings)
+        choice(
+          WpOomRecoveryChoice.openSettings,
+          l10n.oomRecoveryPermanentCloud,
+          'oom-recovery-open-settings',
+        ),
+      WpDialogAction(
+        label: l10n.oomRecoveryCancel,
+        testId: 'oom-recovery-cancel',
+        role: WpDialogActionRole.cancel,
+        value: WpOomRecoveryChoice.cancel,
+      ),
+    ],
   );
 }
 
-class _OomRecoveryDialog extends StatelessWidget {
-  const _OomRecoveryDialog({
-    required this.animation,
-    required this.l10n,
-    required this.modelName,
-    required this.hasCloudConfigured,
-    required this.isPermanentFail,
+/// The explanation above the footer. Each offered action keeps its one-line
+/// hint here, since the footer carries labels only.
+class _OomRecoveryBody extends StatelessWidget {
+  const _OomRecoveryBody({
+    required this.message,
+    required this.trySmallerHint,
+    required this.cloudHint,
+    required this.cloudNotice,
   });
 
-  final Animation<double> animation;
-  final L10n l10n;
-  final String? modelName;
-  final bool hasCloudConfigured;
-  final bool isPermanentFail;
+  final String message;
+  final String? trySmallerHint;
+  final String? cloudHint;
+  final String? cloudNotice;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final slide = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
-
-    const surface = WpColors.surfaceElevated;
-    const border = WpColors.borderDefault;
-    const titleColor = WpColors.textPrimary;
-    const bodyColor = WpColors.textSecondary;
-    const warningColor = WpColors.warning;
-
-    return Center(
-      child: SlideTransition(
-        position: slide,
-        child: FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: Material(
-            color: Colors.transparent,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Container(
-                padding: const EdgeInsets.all(WpSpacing.xl),
-                decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: WpRadius.borderLg,
-                  border: Border.all(color: border),
-                  boxShadow: WpShadows.elevated,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: warningColor.withValues(alpha: 0.14),
-                            borderRadius: WpRadius.borderMd,
-                          ),
-                          child: const Icon(
-                            LucideIcons.triangleAlert,
-                            color: warningColor,
-                            size: WpIconSize.lg,
-                          ),
-                        ),
-                        const SizedBox(width: WpSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isPermanentFail
-                                    ? l10n.oomRecoveryPermanentTitle
-                                    : l10n.oomRecoveryTitle,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: titleColor,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: WpSpacing.xs),
-                              Text(
-                                isPermanentFail
-                                    ? l10n.oomRecoveryPermanentMessage
-                                    : l10n.oomRecoveryMessage,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: bodyColor,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: WpSpacing.xl),
-                    if (!isPermanentFail && modelName != null) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
-                      _RecoveryChoice(
-                        label: l10n.oomRecoveryTrySmaller,
-                        hint: l10n.oomRecoveryTrySmallerHint(modelName!),
-                        variant: WpButtonVariant.primary,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pop(WpOomRecoveryChoice.trySmallerModel),
-                      ),
-                      const SizedBox(height: WpSpacing.sm),
-                    ],
-                    if (hasCloudConfigured) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
-                      _RecoveryChoice(
-                        label: l10n.oomRecoverySwitchCloud,
-                        hint: l10n.oomRecoverySwitchCloudHint,
-                        variant: isPermanentFail
-                            ? WpButtonVariant.primary
-                            : WpButtonVariant.secondary,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pop(WpOomRecoveryChoice.switchToCloud),
-                      ),
-                      const SizedBox(height: WpSpacing.sm),
-                    ],
-                    if (isPermanentFail || !hasCloudConfigured) ...[
-                      // loam-ignore: a11y-interactive-semantics – semantics provided by the WpButton in _RecoveryChoice.build
-                      _RecoveryChoice(
-                        label: l10n.oomRecoveryPermanentCloud,
-                        hint: null,
-                        variant: hasCloudConfigured
-                            ? WpButtonVariant.secondary
-                            : WpButtonVariant.primary,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pop(WpOomRecoveryChoice.openSettings),
-                      ),
-                      const SizedBox(height: WpSpacing.sm),
-                    ],
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: WpButton(
-                        label: l10n.oomRecoveryCancel,
-                        variant: WpButtonVariant.ghost,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).pop(WpOomRecoveryChoice.cancel),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One recovery choice: a full-width [WpButton] with an optional line of
-/// explanation beneath it.
-///
-/// The hint sits *outside* the button rather than as a second line inside it.
-/// A [WpButton] label is single-line by design, and this dialog is the only
-/// place in the app that ever wanted a two-storey button — so the exception
-/// lives here as a composite instead of widening the shared component. Keeping
-/// the hint a sibling also leaves it readable to screen readers rather than
-/// hidden behind the button's own accessible name.
-class _RecoveryChoice extends StatelessWidget {
-  const _RecoveryChoice({
-    required this.label,
-    required this.hint,
-    required this.variant,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String? hint;
-  final WpButtonVariant variant;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        WpButton(
-          label: label,
-          variant: variant,
-          onPressed: onPressed,
-          expanded: true,
-        ),
-        if (hint != null) ...[
+        Text(message, style: theme.textTheme.bodyMedium),
+        if (trySmallerHint != null) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Text(trySmallerHint!, style: theme.textTheme.bodySmall),
+        ],
+        if (cloudHint != null) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Text(cloudHint!, style: theme.textTheme.bodySmall),
+        ],
+        if (cloudNotice != null) ...[
           const SizedBox(height: WpSpacing.xxs),
           Text(
-            hint!,
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
+            cloudNotice!,
+            key: kOomRecoveryCloudNoticeKey,
+            style: theme.textTheme.bodySmall?.copyWith(color: WpColors.warning),
           ),
         ],
       ],

@@ -1,3 +1,14 @@
+// Onboarding v6, screen 5: the hotkey page as a split page. It only proves
+// the dictation key works: hold it, let go, done. No mode choice here; hold
+// versus press, double tap and single keys live in the settings, and the
+// hands-free double tap is taught on the try-out page. The left column says
+// what to do and, live, what the press did; the right panel shows the key
+// large.
+import 'dart:async';
+
+import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,272 +16,792 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/theme/generated/wp_tokens.g.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/hotkey_slow_tap_hint.dart';
+import '../../../widgets/wp_keycap.dart';
+import '../../../services/desktop_paste/desktop_paste_controller.dart';
+import '../../../services/hotkey_conflicts.dart';
 import '../../../services/hotkey_service.dart';
-import '../../../services/telemetry_service.dart';
+import '../../../services/keyboard_up_monitor.dart';
+import '../../../services/linux_desktop_shortcut.dart';
+import '../../../services/onboarding_telemetry.dart';
+import '../../../services/permission_helper_service.dart';
+import '../../../services/permissions/input_monitoring_grant.dart';
+import '../../../services/permissions/input_monitoring_status.dart';
+import '../../../services/permissions/permissions_overview_provider.dart'
+    show PermissionOverviewStatus;
+import '../../../widgets/hotkey_fallback_toast.dart' show hotkeyFallbackMessage;
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_hero_button.dart';
+import '../../settings/hotkey_flow.dart';
+import '../../settings/sections/linux_desktop_shortcut_block.dart';
 import '../../settings/settings_widgets.dart';
+import '../../settings/widgets/wayland_hotkey_notice.dart';
+import '../hotkey_practice.dart';
+import '../onboarding_split_page.dart';
+import 'onboarding_headings.dart'
+    show OnboardingInitialFocus, onboardingCompactText;
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
-const kTriggerStepChangeHotkeyKey = Key('triggerStepChangeHotkeyButton');
+const kTriggerStepChangeHotkeyKey = Key('trigger-step-change-hotkey-button');
 @visibleForTesting
-const kTriggerStepPttToggleKey = Key('triggerStepPushToTalkToggle');
-
-/// "Experimental" badge on the push-to-talk row (Linux key-up,
-/// catchup/09).
-const kTriggerStepPttExperimentalBadgeKey = Key(
-  'onboarding-trigger-ptt-experimental-badge',
+const kTriggerStepConflictWarnBoxKey = Key(
+  'trigger-step-hotkey-conflict-warn-box',
 );
 @visibleForTesting
-const kTriggerStepConflictWarnBoxKey = Key('triggerStepHotkeyConflictWarnBox');
-@visibleForTesting
-const kTriggerStepInlineRecorderKey = Key('triggerStepInlineHotkeyRecorder');
+const kTriggerStepInlineRecorderKey = Key(
+  'trigger-step-inline-hotkey-recorder',
+);
 
-/// Content of the Hotkey onboarding page: the global hotkey, and whether it's
-/// held (push-to-talk) or pressed-to-toggle.
-///
-/// Sits on the page before the guided test recording so that test exercises
-/// the real, just-configured hotkey and mode — not a stale default the user
-/// hasn't seen yet.
-///
-/// Both settings have valid defaults (`Ctrl/Cmd+Shift+D`, toggle mode), so
-/// advancing without changing anything is a legitimate choice, not a partial
-/// state. The one exception is a confirmed hotkey conflict: the final
-/// onboarding page keeps a residual gate on its completion CTA for the case
-/// where the user moves past an unresolved conflict here. Content only —
-/// navigation (Back/Next) and the page heading are owned by the onboarding
-/// shell.
-class TriggerStep extends ConsumerWidget {
-  const TriggerStep({super.key});
+/// The configured combination is taken and the safe default listens in its
+/// place: the same sentence as the settings and the start-up toast.
+@visibleForTesting
+const kTriggerStepHotkeyFallbackKey = Key('onboarding-hotkey-fallback');
+@visibleForTesting
+const kTriggerStepDoubleTapFallbackKey = Key(
+  'onboarding-hotkey-double-tap-fallback',
+);
+
+/// Linux Wayland: the line announcing the desktop's shortcut dialog.
+@visibleForTesting
+const kTriggerStepDesktopConfirmHintKey = Key(
+  'onboarding-hotkey-desktop-confirm',
+);
+
+/// Neutral notice while the system has not confirmed the hotkey in time.
+const kTriggerStepPendingNoticeKey = Key('onboarding-hotkey-pending');
+@visibleForTesting
+const kTriggerStepKeycapKey = Key('onboarding-hotkey-keycap');
+@visibleForTesting
+const kTriggerStepSecureInputKey = Key('onboarding-hotkey-secure-input');
+
+/// The explained Input Monitoring step (#1199): why macOS asks, the button
+/// that lets it ask, and the two answers it may bring.
+@visibleForTesting
+const kTriggerStepAccessExplainKey = Key('onboarding-hotkey-access-explain');
+@visibleForTesting
+const kTriggerStepAccessGrantKey = Key('onboarding-hotkey-access-grant');
+@visibleForTesting
+const kTriggerStepAccessMissingKey = Key('onboarding-hotkey-access-status');
+@visibleForTesting
+const kTriggerStepAccessGrantedKey = Key('onboarding-hotkey-access-granted');
+
+/// Whether the hotkey page explains Input Monitoring before the practice: a
+/// single key is the trigger on macOS and the grant is missing. Without a
+/// single key, with the grant given, or while it is still being read, the
+/// page goes straight to the practice. Linux names its X11 limit in the
+/// existing notices; Windows needs no grant.
+bool onboardingInputMonitoringStepVisible({
+  required TargetPlatform platform,
+  required PermissionOverviewStatus status,
+}) =>
+    platform == TargetPlatform.macOS &&
+    status == PermissionOverviewStatus.missing;
+
+/// Asks the desktop paste controller whether macOS reports secure event input
+/// (a password or PIN field has focus; W-E1 API). Other platforms and any
+/// probe failure count as not blocked. A provider so tests can answer
+/// without a native host.
+final hotkeySecureInputProbeProvider = Provider<Future<bool> Function()>(
+  (ref) => () async {
+    final controller = ref.read(desktopPasteControllerProvider);
+    if (controller is! SecureInputProbe) return false;
+    try {
+      final state = await (controller as SecureInputProbe)
+          .secureInputState()
+          .timeout(const Duration(seconds: 2));
+      return state == SecureInputState.active;
+    } on Object {
+      return false;
+    }
+  },
+);
+
+/// The dictation hotkey spelled for this platform, as the pages quote it
+/// ("Ctrl+Shift+D", "⇧⌘D").
+String onboardingTriggerShortcutText(L10n l10n, AppSettings settings) =>
+    formatHotkeyShortcut(
+      settings.hotkeyModifiers,
+      settings.hotkeyKey,
+      l10n: l10n,
+      displayOverride: settings.hotkey.hotkeyKeyDisplay,
+    );
+
+/// Whether the onboarding pages word their instructions for hold mode: the
+/// mode in effect on this platform (see [holdModeInEffect]), not the stored
+/// switch alone. Without key-up the recording runs as toggle, so the pages
+/// say so too.
+bool onboardingHoldMode(WidgetRef ref) => holdModeInEffect(
+  ref.read(settingsProvider).value ?? AppSettings.defaults,
+  supportsKeyUp: ref.read(hotkeyServiceProvider.notifier).supportsKeyUp,
+);
+
+/// The hotkey page. [onNext] is null while a confirmed conflict holds the
+/// page (E2 a); otherwise Next waits for one full start and stop, with a
+/// quiet way past it, and is free at once where the page cannot observe the
+/// key (Wayland without binding).
+class TriggerStep extends ConsumerStatefulWidget {
+  const TriggerStep({super.key, this.primaryKey, this.onNext, this.onBack});
+
+  final Key? primaryKey;
+  final VoidCallback? onNext;
+  final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final status = ref.watch(hotkeyRegistrationStatusProvider);
-    // Read once — this step only needs the platform capability, not live
-    // updates to it (mirrors `_PushToTalkRow` in `feedback_section.dart`).
-    final hotkeyService = ref.read(hotkeyServiceProvider.notifier);
-    final supportsKeyUp = hotkeyService.supportsKeyUp;
-    final l10n = L10n.of(context);
-
-    final hotkeyKey = settings.hotkeyKey;
-    final hotkeyDisplay = settings.hotkey.hotkeyKeyDisplay;
-    final hotkeyModifiers = settings.hotkeyModifiers;
-
-    // Content only, no title: the Hotkey page owns the heading (see the
-    // overlay's page composition), which is the same string this block used
-    // to carry as a section label. The settings-style row treatment below is
-    // kept from the merged page — it reads as one row of the same kind the
-    // rest of the flow uses, not as a hero.
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Confirmed conflict — resolve it here, before the test recording
-        // exercises this hotkey. Non-blocking for Next (see ReadyStep's
-        // residual gate); a user who skips this warning just meets it again
-        // as a disabled Start button.
-        //
-        // This branch adds the warn box plus a full inline
-        // WpHotkeyRecorderDialog. On the merged Model & Hotkey page that meant
-        // 914 px (de) / 921 px (he) against a 551-px viewport — ~370 px of
-        // forced scrolling, documented as out of reach without a flow change.
-        // The flow change happened: the hotkey block has its own page now, and
-        // the branch fits without scrolling (534 px in German and in Hebrew —
-        // measured, see the fixed-window group in
-        // `onboarding_overlay_test.dart`). The last ~40 px come from three
-        // deliberate compressions, so re-measure both locales before spending
-        // them: the page heading drops its subtitle while a conflict is up
-        // (see the overlay), the gaps below are one step tighter than the
-        // page's usual rhythm, and the German conflict body is worded to stay
-        // on one line. The trailing "Ändern" button below is `dense` for the
-        // same reason as the compressions above, not just for the 17 px of
-        // slack it buys back — see its own comment.
-        if (status == HotkeyRegistrationStatus.conflict) ...[
-          // Start-inset like every text block on the page (the shared
-          // `kSettingRowInset` reading edge): the warn box and the inline
-          // recorder used to start at the bare frame edge, 12 px left of the
-          // heading and rows around them. Height-sensitive branch — re-run
-          // the fixed-window measurements in `onboarding_overlay_test.dart`
-          // before touching the widths again.
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: _HotkeyConflictWarnBox(
-              key: kTriggerStepConflictWarnBoxKey,
-              title: l10n.onboardingTriggerHotkeyConflictTitle,
-              body: l10n.onboardingTriggerHotkeyConflictBody,
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: WpHotkeyRecorderDialog(
-              key: kTriggerStepInlineRecorderKey,
-              initialKey: hotkeyKey,
-              initialDisplayKey: hotkeyDisplay,
-              initialModifiers: hotkeyModifiers,
-              onSubmit: (result) async {
-                await ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(
-                        hotkeyKey: result.key,
-                        hotkeyKeyDisplay: result.displayKey,
-                        hotkeyModifiers: result.modifiers,
-                      ),
-                    );
-              },
-            ),
-          ),
-          // `xxs`, not `sm`: the row underneath is a real `SettingRow` now
-          // (see below) and brings 12 px of its own top padding, so the
-          // explicit gap only has to make up the difference. Without this the
-          // Hebrew conflict branch overflows by 3 px.
-          const SizedBox(height: WpSpacing.xxs),
-        ],
-
-        // Hotkey row — settings-style (Conductor pattern): label on the
-        // leading side, the key caps + change button trailing. The key-cap
-        // rendering of HotkeyDisplay keeps the hotkey visually prominent
-        // without the tall centered hero treatment. Frameless like every
-        // other onboarding settings row: the filled, outlined card around it
-        // was one of four competing boxes on this page, and dropping it also
-        // returns 10 px (2 px border + 2x4 px padding) to the page's very
-        // tight height budget.
-        // A `SettingRow` like the mode row under it, and for the same reason
-        // the mode row became one (H5): the two lines on this page are the
-        // same kind of line and had drifted into two different builds of it —
-        // this one at `small`/w600 (12 px), the other at `bodyLarge` (13 px),
-        // so the *more* important of the two was rendered in the smaller type.
-        // `trailingHugsLabel` keeps the key caps next to the label they name;
-        // pinned to the row's end they sat 425 px away from it.
-        SettingRow(
-          icon: LucideIcons.keyboard,
-          iconSize: WpIconSize.md,
-          label: l10n.onboardingTriggerCurrentHotkey,
-          trailingHugsLabel: true,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              HotkeyDisplay(
-                hotkeyKey: hotkeyKey,
-                hotkeyModifiers: hotkeyModifiers,
-                hotkeyKeyDisplay: hotkeyDisplay,
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              // dense: a standard (48px) button would out-shout the row it
-              // answers to. See wp_button.dart's dense doc: "trailing slot of
-              // a dense settings row", exactly this slot — and it now shares
-              // its height with the key caps beside it (H3).
-              WpButton(
-                key: kTriggerStepChangeHotkeyKey,
-                label: l10n.settingsChangeHotkey,
-                variant: WpButtonVariant.secondary,
-                size: WpButtonSize.dense,
-                onPressed: () async {
-                  final result = await WpHotkeyRecorderDialog.show(
-                    context,
-                    initialKey: hotkeyKey,
-                    initialDisplayKey: hotkeyDisplay,
-                    initialModifiers: hotkeyModifiers,
-                  );
-                  if (result != null && context.mounted) {
-                    await ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings(
-                          (s) => s.copyWith(
-                            hotkeyKey: result.key,
-                            hotkeyKeyDisplay: result.displayKey,
-                            hotkeyModifiers: result.modifiers,
-                          ),
-                        );
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        // Gap between two sibling setting rows, so `lg` — the same token the
-        // Privacy page puts between its two rows, which is the flow's rhythm
-        // for exactly this role. It used to be a flat `sm` on both branches,
-        // which read as two rows jammed together under an orphaned heading.
-        //
-        // Both neighbours are `SettingRow`s now and each contributes 12 px of
-        // its own vertical padding, so this token buys a 44-px visual gap
-        // rather than the 20 it names — which is why the conflict branch,
-        // still the binding one, drops all the way to zero here instead of
-        // one step: 24 px of separation is what the rows already have, and it
-        // is enough to keep them apart on a page that has nothing to spare.
-        SizedBox(
-          height: status == HotkeyRegistrationStatus.conflict
-              ? 0
-              : WpSpacing.lg,
-        ),
-
-        // Mode row — hold vs. toggle. The switch stays the single control;
-        // the row's subtitle re-words itself to describe the currently
-        // selected behavior, so flipping the switch gives immediate,
-        // plain-language feedback on what the hotkey will now do.
-        _PushToTalkRow(
-          settings: settings,
-          supportsKeyUp: supportsKeyUp,
-          experimental: hotkeyService.keyUpExperimental,
-          l10n: l10n,
-        ),
-
-        // Third content element — normal branch only. A confirmed conflict
-        // already fills the page with the warn box and the inline recorder;
-        // adding a third line there would contradict it before it's resolved.
-        if (status != HotkeyRegistrationStatus.conflict) ...[
-          const SizedBox(height: WpSpacing.lg),
-          // Start-inset: the icon leads this line, and it sat at the bare
-          // frame edge while every text block around it starts on the shared
-          // `kSettingRowInset` reading edge.
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-            child: _SystemWideHotkeyNotice(
-              message: l10n.onboardingTriggerSystemWideHint,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
+  ConsumerState<TriggerStep> createState() => _TriggerStepState();
 }
 
-// ---------------------------------------------------------------------------
-// System-wide hotkey notice — informational, normal branch only.
-// ---------------------------------------------------------------------------
+class _TriggerStepState extends ConsumerState<TriggerStep> {
+  HotkeyPractice? _practice;
 
-/// Tells the user the hotkey fires system-wide, not just while WhisPaste has
-/// focus — structured 1:1 like `_GpuCpuFallbackNotice` in `model_step.dart`:
-/// no frame, no card, just an icon and a line, matching that page's "no hero"
-/// decision for this register of content.
-class _SystemWideHotkeyNotice extends StatelessWidget {
-  const _SystemWideHotkeyNotice({required this.message});
+  /// The configuration [_practice] was built for. A change starts a new
+  /// test, because the old proof was for another key or mode.
+  String? _practiceSignature;
+  Timer? _settle;
 
-  final String message;
+  /// "Jetzt loslassen" only once letting go would count (Codex pitfall:
+  /// never ask for the release before it succeeds).
+  Timer? _holdLongEnough;
+  bool _heldLongEnough = false;
+
+  /// The last press landed while a secure field had focus (macOS only).
+  bool _secureInputBlocked = false;
+
+  /// The test result last reported for the current key; a new key may
+  /// report again.
+  OnboardingHotkeyResult? _reported;
+
+  /// macOS: the grant, read every second while the page shows, so a switch
+  /// flipped in System Settings counts without a restart.
+  InputMonitoringAccessNotifier? _inputMonitoring;
+  PermissionHelperService? _helper;
+  StreamSubscription<PermissionHelperEvent>? _helperEvents;
+  bool _helperShown = false;
+  bool _accessBusy = false;
+
+  /// The grant was asked for here and is still missing: the page says where
+  /// to switch it on.
+  bool _accessTried = false;
+
+  /// The grant arrived while this page showed: one line confirms it.
+  bool _accessGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Linux Wayland, first run: the desktop's shortcut dialog was held back
+    // until this page, which says it is coming (see the hint below).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        ref.read(hotkeyServiceProvider.notifier).allowDesktopHotkeyBinding(),
+      );
+      if (defaultTargetPlatform != TargetPlatform.macOS) return;
+      final access = ref.read(inputMonitoringAccessProvider.notifier);
+      _inputMonitoring = access;
+      access.startPolling();
+      _helper = ref.read(permissionHelperProvider);
+      _helperEvents = _helper!.events.listen((event) {
+        _helperShown = false;
+        if (event.kind == PermissionHelperKind.inputMonitoring) {
+          unawaited(_inputMonitoring?.check());
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    _holdLongEnough?.cancel();
+    _inputMonitoring?.stopPolling();
+    unawaited(_helperEvents?.cancel());
+    if (_helperShown) unawaited(_helper?.hide());
+    super.dispose();
+  }
+
+  /// The grant went from missing to given: the single key can listen now,
+  /// so the stand-in combination steps back and the practice tests the key.
+  void _onAccessStatus(
+    PermissionOverviewStatus? previous,
+    PermissionOverviewStatus next,
+  ) {
+    if (previous != PermissionOverviewStatus.missing ||
+        next != PermissionOverviewStatus.granted) {
+      return;
+    }
+    ref.read(hotkeyServiceProvider.notifier).retryDoubleTapFallback();
+    if (_helperShown) {
+      _helperShown = false;
+      unawaited(_helper?.hide());
+    }
+    setState(() {
+      _accessGranted = true;
+      _accessTried = false;
+    });
+  }
+
+  /// "Allow Input Monitoring": the system prompt, or where macOS no longer
+  /// asks, System Settings with the drag panel beside it.
+  Future<void> _grantAccess(L10n l10n) async {
+    if (_accessBusy) return;
+    setState(() => _accessBusy = true);
+    try {
+      final step = await grantInputMonitoring(read: ref.read, l10n: l10n);
+      if (step == InputMonitoringGrantStep.helperShown) _helperShown = true;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _accessBusy = false;
+          _accessTried = true;
+        });
+      }
+    }
+  }
+
+  HotkeyPractice _practiceOf(
+    AppSettings settings, {
+    required bool hold,
+    required bool singleKey,
+  }) {
+    final signature = [
+      hold,
+      settings.audioInput.holdOrTap,
+      settings.audioInput.holdOrTapThresholdMs,
+      settings.hotkey.hotkeyDoubleTap,
+      singleKey,
+      settings.hotkey.hotkeyDoubleTapKey,
+      settings.hotkeyModifiers,
+      settings.hotkeyKey,
+    ].join('|');
+    if (_practice == null || signature != _practiceSignature) {
+      _settle?.cancel();
+      _holdLongEnough?.cancel();
+      _heldLongEnough = false;
+      _reported = null;
+      _practiceSignature = signature;
+      _practice = HotkeyPractice(
+        pushToTalk: hold,
+        holdOrTap: settings.audioInput.holdOrTap,
+        holdOrTapThresholdMs: settings.audioInput.holdOrTapThresholdMs,
+        doubleTap: settings.hotkey.hotkeyDoubleTap,
+        singleKey: singleKey,
+      );
+    }
+    return _practice!;
+  }
+
+  void _onActivity(
+    DictationHotkeyActivity? previous,
+    DictationHotkeyActivity next,
+  ) {
+    final practice = _practice;
+    if (practice == null || previous == null) return;
+    final now = clock.now();
+    if (next.otherKeys != previous.otherKeys) practice.otherKey(now);
+    if (next.presses != previous.presses) {
+      _settle?.cancel();
+      practice.down(now);
+      _heldLongEnough = false;
+      _holdLongEnough?.cancel();
+      _holdLongEnough = Timer(HotkeyPractice.minUsefulHold, () {
+        if (mounted) setState(() => _heldLongEnough = true);
+      });
+      unawaited(_checkSecureInput());
+    }
+    if (previous.held && !next.held) {
+      _holdLongEnough?.cancel();
+      practice.up(now);
+      _settle?.cancel();
+      _settle = Timer(practice.doubleTapWindow, () {
+        if (mounted && practice.settle(clock.now())) setState(() {});
+      });
+    }
+    setState(() {});
+  }
+
+  Future<void> _checkSecureInput() async {
+    final blocked = await ref.read(hotkeySecureInputProbeProvider)();
+    if (mounted && blocked != _secureInputBlocked) {
+      setState(() => _secureInputBlocked = blocked);
+    }
+  }
+
+  /// "Taste ändern": the same recorder as in the settings. It takes a
+  /// combination or one single key pressed alone. No system prompt from
+  /// here: a single key that needs Input Monitoring gets the explained step
+  /// on this page first (#1199).
+  Future<void> _change() async {
+    await recordDictationHotkey(
+      context: context,
+      ref: ref,
+      settings: ref.read(settingsProvider).value ?? AppSettings.defaults,
+      requestInputMonitoring: false,
+    );
+  }
+
+  /// Saves a recorded combination. It replaces a single key: one trigger
+  /// per action, as in the settings.
+  Future<void> _saveCombination(WpHotkeyResult result) async {
+    await ref.read(settingsProvider.notifier).updateSettings((s) {
+      final next = s.copyWith(
+        hotkeyKey: result.key,
+        hotkeyKeyDisplay: result.displayKey,
+        hotkeyModifiers: result.modifiers,
+      );
+      return next.copyWithSections(
+        hotkey: next.hotkey.copyWith(hotkeyDoubleTapKey: ''),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
+    ref.listen<DictationHotkeyActivity>(
+      dictationHotkeyActivityProvider,
+      _onActivity,
+    );
+    ref.listen<PermissionOverviewStatus>(
+      inputMonitoringStatusProvider,
+      _onAccessStatus,
+    );
+    final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    final status = ref.watch(hotkeyRegistrationStatusProvider);
+    final doubleTapFallback = ref.watch(doubleTapFallbackActiveProvider);
+    final hotkeyFallback =
+        settings.hotkeyEnabled && ref.watch(globalHotkeyFallbackActiveProvider);
+    final desktopShortcutPending = ref.watch(desktopShortcutPendingProvider);
+    // Non-null while the Wayland notice explains an unbound hotkey (XP-2-06).
+    final waylandUnbound = ref.watch(waylandHotkeyNoticeReasonProvider) != null;
+    final supportsKeyUp = ref
+        .read(hotkeyServiceProvider.notifier)
+        .supportsKeyUp;
+    final lit = ref.watch(dictationHotkeyActivityProvider).held;
+
+    final conflict = status.needsNewKey;
+    final unknownKey = status == HotkeyRegistrationStatus.unknownKey;
+    final conflictTitle = unknownKey
+        ? l10n.onboardingTriggerHotkeyUnknownKeyTitle
+        : l10n.onboardingTriggerHotkeyConflictTitle;
+    final fallbackMessage = hotkeyFallbackMessage(
+      settings,
+      l10n,
+      status: status,
+    );
+    // The system has not answered yet: a neutral notice, never a block.
+    final pending = status == HotkeyRegistrationStatus.unavailable;
+    final observable =
+        !conflict && !pending && !waylandUnbound && !desktopShortcutPending;
+    final keyName = settings.hotkey.hotkeyDoubleTapKey;
+    // The single key listens only where it can be observed; otherwise the
+    // stored combination stands in, and the page tests that one.
+    final singleKey = keyName.isNotEmpty && !doubleTapFallback;
+    final hold = holdModeInEffect(settings, supportsKeyUp: supportsKeyUp);
+    final practice = _practiceOf(settings, hold: hold, singleKey: singleKey);
+    final shortcut = singleKey
+        ? modifierOnlyLabel(l10n, keyName)
+        : onboardingTriggerShortcutText(l10n, settings);
+    final (:prompt, :cue) = _gestureTexts(
+      l10n,
+      shortcut,
+      hold: hold,
+      doubleTap: singleKey && settings.hotkey.hotkeyDoubleTap,
+    );
+    _reportResult(practice, conflict: conflict);
+    final canAdvance = widget.onNext != null;
+    final explainAccess = onboardingInputMonitoringStepVisible(
+      platform: defaultTargetPlatform,
+      status: ref.watch(inputMonitoringStatusProvider),
+    );
+    final parts = onboardingHotkeyCaps(
+      l10n,
+      // The explain step is about the single key itself: it names that key,
+      // not the stored combination that only stands in until the grant.
+      singleKey: (singleKey || (explainAccess && keyName.isNotEmpty))
+          ? keyName
+          : '',
+      key: settings.hotkeyKey,
+      modifiers: settings.hotkeyModifiers,
+      display: settings.hotkey.hotkeyKeyDisplay,
+    );
+    // While the grant is missing the key cannot be observed: the page
+    // explains instead of asking for a press that would not arrive.
+    final practising = observable && !explainAccess;
+    final proven = practice.proven || !observable;
+
+    final compact = onboardingCompactText(context);
+    final gap = compact ? WpSpacing.lg : WpSpacing.xl;
+
+    return OnboardingSplitPage(
+      panelAsset: 'assets/onboarding/hotkey-glacier.webp',
+      panel: OnboardingKeyScene(
+        parts: parts,
+        lit: lit && practising,
+        done: practice.proven && !practice.recording,
+      ),
+      copy: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.onBack != null)
+            OnboardingBackLink(
+              testId: 'onboarding-hotkey-back',
+              label: l10n.onboardingBack,
+              onPressed: widget.onBack!,
+            ),
+          OnboardingSplitHeading(
+            l10n.onboardingTriggerTitle,
+            testId: 'onboarding-hotkey-heading',
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          if (explainAccess)
+            Semantics(
+              identifier: 'onboarding-hotkey-access-explain',
+              child: Text(
+                l10n.onboardingInputMonitoringBody(
+                  modifierOnlyLabel(l10n, keyName),
+                ),
+                key: kTriggerStepAccessExplainKey,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  height: 1.45,
+                  color: WpColors.textSecondary,
+                ),
+              ),
+            ),
+          if (practising)
+            Text(
+              prompt,
+              style: TextStyle(
+                fontSize: WpTypography.body,
+                height: 1.45,
+                color: WpColors.textSecondary,
+              ),
+            ),
+          if (doubleTapFallback && !explainAccess) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              onboardingDoubleTapFallbackHint(
+                l10n,
+                unavailable: ref.watch(doubleTapUnavailableProvider),
+              ),
+              key: kTriggerStepDoubleTapFallbackKey,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                height: 1.4,
+                color: WpColors.textMuted,
+              ),
+            ),
+          ],
+          // macOS: another app's slow keyboard tap, named calmly (#915).
+          const WpHotkeySlowTapHint(idPrefix: 'onboarding-hotkey'),
+          if (!conflict) ...[
+            const SizedBox(height: WpSpacing.xs),
+            WpButton(
+              key: kTriggerStepChangeHotkeyKey,
+              testId: 'onboarding-hotkey-change',
+              label: l10n.onboardingTriggerChooseOther,
+              icon: LucideIcons.keyboard,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.accent,
+              size: WpButtonSize.dense,
+              onPressed: () => unawaited(_change()),
+            ),
+          ],
+          // A confirmed conflict: the shared warning when the table names the
+          // combination, otherwise the generic box; the recorder resolves it.
+          if (conflict) ...[
+            const SizedBox(height: WpSpacing.md),
+            KeyedSubtree(
+              key: kTriggerStepConflictWarnBoxKey,
+              child: switch (findConflict(
+                settings.hotkeyModifiers,
+                settings.hotkeyKey,
+              )) {
+                final entry? => WpHotkeyConflictWarning(
+                  conflict: entry,
+                  l10n: l10n,
+                ),
+                null => _ConflictBox(
+                  title: conflictTitle,
+                  body: unknownKey
+                      ? l10n.onboardingTriggerHotkeyUnknownKeyBody
+                      : l10n.onboardingTriggerHotkeyConflictBody,
+                ),
+              },
+            ),
+            // Which key works until a new one is chosen, so the user is not
+            // left without a hotkey in between.
+            if (hotkeyFallback) ...[
+              const SizedBox(height: WpSpacing.xs),
+              // A live region: the line appears while the key picker has
+              // focus, so a screen reader announces it.
+              Semantics(
+                liveRegion: true,
+                container: true,
+                child: Text(
+                  fallbackMessage,
+                  key: kTriggerStepHotkeyFallbackKey,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    height: 1.4,
+                    color: WpColors.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ],
+          if (conflict) ...[
+            const SizedBox(height: WpSpacing.sm),
+            // The keys go to the recorder at once, not to the heading.
+            OnboardingInitialFocus(
+              // The fallback line appears with the conflict, so it is read
+              // in the same announcement.
+              announcement: [
+                l10n.onboardingTriggerTitle,
+                conflictTitle,
+                if (hotkeyFallback) fallbackMessage,
+              ].join('. '),
+              child: WpHotkeyRecorderDialog(
+                key: kTriggerStepInlineRecorderKey,
+                initialKey: settings.hotkeyKey,
+                initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
+                initialModifiers: settings.hotkeyModifiers,
+                onOpenSystemSettings: ref.watch(
+                  appShortcutSettingsActionProvider,
+                ),
+                onSubmit: _saveCombination,
+              ),
+            ),
+          ],
+          // Linux Wayland: registered, but the desktop has not bound it
+          // (XP-2-06), or no portal and the desktop's own shortcut carries it
+          // (XP-6-14). Either says what to do instead of a test.
+          const WaylandHotkeyNotice(idPrefix: 'onboarding'),
+          if (pending)
+            const HotkeyPendingNotice(noticeKey: kTriggerStepPendingNoticeKey),
+          if (ref.watch(waylandHotkeyBindingProvider) ==
+              WaylandHotkeyBinding.pending) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              l10n.onboardingTriggerDesktopConfirmHint,
+              key: kTriggerStepDesktopConfirmHintKey,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                height: 1.4,
+                color: WpColors.textMuted,
+              ),
+            ),
+          ],
+          if (!conflict && desktopShortcutPending)
+            LinuxDesktopShortcutBlock(settings: settings),
+          if (explainAccess && _accessTried) ...[
+            SizedBox(height: gap),
+            Semantics(
+              liveRegion: true,
+              identifier: 'onboarding-hotkey-access-status',
+              child: _IconLine(
+                key: kTriggerStepAccessMissingKey,
+                icon: LucideIcons.shieldAlert,
+                color: WpColors.warning,
+                text: l10n.onboardingInputMonitoringMissing,
+              ),
+            ),
+          ],
+          if (practising && _accessGranted) ...[
+            SizedBox(height: gap),
+            Semantics(
+              liveRegion: true,
+              identifier: 'onboarding-hotkey-access-granted',
+              child: _IconLine(
+                key: kTriggerStepAccessGrantedKey,
+                icon: LucideIcons.circleCheck,
+                color: WpColors.accent,
+                text: l10n.onboardingInputMonitoringGranted,
+              ),
+            ),
+          ],
+          if (practising) ...[
+            SizedBox(height: gap),
+            // A minimum height for the status, so the controls below do not
+            // jump when a line appears or goes.
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Semantics(
+                  liveRegion: true,
+                  identifier: 'onboarding-hotkey-status',
+                  child: _statusLine(
+                    l10n,
+                    practice.phase,
+                    hold: hold,
+                    cue: conflict ? null : cue,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: WpSpacing.sm),
+          SizedBox(
+            width: kOnboardingCopyWidth,
+            child: explainAccess
+                ? WpHeroButton(
+                    testId: 'onboarding-hotkey-access-grant',
+                    key: widget.primaryKey ?? kTriggerStepAccessGrantKey,
+                    label: l10n.inputMonitoringOfferAction,
+                    onPressed: _accessBusy
+                        ? null
+                        : () => unawaited(_grantAccess(l10n)),
+                  )
+                : WpHeroButton(
+                    testId: 'onboarding-hotkey-next',
+                    key: widget.primaryKey,
+                    label: l10n.onboardingNext,
+                    onPressed: canAdvance && proven ? widget.onNext : null,
+                  ),
+          ),
+          if (canAdvance && (!proven || explainAccess)) ...[
+            const SizedBox(height: WpSpacing.sm),
+            WpButton(
+              testId: 'onboarding-hotkey-skip',
+              label: l10n.onboardingHotkeySkip,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
+              onPressed: widget.onNext,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Hold is the lesson. Existing installs that chose press-to-toggle are
+  /// told their way; a single key in that mode starts with a double tap.
+  /// [cue] is the same gesture as one short imperative for the status slot,
+  /// so the page says "press now" without reading the paragraph.
+  ({String prompt, String cue}) _gestureTexts(
+    L10n l10n,
+    String shortcut, {
+    required bool hold,
+    required bool doubleTap,
+  }) {
+    if (hold) {
+      return (
+        prompt: l10n.onboardingTriggerDemoPromptHold(shortcut),
+        cue: l10n.onboardingHotkeyCueHold(shortcut),
+      );
+    }
+    if (doubleTap) {
+      return (
+        prompt: l10n.onboardingTriggerDemoPromptDoubleTap(shortcut),
+        cue: l10n.onboardingHotkeyCueDoubleTap(shortcut),
+      );
+    }
+    return (
+      prompt: l10n.onboardingTriggerDemoPrompt(shortcut),
+      cue: l10n.onboardingHotkeyCuePress(shortcut),
+    );
+  }
+
+  /// `hotkey_result`, once per outcome and key: a confirmed conflict, the
+  /// test passed, or a try that was too short to count.
+  void _reportResult(HotkeyPractice practice, {required bool conflict}) {
+    final result = conflict
+        ? OnboardingHotkeyResult.conflict
+        : practice.proven
+        ? OnboardingHotkeyResult.recognized
+        : practice.phase == HotkeyPracticePhase.tooShort
+        ? OnboardingHotkeyResult.notRecognized
+        : null;
+    if (result == null || result == _reported) return;
+    _reported = result;
+    ref.read(onboardingTelemetryProvider).hotkeyResult(result);
+  }
+
+  Widget _statusLine(
+    L10n l10n,
+    HotkeyPracticePhase phase, {
+    required bool hold,
+    String? cue,
+  }) {
+    if (_secureInputBlocked) {
+      return _IconLine(
+        key: kTriggerStepSecureInputKey,
+        icon: LucideIcons.triangleAlert,
+        color: WpColors.warning,
+        text: l10n.onboardingTriggerSecureInput,
+      );
+    }
+    final text = switch (phase) {
+      HotkeyPracticePhase.ready => null,
+      HotkeyPracticePhase.held =>
+        hold && _heldLongEnough
+            ? l10n.onboardingHotkeyStatusRelease
+            : l10n.onboardingHotkeyStatusHeld,
+      HotkeyPracticePhase.toggledOn => l10n.onboardingHotkeyStatusToggledOn,
+      HotkeyPracticePhase.handsFree => l10n.onboardingHotkeyStatusHandsFree,
+      HotkeyPracticePhase.tooShort => l10n.onboardingTriggerHoldHint,
+      HotkeyPracticePhase.done => l10n.onboardingHotkeyTestRecognized,
+      HotkeyPracticePhase.doneHandsFree =>
+        l10n.onboardingHotkeyStatusDoneHandsFree,
+    };
+    if (text == null) {
+      return cue == null ? const SizedBox.shrink() : _ReadyCue(text: cue);
+    }
+    final done =
+        phase == HotkeyPracticePhase.done ||
+        phase == HotkeyPracticePhase.doneHandsFree;
+    return _IconLine(
+      icon: done ? LucideIcons.circleCheck : LucideIcons.keyboard,
+      color: done ? WpColors.highlight : WpColors.textMuted,
+      text: text,
+      strong: true,
+    );
+  }
+}
+
+class _IconLine extends StatelessWidget {
+  const _IconLine({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.text,
+    this.strong = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(LucideIcons.appWindow, size: WpIconSize.sm, color: accent),
+        Icon(icon, size: WpIconSize.sm, color: color),
         const SizedBox(width: WpSpacing.xs),
         Expanded(
           child: Text(
-            message,
-            style: const TextStyle(
+            text,
+            style: TextStyle(
               fontSize: WpTypography.body,
-              color: accent,
-              height: 1.35,
+              height: 1.4,
+              fontWeight: strong ? FontWeight.w600 : FontWeight.w400,
+              color: WpColors.textPrimary,
             ),
           ),
         ),
@@ -279,126 +810,128 @@ class _SystemWideHotkeyNotice extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Push-to-Talk toggle row (platform-aware) — mirrors
-// `feedback_section.dart`'s `_PushToTalkRow` so Settings and onboarding never
-// drift on wording or gating behavior.
-// ---------------------------------------------------------------------------
+/// The call to act while the page waits for the key (maintainer 2026-10-30:
+/// "press now" must be clear without reading). An action-coloured pill with
+/// the gesture; it breathes three times when it appears (again after the
+/// hotkey was changed) and then rests, like the contact launcher.
+class _ReadyCue extends StatefulWidget {
+  const _ReadyCue({required this.text});
 
-class _PushToTalkRow extends ConsumerWidget {
-  const _PushToTalkRow({
-    required this.settings,
-    required this.supportsKeyUp,
-    required this.experimental,
-    required this.l10n,
-  });
-
-  static final _log = AppLogger('OnboardingTriggerPtt');
-
-  final AppSettings settings;
-  final bool supportsKeyUp;
-  final bool experimental;
-  final L10n l10n;
+  final String text;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final toggle = settingsToggle(
-      key: kTriggerStepPttToggleKey,
-      value: settings.pushToTalk,
-      onChanged: supportsKeyUp
-          ? (v) {
-              ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(pushToTalk: v));
-              try {
-                ref.read(telemetryProvider).trackSettingChange('hotkey_mode');
-              } catch (e) {
-                _log.debug('telemetry failed: $e');
-              }
-            }
-          : null, // null disables the switch
-    );
+  State<_ReadyCue> createState() => _ReadyCueState();
+}
 
-    // Subtitle mirrors the live value: it always describes what pressing the
-    // hotkey will do *right now*, so the toggle's effect is never abstract.
-    final modeHint = settings.pushToTalk && supportsKeyUp
-        ? l10n.onboardingTriggerModeHoldHint
-        : l10n.onboardingTriggerModeToggleHint;
+class _ReadyCueState extends State<_ReadyCue>
+    with SingleTickerProviderStateMixin {
+  // Half cycles: three breaths, then the pill rests.
+  static const int _halfCycles = 6;
 
-    // A real `SettingRow` again. This was a hand-copy of one, justified by a
-    // comment ("so the merged page fits without scrolling") that stopped being
-    // true when the page was split: it has room to spare now, and the copy was
-    // paying for its 24 px with a second, subtly different definition of what
-    // a settings row looks like — the very drift the copy set out to prevent.
-    return SettingRow(
-      icon: LucideIcons.hand,
-      iconSize: WpIconSize.md,
-      label: l10n.settingsHoldToRecord,
-      subtitle: modeHint,
-      badge: experimental ? l10n.settingsExperimentalBadge : null,
-      badgeKey: kTriggerStepPttExperimentalBadgeKey,
-      semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
-      trailingHugsLabel: true,
-      trailing: supportsKeyUp
-          ? toggle
-          : Tooltip(message: pushToTalkUnavailableMessage(l10n), child: toggle),
+  // Half a breath, not a transition: WpMotion slots time one-shot changes
+  // (motion rule in design-tokens/README.md).
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      _pulse.repeat(reverse: true, count: _halfCycles);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_pulse.value);
+        return DecoratedBox(
+          // Flat pulse: the accent edge breathes in opacity, no glow (§7).
+          // Reduced motion leaves the controller at 0, so the edge stays
+          // fully opaque.
+          decoration: BoxDecoration(
+            color: WpColors.accentChipFill,
+            borderRadius: WpRadius.borderFull,
+            border: Border.all(
+              color: WpColors.accent.withValues(alpha: 1 - 0.5 * t),
+              width: 1.5,
+            ),
+          ),
+          child: child,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.keyboard,
+              size: WpIconSize.md,
+              color: WpColors.accent,
+            ),
+            const SizedBox(width: WpSpacing.sm),
+            Flexible(
+              child: Text(
+                widget.text,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  height: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: WpColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Hotkey conflict warn-box — red banner shown when a confirmed OS-level
-// registration conflict is detected. Moved here from `ready_step.dart` along
-// with the rest of the hotkey-configuration UI.
-// ---------------------------------------------------------------------------
-
-class _HotkeyConflictWarnBox extends StatelessWidget {
-  const _HotkeyConflictWarnBox({
-    super.key,
-    required this.title,
-    required this.body,
-  });
+/// Red box for a confirmed conflict the table does not name.
+class _ConflictBox extends StatelessWidget {
+  const _ConflictBox({required this.title, required this.body});
 
   final String title;
   final String body;
 
   @override
   Widget build(BuildContext context) {
-    // Use the theme's danger/error semantic so the box clearly reads as a
-    // blocker — matches the rest of WhisPaste's destructive surfaces.
-    const dangerColor = WpColors.error;
-    // 12 % is the error ladder's own rung, spelled as the token instead of
-    // hand-rolled at the call site (pixel-identical: 0.12 x 255 rounds to the
-    // 0x1F the token carries).
-    const bgColor = WpColors.errorActiveFill;
-    // Ladder value, not the former hand-rolled 40 % (2026-08-17 maintainer
-    // call, Ticket 15's deferred finding): the ladder tops out at 30 %
-    // (`errorBorder30`) and this is now that rung.
-    const borderColor = WpColors.errorBorder30;
-    const textPrimary = WpColors.textPrimary;
-
     return Container(
       width: double.infinity,
-      // Vertically tighter than the horizontal inset on purpose: this box
-      // shares the page's tightest branch with a full inline recorder, and
-      // the 8 px it gives back are what keeps that branch off the scroll bar
-      // (see the fixed-window group in `onboarding_overlay_test.dart`).
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(color: borderColor),
+        color: WpColors.errorActiveFill,
+        borderRadius: WpRadius.borderSm,
+        border: Border.all(color: WpColors.errorBorder30),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.md,
-            color: dangerColor,
+            color: WpColors.error,
           ),
           const SizedBox(width: WpSpacing.sm),
           Expanded(
@@ -407,18 +940,18 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w700,
-                    color: dangerColor,
+                    color: WpColors.error,
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxs),
                 Text(
                   body,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
-                    color: textPrimary,
+                    color: WpColors.textPrimary,
                     height: 1.4,
                   ),
                 ),
@@ -430,3 +963,118 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
     );
   }
 }
+
+/// The panel: the key large on the painting, in one row, lit cyan while it
+/// is down, an amber check once start and stop were seen, and a quiet label
+/// that the microphone stays off. Decoration only: nothing here is
+/// clickable.
+/// The key caps of the dictation hotkey: the single key when one listens,
+/// else the combination.
+List<({String cap, String? side})> onboardingHotkeyCaps(
+  L10n l10n, {
+  required String singleKey,
+  required String key,
+  required String modifiers,
+  required String display,
+}) => singleKey.isNotEmpty
+    ? [singleKeyCap(l10n, singleKey)]
+    : [
+        for (final part in hotkeyDisplayParts(
+          modifiers,
+          key,
+          l10n: l10n,
+          displayOverride: display,
+        ))
+          (cap: part, side: null),
+      ];
+
+/// The hotkey as large key caps over the panel: they light while the key is
+/// held, and a check appears once start and stop were seen. The hotkey page
+/// and the try-out page share it.
+class OnboardingKeyScene extends StatelessWidget {
+  const OnboardingKeyScene({
+    super.key,
+    required this.parts,
+    required this.lit,
+    required this.done,
+  });
+
+  final List<({String cap, String? side})> parts;
+  final bool lit;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const stage = wpStagePalette;
+    return Padding(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: WpSpacing.xl),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Wrap(
+                key: kTriggerStepKeycapKey,
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: WpSpacing.sm,
+                runSpacing: WpSpacing.sm,
+                children: [
+                  for (final part in parts)
+                    WpKeycap.large(
+                      label: part.cap,
+                      sublabel: part.side,
+                      lit: lit,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: WpSpacing.lg),
+            SizedBox(
+              height: WpIconSize.lg,
+              child: AnimatedSwitcher(
+                duration: WpMotion.durationFor(context, WpMotion.normal),
+                child: done
+                    ? Icon(
+                        LucideIcons.circleCheck,
+                        key: const ValueKey('done'),
+                        size: WpIconSize.lg,
+                        color: WpColors.highlight,
+                      )
+                    : const SizedBox.shrink(key: ValueKey('idle')),
+              ),
+            ),
+            const SizedBox(height: WpSpacing.lg),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: WpColors.floatingSurface,
+                borderRadius: WpRadius.borderFull,
+                border: Border.all(color: stage.borderSubtle),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.md,
+                  vertical: WpSpacing.xxs,
+                ),
+                child: Text(
+                  l10n.onboardingHotkeySceneIdle,
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                    color: stage.textMuted,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A large flat key cap of the scene: navy with a frost rim, cyan rim and
+/// glow while the key is down. Sized by its label, never stretched.

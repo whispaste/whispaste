@@ -1,6 +1,7 @@
 import CoreAudio
 import FlutterMacOS
 import Foundation
+import IOKit
 import os.log
 
 /// Bridge that lets Dart temporarily switch the system's default audio-input
@@ -57,9 +58,28 @@ class AudioRoutingHost {
     case "listInputDevices":
       result(listInputDevices())
 
+    case "isLidClosed":
+      result(isLidClosed())
+
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Whether the notebook lid is closed (clamshell mode, #846). The built-in
+  /// microphone delivers no signal then. `AppleClamshellState` lives on
+  /// `IOPMrootDomain`; desktops without a lid do not publish it and answer
+  /// false. No permission needed.
+  private func isLidClosed() -> Bool {
+    let service = IOServiceGetMatchingService(
+      kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+    guard service != 0 else { return false }
+    defer { IOObjectRelease(service) }
+    guard
+      let prop = IORegistryEntryCreateCFProperty(
+        service, "AppleClamshellState" as CFString, kCFAllocatorDefault, 0)
+    else { return false }
+    return (prop.takeRetainedValue() as? Bool) ?? false
   }
 
   /// Enumerates every CoreAudio device that has at least one input stream.

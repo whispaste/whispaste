@@ -53,122 +53,114 @@ void main() {
       File(modelPath!).existsSync() &&
       File(speechWavPath!).existsSync();
 
-  group(
-    'WhisperIsolateEngine (real libwhisper, worker isolate)',
-    () {
-      test(
-        'loads and transcribes the fixture WAV via the worker isolate',
-        () async {
-          final engine = WhisperIsolateEngine(libraryPath: dylibPath);
-          expect(engine.status.isLoaded, isFalse);
-
-          await engine.load(modelPath: modelPath!);
-          addTearDown(engine.shutdown);
-          expect(engine.status.isLoaded, isTrue);
-
-          final wavBytes = File(speechWavPath!).readAsBytesSync();
-          final text = (await engine.transcribe(
-            wavBytes,
-            language: 'en',
-          )).toLowerCase();
-
-          expect(text, contains('hello'));
-          expect(text, contains('world'));
-        },
-        timeout: const Timeout(Duration(minutes: 2)),
-      );
-
-      test('throws when transcribing before load', () async {
+  group('WhisperIsolateEngine (real libwhisper, worker isolate)', () {
+    test(
+      'loads and transcribes the fixture WAV via the worker isolate',
+      () async {
         final engine = WhisperIsolateEngine(libraryPath: dylibPath);
-        addTearDown(engine.shutdown);
-        expect(
-          () => engine.transcribe(const [0, 1, 2]),
-          throwsA(isA<StateError>()),
-        );
-      });
-
-      test('unload() resets isLoaded and a later load() works again', () async {
-        final engine = WhisperIsolateEngine(libraryPath: dylibPath);
-        addTearDown(engine.shutdown);
-
-        await engine.load(modelPath: modelPath!);
-        expect(engine.status.isLoaded, isTrue);
-
-        await engine.unload();
         expect(engine.status.isLoaded, isFalse);
 
-        await engine.load(modelPath: modelPath);
-        expect(engine.status.isLoaded, isTrue);
-      });
-
-      test('unload() called while a transcribe is in flight does not wait for '
-          'it to finish (regression: SIGTERM arriving during post-load '
-          'warmup/benchmark inference pegged the app at ~100% CPU for up to '
-          '10s before exiting, because unload() waited for a worker ack that '
-          'could not arrive until that inference finished — the worker '
-          'processes messages strictly one at a time, so a fixed unload() '
-          'must return before the earlier-queued transcribe result is even '
-          'delivered)', () async {
-        final engine = WhisperIsolateEngine(libraryPath: dylibPath);
-        addTearDown(engine.shutdown);
-
         await engine.load(modelPath: modelPath!);
+        addTearDown(engine.shutdown);
+        expect(engine.status.isLoaded, isTrue);
+
         final wavBytes = File(speechWavPath!).readAsBytesSync();
-        // Not awaited — mirrors _warmupInference/_runBenchmark firing a
-        // transcribe() and SIGTERM landing on the worker mid-inference.
-        var transcribeCompleted = false;
-        final transcribeFuture = engine
-            .transcribe(wavBytes, language: 'en')
-            .whenComplete(() => transcribeCompleted = true);
+        final text = (await engine.transcribe(
+          wavBytes,
+          language: 'en',
+        )).toLowerCase();
 
-        await engine.unload();
+        expect(text, contains('hello'));
+        expect(text, contains('world'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
-        // Ordering guarantee, not a timing race: the worker's message
-        // queue delivers the transcribe's result before it can even look
-        // at the (later-queued) unload request, so a still-waiting
-        // unload() could never observe this as false — only a fixed
-        // unload() that skips the wait can return this early.
-        expect(transcribeCompleted, isFalse);
-        expect(engine.status.isLoaded, isFalse);
+    test('throws when transcribing before load', () async {
+      final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+      addTearDown(engine.shutdown);
+      expect(
+        () => engine.transcribe(const [0, 1, 2]),
+        throwsA(isA<StateError>()),
+      );
+    });
 
-        await transcribeFuture;
-      }, timeout: const Timeout(Duration(minutes: 2)));
+    test('unload() resets isLoaded and a later load() works again', () async {
+      final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+      addTearDown(engine.shutdown);
 
-      test(
-        'unload() left unawaited, then load() again, still reloads for real '
+      await engine.load(modelPath: modelPath!);
+      expect(engine.status.isLoaded, isTrue);
+
+      await engine.unload();
+      expect(engine.status.isLoaded, isFalse);
+
+      await engine.load(modelPath: modelPath);
+      expect(engine.status.isLoaded, isTrue);
+    });
+
+    test('unload() called while a transcribe is in flight does not wait for '
+        'it to finish (regression: SIGTERM arriving during post-load '
+        'warmup/benchmark inference pegged the app at ~100% CPU for up to '
+        '10s before exiting, because unload() waited for a worker ack that '
+        'could not arrive until that inference finished — the worker '
+        'processes messages strictly one at a time, so a fixed unload() '
+        'must return before the earlier-queued transcribe result is even '
+        'delivered)', () async {
+      final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+      addTearDown(engine.shutdown);
+
+      await engine.load(modelPath: modelPath!);
+      final wavBytes = File(speechWavPath!).readAsBytesSync();
+      // Not awaited — mirrors _warmupInference/_runBenchmark firing a
+      // transcribe() and SIGTERM landing on the worker mid-inference.
+      var transcribeCompleted = false;
+      final transcribeFuture = engine
+          .transcribe(wavBytes, language: 'en')
+          .whenComplete(() => transcribeCompleted = true);
+
+      await engine.unload();
+
+      // Ordering guarantee, not a timing race: the worker's message
+      // queue delivers the transcribe's result before it can even look
+      // at the (later-queued) unload request, so a still-waiting
+      // unload() could never observe this as false — only a fixed
+      // unload() that skips the wait can return this early.
+      expect(transcribeCompleted, isFalse);
+      expect(engine.status.isLoaded, isFalse);
+
+      await transcribeFuture;
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('unload() left unawaited, then load() again, still reloads for real '
         '(regression: a model switch mid-session left the engine claiming '
         'readiness while the worker had actually freed its native context, '
-        'so the next transcribe() threw whisper_engine_not_loaded)',
-        () async {
-          final engine = WhisperIsolateEngine(libraryPath: dylibPath);
-          addTearDown(engine.shutdown);
+        'so the next transcribe() threw whisper_engine_not_loaded)', () async {
+      final engine = WhisperIsolateEngine(libraryPath: dylibPath);
+      addTearDown(engine.shutdown);
 
-          await engine.load(modelPath: modelPath!);
-          expect(engine.status.isLoaded, isTrue);
+      await engine.load(modelPath: modelPath!);
+      expect(engine.status.isLoaded, isTrue);
 
-          // Mirrors SttServerStateNotifier._debouncedPrewarmOnModelChange:
-          // stop() (-> unload()) is fired without awaiting it, then a fresh
-          // load() starts immediately — deliberately not awaiting unload()
-          // here reproduces that exact interleaving.
-          final unloadFuture = engine.unload();
-          await engine.load(modelPath: modelPath);
-          expect(engine.status.isLoaded, isTrue);
+      // Mirrors SttServerStateNotifier._debouncedPrewarmOnModelChange:
+      // stop() (-> unload()) is fired without awaiting it, then a fresh
+      // load() starts immediately — deliberately not awaiting unload()
+      // here reproduces that exact interleaving.
+      final unloadFuture = engine.unload();
+      await engine.load(modelPath: modelPath);
+      expect(engine.status.isLoaded, isTrue);
 
-          final wavBytes = File(speechWavPath!).readAsBytesSync();
-          final text = (await engine.transcribe(
-            wavBytes,
-            language: 'en',
-          )).toLowerCase();
-          expect(text, contains('hello'));
-          expect(text, contains('world'));
+      final wavBytes = File(speechWavPath!).readAsBytesSync();
+      final text = (await engine.transcribe(
+        wavBytes,
+        language: 'en',
+      )).toLowerCase();
+      expect(text, contains('hello'));
+      expect(text, contains('world'));
 
-          await unloadFuture;
-        },
-        timeout: const Timeout(Duration(minutes: 2)),
-      );
-    },
-    skip: available ? null : 'local libwhisper.dylib + tiny model absent',
-  );
+      await unloadFuture;
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  }, skip: available ? null : 'local libwhisper.dylib + tiny model absent');
 
   // Host-independent error path (no dylib/model required): a missing model
   // surfaces via a thrown StateError, same contract as WhisperFfiEngine.
@@ -248,6 +240,60 @@ void main() {
     });
   });
 
+  // Regression: load replies carried no request id and were routed into one
+  // shared completer. After a 60 s load timeout the worker still answered the
+  // abandoned load, and that late reply completed the next load with a foreign
+  // result. Host-independent: no worker needed.
+  group('WorkerRequestTable (replies correlated by request id)', () {
+    test(
+      'a late reply from an abandoned load does not complete a newer load',
+      () async {
+        final loads = WorkerRequestTable<String>();
+        final abandoned = loads.register(1);
+        loads.abandon(1); // load 1 timed out; the worker is still busy with it
+        final current = loads.register(2);
+
+        expect(loads.complete(1, 'late result of load 1'), isFalse);
+        expect(current.isCompleted, isFalse);
+        expect(abandoned.isCompleted, isFalse);
+
+        expect(loads.complete(2, 'result of load 2'), isTrue);
+        expect(await current.future, 'result of load 2');
+        expect(loads.isBusy, isFalse);
+      },
+    );
+
+    test(
+      'an abandoned request keeps the worker busy until its reply arrives',
+      () {
+        final loads = WorkerRequestTable<String>();
+        loads.register(1);
+        loads.abandon(1);
+
+        expect(loads.isBusy, isTrue);
+        expect(loads.complete(1, 'late'), isFalse);
+        expect(loads.isBusy, isFalse);
+      },
+    );
+
+    test('a reply to a live request completes exactly its waiter', () async {
+      final loads = WorkerRequestTable<String>();
+      final first = loads.register(1);
+      final second = loads.register(2);
+
+      expect(loads.complete(2, 'b'), isTrue);
+      expect(await second.future, 'b');
+      expect(first.isCompleted, isFalse);
+      expect(loads.isBusy, isTrue);
+    });
+
+    test('a reply for an unknown id is ignored without throwing', () {
+      final loads = WorkerRequestTable<String>();
+      expect(loads.complete(99, 'x'), isFalse);
+      expect(loads.isBusy, isFalse);
+    });
+  });
+
   test(
     'concurrent load() calls share one attempt and both fail cleanly '
     '(regression: the second call overwrote the first call\'s completer)',
@@ -265,4 +311,20 @@ void main() {
       expect(engine.status.isLoaded, isFalse);
     },
   );
+
+  test('two concurrent stopLivePreview() calls each return on their own ack '
+      '(regression: the second stop overwrote the first stop\'s completer, so '
+      'the first one waited out its 5-s timeout)', () async {
+    final engine = WhisperIsolateEngine(libraryPath: '/nonexistent/libwhisper');
+    addTearDown(engine.shutdown);
+    // The load fails, but the worker isolate stays up and answers stops.
+    await expectLater(
+      engine.load(modelPath: '/nonexistent/model.bin'),
+      throwsA(isA<StateError>()),
+    );
+
+    final first = engine.stopLivePreview();
+    final second = engine.stopLivePreview();
+    await Future.wait([first, second]).timeout(const Duration(seconds: 3));
+  });
 }

@@ -16,13 +16,16 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/settings_enums.dart' show GpuAcceleration;
 import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../audio/pcm_wav_codec.dart' show Pcm16WavSource;
 import '../../hardware_info_service.dart';
 import '../isolate_shutdown_helper.dart';
+import '../tail_confidence.dart';
 import 'cuda_pack.dart';
 import 'whisper_engine.dart';
 import 'whisper_ffi_engine.dart';
@@ -47,10 +50,12 @@ class _EngineConfig {
 
 class _LoadRequest {
   const _LoadRequest({
+    required this.requestId,
     required this.config,
     required this.modelPath,
     this.vadModelPath,
   });
+  final int requestId;
   final _EngineConfig config;
   final String modelPath;
   final String? vadModelPath;
@@ -58,11 +63,13 @@ class _LoadRequest {
 
 class _LoadResult {
   const _LoadResult({
+    required this.requestId,
     required this.ok,
     this.error,
     this.cpuFeatures,
     this.gpuDevice,
   });
+  final int requestId;
   final bool ok;
   final String? error;
   final String? cpuFeatures;
@@ -72,18 +79,42 @@ class _LoadResult {
 class _TranscribeRequest {
   const _TranscribeRequest({
     required this.requestId,
-    required this.wavBytes,
+    required this.audio,
     this.language,
     this.prompt,
     this.vadEnabled = false,
     this.reducedThreads = false,
+    this.reportProgress = false,
+    this.abortFlagAddress = 0,
   });
   final int requestId;
-  final Uint8List wavBytes;
+
+  /// The WAV file's path ([WavFileDecode], #1665), or its bytes. The bytes
+  /// are copied into the worker on send; the path costs nothing.
+  final Pcm16WavSource audio;
   final String? language;
   final String? prompt;
   final bool vadEnabled;
   final bool reducedThreads;
+
+  /// Whether the worker should forward engine progress for this request.
+  final bool reportProgress;
+
+  /// Address of this request's abort flag (#1639), 0 for none. Owned by the
+  /// main isolate, see [WhisperIsolateEngine.abortDecode].
+  final int abortFlagAddress;
+}
+
+/// Forwards one whisper.cpp progress fraction (`0..1`) for an in-flight
+/// transcription (IMP-PROG-2). Sent from the worker while `whisper_full` runs;
+/// FIFO on the same port, so it always arrives before that request's result.
+class _TranscribeProgressUpdate {
+  const _TranscribeProgressUpdate({
+    required this.requestId,
+    required this.fraction,
+  });
+  final int requestId;
+  final double fraction;
 }
 
 class _TranscribeResult {
@@ -92,10 +123,18 @@ class _TranscribeResult {
     this.text,
     this.error,
     this.failureKind,
+    this.detectedLanguage,
+    this.tailConfidence,
   });
   final int requestId;
   final String? text;
+
+  /// Token confidence at the end of the transcript (#573), `null` if unknown.
+  final TailConfidenceSample? tailConfidence;
   final String? error;
+
+  /// Whisper code of the language the worker decoded in, `null` if unknown.
+  final String? detectedLanguage;
 
   /// Name of the [WhisperFailureKind] the worker raised, or `null` for a
   /// plain (non-[WhisperEngineException]) error — reconstructed on the main
@@ -153,11 +192,13 @@ class _LivePreviewDecodeResult {
 }
 
 class _StopLivePreviewRequest {
-  const _StopLivePreviewRequest();
+  const _StopLivePreviewRequest({required this.requestId});
+  final int requestId;
 }
 
 class _StopLivePreviewAck {
-  const _StopLivePreviewAck();
+  const _StopLivePreviewAck({required this.requestId});
+  final int requestId;
 }
 
 /// Proxies [PromptTokenCounter.countPromptTokens] across the isolate
@@ -240,6 +281,65 @@ class WorkerAckQueue {
   }
 }
 
+/// Routes worker replies to the request that asked for them, by request id —
+/// the same correlation [WhisperIsolateEngine._pending] uses for transcriptions.
+///
+/// A caller that gave up ([abandon], e.g. a load timeout) does not free the
+/// worker: it still runs that request. Its late reply is recognised and
+/// dropped instead of completing a newer request. [isBusy] stays true until
+/// every such reply has arrived.
+class WorkerRequestTable<T> {
+  final Map<int, Completer<T>> _awaited = {};
+  final Set<int> _abandoned = {};
+
+  /// Registers a waiter for the reply to [requestId].
+  Completer<T> register(int requestId) {
+    final completer = Completer<T>();
+    _awaited[requestId] = completer;
+    return completer;
+  }
+
+  /// The caller of [requestId] stopped waiting; the worker may still reply.
+  void abandon(int requestId) {
+    if (_awaited.remove(requestId) != null) _abandoned.add(requestId);
+  }
+
+  /// Drops a waiter whose request was never sent, so no reply is expected.
+  void cancel(int requestId) => _awaited.remove(requestId);
+
+  /// Delivers [value] to the waiter of [requestId]. Returns `false` for a
+  /// reply that nobody awaits any more (abandoned or unknown), which is
+  /// logged and dropped.
+  bool complete(int requestId, T value) {
+    final completer = _awaited.remove(requestId);
+    if (completer != null) {
+      _completeIfPending(completer, value);
+      return true;
+    }
+    if (_abandoned.remove(requestId)) {
+      _log.info('Discarded late worker reply for abandoned request $requestId');
+    } else {
+      _log.warning('Discarded worker reply for unknown request $requestId');
+    }
+    return false;
+  }
+
+  /// Whether the worker may still be busy with a request in this table.
+  bool get isBusy => _awaited.isNotEmpty || _abandoned.isNotEmpty;
+}
+
+/// Sink that forwards a request's progress to the main isolate, or `null` when
+/// the request did not ask for progress (IMP-PROG-2).
+void Function(double fraction)? _progressForwarder(
+  SendPort mainSendPort,
+  _TranscribeRequest req,
+) {
+  if (!req.reportProgress) return null;
+  return (fraction) => mainSendPort.send(
+    _TranscribeProgressUpdate(requestId: req.requestId, fraction: fraction),
+  );
+}
+
 /// Isolate entry point. Must be a top-level/static function (Dart isolate
 /// requirement) — receives the main isolate's [SendPort] and spawns its own
 /// [ReceivePort], sending its own [SendPort] back as the first message so the
@@ -277,13 +377,16 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           }
           mainSendPort.send(
             _LoadResult(
+              requestId: req.requestId,
               ok: true,
               cpuFeatures: engine!.status.cpuFeatures,
               gpuDevice: engine!.status.gpuDevice,
             ),
           );
         } catch (e) {
-          mainSendPort.send(_LoadResult(ok: false, error: '$e'));
+          mainSendPort.send(
+            _LoadResult(requestId: req.requestId, ok: false, error: '$e'),
+          );
         }
 
       case final _TranscribeRequest req:
@@ -297,16 +400,37 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
           return;
         }
+        // Per request, so an abort raised for an earlier decode never reaches
+        // this one.
+        e.decodeAbortFlag = req.abortFlagAddress == 0
+            ? null
+            : ffi.Pointer<ffi.Int32>.fromAddress(req.abortFlagAddress);
         try {
-          final text = await e.transcribe(
-            req.wavBytes,
-            language: req.language,
-            prompt: req.prompt,
-            vadEnabled: req.vadEnabled,
-            reducedThreads: req.reducedThreads,
-          );
+          final wavPath = req.audio.path;
+          final text = wavPath != null
+              ? await e.transcribeFile(
+                  wavPath,
+                  language: req.language,
+                  prompt: req.prompt,
+                  vadEnabled: req.vadEnabled,
+                  reducedThreads: req.reducedThreads,
+                  onProgress: _progressForwarder(mainSendPort, req),
+                )
+              : await e.transcribe(
+                  req.audio.bytes!,
+                  language: req.language,
+                  prompt: req.prompt,
+                  vadEnabled: req.vadEnabled,
+                  reducedThreads: req.reducedThreads,
+                  onProgress: _progressForwarder(mainSendPort, req),
+                );
           mainSendPort.send(
-            _TranscribeResult(requestId: req.requestId, text: text),
+            _TranscribeResult(
+              requestId: req.requestId,
+              text: text,
+              detectedLanguage: e.lastDetectedLanguage,
+              tailConfidence: e.lastTailConfidence,
+            ),
           );
         } on WhisperEngineException catch (ex) {
           mainSendPort.send(
@@ -320,6 +444,8 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           mainSendPort.send(
             _TranscribeResult(requestId: req.requestId, error: '$e'),
           );
+        } finally {
+          e.decodeAbortFlag = null;
         }
 
       case final _StartLivePreviewRequest req:
@@ -373,9 +499,9 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
         }
 
-      case _StopLivePreviewRequest():
+      case final _StopLivePreviewRequest req:
         await engine?.stopLivePreview();
-        mainSendPort.send(const _StopLivePreviewAck());
+        mainSendPort.send(_StopLivePreviewAck(requestId: req.requestId));
 
       case final _TokenCountRequest req:
         final e = engine;
@@ -424,10 +550,26 @@ void _whisperIsolateMain(SendPort mainSendPort) {
   // `_ShutdownRequest` arriving while a `_TranscribeRequest` is still
   // in-flight could tear the isolate down mid-call (`Isolate.exit()`),
   // leaving the caller's completer on the main isolate unresolved forever.
+  workerPort.listen(chainWorkerMessages(handleMessage));
+}
+
+/// Returns a listener that runs [handle] for each message strictly after the
+/// previous one settled (see [_whisperIsolateMain] for why).
+@visibleForTesting
+void Function(dynamic message) chainWorkerMessages(
+  Future<void> Function(dynamic message) handle,
+) {
   var processing = Future<void>.value();
-  workerPort.listen((dynamic message) {
-    processing = processing.then((_) => handleMessage(message));
-  });
+  return (dynamic message) {
+    // A failed handler must not poison the chain: every later message would
+    // then be dropped and its caller would wait without an answer. The
+    // handlers answer their own requests; this is the last-resort backstop.
+    processing = processing.then((_) => handle(message)).catchError((
+      Object error,
+    ) {
+      _log.warning('Worker message handler failed: $error');
+    });
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -441,8 +583,13 @@ class WhisperIsolateEngine
     implements
         WhisperEngine,
         PartialTranscriptSource,
+        TranscriptionProgressSource,
+        DetectedLanguageSource,
+        TailConfidenceSource,
         LivePreviewEngine,
-        PromptTokenCounter {
+        PromptTokenCounter,
+        AbortableDecode,
+        WavFileDecode {
   WhisperIsolateEngine({
     String? libraryPath,
     WhisperBackend? backend,
@@ -458,7 +605,8 @@ class WhisperIsolateEngine
   Isolate? _isolate;
   SendPort? _workerPort;
   StreamSubscription<dynamic>? _sub;
-  Completer<_LoadResult>? _loadCompleter;
+  final WorkerRequestTable<_LoadResult> _loads = WorkerRequestTable();
+  int _nextLoadRequestId = 0;
   final WorkerAckQueue _unloadAcks = WorkerAckQueue();
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
@@ -487,7 +635,7 @@ class WhisperIsolateEngine
   );
 
   /// Shared while a load is in flight: a concurrent second call used to
-  /// overwrite [_loadCompleter], orphaning the first caller until its 60 s
+  /// overwrite the load's completer, orphaning the first caller until its 60 s
   /// timeout.
   Future<void>? _loadInFlight;
 
@@ -505,6 +653,12 @@ class WhisperIsolateEngine
     String? vadModelPath,
   }) async {
     if (_isolate == null) {
+      // ggml's log hook must outlive the worker, so it is installed here in
+      // the main isolate before any worker can log (see
+      // WhisperFfiEngine.installProcessLogForwarder, ticket).
+      WhisperFfiEngine.installProcessLogForwarder(
+        _config.libraryPath ?? defaultWhisperLibraryPath(),
+      );
       final mainReceivePort = ReceivePort();
       final isolate = await Isolate.spawn(
         _whisperIsolateMain,
@@ -536,17 +690,25 @@ class WhisperIsolateEngine
       }
     }
 
-    _loadCompleter = Completer<_LoadResult>();
+    final requestId = _nextLoadRequestId++;
+    final completer = _loads.register(requestId);
     _workerPort!.send(
       _LoadRequest(
+        requestId: requestId,
         config: _config,
         modelPath: modelPath,
         vadModelPath: vadModelPath,
       ),
     );
-    final result = await _loadCompleter!.future.timeout(
-      const Duration(seconds: 60),
-    );
+    final _LoadResult result;
+    try {
+      result = await completer.future.timeout(const Duration(seconds: 60));
+    } on TimeoutException {
+      // The worker keeps running this load. Its late reply is discarded by
+      // requestId instead of completing the next load().
+      _loads.abandon(requestId);
+      rethrow;
+    }
     if (!result.ok) {
       _errorMessage = result.error;
       throw StateError(result.error ?? 'whisper_isolate_load_failed');
@@ -564,6 +726,66 @@ class WhisperIsolateEngine
     String? prompt,
     bool vadEnabled = false,
     bool reducedThreads = false,
+  }) => _transcribe(
+    Pcm16WavSource.bytes(
+      wavBytes is Uint8List ? wavBytes : Uint8List.fromList(wavBytes),
+    ),
+    language: language,
+    prompt: prompt,
+    vadEnabled: vadEnabled,
+    reducedThreads: reducedThreads,
+  );
+
+  /// Sends only [wavPath] to the worker, which reads the recording a decode
+  /// window at a time (#1665). [transcribe] copies all bytes into the worker
+  /// instead: 110 MB more for a 60-minute recording.
+  @override
+  Future<String> transcribeFile(
+    String wavPath, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  }) => _transcribe(
+    Pcm16WavSource.file(wavPath),
+    language: language,
+    prompt: prompt,
+    vadEnabled: vadEnabled,
+    reducedThreads: reducedThreads,
+    onProgress: onProgress,
+  );
+
+  @override
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  }) => _transcribe(
+    Pcm16WavSource.bytes(
+      wavBytes is Uint8List ? wavBytes : Uint8List.fromList(wavBytes),
+    ),
+    language: language,
+    prompt: prompt,
+    vadEnabled: vadEnabled,
+    reducedThreads: reducedThreads,
+    onProgress: onProgress,
+  );
+
+  /// Progress sinks of in-flight requests, keyed by request id. Removed in
+  /// [_transcribe]'s `finally`, so nothing is delivered after it returns.
+  final Map<int, void Function(double fraction)> _progressSinks = {};
+
+  Future<String> _transcribe(
+    Pcm16WavSource audio, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
   }) async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
@@ -572,20 +794,51 @@ class WhisperIsolateEngine
     final requestId = _nextRequestId++;
     final completer = Completer<_TranscribeResult>();
     _pending[requestId] = completer;
-    _workerPort!.send(
-      _TranscribeRequest(
-        requestId: requestId,
-        wavBytes: wavBytes is Uint8List
-            ? wavBytes
-            : Uint8List.fromList(wavBytes),
-        language: language,
-        prompt: prompt,
-        vadEnabled: vadEnabled,
-        reducedThreads: reducedThreads,
-      ),
-    );
+    if (onProgress != null) _progressSinks[requestId] = onProgress;
+    final abortFlag = calloc<ffi.Int32>();
+    _decodeAbortFlags[requestId] = abortFlag;
+    var flagReleasable = true;
+    try {
+      _workerPort!.send(
+        _TranscribeRequest(
+          requestId: requestId,
+          audio: audio,
+          language: language,
+          prompt: prompt,
+          vadEnabled: vadEnabled,
+          reducedThreads: reducedThreads,
+          reportProgress: onProgress != null,
+          abortFlagAddress: abortFlag.address,
+        ),
+      );
+      // Only the worker's reply completes [completer], and the worker sends
+      // it after the native call returned: from then on nothing reads the
+      // flag. A worker killed mid-call never replies, so the flag leaks
+      // rather than risk a use-after-free.
+      flagReleasable = false;
+      final result = await completer.future;
+      flagReleasable = true;
+      return _unwrapTranscribeResult(result);
+    } finally {
+      _progressSinks.remove(requestId);
+      _decodeAbortFlags.remove(requestId);
+      if (flagReleasable) calloc.free(abortFlag);
+    }
+  }
 
-    final result = await completer.future;
+  /// Abort flags of the decodes sent to the worker and not answered yet.
+  final Map<int, ffi.Pointer<ffi.Int32>> _decodeAbortFlags = {};
+
+  /// Raises the abort flag of every decode still running or queued in the
+  /// worker (#1639). Each one then ends with [kWhisperDecodeAborted].
+  @override
+  void abortDecode() {
+    for (final flag in _decodeAbortFlags.values) {
+      flag.value = 1;
+    }
+  }
+
+  String _unwrapTranscribeResult(_TranscribeResult result) {
     if (result.error != null) {
       final kindName = result.failureKind;
       if (kindName != null) {
@@ -594,8 +847,20 @@ class WhisperIsolateEngine
       }
       throw StateError(result.error!);
     }
+    _lastDetectedLanguage = result.detectedLanguage;
+    _lastTailConfidence = result.tailConfidence;
     return result.text ?? '';
   }
+
+  String? _lastDetectedLanguage;
+
+  @override
+  String? get lastDetectedLanguage => _lastDetectedLanguage;
+
+  TailConfidenceSample? _lastTailConfidence;
+
+  @override
+  TailConfidenceSample? get lastTailConfidence => _lastTailConfidence;
 
   // ── Live-transcript-during-recording preview (live-transcript-streaming
   // ticket) — proxies [LivePreviewEngine] to the worker isolate the same way
@@ -609,7 +874,11 @@ class WhisperIsolateEngine
   ffi.Pointer<ffi.Int32>? _previewAbortFlag;
 
   Completer<_StartLivePreviewResult>? _startPreviewCompleter;
-  Completer<_StopLivePreviewAck>? _stopPreviewCompleter;
+  // Stop acks are correlated by request id: a stop that timed out leaves its
+  // late ack behind, and that ack must not end the next stop early.
+  final WorkerRequestTable<_StopLivePreviewAck> _stopPreviews =
+      WorkerRequestTable();
+  int _nextStopRequestId = 0;
   final Map<int, Completer<_LivePreviewDecodeResult>> _pendingPreview = {};
   int _nextPreviewRequestId = 0;
 
@@ -690,17 +959,22 @@ class WhisperIsolateEngine
   Future<void> stopLivePreview() async {
     if (_isolate == null || _workerPort == null) return;
     _previewAbortFlag?.value = 1;
-    final completer = Completer<_StopLivePreviewAck>();
-    _stopPreviewCompleter = completer;
+    final requestId = _nextStopRequestId++;
+    final completer = _stopPreviews.register(requestId);
     try {
-      _workerPort!.send(const _StopLivePreviewRequest());
+      _workerPort!.send(_StopLivePreviewRequest(requestId: requestId));
     } catch (e) {
+      _stopPreviews.cancel(requestId);
       _log.warning('Failed to signal worker stopLivePreview: $e');
       return;
     }
     await completer.future.timeout(
       const Duration(seconds: 5),
-      onTimeout: () => const _StopLivePreviewAck(),
+      onTimeout: () {
+        // The worker still answers this stop; its late ack is discarded by id.
+        _stopPreviews.abandon(requestId);
+        return _StopLivePreviewAck(requestId: requestId);
+      },
     );
   }
 
@@ -729,10 +1003,7 @@ class WhisperIsolateEngine
     // load/warmup, followed by exit(0) once the previous 10s timeout gave up
     // waiting, never aborted; this just reaches the same safe exit sooner
     // instead of burning CPU for the rest of the timeout).
-    final loadCompleter = _loadCompleter;
-    final workerBusy =
-        (loadCompleter != null && !loadCompleter.isCompleted) ||
-        _pending.isNotEmpty;
+    final workerBusy = _loads.isBusy || _pending.isNotEmpty;
     // Waits for the worker's _UnloadAck (native whisper_free() actually
     // ran) instead of firing-and-forgetting — otherwise a caller that
     // proceeds immediately (e.g. app quit → windowManager.destroy()) can
@@ -832,21 +1103,22 @@ class WhisperIsolateEngine
   // Structurally similar to ParakeetEngineNotifier._handleWorkerMessage, but
   // switches over a distinct sealed message hierarchy for an independent
   // isolate worker; a shared dispatcher would couple the two STT engines.
-  // loam-ignore: code-duplicates – see comment above
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       case final _LoadResult r:
-        _completeIfPending(_loadCompleter, r);
+        _loads.complete(r.requestId, r);
       case final _TranscribeResult r:
         _completeIfPending(_pending.remove(r.requestId), r);
+      case final _TranscribeProgressUpdate u:
+        _progressSinks[u.requestId]?.call(u.fraction);
       case final _PartialTranscriptUpdate u:
         _partialController.add(u.text);
       case final _StartLivePreviewResult r:
         _completeIfPending(_startPreviewCompleter, r);
       case final _LivePreviewDecodeResult r:
         _completeIfPending(_pendingPreview.remove(r.requestId), r);
-      case _StopLivePreviewAck():
-        _completeIfPending(_stopPreviewCompleter, const _StopLivePreviewAck());
+      case final _StopLivePreviewAck r:
+        _stopPreviews.complete(r.requestId, r);
       case final _TokenCountResult r:
         _completeIfPending(_pendingTokenCount.remove(r.requestId), r);
       case _UnloadAck():
@@ -862,9 +1134,13 @@ class WhisperIsolateEngine
 /// backend. `auto` additionally routes known-problematic GPUs (Kepler/Fermi,
 /// old AMD GCN — see [shouldUseGpu]) to CPU up front instead of waiting for
 /// the reactive load-timeout fallback.
+///
+/// [guardUsable] is whether `wp_ffi_guard` can wrap the whisper calls
+/// (Befund 28): without it only CPU is selected, see [backendAllowedByGuard].
 WhisperBackend selectWhisperBackend({
   required String? gpuPreference,
   required GpuInfo? gpu,
+  bool guardUsable = true,
 }) {
   if (gpuPreference == GpuAcceleration.disabled.value) {
     return WhisperBackend.cpu;
@@ -874,8 +1150,18 @@ WhisperBackend selectWhisperBackend({
       !shouldUseGpu(gpu)) {
     return WhisperBackend.cpu;
   }
-  return whisperBackendFromName(gpu?.optimalBackend);
+  return backendAllowedByGuard(
+    whisperBackendFromName(gpu?.optimalBackend),
+    guardUsable: guardUsable,
+  );
 }
+
+/// Whether `wp_ffi_guard` can wrap the whisper calls of the bundled library
+/// (Befund 28). [whisperEngineProvider] selects CPU when this is `false`;
+/// tests override it instead of depending on the host's build artefacts.
+final whisperGuardUsableProvider = Provider<bool>(
+  (ref) => whisperGuardUsableFor(defaultWhisperLibraryPath()),
+);
 
 /// Overrideable [WhisperEngine] for the on-device whisper path.
 ///
@@ -896,6 +1182,7 @@ final whisperEngineProvider = Provider<WhisperEngine>((ref) {
   final backend = selectWhisperBackend(
     gpuPreference: gpuPreference,
     gpu: ref.watch(gpuInfoProvider).value,
+    guardUsable: ref.watch(whisperGuardUsableProvider),
   );
   final engine = WhisperIsolateEngine(
     backend: backend,
@@ -919,3 +1206,21 @@ final whisperCpuFallbackEngineProvider = Provider<WhisperEngine>((ref) {
   ref.onDispose(engine.shutdown);
   return engine;
 });
+
+/// Builds the temporary Vulkan engine for the CUDA/Vulkan comparison (#1670):
+/// the configured [WhisperBackend] without a CUDA pack, so ggml picks the
+/// Vulkan device even though the CUDA module is registered in this process
+/// (see `pickGpuDeviceIndex`). The caller loads it, measures, and shuts it
+/// down with [shutdownTemporaryEngine]. Tests override it with a fake.
+final cudaAbVulkanEngineFactoryProvider =
+    Provider<WhisperEngine Function(WhisperBackend backend)>(
+      (ref) =>
+          (backend) => WhisperIsolateEngine(backend: backend),
+    );
+
+/// Frees a temporary engine: unloads the model and, for the isolate engine,
+/// ends its worker.
+Future<void> shutdownTemporaryEngine(WhisperEngine engine) async {
+  await engine.unload();
+  if (engine is WhisperIsolateEngine) await engine.shutdown();
+}

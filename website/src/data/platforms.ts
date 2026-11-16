@@ -190,6 +190,16 @@ export function resolvePrimary(os: Os): PlatformOffer {
   return STORES[os];
 }
 
+/**
+ * Fragment of the visitor's own card on the download page (`#windows`,
+ * `#macos`, `#linux`). The card ids in DownloadPage.astro match these names.
+ * Unknown OS: empty string, the page opens at the top with every card.
+ * Hero and Pricing append it to their "/download" link (issue #245).
+ */
+export function downloadAnchor(os: Os): string {
+  return os === 'unknown' ? '' : `#${os}`;
+}
+
 // ---------------------------------------------------------------------------
 // Package-manager channels — SSoT for Scoop / winget / Homebrew
 // ---------------------------------------------------------------------------

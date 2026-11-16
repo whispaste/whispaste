@@ -1,0 +1,45 @@
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -1641,7 +1641,14 @@
+         /*.objects_end        =*/ NULL,
+     };
+ 
+-    GGML_ASSERT(ctx->mem_buffer != NULL);
++    // wpatch: a full address space or commit limit (e.g. video memory swapped into system memory by
++    // other programs) made this assert abort the whole process; fail softly so the caller can
++    // report it (whisper checks every ggml_init that allocates its own buffer)
++    if (ctx->mem_buffer == NULL) {
++        GGML_LOG_ERROR("%s: failed to allocate %zu bytes for the context (out of memory)\n", __func__, mem_size);
++        GGML_FREE(ctx);
++        return NULL;
++    }
+ 
+     GGML_ASSERT_ALIGNED(ctx->mem_buffer);
+ 
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -1748,6 +1748,11 @@
+         };
+ 
+         ggml_context * ctx = ggml_init(params);
++        // wpatch: ggml_init returns NULL instead of aborting when memory runs out
++        if (!ctx) {
++            WHISPER_LOG_ERROR("%s: failed to allocate the tensor context (out of memory)\n", __func__);
++            return false;
++        }
+ 
+         const auto & hparams = model.hparams;
+ 
+@@ -5062,6 +5067,12 @@
+         };
+ 
+         ggml_context * ctx = ggml_init(params);
++        // wpatch: ggml_init returns NULL instead of aborting when memory runs out
++        if (!ctx) {
++            WHISPER_LOG_ERROR("%s: failed to allocate the tensor context for the VAD model (out of memory)\n", __func__);
++            whisper_vad_free(vctx);
++            return nullptr;
++        }
+         const auto & hparams = model.hparams;
+ 
+         // SFTF precomputed basis matrix

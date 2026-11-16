@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cmath>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_engine.h"
+#include "secondary_plugin_registrant.h"
+#include "positioned_window_type.h"
 
 // ══════════════════════════════════════════════════════════════════════
 // SidePanelSensorWindow
@@ -24,8 +26,10 @@ bool SidePanelSensorWindow::Create(int x, int y, int width, int height,
   // just asks not to be decorated/activated/listed, so `gtk_window_set_
   // keep_above` and the NOTIFICATION type hint below actually mean something
   // to the WM (an override-redirect POPUP window bypasses the WM entirely,
-  // which loses both).
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  // which loses both). Tiling WMs are the exception: they would tile the
+  // strip into a black half-screen pane, so there it bypasses the WM
+  // (XP-6-10, PositionedHelperWindowType).
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window_), TRUE);
@@ -148,8 +152,8 @@ SidePanelContentWindow::~SidePanelContentWindow() { Destroy(); }
 bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
   if (window_) return true;
 
-  // TOPLEVEL, same rationale as SidePanelSensorWindow::Create above.
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  // Same window type rule as SidePanelSensorWindow::Create above.
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window_), TRUE);
@@ -174,19 +178,17 @@ bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
   }
 
   // ── Second Flutter engine (entrypoint arg: --side-panel) ─────────────
-  g_autoptr(FlDartProject) project = fl_dart_project_new();
-  const gchar* panel_args[] = {"--side-panel", nullptr};
-  fl_dart_project_set_dart_entrypoint_arguments(
-      project, const_cast<gchar**>(panel_args));
+  g_autoptr(FlDartProject) project = secondary_project_new("--side-panel");
 
   FlView* view = fl_view_new(project);
+  secondary_view_watch_first_frame(view, "Side panel");
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};
   fl_view_set_background_color(fl_view_, &transparent);
 
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
   gtk_widget_show(GTK_WIDGET(fl_view_));
 
   gtk_widget_add_events(window_, GDK_ENTER_NOTIFY_MASK |
@@ -196,6 +198,20 @@ bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
                     this);
   g_signal_connect(window_, "leave-notify-event", G_CALLBACK(OnLeaveNotify),
                     this);
+
+  // A drag must start from the button press that began it (Wayland checks
+  // its serial), but the render engine reports the drag only later over its
+  // channel. A capture-phase gesture records each press before the Flutter
+  // view handles it; it never claims the press, so Flutter still gets it.
+  press_gesture_ = gtk_gesture_multi_press_new(window_);
+  gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(press_gesture_),
+                                GDK_BUTTON_PRIMARY);
+  gtk_event_controller_set_propagation_phase(
+      GTK_EVENT_CONTROLLER(press_gesture_), GTK_PHASE_CAPTURE);
+  g_signal_connect(press_gesture_, "pressed", G_CALLBACK(OnPressed), this);
+  g_signal_connect(press_gesture_, "released", G_CALLBACK(OnReleased), this);
+  g_signal_connect(window_, "drag-data-get", G_CALLBACK(OnDragDataGet), this);
+  g_signal_connect(window_, "drag-end", G_CALLBACK(OnDragEnd), this);
 
   gtk_window_move(GTK_WINDOW(window_), x, y);
 
@@ -226,12 +242,123 @@ void SidePanelContentWindow::Destroy() {
   }
   on_content_enter = nullptr;
   on_content_exit = nullptr;
+  if (press_gesture_) {
+    g_object_unref(press_gesture_);
+    press_gesture_ = nullptr;
+  }
+  if (last_press_) {
+    gdk_event_free(last_press_);
+    last_press_ = nullptr;
+  }
   if (window_) {
     gtk_widget_destroy(window_);
     window_ = nullptr;
     fl_view_ = nullptr;  // Destroyed with window_.
   }
   visible_ = false;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Drag-out (issue 11), see SidePanelHost.swift's beginNativeDrag
+// ══════════════════════════════════════════════════════════════════════
+
+namespace {
+constexpr guint kDragText = 1;
+constexpr guint kDragImage = 2;
+}  // namespace
+
+// static
+void SidePanelContentWindow::OnPressed(GtkGestureMultiPress* gesture,
+                                       gint /*n_press*/, gdouble /*x*/,
+                                       gdouble /*y*/, gpointer user_data) {
+  auto* self = static_cast<SidePanelContentWindow*>(user_data);
+  GdkEventSequence* sequence =
+      gtk_gesture_single_get_current_sequence(GTK_GESTURE_SINGLE(gesture));
+  const GdkEvent* event =
+      gtk_gesture_get_last_event(GTK_GESTURE(gesture), sequence);
+  if (!event) return;
+  if (self->last_press_) gdk_event_free(self->last_press_);
+  self->last_press_ = gdk_event_copy(event);
+  self->button_held_ = true;
+}
+
+// static
+void SidePanelContentWindow::OnReleased(GtkGestureMultiPress* /*gesture*/,
+                                        gint /*n_press*/, gdouble /*x*/,
+                                        gdouble /*y*/, gpointer user_data) {
+  static_cast<SidePanelContentWindow*>(user_data)->button_held_ = false;
+}
+
+// static
+void SidePanelContentWindow::OnDragEnd(GtkWidget* /*widget*/,
+                                       GdkDragContext* /*context*/,
+                                       gpointer user_data) {
+  static_cast<SidePanelContentWindow*>(user_data)->ReleaseHeldButton();
+}
+
+// A drag-out grabs the pointer, and a panel that slides out under a held
+// button loses its window: either way the release never reaches the Flutter
+// view, which then keeps the pointer down and ignores every later press.
+// Hand it the release it missed, at the press position.
+void SidePanelContentWindow::ReleaseHeldButton() {
+  if (!button_held_ || !last_press_) return;
+  button_held_ = false;
+  GdkEvent* release = gdk_event_copy(last_press_);
+  release->type = GDK_BUTTON_RELEASE;
+  release->button.state |= GDK_BUTTON1_MASK;
+  const guint32 now = gtk_get_current_event_time();
+  if (now != GDK_CURRENT_TIME) release->button.time = now;
+  gtk_main_do_event(release);
+  gdk_event_free(release);
+}
+
+bool SidePanelContentWindow::BeginDrag(const std::string& text,
+                                       const std::vector<uint8_t>& png) {
+  if (!window_ || !last_press_) return false;
+  const bool image = !png.empty();
+  if (!image && text.empty()) return false;
+  drag_text_ = text;
+  drag_png_ = png;
+
+  GtkTargetList* targets = gtk_target_list_new(nullptr, 0);
+  if (image) {
+    gtk_target_list_add_image_targets(targets, kDragImage, TRUE);
+  } else {
+    gtk_target_list_add_text_targets(targets, kDragText);
+  }
+  GdkDragContext* context = gtk_drag_begin_with_coordinates(
+      window_, targets, GDK_ACTION_COPY, GDK_BUTTON_PRIMARY, last_press_, -1,
+      -1);
+  gtk_target_list_unref(targets);
+  return context != nullptr;
+}
+
+// static
+void SidePanelContentWindow::OnDragDataGet(GtkWidget* /*widget*/,
+                                           GdkDragContext* /*context*/,
+                                           GtkSelectionData* data, guint info,
+                                           guint /*time*/,
+                                           gpointer user_data) {
+  auto* self = static_cast<SidePanelContentWindow*>(user_data);
+  if (info == kDragText) {
+    gtk_selection_data_set_text(data, self->drag_text_.c_str(),
+                                static_cast<gint>(self->drag_text_.size()));
+    return;
+  }
+  if (info != kDragImage || self->drag_png_.empty()) return;
+  // gtk_selection_data_set_pixbuf converts to whichever image target the
+  // drop site asked for (PNG, JPEG, BMP ...).
+  GdkPixbufLoader* loader = gdk_pixbuf_loader_new();
+  if (gdk_pixbuf_loader_write(loader, self->drag_png_.data(),
+                              self->drag_png_.size(), nullptr) &&
+      gdk_pixbuf_loader_close(loader, nullptr)) {
+    if (GdkPixbuf* pixbuf = gdk_pixbuf_loader_get_pixbuf(loader)) {
+      gtk_selection_data_set_pixbuf(data, pixbuf);
+    }
+  } else {
+    gdk_pixbuf_loader_close(loader, nullptr);
+  }
+  g_object_unref(loader);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -286,6 +413,7 @@ void SidePanelContentWindow::SlideIn(int staging_x, int shown_x, int y,
 
 void SidePanelContentWindow::SlideOut(int staging_x, int duration_ms) {
   if (!window_ || !visible_) return;
+  ReleaseHeldButton();
   gint current_x = 0, current_y = 0;
   gtk_window_get_position(GTK_WINDOW(window_), &current_x, &current_y);
   StartAnimation(current_x, staging_x, duration_ms, /*hide_on_done=*/true);

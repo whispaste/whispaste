@@ -30,6 +30,80 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- whispaste:// hands the user back from a web page, e.g. the newsletter
+	     confirmation (lib/services/app_link.dart). Same scheme on every
+	     channel: test/parity/url_scheme_registration_parity_test.dart. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>de.whispaste.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>whispaste</string>
+			</array>
+		</dict>
+	</array>
+	<!-- "Open With" > WhisPaste for the audio types file transcription reads
+	     (#1684; audioImportExtensions in
+	     lib/services/audio/import/audio_file_decoder.dart, guard:
+	     test/parity/open_with_parity_test.dart). Viewer with rank Alternate
+	     on public.audio only: QuickTime and Music claim most audio through
+	     public.audio as well, so their rank Default always wins. A claim on a
+	     concrete type (org.xiph.flac, extensions) would make WhisPaste the
+	     double-click app for FLAC/Ogg/Opus (measured on macOS 27). Audio types
+	     WhisPaste cannot read get the import refusal line. Finder hands the
+	     files to application(_:open:) in AppDelegate.swift, sandbox access
+	     included. -->
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Audio</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.audio</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Ogg/Opus has no system type on every macOS release; declared here so
+	     .ogg and .opus files conform to public.audio and match the document
+	     type above. A type the
+	     system or another app declares takes precedence. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.xiph.ogg-audio</string>
+			<key>UTTypeDescription</key>
+			<string>Ogg Audio</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ogg</string>
+					<string>opus</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>es</string>
+		<string>he</string>
+		<string>pt</string>
+		<string>ru</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
 	<key>NSAppleEventsUsageDescription</key>
@@ -37,8 +111,8 @@
 	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
 	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
 	     URL below is the stable default for the first launch check; the Dart
-	     side overrides it at runtime via setFeedURL(appcastFeedUrl(channel))
-	     from lib/services/auto_updater_service.dart (beta → beta-latest tag). -->
+	     side sets the same feed at runtime via setFeedURL(appcastFeedUrl())
+	     from lib/services/auto_updater_service.dart. -->
 	<key>SUPublicEDKey</key>
 	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
 	<key>SUFeedURL</key>
@@ -57,6 +131,15 @@
 	     Connect and needs a manual per-build answer; with it, Xcode/ASC can
 	     auto-determine compliance from the binary. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- Render with Skia, not Impeller (#445). Impeller stages glyph uploads in a
+	     host buffer that it reuses after four frames without waiting for the GPU
+	     (impeller/core/host_buffer.cc). A GPU job of about 60 ms, such as a
+	     whisper.cpp run on Metal, delays the upload past that reuse, so the glyph
+	     atlas keeps other data for good: broken text and icons until restart.
+	     The key is read per process, so it covers every engine. Criterion for
+	     lifting it: BUILD.md, "Renderer". -->
+	<key>FLTEnableImpeller</key>
 	<false/>
 </dict>
 </plist>

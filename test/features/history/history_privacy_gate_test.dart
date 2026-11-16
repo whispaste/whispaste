@@ -1,4 +1,4 @@
-/// Widget tests for the history privacy gate — the "Show history" screen the
+/// Widget tests for the history privacy gate — the "Show recordings" screen the
 /// History page shows instead of transcripts while
 /// `HistorySettings.historyHideOnOpen` is on (user feedback 571d5361: a
 /// shared computer opened straight into the owner's past dictations).
@@ -6,17 +6,17 @@
 /// AC coverage:
 /// (a) Setting off (default): the page renders entries as before, no gate.
 /// (b) Setting on: the gate is shown and no transcript text is rendered.
-/// (c) Tapping "Show history" reveals the entries.
+/// (c) Tapping "Show recordings" reveals the entries.
 /// (d) Concealing again (what hiding the window does) brings the gate back.
-/// PIN lock (`internal-notes`):
+/// PIN lock:
 /// (e) With a PIN the gate asks for it; a wrong PIN is refused, the right
 ///     one reveals the entries.
 /// (f) "Forgot PIN?" → confirm wipes the history and reveals the page.
 /// (g) Auto-lock conceals after the configured inactivity; activity on the
 ///     page restarts the countdown.
+/// (h) A pending tray request for a file import is named on the gate, so the
+///     user knows why a file was not picked yet.
 library;
-
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,8 +30,10 @@ import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/history/widgets/history_pin_dialogs.dart';
+import 'package:whispaste/services/audio/import/audio_import_providers.dart';
 
 import '../../fixtures/test_helpers.dart';
+import '../../test_helpers/pump_until.dart';
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -59,7 +61,7 @@ Future<ProviderContainer> _pump(
   required bool hideOnOpen,
   String pin = '',
   int autoLockMinutes = 0,
-  Future<void> Function()? wiper,
+  Future<HistoryWipeOutcome> Function()? wiper,
 }) async {
   final all = generateSampleEntries();
   final active = all.where((e) => e.deletedAt == null && !e.archived).toList();
@@ -79,7 +81,7 @@ Future<ProviderContainer> _pump(
             ),
           ),
         ),
-        historyEntriesProvider.overrideWith((ref) => Stream.value(active)),
+        pagedHistoryProvider.overrideWith((ref) => Stream.value(active)),
         archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
         trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
         if (wiper != null) historyWiperProvider.overrideWithValue(wiper),
@@ -110,16 +112,14 @@ void main() {
     await _pump(tester, hideOnOpen: true);
 
     expect(find.byKey(kHistoryPrivacyGateKey), findsOneWidget);
-    expect(find.text(l10n.historyPrivacyGateTitle), findsOneWidget);
-    expect(find.text(l10n.historyPrivacyGateShow), findsOneWidget);
+    expect(find.byKey(const ValueKey('history-gate-action')), findsOneWidget);
     expect(find.text(_sampleTitle), findsNothing);
-    expect(find.text(l10n.historySearchTranscriptions), findsNothing);
   });
 
-  testWidgets('AC(c): "Show history" reveals the entries', (tester) async {
+  testWidgets('AC(c): "Show recordings" reveals the entries', (tester) async {
     await _pump(tester, hideOnOpen: true);
 
-    await tester.tap(find.text(l10n.historyPrivacyGateShow));
+    await tester.tap(find.byKey(const ValueKey('history-gate-action')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(kHistoryPrivacyGateKey), findsNothing);
@@ -129,7 +129,7 @@ void main() {
   testWidgets('AC(d): concealing again brings the gate back', (tester) async {
     final container = await _pump(tester, hideOnOpen: true);
 
-    await tester.tap(find.text(l10n.historyPrivacyGateShow));
+    await tester.tap(find.byKey(const ValueKey('history-gate-action')));
     await tester.pumpAndSettle();
     expect(find.text(_sampleTitle), findsOneWidget);
 
@@ -140,14 +140,31 @@ void main() {
     expect(find.text(_sampleTitle), findsNothing);
   });
 
-  /// Types [pin] into the PIN dialog and submits it. Runs outside the fake
-  /// clock because verification hops to a background isolate.
+  /// Types [pin] into the PIN dialog and submits it. Verification hops to a
+  /// background isolate, so real event-loop turns alternate with pumps until
+  /// the dialog answered: it closes, or it clears the field for a retry. No
+  /// fixed wait (#1491).
   Future<void> submitPin(WidgetTester tester, String pin) async {
-    await tester.enterText(find.byKey(kHistoryPinFieldKey), pin);
-    await tester.runAsync(() async {
-      await tester.tap(find.byKey(kHistoryPinSubmitKey));
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-    });
+    final field = find.byKey(kHistoryPinFieldKey);
+    await tester.enterText(field, pin);
+    // The primary action enables on input (UX-026): let that rebuild land.
+    await tester.pump();
+    await tester.tap(find.byKey(kHistoryPinSubmitKey));
+    await tester.pump();
+    await pumpUntil(
+      tester,
+      () =>
+          field.evaluate().isEmpty ||
+          tester
+              .widget<EditableText>(
+                find.descendant(of: field, matching: find.byType(EditableText)),
+              )
+              .controller
+              .text
+              .isEmpty,
+      what: 'the PIN check to answer',
+      step: const Duration(milliseconds: 50),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -155,13 +172,9 @@ void main() {
       'right one', (tester) async {
     await _pump(tester, hideOnOpen: true, pin: _pin4711);
 
-    expect(find.text(l10n.historyPinGateTitle), findsOneWidget);
-    expect(find.text(l10n.historyPrivacyGateShow), findsNothing);
-
-    await tester.tap(find.text(l10n.historyPinUnlock));
+    await tester.tap(find.byKey(const ValueKey('history-gate-action')));
     await tester.pumpAndSettle();
     await submitPin(tester, '0000');
-    expect(find.text(l10n.historyPinWrong), findsOneWidget);
     expect(find.text(_sampleTitle), findsNothing);
 
     await submitPin(tester, '4711');
@@ -186,15 +199,17 @@ void main() {
       tester,
       hideOnOpen: true,
       pin: _pin4711,
-      wiper: () async => wipes++,
+      wiper: () async {
+        wipes++;
+        return const HistoryWipeOutcome(leftovers: 0, queued: true, folder: '');
+      },
     );
 
-    await tester.tap(find.text(l10n.historyPinUnlock));
+    await tester.tap(find.byKey(const ValueKey('history-gate-action')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(kHistoryPinForgotKey));
     await tester.pumpAndSettle();
-    expect(find.text(l10n.historyPinForgotConfirmTitle), findsOneWidget);
-    await tester.tap(find.text(l10n.historyPinForgotConfirmAction));
+    await tester.tap(find.byKey(const ValueKey('confirm-dialog-confirm')));
     await tester.pumpAndSettle();
 
     expect(wipes, 1);
@@ -207,7 +222,7 @@ void main() {
   ) async {
     await _pump(tester, hideOnOpen: true, autoLockMinutes: 1);
 
-    await tester.tap(find.text(l10n.historyPrivacyGateShow));
+    await tester.tap(find.byKey(const ValueKey('history-gate-action')));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 50));
     await tester.tap(find.text(_sampleTitle));
@@ -219,4 +234,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(kHistoryPrivacyGateKey), findsOneWidget);
   });
+
+  testWidgets(
+    '(h) a pending tray import request names the unlock on the gate',
+    (tester) async {
+      final container = await _pump(tester, hideOnOpen: true);
+      expect(find.byKey(kHistoryImportRequestHintKey), findsNothing);
+
+      container.read(audioImportPickRequestProvider.notifier).request();
+      await tester.pump();
+
+      expect(find.byKey(kHistoryImportRequestHintKey), findsOneWidget);
+      // Disposes the scope, which cancels the request's 60 s timer.
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

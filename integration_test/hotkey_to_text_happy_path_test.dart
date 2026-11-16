@@ -238,7 +238,7 @@ class FixtureAudioService extends AudioServiceNotifier {
   }
 
   @override
-  Future<String?> stopRecording() async {
+  Future<String?> stopRecording({bool keepTail = true}) async {
     final path = _recordingCopyPath;
     state = AudioStatus(filePath: path);
     return path;
@@ -263,7 +263,7 @@ class _AlwaysReadyEngineLifecycle implements OnDeviceEngineLifecycle {
       const EngineLifecycleStatus(isReady: true);
 
   @override
-  Future<void> ensureRunning() async {}
+  Future<void> ensureRunning({bool warmup = true}) async {}
 
   @override
   Future<void> prewarm() async {}

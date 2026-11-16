@@ -2,7 +2,7 @@
 /// (e.g. `SocketException`, GitHub rate-limit) must NOT escalate to
 /// Sentry via `CrashReporter.captureError`.
 ///
-/// Rationale: see `internal-notes` — Modul 6. The
+/// Rationale: the
 /// update poll happens on app start regardless of user intent and runs
 /// against a third-party API the user cannot influence; capturing those
 /// failures burned Free-Tier issue quota for zero diagnostic value.
@@ -139,9 +139,11 @@ void main() {
     );
 
     // Observable behaviour 2 (the contract under test) — no Sentry event.
-    // Give any fire-and-forget capture a tick to land. CrashReporter
-    // sends through Sentry.captureMessage/Exception which are async.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // CrashReporter sends through Sentry.captureMessage/Exception, which are
+    // async and fire-and-forget; flush() awaits every capture still in
+    // flight, so one would have reached beforeSend by now (no fixed wait,
+    // #1491).
+    await CrashReporter.instance!.flush();
 
     expect(
       _capturedEvents,
@@ -177,7 +179,10 @@ void main() {
       reason: 'a 5xx must still surface as a graceful error state',
     );
 
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // The FailedRequestInterceptor awaits its own capture before it passes
+    // the error on, so checkForUpdate() returning covers that path;
+    // flush() covers any CrashReporter capture still in flight.
+    await CrashReporter.instance!.flush();
 
     expect(
       _capturedEvents,

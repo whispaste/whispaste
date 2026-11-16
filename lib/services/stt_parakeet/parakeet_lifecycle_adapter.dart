@@ -26,13 +26,17 @@ class ParakeetEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   }
 
   @override
-  Future<void> ensureRunning() => _notifier.ensureRunning();
+  // Parakeet has no warm-up inference to skip; [warmup] is ignored.
+  Future<void> ensureRunning({bool warmup = true}) => _notifier.ensureRunning();
 
   @override
   Future<void> prewarm() => _notifier.prewarm();
 
   @override
   Future<void> stop() => _notifier.stop();
+
+  /// Quit path, see [ParakeetEngineNotifier.stopForQuit].
+  Future<void> stopForQuit() => _notifier.stopForQuit();
 
   // Parakeet has no idle-shutdown timer yet (Phase 1 scope, see
   // parakeet_transcriber.dart) — the worker isolate stays warm regardless of

@@ -17,9 +17,12 @@ import '../../../services/replacements/correction_learning_service.dart';
 import '../../../services/replacements/correction_signal.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../services/voice_action_service.dart';
-import '../../../widgets/toast.dart';
+import '../../../widgets/wp_notice_bar.dart';
 import '../../../widgets/wp_voice_input_button.dart';
 import '../data/history_detail_provider.dart';
+import 'history_write_failure.dart';
+import '../../../widgets/wp_page_notice.dart';
+import '../../../widgets/wp_banner.dart';
 
 // ---------------------------------------------------------------------------
 // Widget
@@ -47,7 +50,16 @@ class VoiceNoteButton extends ConsumerWidget {
     final l10n = L10n.of(context);
     final action = parseVoiceAction(transcript);
     if (action == null) {
-      _showToast(context, l10n.voiceNoteEmpty, isError: true);
+      showWpPageNotice(
+        context,
+        page: WpNoticePage.history,
+        notice: WpPageNotice(
+          id: 'voice-empty',
+          message: l10n.voiceNoteEmpty,
+          tone: WpBannerTone.warning,
+          area: entryId,
+        ),
+      );
       return;
     }
 
@@ -57,8 +69,7 @@ class VoiceNoteButton extends ConsumerWidget {
     final notifier = ref.read(historyDetailProvider(entryId).notifier);
     final telemetry = ref.read(telemetrySessionAggregatorProvider);
     // The content *before* this correction is applied -- this is the
-    // "Ausgangstext" half of the correction signal (ticket 01
-    // `internal-notes`); `updateContent` below
+    // "Ausgangstext" half of the correction signal; `updateContent` below
     // overwrites it, so it must be captured now.
     final contentBeforeCorrection = ref
         .read(historyDetailProvider(entryId))
@@ -80,14 +91,26 @@ class VoiceNoteButton extends ConsumerWidget {
     switch (action.type) {
       case VoiceActionType.note:
         await notifier.addNote(action.payload);
-        if (context.mounted) _showToast(context, l10n.voiceNoteAdded);
       case VoiceActionType.tag:
         await notifier.addTag(action.payload);
-        if (context.mounted) {
-          _showToast(context, l10n.voiceTagAdded(action.payload));
-        }
       case VoiceActionType.correction:
-        await notifier.updateContent(action.payload);
+        try {
+          await notifier.updateContent(action.payload);
+        } catch (e, st) {
+          // An entry that is not loaded cannot take the correction; say so
+          // instead of letting the button hang on an unhandled error.
+          // Warnings are breadcrumbs only: an Error (e.g. the StateError for
+          // an entry that is not loaded) must reach Sentry as an error.
+          if (e is Error) {
+            _log.error('Applying the voice correction failed', e, st);
+          } else {
+            _log.warning('Applying the voice correction failed', e, st);
+          }
+          if (context.mounted) {
+            showHistoryWriteFailed(context, entryId: entryId);
+          }
+          return;
+        }
         // The command replaces the *entire* entry content in one shot with
         // no confirmation step -- a misheard "korrektur:" prefix (or a
         // correction aimed at fixing one word further up that accidentally
@@ -96,12 +119,16 @@ class VoiceNoteButton extends ConsumerWidget {
         // require turning this into a two-step confirm dialog and slowing
         // down the common case.
         if (context.mounted) {
-          _showToast(
+          _showDone(
             context,
             l10n.voiceCorrectionApplied,
             undo: contentBeforeCorrection == null
                 ? null
-                : () => notifier.updateContent(contentBeforeCorrection),
+                : () => _undoCorrection(
+                    context,
+                    notifier,
+                    contentBeforeCorrection,
+                  ),
           );
         }
         // Only a real change is a "correction" worth learning from -- a
@@ -112,15 +139,25 @@ class VoiceNoteButton extends ConsumerWidget {
         if (correctionLearningEnabled &&
             contentBeforeCorrection != null &&
             contentBeforeCorrection != action.payload) {
-          await correctionLearningService.recordSignal(
-            CorrectionSignal(
-              sourceText: contentBeforeCorrection,
-              targetText: action.payload,
-              timestamp: DateTime.now(),
-              source: CorrectionSignalSource.voiceCommand,
-            ),
-            db,
-          );
+          try {
+            await correctionLearningService.recordSignal(
+              CorrectionSignal(
+                sourceText: contentBeforeCorrection,
+                targetText: action.payload,
+                timestamp: DateTime.now(),
+                source: CorrectionSignalSource.voiceCommand,
+              ),
+              db,
+            );
+          } catch (e, st) {
+            // The correction itself is applied; failing to learn from it
+            // must not turn the voice action into an error.
+            if (e is Error) {
+              _log.error('Recording correction signal failed', e, st);
+            } else {
+              _log.warning('Recording correction signal failed', e, st);
+            }
+          }
         }
     }
 
@@ -130,29 +167,65 @@ class VoiceNoteButton extends ConsumerWidget {
     telemetry.count(category: 'voice_note', action: 'create');
   }
 
-  void _showToast(
+  /// Puts the pre-correction text back; a failing write is reported like any
+  /// other history write, never thrown out of the undo button.
+  Future<bool> _undoCorrection(
+    BuildContext context,
+    HistoryDetailNotifier notifier,
+    String previous,
+  ) async {
+    try {
+      await notifier.updateContent(previous);
+      return true;
+    } catch (e, st) {
+      if (e is Error) {
+        _log.error('Undoing the voice correction failed', e, st);
+      } else {
+        _log.warning('Undoing the voice correction failed', e, st);
+      }
+      if (context.mounted) showHistoryWriteFailed(context, entryId: entryId);
+      return false;
+    }
+  }
+
+  /// The confirmation of a correction. With a way back it is an undo in the
+  /// notice bar, which stays long enough to notice a wrong correction
+  /// (UIA-HIS-16); a plain confirmation belongs to the entry and closes
+  /// itself there.
+  void _showDone(
     BuildContext context,
     String message, {
-    bool isError = false,
-    VoidCallback? undo,
+    Future<bool> Function()? undo,
   }) {
     final l10n = L10n.of(context);
-    WpToast.show(
+    if (undo == null) {
+      showWpPageNotice(
+        context,
+        page: WpNoticePage.history,
+        notice: WpPageNotice(
+          id: 'voice-done',
+          message: message,
+          tone: WpBannerTone.info,
+          area: entryId,
+          autoDismiss: const Duration(seconds: 6),
+        ),
+      );
+      return;
+    }
+    showWpNotice(
       context,
-      message: message,
-      type: isError ? WpToastType.error : WpToastType.success,
-      duration: const Duration(seconds: 2),
-      action: undo == null
-          ? null
-          : WpToastAction(
-              label: l10n.undo,
-              onPressed: () {
-                undo();
-                if (context.mounted) {
-                  _showToast(context, l10n.voiceCorrectionUndone);
-                }
-              },
-            ),
+      WpNotice(
+        id: 'voice-correction',
+        kind: WpNoticeKind.undo,
+        message: message,
+        actionLabel: l10n.undo,
+        onAction: () async {
+          final undone = await undo();
+          if (undone && context.mounted) {
+            _showDone(context, l10n.voiceCorrectionUndone);
+          }
+        },
+      ),
     );
   }
 
@@ -161,6 +234,15 @@ class VoiceNoteButton extends ConsumerWidget {
     return WpVoiceInputButton(
       idleTooltip: L10n.of(context).historyVoiceNoteButtonTooltip,
       onTranscript: (transcript) => _dispatch(context, ref, transcript),
+      onError: (message) => showWpPageNotice(
+        context,
+        page: WpNoticePage.history,
+        notice: WpPageNotice(
+          id: 'voice-failed',
+          message: message,
+          area: entryId,
+        ),
+      ),
     );
   }
 }

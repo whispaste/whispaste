@@ -9,7 +9,7 @@
     "grid-gap": { "$value": "32px", "$extensions": { "fluid": { "min": "20px", "max": "32px" } } },
     "band-fade": { "$value": "clamp(80px, 12vh, 220px)", "$type": "string", "$description": "Feathered top/bottom edge of dark bands over the wash." },
     "band-inset": { "$value": "16px", "$extensions": { "fluid": { "min": "8px", "max": "16px" } }, "$description": "Side inset of light bands: they sit on the dark stage as panels, never as full-bleed straight cuts." },
-    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (reference: another app's rising panel)." }
+    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (the panel rises over the light ground)." }
   },
   "type": {
     "display": {
@@ -63,6 +63,16 @@
     "ring-color": { "$type": "color", "$value": "{focus.ring}" },
     "ring-width": { "$type": "dimension", "$value": "2px" },
     "ring-offset": { "$type": "dimension", "$value": "2px" }
+  },
+  "coffee-button": {
+    "height": { "$type": "dimension", "$value": "{layout.touch-target}" },
+    "radius": { "$type": "dimension", "$value": "{radius.pill}" },
+    "pad-x": { "$type": "dimension", "$value": "{space.6}" },
+    "gap": { "$type": "dimension", "$value": "{space.2}" },
+    "weight": { "$type": "fontWeight", "$value": "{font.weight.bold}" },
+    "fill": { "$type": "color", "$value": "{coffee.fill}" },
+    "fill-hover": { "$type": "color", "$value": "{coffee.fill-hover}" },
+    "text": { "$type": "color", "$value": "{coffee.on-fill}" }
   },
   "button": {
     "height": { "$type": "dimension", "$value": "{layout.touch-target}" },
@@ -122,7 +132,9 @@
   "photo": {
     "radius": { "$type": "dimension", "$value": "{radius.surface}" },
     "fill": { "$type": "color", "$value": "{surface.sunken}", "$description": "Placeholder colour while an image loads." },
-    "caption": { "$type": "color", "$value": "{text.muted}" }
+    "caption": { "$type": "color", "$value": "{text.muted}" },
+    "label-fill": { "$type": "color", "$value": "{color.navy.900}", "$description": "Opaque label laid onto a photo (device and scene captions); dark on any band so it never relies on the image." },
+    "label-text": { "$type": "color", "$value": "{color.frost.200}", "$description": "Text of the photo label, about 9:1 on its fill." }
   },
   "nav": {
     "fill": { "$type": "color", "$value": "{surface.floating}" },
@@ -237,14 +249,14 @@
     "line-height": { "$type": "number", "$value": "{font.line-height.relaxed}" }
   },
   "overlay": {
-    "$description": "The recording overlay (the fluid pill that floats over the desktop while dictating). Theme-invariant: one capsule reads on light and dark desktops alike. Shape, motion and behaviour stay in the app's OverlayDesignSpec; these are only its colours, shared 1:1 by the website renderer (src/scripts/overlay-tokens.generated.ts) and, once adopted, the app.",
-    "fill": { "$type": "color", "$value": "{color.navy.900}", "$description": "Flat, opaque capsule fill. Navy only, no gradient, no violet." },
-    "accent": { "$type": "color", "$value": "{color.cyan.300}", "$description": "Primary: live dot, progress timeline and the hairline border (at 20 %)." },
-    "wave": { "$type": "color", "$value": "{color.amber.400}", "$description": "Secondary: the waveform, flat and fully opaque, one colour for every bar." },
-    "success": { "$type": "color", "$value": "{color.green.400}", "$description": "Done checkmark." },
-    "error": { "$type": "color", "$value": "{color.red.400}", "$description": "Error icon." },
-    "glyph": { "$type": "color", "$value": "{color.frost.50}", "$description": "Timer and status text, close cross, stop square." },
-    "glyph-shadow": { "$type": "color", "$value": "{color.navy.950}", "$description": "Soft shadow behind the glyphs, keeps them legible on any desktop." }
+    "$description": "The recording overlay (the pill that floats over the desktop while dictating), in its default look: amber fill with ink, compact, static outline (Marine design default, maintainer 2026-10-30). Theme-invariant: one capsule reads on light and dark desktops alike. Shape, motion and behaviour stay in the app's OverlayDesignSpec; these are only its colours, shared 1:1 by the website renderer (src/scripts/overlay-tokens.generated.ts) and, once adopted, the app.",
+    "fill": { "$type": "color", "$value": "{color.amber.400}", "$description": "Flat, opaque capsule fill: amber (Bernstein), the default overlay of the Marine design (app preset overlay.amber). No gradient." },
+    "accent": { "$type": "color", "$value": "{color.navy.900}", "$description": "Hairline border (at 20 %) and progress timeline: the dark ink, which reaches about 10.5:1 on amber." },
+    "wave": { "$type": "color", "$value": "{color.navy.900}", "$description": "The waveform in ink (app wave preset ink), flat and fully opaque, one colour for every bar." },
+    "success": { "$type": "color", "$value": "{color.navy.900}", "$description": "Done checkmark: ink, as in the app, where the done check on amber goes straight to ink." },
+    "error": { "$type": "color", "$value": "{color.red.800}", "$description": "Error icon: the app's light-tone error red, which keeps 3:1 on amber." },
+    "glyph": { "$type": "color", "$value": "{color.navy.900}", "$description": "Timer and status text, close cross, stop square: ink on amber." },
+    "glyph-shadow": { "$type": "color", "$value": "{color.amber.200}", "$description": "Soft outline behind the glyphs (app preset overlay.amber ink-outline)." }
   },
   "illustration": {
     "$description": "Motion graphics and diagrams. Every SVG colour reads one of these, so a graphic adapts to the band it sits on.",

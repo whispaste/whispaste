@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Anchors that `WpToast` stays the app's only transient notification.
+/// Guards that no raw `SnackBar` and no classic toast (`WpToast`, removed in
+/// #456) appears in `lib/`.
 ///
 /// The leak this closes was small but visible: two call sites still raised a
 /// Material `SnackBar` — bottom-centre, square, its own typography, its own
@@ -12,8 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// `paste_capability_indicator.dart` rendered "reset done" and "reset failed"
 /// identically.
 ///
-/// The allowlist is deliberately empty: `toast.dart` builds its own overlay
-/// and never touches `ScaffoldMessenger`, so there is no legitimate
+/// The allowlist is deliberately empty: the app builds its own notices and
+/// never touches `ScaffoldMessenger`, so there is no legitimate
 /// `showSnackBar` anywhere in `lib/`. If one ever becomes legitimate, add it
 /// here with the reason rather than deleting the guard.
 void main() {
@@ -42,26 +43,28 @@ void main() {
       offenders,
       isEmpty,
       reason:
-          'Raw SnackBar built outside WpToast. Route it through '
-          'WpToast.show(context, message: …, type: WpToastType.success / '
-          'error / warning / info) instead — the type is the part a SnackBar '
+          'Raw SnackBar found. Route it through showWpNotice / '
+          'showWpPageNotice instead — the kind is the part a SnackBar '
           'cannot express: ${offenders.join(', ')}',
     );
   });
 
-  test('WpToast is where the toast lives', () {
-    // Sanity anchor for the empty allowlist above: if `toast.dart` ever moves
-    // or is renamed, the guard would keep passing while guarding nothing.
-    final toast = File('lib/widgets/toast.dart');
+  test('the classic toast does not return', () {
     expect(
-      toast.existsSync(),
-      isTrue,
-      reason: 'lib/widgets/toast.dart is the component this guard protects',
+      File('lib/widgets/toast.dart').existsSync(),
+      isFalse,
+      reason:
+          'The classic toast is gone (#456); use showWpNotice, '
+          'showWpPageNotice, showWpAppError or showWpDictationMessage.',
     );
-    expect(
-      toast.readAsStringSync(),
-      contains('class WpToast'),
-      reason: 'WpToast must still be the API the guard points call sites at',
-    );
+    final pattern = RegExp(r'\bWpToast(Type|PopupObserver)?\b');
+    final offenders = <String>[];
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      if (pattern.hasMatch(entity.readAsStringSync())) {
+        offenders.add(entity.path.replaceAll(r'\', '/'));
+      }
+    }
+    expect(offenders, isEmpty, reason: 'WpToast is back in: $offenders');
   });
 }

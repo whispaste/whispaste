@@ -85,7 +85,8 @@ void main() {
       const runner = PipelineStepRunner(timeout: Duration(seconds: 5));
 
       final result = await runner.run<String>('async_step', () async {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+        // A real event-loop hop, so the step completes asynchronously.
+        await Future<void>.delayed(Duration.zero);
         return 'done';
       });
 
@@ -98,7 +99,7 @@ void main() {
 
       final result = await runner.run<int>('slow_step', () async {
         // Takes much longer than the 50 ms timeout.
-        await Future<void>.delayed(const Duration(seconds: 10));
+        await Completer<void>().future; // never completes; the timeout fires
         return 0;
       });
 
@@ -165,7 +166,7 @@ void main() {
 
       // Override with a very short timeout for this specific call.
       final result = await runner.run<int>('overridden_timeout_step', () async {
-        await Future<void>.delayed(const Duration(seconds: 10));
+        await Completer<void>().future; // never completes; the timeout fires
         return 0;
       }, timeout: const Duration(milliseconds: 30));
 
@@ -238,7 +239,7 @@ void main() {
       );
 
       await runner.run<int>('paste', () async {
-        await Future<void>.delayed(const Duration(seconds: 10));
+        await Completer<void>().future; // never completes; the timeout fires
         return 0;
       });
 
@@ -350,7 +351,7 @@ void main() {
       );
 
       final result = await slowRunner.run<String>('slow_step', () async {
-        await Future<void>.delayed(const Duration(seconds: 10));
+        await Completer<void>().future; // never completes; the timeout fires
         return 'late';
       });
 

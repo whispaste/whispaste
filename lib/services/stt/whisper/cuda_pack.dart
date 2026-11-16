@@ -33,10 +33,13 @@ import 'package:path/path.dart' as p;
 import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../deploy_channel_service.dart';
+import '../../download_fragment_guard.dart';
 import '../../file_verification_service.dart';
 import '../../hardware_info_service.dart';
 import '../../http_model_fetcher.dart';
 import '../../path_service.dart';
+import '../../../core/app_info.dart' as app;
+import 'cuda_ab.dart';
 
 final _log = AppLogger('CudaPack');
 
@@ -167,6 +170,9 @@ const _linuxPack = CudaPackInfo(
   ],
 );
 
+/// Every published pack, for the source guard (`tool/model_sources.json`).
+const List<CudaPackInfo> allCudaPacks = [_windowsPack, _linuxPack];
+
 /// The pack for this machine, or `null` where none exists (macOS, ARM).
 CudaPackInfo? cudaPackForThisPlatform() {
   final CudaPackInfo pack;
@@ -209,11 +215,72 @@ bool isCudaPackInstalled(CudaPackInfo pack, {required String rootDir}) {
 ///
 /// Turing (RTX 20xx, GTX 16xx) or newer only: the pack carries kernels for
 /// sm_75 and up, and an older card would fail at the first kernel launch.
+/// Store builds see the row too, disabled with the reason (spec §6, AR-19):
+/// the download itself is blocked there, see [activeCudaPackDirProvider].
 bool isCudaPackOffered({
   required bool packAvailable,
-  required bool isStoreBuild,
   required bool turingOrNewerNvidia,
-}) => packAvailable && !isStoreBuild && turingOrNewerNvidia;
+}) => packAvailable && turingOrNewerNvidia;
+
+/// Whether [gpuName] is a GeForce GTX 16xx card (Turing without tensor
+/// cores). The pack is still offered there, with the hint that it is usually
+/// slower than Vulkan (#1670: GTX 1650 measured 1.8 to 2.4 times slower);
+/// the comparison after the download decides.
+bool isGtx16Nvidia(String gpuName) =>
+    RegExp(r'GTX\s*16\d\d').hasMatch(gpuName.toUpperCase());
+
+/// NVIDIA's CUDA End User License Agreement. The pack ships NVIDIA
+/// components under it, so the download waits for explicit consent (see
+/// [isCudaEulaAcceptedFor]). The consent dialog shows the bundled full text
+/// (see [kCudaEulaAssetPath]) before the download, and links to NVIDIA's
+/// current version here.
+const kCudaNvidiaEulaUrl = 'https://docs.nvidia.com/cuda/eula/index.html';
+
+/// Version label of the NVIDIA CUDA EULA the pack ships. The bundled copy is
+/// dated 26 Jan 2026; [kCudaNvidiaEulaUrl] opens NVIDIA's current version.
+const kCudaEulaVersion = '2026-01-26';
+
+/// SHA-256 of the licence text: `scripts/LICENSE-NVIDIA.txt`, bundled as the
+/// app asset [kCudaEulaAssetPath] and shipped in every pack. A test binds the
+/// bundled copy to this value.
+const kCudaEulaSha256 =
+    '95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3';
+
+/// The licence text as an app asset, shown in the consent dialog.
+const kCudaEulaAssetPath = 'assets/licenses/nvidia-cuda-eula-2026-01-26.txt';
+
+/// The consent base for [packId]: pack id, licence label and the SHA-256
+/// prefix of the licence text. Changing any of them invalidates a consent.
+String _cudaEulaConsentBase(String packId) =>
+    '$packId+eula-$kCudaEulaVersion+${kCudaEulaSha256.substring(0, 12)}';
+
+/// The consent value stored once the user accepts [packId]: the consent base
+/// plus the time of acceptance (UTC, ISO 8601), e.g.
+/// `ggml-v1.9.5-cu12.8-r1+eula-2026-01-26+95815d3a862c@2026-10-18T09:00:00.000Z`.
+String cudaEulaConsentValue(String packId, {DateTime? at}) {
+  final stamp = (at ?? DateTime.now()).toUtc().toIso8601String();
+  return '${_cudaEulaConsentBase(packId)}@$stamp';
+}
+
+/// Whether the stored consent [accepted] covers the pack [packId] as it is
+/// now.
+///
+/// Consent is bound to the pack id, the licence label and the licence text
+/// hash: a new pack id or a new licence text asks again. A value stored before
+/// the text binding has no match and is asked once more with the current text.
+/// An empty string (never accepted) never matches. Pure, so the rule is
+/// testable.
+bool isCudaEulaAcceptedFor({
+  required String accepted,
+  required String packId,
+}) => accepted.startsWith('${_cudaEulaConsentBase(packId)}@');
+
+/// Whether a CUDA pack may be downloaded or loaded in this build. Store
+/// builds never do (Store policy 10.2.2, AR-19); the row shows the reason
+/// instead. Checked hard in [CudaPackNotifier.install] and in
+/// [activeCudaPackDirProvider], so no UI path can bypass it.
+bool isCudaPackDownloadAllowed({required DeployChannel channel}) =>
+    channel != DeployChannel.store;
 
 // ---------------------------------------------------------------------------
 // Install / remove
@@ -261,7 +328,14 @@ class CudaPackStore {
     final staging = Directory(p.join(rootDir, '${pack.id}.partial'));
     await _deleteQuietly(staging);
     await staging.create(recursive: true);
-    await _extract(archive.path, staging.path);
+    try {
+      await _extract(archive.path, staging.path);
+    } catch (_) {
+      // A partly written staging folder (disk full, broken archive) is
+      // useless and can be up to ~1 GB: drop it now, not at the next launch.
+      await _deleteQuietly(staging);
+      rethrow;
+    }
 
     for (final file in pack.files) {
       final f = File(p.join(staging.path, file.name));
@@ -447,10 +521,60 @@ class CudaPackNotifier extends Notifier<CudaPackState> {
     );
   }
 
-  /// Downloads, verifies and installs the pack.
+  /// Downloads, verifies and installs the pack. Refuses unless the NVIDIA
+  /// EULA was accepted for this pack id (the consent dialog runs first, see
+  /// [acceptEulaAndInstall]).
   Future<void> install() async {
     final pack = state.pack;
-    if (pack == null || state.isBusy || state.installed) return;
+    if (pack == null) return;
+    final settings = await ref.read(settingsProvider.future);
+    if (!isCudaEulaAcceptedFor(
+      accepted: settings.behavior.cudaEulaAccepted,
+      packId: pack.id,
+    )) {
+      return;
+    }
+    await _install(pack);
+  }
+
+  /// Records the user's acceptance of the NVIDIA EULA for this pack version
+  /// (per installation, never exported), then downloads and installs.
+  Future<void> acceptEulaAndInstall() async {
+    final pack = state.pack;
+    if (pack == null) return;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            behavior: s.behavior.copyWith(
+              cudaEulaAccepted: cudaEulaConsentValue(pack.id),
+            ),
+          ),
+        );
+    await _install(pack);
+  }
+
+  /// Records consent for an already installed pack, after the user has read
+  /// the licence in the dialog. No download happens.
+  Future<void> recordEulaConsent() async {
+    final pack = state.pack;
+    if (pack == null) return;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            behavior: s.behavior.copyWith(
+              cudaEulaAccepted: cudaEulaConsentValue(pack.id),
+            ),
+          ),
+        );
+  }
+
+  Future<void> _install(CudaPackInfo pack) async {
+    if (state.isBusy || state.installed) return;
+    if (!isCudaPackDownloadAllowed(channel: ref.read(deployChannelProvider))) {
+      return;
+    }
     final store = _store;
     if (store.cancelPendingRemoval(pack)) {
       state = state.copyWith(installed: true, clearError: true);
@@ -463,16 +587,31 @@ class CudaPackNotifier extends Notifier<CudaPackState> {
     );
     try {
       final dest = store.downloadPath(pack);
-      await Directory(p.dirname(dest)).create(recursive: true);
-      await _fetcher.fetch(
-        url: pack.url,
-        destPath: dest,
-        expectedSize: pack.archiveSizeBytes,
-        onProgress: (progress) =>
-            state = state.copyWith(bytesReceived: progress.bytesReceived),
+      // One writer per pack across processes (the app and a headless
+      // `--download-cuda-pack` run). The lock file sits outside the download
+      // folder, which the install deletes.
+      await _fetcher.withDestinationLock(
+        p.join(store.rootDir, '${pack.id}.archive'),
+        () async {
+          if (isCudaPackInstalled(pack, rootDir: store.rootDir)) return;
+          await Directory(p.dirname(dest)).create(recursive: true);
+          // A fragment of another archive version is never resumed.
+          await prepareFragmentIdentity(
+            destPath: dest,
+            sha256: pack.archiveSha256,
+            sizeBytes: pack.archiveSizeBytes,
+          );
+          await _fetcher.fetch(
+            url: pack.url,
+            destPath: dest,
+            expectedSize: pack.archiveSizeBytes,
+            onProgress: (progress) =>
+                state = state.copyWith(bytesReceived: progress.bytesReceived),
+          );
+          state = state.copyWith(phase: CudaPackPhase.installing);
+          await store.installFromArchive(pack);
+        },
       );
-      state = state.copyWith(phase: CudaPackPhase.installing);
-      await store.installFromArchive(pack);
       state = state.copyWith(installed: true, phase: CudaPackPhase.idle);
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
@@ -518,7 +657,6 @@ final cudaPackOfferedProvider = Provider<bool>((ref) {
   final gpu = ref.watch(gpuInfoProvider).value;
   return isCudaPackOffered(
     packAvailable: ref.watch(cudaPackProvider.select((s) => s.pack != null)),
-    isStoreBuild: ref.watch(deployChannelProvider) == DeployChannel.store,
     // supportsFlashAttn is the existing Turing-or-newer name check
     // (RTX branding, GTX 16xx, Turing+ workstation cards).
     turingOrNewerNvidia:
@@ -526,17 +664,119 @@ final cudaPackOfferedProvider = Provider<bool>((ref) {
   );
 });
 
+/// Pure load rule behind [activeCudaPackDirProvider]: the pack folder to load,
+/// or `null`. Nothing loads without the NVIDIA EULA consent for this pack id,
+/// label and text hash (Maintainer decision 3a, 2026-10-18), so the engine
+/// falls back to Vulkan or CPU. Nothing loads either when the comparison for
+/// this setup found Vulkan faster ([vulkanFaster], #1670): the pack stays
+/// installed and unused.
+String? activeCudaPackDirFor({
+  required bool offered,
+  required bool downloadAllowed,
+  required bool enabled,
+  required CudaPackState state,
+  required String accepted,
+  required String rootDir,
+  bool vulkanFaster = false,
+}) {
+  if (!offered || !downloadAllowed || !enabled || vulkanFaster) return null;
+  final pack = state.pack;
+  if (pack == null || !state.installed) return null;
+  if (!isCudaEulaAcceptedFor(accepted: accepted, packId: pack.id)) return null;
+  return p.join(rootDir, pack.id);
+}
+
+/// The stored CUDA/Vulkan comparison for this setup, or `null` when there is
+/// none yet (see `cuda_ab.dart`). Pure, so the freshness rule is testable.
+CudaAbRecord? cudaAbRecordFor({
+  required Map<String, CudaAbRecord> records,
+  required GpuInfo? gpu,
+  required String? packId,
+  required String? modelId,
+  required String appVersion,
+}) {
+  if (gpu == null || packId == null || modelId == null) return null;
+  return records[cudaAbKey(
+    gpu: gpu,
+    appVersion: appVersion,
+    packId: packId,
+    modelId: modelId,
+  )];
+}
+
+/// The comparison for the installed pack, the detected GPU and the selected
+/// model, or `null`.
+final cudaAbRecordProvider = Provider<CudaAbRecord?>((ref) {
+  final pack = ref.watch(cudaPackProvider.select((s) => s.pack));
+  if (pack == null) return null;
+  return cudaAbRecordFor(
+    records: ref.watch(cudaAbProvider),
+    gpu: ref.watch(gpuInfoProvider).value,
+    packId: pack.id,
+    modelId: ref.watch(
+      settingsProvider.select((s) => s.value?.effectiveModelId),
+    ),
+    appVersion: app.appVersion,
+  );
+});
+
 /// Folder of the installed CUDA pack the Whisper engine should load, or
-/// `null` (not offered, not installed, or switched off by the user or by the
-/// GPU-load crash recovery).
+/// `null` (not offered, not installed, no current NVIDIA consent, switched
+/// off by the user or by the GPU-load crash recovery, or slower than Vulkan
+/// on this setup).
 final activeCudaPackDirProvider = Provider<String?>((ref) {
-  if (!ref.watch(cudaPackOfferedProvider)) return null;
+  final offered = ref.watch(cudaPackOfferedProvider);
+  // Store builds never load a driver pack: the download is not allowed there.
+  final downloadAllowed = isCudaPackDownloadAllowed(
+    channel: ref.watch(deployChannelProvider),
+  );
   final enabled = ref.watch(
     settingsProvider.select((s) => s.value?.behavior.cudaAcceleration ?? true),
   );
-  if (!enabled) return null;
+  final accepted = ref.watch(
+    settingsProvider.select((s) => s.value?.behavior.cudaEulaAccepted ?? ''),
+  );
+  // While settings are still loading the consent reads as empty; the engine
+  // provider watches this one and rebuilds once they arrive, so stay quiet.
+  final settingsLoaded = ref.watch(
+    settingsProvider.select((s) => s.value != null),
+  );
   final state = ref.watch(cudaPackProvider);
+  // Only an installed pack reads the comparison file.
+  final vulkanFaster =
+      state.installed &&
+      (ref.watch(cudaAbRecordProvider.select((r) => r?.vulkanFaster)) ?? false);
+  final dir = activeCudaPackDirFor(
+    offered: offered,
+    downloadAllowed: downloadAllowed,
+    enabled: enabled,
+    state: state,
+    accepted: accepted,
+    rootDir: cudaPackRootDir(),
+    vulkanFaster: vulkanFaster,
+  );
   final pack = state.pack;
-  if (pack == null || !state.installed) return null;
-  return p.join(cudaPackRootDir(), pack.id);
+  if (dir == null &&
+      !vulkanFaster &&
+      settingsLoaded &&
+      offered &&
+      downloadAllowed &&
+      enabled &&
+      pack != null &&
+      state.installed) {
+    _log.warning(
+      'CUDA pack ${pack.id} not loaded: NVIDIA EULA consent is missing or out '
+      'of date; using Vulkan or CPU',
+    );
+  }
+  return dir;
 });
+
+/// Settings key of the NVIDIA EULA consent (see `AppSettings.toStorageMap`).
+const kCudaEulaSettingsKey = 'cuda_eula_accepted';
+
+/// Storage entry that records consent for [packId] in the same format the
+/// dialog writes, for the headless download.
+Map<String, String> cudaEulaConsentStorageMap(String packId) => {
+  kCudaEulaSettingsKey: cudaEulaConsentValue(packId),
+};

@@ -2,10 +2,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/audio/pcm_wav_codec.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_speech_gate.dart';
 
 /// Unit tests for the Parakeet speech gate. The real Silero-VAD run is in
-/// test/benchmark/parakeet_speech_gate_test.dart (manual, needs libwhisper).
+/// benchmarks/benchmark/parakeet_speech_gate_test.dart (manual, needs libwhisper).
 void main() {
   group('parakeetSpeechCheck', () {
     test('no segments is noSpeech, any segment is speech', () {
@@ -98,5 +99,67 @@ void main() {
       },
       skip: skip,
     );
+  });
+
+  group('windowed check (#1665)', () {
+    Uint8List wavOfSeconds(double seconds) =>
+        Uint8List(44 + (seconds * 16000).round() * 2);
+
+    test('up to one window it is one check on all samples', () {
+      expect(parakeetSpeechGateWindows(0), [(0, 0)]);
+      expect(parakeetSpeechGateWindows(60 * 16000), [(0, 60 * 16000)]);
+    });
+
+    test('longer audio is covered by overlapping windows of 60 s', () {
+      const length = 3600 * 16000 + 123;
+      final windows = parakeetSpeechGateWindows(length);
+      expect(windows.first.$1, 0);
+      expect(windows.last.$2, length);
+      for (final (start, end) in windows) {
+        expect(end - start, lessThanOrEqualTo(60 * 16000));
+        expect(end, greaterThan(start));
+      }
+      for (var i = 1; i < windows.length; i++) {
+        expect(windows[i - 1].$2 - windows[i].$1, 2 * 16000);
+      }
+    });
+
+    test('stops at the first window with speech', () async {
+      final checked = <int>[];
+      var call = 0;
+      final hasSpeech = await hasSpeechInWindows(
+        Pcm16WavView(wavOfSeconds(200)),
+        (samples) async {
+          checked.add(samples.length);
+          return call++ == 1
+              ? ParakeetSpeechCheck.speech
+              : ParakeetSpeechCheck.noSpeech;
+        },
+      );
+      expect(hasSpeech, isTrue);
+      expect(checked, [60 * 16000, 60 * 16000]);
+    });
+
+    test('an unavailable window counts as speech (fail-open)', () async {
+      expect(
+        await hasSpeechInWindows(
+          Pcm16WavView(wavOfSeconds(130)),
+          (_) async => ParakeetSpeechCheck.unavailable,
+        ),
+        isTrue,
+      );
+    });
+
+    test('no speech only when every window found none', () async {
+      var checks = 0;
+      expect(
+        await hasSpeechInWindows(Pcm16WavView(wavOfSeconds(130)), (_) async {
+          checks++;
+          return ParakeetSpeechCheck.noSpeech;
+        }),
+        isFalse,
+      );
+      expect(checks, parakeetSpeechGateWindows(130 * 16000).length);
+    });
   });
 }

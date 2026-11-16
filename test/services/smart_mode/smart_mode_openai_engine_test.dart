@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -153,30 +155,32 @@ void main() {
       );
     });
 
-    test(
-      'throws timeout on slow response',
-      () async {
-        final client = MockClient((_) async {
-          await Future<void>.delayed(const Duration(seconds: 25));
-          return http.Response('', 200);
-        });
+    test('throws timeout on slow response', () {
+      fakeAsync((async) {
+        // The server never answers; only the engine's timeout ends the call.
+        final client = MockClient((_) => Completer<http.Response>().future);
         final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
         addTearDown(container.dispose);
 
         final engine = container.read(_testEngineProvider(client));
 
+        Object? error;
+        unawaited(
+          engine
+              .run(systemPrompt: 'p', userText: 't')
+              .then<void>((_) {}, onError: (Object e) => error = e),
+        );
+        async.elapse(const Duration(seconds: 25));
+
         expect(
-          () => engine.run(systemPrompt: 'p', userText: 't'),
-          throwsA(
-            isA<StateError>().having(
-              (e) => e.message,
-              'message',
-              'smart_mode_openai_timeout',
-            ),
+          error,
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            'smart_mode_openai_timeout',
           ),
         );
-      },
-      timeout: const Timeout(Duration(seconds: 30)),
-    );
+      });
+    });
   });
 }

@@ -6,15 +6,26 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/deploy_channel_service.dart';
+import '../../../services/hardware_info_service.dart' show gpuInfoProvider;
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
 import '../../../services/stt/whisper/cuda_pack.dart';
+import '../../../widgets/wp_progress_bar.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
+import 'cuda_eula_dialog.dart';
 
 /// Settings row for the optional NVIDIA CUDA pack (see `cuda_pack.dart`):
 /// download with progress and cancel, then an on/off switch and a remove
 /// button. The caller decides visibility via [cudaPackOfferedProvider].
+///
+/// When the comparison after the install found Vulkan faster on this setup
+/// (`cuda_ab.dart`, #1670), the row says so in one sentence and offers the
+/// removal instead of the switch, which would change nothing. On GTX 16 cards
+/// the offer says up front that the pack is usually slower there.
 class CudaPackRow extends ConsumerWidget {
   const CudaPackRow({super.key});
 
@@ -24,36 +35,112 @@ class CudaPackRow extends ConsumerWidget {
     final state = ref.watch(cudaPackProvider);
     final pack = state.pack;
     if (pack == null) return const SizedBox.shrink();
+    // Store builds: the driver download is not allowed there (AR-19). The row
+    // stays visible, disabled, with the reason (ticket).
+    if (ref.watch(deployChannelProvider) == DeployChannel.store) {
+      return WpSettingsRow(
+        rowId: 'speech-cuda-pack',
+        title: l10n.settingsCudaPackTitle,
+        key: const ValueKey('settings-row-speech-cuda-pack'),
+        subtitle: l10n.settingsStoreCudaUnavailable,
+        trailing: WpButton(
+          label: l10n.settingsCudaPackDownload,
+          variant: WpButtonVariant.secondary,
+          onPressed: null,
+        ),
+      );
+    }
     final notifier = ref.read(cudaPackProvider.notifier);
 
     if (state.installed && !state.isBusy) {
+      // Without a current consent the pack is not loaded (see
+      // activeCudaPackDirFor), so offer the review instead of the switch.
+      final consented = ref.watch(
+        settingsProvider.select(
+          (s) => isCudaEulaAcceptedFor(
+            accepted: s.value?.behavior.cudaEulaAccepted ?? '',
+            packId: pack.id,
+          ),
+        ),
+      );
+      if (!consented) {
+        return WpSettingsRow(
+          rowId: 'speech-cuda-pack',
+          title: l10n.settingsCudaPackTitle,
+          key: const Key('settings-cuda-pack-row'),
+          subtitle: l10n.settingsCudaPackConsentRequired,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WpButton(
+                key: const Key('settings-cuda-pack-consent'),
+                label: l10n.settingsCudaPackConsentReview,
+                variant: WpButtonVariant.secondary,
+                onPressed: () => _reviewConsent(context, ref),
+              ),
+              Semantics(
+                label: l10n.settingsCudaPackRemove,
+                button: true,
+                child: IconButton(
+                  key: const Key('settings-cuda-pack-remove'),
+                  icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+                  tooltip: l10n.settingsCudaPackRemove,
+                  onPressed: () => _confirmRemove(context, notifier),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      final vulkanFaster = ref.watch(
+        cudaAbRecordProvider.select((r) => r?.vulkanFaster ?? false),
+      );
+      if (vulkanFaster) {
+        final installedBytes = pack.files.fold<int>(
+          0,
+          (sum, f) => sum + f.sizeBytes,
+        );
+        return WpSettingsRow(
+          rowId: 'speech-cuda-pack',
+          title: l10n.settingsCudaPackTitle,
+          key: const Key('settings-cuda-pack-row'),
+          subtitle: l10n.settingsCudaPackVulkanFaster(
+            formatModelSizeLabel(installedBytes),
+          ),
+          trailing: WpButton(
+            key: const Key('settings-cuda-pack-remove'),
+            label: l10n.settingsCudaPackRemove,
+            variant: WpButtonVariant.secondary,
+            icon: LucideIcons.trash2,
+            onPressed: () => _confirmRemove(context, notifier),
+          ),
+        );
+      }
       final enabled = ref.watch(
         settingsProvider.select(
           (s) => s.value?.behavior.cudaAcceleration ?? true,
         ),
       );
-      return SettingRow(
+      return WpSettingsRow(
+        rowId: 'speech-cuda-pack',
+        title: l10n.settingsCudaPackTitle,
         key: const Key('settings-cuda-pack-row'),
-        icon: LucideIcons.gauge,
-        label: l10n.settingsCudaPackTitle,
         subtitle: l10n.settingsCudaPackInstalledSubtitle,
-        semanticToggledValue: enabled,
+        switchNamesRow: true,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Semantics(
+            settingsToggle(
               label: l10n.settingsCudaPackToggle,
-              child: settingsToggle(
-                key: const Key('settings-cuda-pack-toggle'),
-                value: enabled,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        behavior: s.behavior.copyWith(cudaAcceleration: v),
-                      ),
+              key: const Key('settings-cuda-pack-toggle'),
+              value: enabled,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      behavior: s.behavior.copyWith(cudaAcceleration: v),
                     ),
-              ),
+                  ),
             ),
             Semantics(
               label: l10n.settingsCudaPackRemove,
@@ -62,7 +149,7 @@ class CudaPackRow extends ConsumerWidget {
                 key: const Key('settings-cuda-pack-remove'),
                 icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
                 tooltip: l10n.settingsCudaPackRemove,
-                onPressed: notifier.remove,
+                onPressed: () => _confirmRemove(context, notifier),
               ),
             ),
           ],
@@ -70,6 +157,7 @@ class CudaPackRow extends ConsumerWidget {
       );
     }
 
+    final gtx16 = isGtx16Nvidia(ref.watch(gpuInfoProvider).value?.name ?? '');
     final Widget trailing;
     if (state.isBusy) {
       final downloading = state.phase == CudaPackPhase.downloading;
@@ -105,7 +193,7 @@ class CudaPackRow extends ConsumerWidget {
                   ),
               ],
             ),
-            LinearProgressIndicator(
+            WpProgressBar(
               key: const Key('settings-cuda-pack-progress'),
               value: downloading ? state.progress : null,
             ),
@@ -132,7 +220,7 @@ class CudaPackRow extends ConsumerWidget {
                   error,
                   key: const Key('settings-cuda-pack-error'),
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: WpColors.error,
                   ),
@@ -144,20 +232,72 @@ class CudaPackRow extends ConsumerWidget {
             label: l10n.settingsCudaPackDownload,
             variant: WpButtonVariant.ghost,
             icon: LucideIcons.download,
-            onPressed: notifier.install,
+            onPressed: () => _requestDownload(context, ref, pack),
           ),
         ],
       );
     }
 
-    return SettingRow(
+    return WpSettingsRow(
+      rowId: 'speech-cuda-pack',
+      title: l10n.settingsCudaPackTitle,
       key: const Key('settings-cuda-pack-row'),
-      icon: LucideIcons.gauge,
-      label: l10n.settingsCudaPackTitle,
-      subtitle: l10n.settingsCudaPackSubtitle(
-        formatModelSizeLabel(pack.archiveSizeBytes),
-      ),
+      subtitle: gtx16
+          ? l10n.settingsCudaPackSubtitleGtx16(
+              formatModelSizeLabel(pack.archiveSizeBytes),
+            )
+          : l10n.settingsCudaPackSubtitle(
+              formatModelSizeLabel(pack.archiveSizeBytes),
+            ),
       trailing: trailing,
     );
+  }
+
+  Future<void> _confirmRemove(
+    BuildContext context,
+    CudaPackNotifier notifier,
+  ) async {
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.settingsCudaPackRemoveConfirm,
+      message: l10n.settingsCudaPackRemoveConfirmMessage,
+      confirmLabel: l10n.settingsCudaPackRemove,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (confirmed) notifier.remove();
+  }
+
+  /// Opens the licence dialog for an installed pack. Accepting only records
+  /// the consent; nothing is downloaded here.
+  Future<void> _reviewConsent(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showCudaEulaDialog(context);
+    if (!confirmed || !context.mounted) return;
+    await ref.read(cudaPackProvider.notifier).recordEulaConsent();
+  }
+
+  /// Download entry point: the NVIDIA EULA must be accepted for this pack
+  /// version first. Cancel in the dialog changes nothing.
+  Future<void> _requestDownload(
+    BuildContext context,
+    WidgetRef ref,
+    CudaPackInfo pack,
+  ) async {
+    final notifier = ref.read(cudaPackProvider.notifier);
+    // Awaited: the settings may still be loading when the row is first used.
+    final settings = await ref.read(settingsProvider.future);
+    if (!context.mounted) return;
+    final accepted = isCudaEulaAcceptedFor(
+      accepted: settings.behavior.cudaEulaAccepted,
+      packId: pack.id,
+    );
+    if (accepted) {
+      await notifier.install();
+      return;
+    }
+    final confirmed = await showCudaEulaDialog(context);
+    if (!confirmed || !context.mounted) return;
+    await notifier.acceptEulaAndInstall();
   }
 }

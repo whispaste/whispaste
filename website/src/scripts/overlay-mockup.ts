@@ -11,15 +11,16 @@
  * because the spike proved 98.45 % cross-engine pixel parity with it, whereas
  * CSS `backdrop-filter`/`box-shadow`/gradients diverge per engine (ADR 0002).
  *
- * The app ships two overlay chromes (`OverlayStyleVariant`, Settings:
- * "Overlay-Stil") and this file mirrors both, but the website only ever
- * paints **solid** (2026-08-26, maintainer: no glass/frost material anywhere
+ * The app takes its overlay colours from two presets (`OverlayBackground` and
+ * `OverlayWave`, ADR 0024). The former Glas/Volldeckend switch is retired. This
+ * file mirrors both former chromes, but the website only ever paints the
+ * **opaque** pill (2026-08-26, maintainer: no glass/frost material anywhere
  * on the site) — see {@link RENDER_GLASS_SHEEN}:
  *
- *   - `solid` (what the site renders): fully opaque pill filled with
+ *   - opaque (what the site renders, the marine preset): fully opaque pill filled with
  *     {@link OVERLAY_SOLID_FILL} (the navy gradient of the design tokens'
  *     `overlay` group) — no sheen, no rim light, no specular drift;
- *   - `glass` (mirrored, not rendered): near-clear capsule fill
+ *   - glass (former Glas chrome, mirrored, not rendered): near-clear capsule fill
  *     (`fillOpacityFactor 0.14`) plus a Fresnel edge treatment — bright 1 px
  *     top rim, soft inner rim band, a crisp specular streak with a dark
  *     under-halo — and an 8 s "glass drift" loop (the streak drifts ±12 px
@@ -70,7 +71,7 @@ export interface OverlayThemeTokens {
   readonly fillStart: string;
   /** Capsule tint gradient bottom-right stop. */
   readonly fillEnd: string;
-  /** Accent — recording dot, waveform bars, progress timeline, hairline border. */
+  /** Accent — waveform bars, transcribing dot, progress timeline, hairline border. */
   readonly accent: string;
   /** Waveform colour (amber) — every bar, flat and fully opaque. */
   readonly wave: string;
@@ -148,8 +149,6 @@ export const OVERLAY_CHROME = {
   contactShadowOpacity: 0.12, //contactShadowOpacity
   contactShadowBlur: 2, //      contactShadowBlur (Gaussian sigma)
   contactShadowDy: 1, //        contactShadowOffset.dy
-  dotMinAlpha: 0.6, //          motion.dotPulseMinAlpha
-  dotMinScale: 0.88, //         motion.dotPulseMinScale
   timelineInsetBottom: 6,
   timelineStroke: 2,
   timelineEndOpacity: 0.25,
@@ -159,12 +158,13 @@ export const OVERLAY_CHROME = {
 } as const;
 
 /**
- * Fill for `OverlayStyleVariant.solid` — the tokens' flat navy
+ * Fill for the opaque pill (former Volldeckend chrome, marine preset) — the tokens' flat navy
  * (`overlay.fill`; a one-colour "gradient" keeps the painter unchanged).
  * Painted fully opaque (no `fillOpacity`),
  * unlike `OVERLAY_TOKENS`' near-clear glass tint: "no sheen, no rim light, no
  * specular drift... the fill is the app's own frame gradient instead of a
- * near-clear tint" (`OverlayStyleVariant.solid` doc comment). Theme-invariant,
+ * near-clear tint" (former `OverlayStyleVariant.solid` doc comment, removed in
+ * ticket). Theme-invariant,
  * same precedent as `OVERLAY_TOKENS` (`dark = light`) — the SSOT declares one
  * gradient, not a per-theme pair.
  */
@@ -175,8 +175,8 @@ export const OVERLAY_SOLID_FILL = {
 
 /**
  * The maintainer has ruled the Dock-glass sheen/rim/specular stack out
- * sitewide (2026-08-26) — the website shows the app's real `solid` overlay
- * style, not `glass`. {@link drawGlassSheen} still mirrors the SSOT's glass
+ * sitewide (2026-08-26) — the website shows the app's opaque overlay, not the
+ * former glass chrome. {@link drawGlassSheen} still mirrors the SSOT's glass
  * constants verbatim (kept in step with `OverlayDesignSpec`, covered by the
  * AC1 unit tests); this switch is the one place that decides whether
  * {@link drawOverlayPill} actually paints it.
@@ -317,8 +317,6 @@ export interface OverlayFrame {
   readonly statusText: string;
   /** Recording progress 0–1; 0 hides the timeline (recording only). */
   readonly progress: number;
-  /** Recording-dot pulse phase 0–1. */
-  readonly dotPulse: number;
   /** Liquid-glass drift phase [0, 1); 0 = static baseline frame. */
   readonly glassPhase?: number;
   /** Master switch/scale [0, 1] for the silhouette wobble; 0 = rigid capsule. */
@@ -400,7 +398,9 @@ export function pillWidthForText(
   const base = g.width * pillWidthRatio(state);
   if (!text) return base;
   // Mirrors OverlayPainter._drawContent's textLeft/maxTextWidth geometry.
-  const required = measure(text) + 2 * g.padH + g.dotInset + g.timerGap;
+  // Recording has no lead dot: its timer starts after the close glyph.
+  const lead = state === 'recording' ? g.closeOffset + g.closeArm : g.dotInset;
+  const required = measure(text) + 2 * g.padH + lead + g.timerGap;
   return Math.min(Math.max(required, base), g.width);
 }
 
@@ -989,13 +989,14 @@ function drawContent(
 
   drawClose(ctx, base + g.closeOffset, cy);
 
-  // Leading glyph: pulsing accent dot (recording/transcribing) or the
-  // done/error status icon.
+  // Leading glyph: the done/error status icon. Recording has none, so its
+  // timer starts after the close glyph; transcribing keeps a static dot.
   const leadX = base + g.dotInset;
   switch (frame.state) {
     case 'recording':
+      break;
     case 'transcribing':
-      drawDot(ctx, tok, leadX, cy, frame.dotPulse);
+      drawDot(ctx, tok, leadX, cy);
       break;
     case 'done':
       drawCheckIcon(ctx, leadX, cy, tok.success, iconReveal);
@@ -1007,7 +1008,9 @@ function drawContent(
 
   // Universal-legibility text: white glyphs over a soft dark shadow — state
   // semantics live in the dot and the done/error icons, not in text colour.
-  const textLeft = leadX + g.timerGap;
+  const textLeft = isRecording
+    ? base + g.closeOffset + g.closeArm + g.timerGap
+    : leadX + g.timerGap;
   const maxTextWidth = x + w - g.padH - textLeft;
   const textWidth = drawGlyphText(
     ctx,
@@ -1060,21 +1063,16 @@ function drawClose(ctx: CanvasRenderingContext2D, cx: number, cy: number): void 
   strokes(0);
 }
 
-/** Pulsing accent recording dot — alpha AND scale breathe with the pulse. */
+/** Static accent dot (transcribing). Recording draws no dot. */
 function drawDot(
   ctx: CanvasRenderingContext2D,
   tok: OverlayThemeTokens,
   cx: number,
   cy: number,
-  pulse: number,
 ): void {
-  const c = OVERLAY_CHROME;
-  const p = clamp01(pulse);
-  const alpha = c.dotMinAlpha + (1 - c.dotMinAlpha) * p;
-  const scale = c.dotMinScale + (1 - c.dotMinScale) * p;
-  ctx.fillStyle = rgba(tok.accent, alpha);
+  ctx.fillStyle = rgba(tok.accent, 1);
   ctx.beginPath();
-  ctx.arc(cx, cy, OVERLAY_GEOMETRY.dotRadius * scale, 0, TAU);
+  ctx.arc(cx, cy, OVERLAY_GEOMETRY.dotRadius, 0, TAU);
   ctx.fill();
 }
 

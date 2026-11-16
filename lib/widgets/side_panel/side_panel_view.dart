@@ -1,16 +1,22 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/clipboard_history/clipboard_platform_capability.dart';
 import '../../services/side_panel/side_panel_row_filter.dart';
+import '../../services/side_panel/side_panel_row_groups.dart';
 import '../../services/side_panel/side_panel_snapshot.dart';
+import '../wp_button.dart';
 import '../wp_focus_ring.dart';
 import '../wp_search_field.dart';
+import '../wp_segmented_selector.dart';
 import 'side_panel_row_tile.dart';
 
-/// The side panel's content: one section at a time (Transcriptions, Snippets,
+/// The side panel's content: one section at a time (Recordings, Snippets,
 /// Clipboard History), switched by an icon tab bar, each with its own empty
 /// state.
 ///
@@ -85,9 +91,15 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
     setState(() => _queries[_selected] = query);
   }
 
+  /// The no-matches state's way back: empties this section's field and query.
+  void _clearSearch() {
+    _searchControllers[_selected]!.clear();
+    _onQueryChanged('');
+  }
+
   /// The glyph each section wears -- on its tab, on its rows' discs and on
   /// its empty state. Mirrors the main window's vocabulary: `mic` is the
-  /// history avatar glyph, `notebookText` the snippets page's icon.
+  /// history type glyph, `notebookText` the snippets page's icon.
   static IconData iconOf(SidePanelSection section) => switch (section) {
     SidePanelSection.transcriptions => LucideIcons.mic,
     SidePanelSection.snippets => LucideIcons.notebookText,
@@ -95,7 +107,7 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
   };
 
   String _titleOf(SidePanelSection section, L10n l10n) => switch (section) {
-    SidePanelSection.transcriptions => l10n.sidePanelTranscriptionsTitle,
+    SidePanelSection.transcriptions => l10n.navHistory,
     SidePanelSection.snippets => l10n.sidePanelSnippetsTitle,
     SidePanelSection.clipboardHistory => l10n.sidePanelClipboardHistoryTitle,
   };
@@ -118,27 +130,45 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
         ),
         SidePanelSection.clipboardHistory => (
           l10n.sidePanelClipboardHistoryEmpty,
-          l10n.sidePanelClipboardHistoryEmptyHint,
+          // Linux has no background monitor: the clipboard is read once per
+          // panel open, so "anything you copy" would be wrong there (PAR-005).
+          clipboardHistoryCapabilityFor(defaultTargetPlatform) ==
+                  ClipboardHistoryCapability.snapshotOnly
+              ? l10n.sidePanelClipboardHistoryEmptyHintLinux
+              : l10n.sidePanelClipboardHistoryEmptyHint,
         ),
       };
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final rows = _rowsOf(_selected);
+    // A PIN-locked clipboard tab renders no rows at all (GS-125), even if the
+    // snapshot carried some.
+    final locked =
+        _selected == SidePanelSection.clipboardHistory &&
+        widget.snapshot.clipboardLocked;
+    final rows = locked ? const <SidePanelRow>[] : _rowsOf(_selected);
+    final loadFailed =
+        !locked && widget.snapshot.failedSections.contains(_selected);
     final query = _queries[_selected]!;
     final filteredRows = filterSidePanelRows(rows, query);
-    final (emptyTitle, emptyHint) = _emptyOf(_selected, l10n);
+    final (emptyTitle, emptyHint) = locked
+        ? (
+            l10n.sidePanelClipboardLockedTitle,
+            l10n.sidePanelClipboardLockedHint,
+          )
+        : _emptyOf(_selected, l10n);
     final switchDuration = WpMotion.durationFor(context, WpMotion.normal);
 
     final dockedRight = widget.snapshot.edge == 'right';
     const round = Radius.circular(WpRadius.xl);
     final closeButton = _CloseButton(
+      testId: 'side-panel-close',
       label: l10n.sidePanelClose,
       onTap: widget.onClose,
     );
 
-    return Container(
+    final panel = Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: WpColors.surfaceGradient,
@@ -183,7 +213,7 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                           key: ValueKey(_selected),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: WpColors.textPrimary,
                             fontSize: WpTypography.heading,
                             fontWeight: FontWeight.w600,
@@ -207,6 +237,7 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                 const SizedBox(height: WpSpacing.sm),
                 WpSearchField(
                   key: ValueKey(_selected),
+                  testId: 'side-panel-search',
                   controller: _searchControllers[_selected]!,
                   hintText: l10n.sidePanelSearchHint,
                   variant: WpSearchFieldVariant.capsule,
@@ -233,49 +264,57 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
               ),
               child: KeyedSubtree(
                 key: ValueKey(_selected),
-                child: rows.isEmpty
+                child: loadFailed
                     ? _EmptySectionState(
-                        icon: iconOf(_selected),
+                        icon: LucideIcons.triangleAlert,
+                        title: l10n.errorGeneric,
+                        hint: l10n.sidePanelLoadFailedHint,
+                      )
+                    : rows.isEmpty
+                    ? _EmptySectionState(
+                        icon: locked ? LucideIcons.lock : iconOf(_selected),
                         title: emptyTitle,
                         hint: emptyHint,
                       )
                     : filteredRows.isEmpty
                     ? _EmptySectionState(
                         icon: LucideIcons.searchX,
-                        title: l10n.sidePanelNoMatches,
-                        hint: l10n.sidePanelNoMatchesHint,
+                        title: l10n.searchNoMatches,
+                        hint: l10n.searchNoMatchesHint(query.trim()),
+                        actionLabel: l10n.actionClearSearch,
+                        actionTestId: 'side-panel-search-clear',
+                        onAction: _clearSearch,
                       )
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                          WpSpacing.md,
-                          WpSpacing.xxs,
-                          WpSpacing.md,
-                          WpSpacing.md,
+                    : _SidePanelList(
+                        items: groupSidePanelRows(
+                          filteredRows,
+                          now: DateTime.now(),
+                          todayLabel: l10n.historyToday,
+                          yesterdayLabel: l10n.historyYesterday,
+                          locale: Localizations.localeOf(context).toString(),
                         ),
-                        // No per-row bottom Padding wrapper (issue 08) --
-                        // WpListTileSurface.panelVerticalMargin alone
-                        // governs row spacing, same as HistoryListView and
-                        // NotesListView, instead of stacking an extra
-                        // WpSpacing.xxs gap on top of it.
-                        children: [
-                          for (final row in filteredRows)
-                            // loam-ignore: a11y-interactive-semantics – Semantics lives inside WpSidePanelRowTile
-                            WpSidePanelRowTile(
-                              row: row,
-                              leadingIcon: iconOf(_selected),
-                              onTap: () => widget.onRowTap(_selected, row.id),
-                              onDragStart: widget.onRowDragStart == null
-                                  ? null
-                                  : () =>
-                                        widget.onRowDragStart!(_selected, row),
-                            ),
-                        ],
+                        leadingIcon: iconOf(_selected),
+                        kindLabel: _titleOf(_selected, l10n),
+                        onRowTap: (row) => widget.onRowTap(_selected, row.id),
+                        onRowDragStart: widget.onRowDragStart == null
+                            ? null
+                            : (row) => widget.onRowDragStart!(_selected, row),
                       ),
               ),
             ),
           ),
         ],
       ),
+    );
+
+    // Escape closes the panel from anywhere inside it, the same way the
+    // close button does. Arrow keys, Tab and Enter already traverse and
+    // activate rows through the standard focus actions.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
+      },
+      child: panel,
     );
   }
 
@@ -292,10 +331,105 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
   }
 }
 
-/// Icon segmented control switching the three sections. Icon-only because
-/// three localized titles ("Zwischenablage-Verlauf") cannot share ~290px;
-/// the active section's title is spelled out in the header above, and each
-/// segment carries the full title as its semantics label.
+/// Lazily built list of day headers and rows. Only visible items are built,
+/// so a long history stays cheap to scroll.
+class _SidePanelList extends StatelessWidget {
+  const _SidePanelList({
+    required this.items,
+    required this.leadingIcon,
+    required this.kindLabel,
+    required this.onRowTap,
+    this.onRowDragStart,
+  });
+
+  final List<SidePanelListItem> items;
+  final IconData leadingIcon;
+
+  /// Localized name of the active section, spoken before each row's title.
+  final String kindLabel;
+  final void Function(SidePanelRow row) onRowTap;
+  final void Function(SidePanelRow row)? onRowDragStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'side-panel-list',
+      explicitChildNodes: true,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          WpSpacing.md,
+          WpSpacing.xxs,
+          WpSpacing.md,
+          // Bottom room so the last row scrolls clear of the panel edge.
+          WpSpacing.xl,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return switch (item) {
+            SidePanelDateHeader(:final label, :final day) =>
+              _SidePanelDateHeader(label: label, day: day),
+            SidePanelRowItem(:final row) =>
+              // loam-ignore: a11y-interactive-semantics – Semantics lives inside WpSidePanelRowTile
+              WpSidePanelRowTile(
+                row: row,
+                leadingIcon: leadingIcon,
+                kindLabel: kindLabel,
+                onTap: () => onRowTap(row),
+                onDragStart: onRowDragStart == null
+                    ? null
+                    : () => onRowDragStart!(row),
+              ),
+          };
+        },
+      ),
+    );
+  }
+}
+
+/// Muted day label between row groups.
+class _SidePanelDateHeader extends StatelessWidget {
+  const _SidePanelDateHeader({required this.label, required this.day});
+
+  final String label;
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayKey =
+        '${day.year.toString().padLeft(4, '0')}-'
+        '${day.month.toString().padLeft(2, '0')}-'
+        '${day.day.toString().padLeft(2, '0')}';
+    return Semantics(
+      header: true,
+      identifier: 'side-panel-day-$dayKey',
+      child: Padding(
+        // Directional, so the indent sits on the reading-start side in RTL.
+        padding: const EdgeInsetsDirectional.only(
+          top: WpSpacing.sm,
+          bottom: WpSpacing.xxs,
+          start: WpSpacing.xxs,
+        ),
+        child: Text(
+          label,
+          textScaler: sidePanelTextScaler(context),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: WpColors.textMuted,
+            fontSize: WpTypography.caption,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Segmented control switching the three sections, the app's shared
+/// [WpSegmentedSelector] with one icon per segment: the panel is too narrow
+/// for three labels. The active section's title stands in the header, and
+/// every segment carries its title as tooltip and accessible name.
 class _SidePanelTabBar extends StatelessWidget {
   const _SidePanelTabBar({
     required this.selected,
@@ -311,124 +445,48 @@ class _SidePanelTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // Off-scale on purpose: a 3px gutter hugs the segments the way the
-      // avatar's rim hugs its disc; xxs would double the track's height.
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: WpColors.cardFill,
-        borderRadius: WpRadius.borderMd,
-        border: Border.all(color: WpColors.borderSubtle, width: 1),
-      ),
-      child: Row(
-        children: [
-          for (final section in SidePanelSection.values)
-            Expanded(
-              child: _SidePanelTab(
-                icon: iconOf(section),
-                label: labelOf(section),
-                isSelected: section == selected,
-                onTap: () => onSelect(section),
-              ),
-            ),
-        ],
-      ),
+    return WpSegmentedSelector(
+      borderColor: WpColors.borderDefault,
+      surfaceColor: WpColors.surfaceVariant,
+      textSecondary: WpColors.textSecondary,
+      items: [
+        for (final section in SidePanelSection.values)
+          WpSegmentItem(
+            label: labelOf(section),
+            icon: Icon(iconOf(section)),
+            iconOnly: true,
+            testId: sidePanelTabTestId(section),
+            isActive: section == selected,
+            onTap: () => onSelect(section),
+          ),
+      ],
     );
   }
 }
 
-class _SidePanelTab extends StatefulWidget {
-  const _SidePanelTab({
-    required this.icon,
+/// Stable, language-independent id of a section's tab.
+String sidePanelTabTestId(SidePanelSection section) => switch (section) {
+  SidePanelSection.transcriptions => 'side-panel-tab-transcriptions',
+  SidePanelSection.snippets => 'side-panel-tab-snippets',
+  SidePanelSection.clipboardHistory => 'side-panel-tab-clipboard-history',
+};
+
+/// Largest text scale the side panel renders at. The panel is 290 px wide,
+/// so beyond 2x its tabs and headers cannot fit anyway.
+const double kSidePanelMaxTextScale = 2.0;
+
+TextScaler sidePanelTextScaler(BuildContext context) => MediaQuery.textScalerOf(
+  context,
+).clamp(maxScaleFactor: kSidePanelMaxTextScale);
+
+class _CloseButton extends StatefulWidget {
+  const _CloseButton({
+    required this.testId,
     required this.label,
-    required this.isSelected,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  State<_SidePanelTab> createState() => _SidePanelTabState();
-}
-
-class _SidePanelTabState extends State<_SidePanelTab> {
-  bool _isHovered = false;
-  final FocusNode _focusNode = FocusNode(debugLabel: 'SidePanelTab');
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = widget.isSelected || _isHovered;
-    return Semantics(
-      button: true,
-      selected: widget.isSelected,
-      label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: WpFocusRing(
-          focusNode: _focusNode,
-          radius: WpRadius.sm,
-          child: InkWell(
-            onTap: widget.onTap,
-            focusNode: _focusNode,
-            borderRadius: WpRadius.borderSm,
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
-              ),
-              curve: WpMotion.defaultCurve,
-              height: 28,
-              decoration: BoxDecoration(
-                color: widget.isSelected
-                    ? WpColors.accentActiveFill
-                    : _isHovered
-                    ? WpColors.hover
-                    : WpColors.hoverTransparent,
-                borderRadius: WpRadius.borderSm,
-                // Never null -- animates its alpha, so the selection edge
-                // fades instead of flashing (see wp_list_tile_surface.dart).
-                border: Border.all(
-                  color: widget.isSelected
-                      ? WpColors.accentBorder20
-                      : const Color(0x006FDDF0),
-                  width: 1,
-                ),
-              ),
-              child: Icon(
-                widget.icon,
-                size: WpIconSize.md,
-                color: widget.isSelected
-                    ? WpColors.accent
-                    : _isHovered
-                    ? WpColors.textSecondary
-                    : WpColors.textMuted,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CloseButton extends StatefulWidget {
-  const _CloseButton({required this.label, required this.onTap});
-
+  final String testId;
   final String label;
   final VoidCallback onTap;
 
@@ -449,6 +507,7 @@ class _CloseButtonState extends State<_CloseButton> {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      identifier: widget.testId,
       button: true,
       label: widget.label,
       child: MouseRegion(
@@ -496,45 +555,67 @@ class _EmptySectionState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.hint,
+    this.actionLabel,
+    this.actionTestId,
+    this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String hint;
 
+  /// Optional way back (the no-matches state's "Clear search").
+  final String? actionLabel;
+  final String? actionTestId;
+  final VoidCallback? onAction;
+
   @override
   Widget build(BuildContext context) {
+    // Scrollable like WpEmptyState: the longer Linux hint at 200 % text scale
+    // in the narrow panel scrolls instead of overflowing.
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.xl,
-          vertical: WpSpacing.lg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: WpIconSize.xl, color: WpColors.textMuted),
-            const SizedBox(height: WpSpacing.sm),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: WpColors.textSecondary,
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w600,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xl,
+            vertical: WpSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: WpIconSize.xl, color: WpColors.textMuted),
+              const SizedBox(height: WpSpacing.sm),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: WpColors.textSecondary,
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: WpSpacing.xxs),
-            Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: WpColors.textMuted,
-                fontSize: WpTypography.caption,
-                height: 1.35,
+              const SizedBox(height: WpSpacing.xxs),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: WpColors.textMuted,
+                  fontSize: WpTypography.caption,
+                  height: 1.35,
+                ),
               ),
-            ),
-          ],
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: WpSpacing.md),
+                WpButton(
+                  label: actionLabel!,
+                  testId: actionTestId,
+                  variant: WpButtonVariant.secondary,
+                  size: WpButtonSize.dense,
+                  onPressed: onAction,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

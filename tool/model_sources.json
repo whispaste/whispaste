@@ -1,0 +1,101 @@
+{
+  "_comment": "Every file the app downloads at runtime, with all sources in fallback order. Kept equal to the registries by test/services/model_sources_manifest_test.dart; checked against the live servers by tool/check_model_sources.dart.",
+  "files": [
+    {
+      "name": "ggml-small-q5_1.bin",
+      "size": 190085487,
+      "sha256": "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+      "sources": [
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin"
+      ]
+    },
+    {
+      "name": "ggml-medium-q5_0.bin",
+      "size": 539212467,
+      "sha256": "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
+      "sources": [
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium-q5_0.bin"
+      ]
+    },
+    {
+      "name": "ggml-large-v3-turbo-q5_0.bin",
+      "size": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "sources": [
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin"
+      ]
+    },
+    {
+      "name": "encoder.int8.onnx",
+      "size": 652184281,
+      "sha256": "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247",
+      "sources": [
+        "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/encoder.int8.onnx"
+      ]
+    },
+    {
+      "name": "decoder.int8.onnx",
+      "size": 11845275,
+      "sha256": "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e",
+      "sources": [
+        "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/decoder.int8.onnx"
+      ]
+    },
+    {
+      "name": "joiner.int8.onnx",
+      "size": 6355277,
+      "sha256": "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3",
+      "sources": [
+        "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/joiner.int8.onnx"
+      ]
+    },
+    {
+      "name": "tokens.txt",
+      "size": 93939,
+      "sha256": "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+      "sources": [
+        "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/tokens.txt"
+      ]
+    },
+    {
+      "name": "ggml-parakeet-tdt-0.6b-v3-q8_0.bin",
+      "size": 668757119,
+      "sha256": "4d64e9e96c2792186d072fde0034df0ad670cf680a2f53069052ead827fd600e",
+      "sources": [
+        "https://huggingface.co/ggml-org/parakeet-GGUF/resolve/35156454d1a39de06863303dd209fd2bed6ee079/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
+      ]
+    },
+    {
+      "name": "ggml-parakeet-tdt-0.6b-v3-f16.bin",
+      "size": 1255897319,
+      "sha256": "833bffc9513b2cae867ee9e51633cfd11e4d51aaa5597c8ac02159385a2b426f",
+      "sources": [
+        "https://huggingface.co/ggml-org/parakeet-GGUF/resolve/35156454d1a39de06863303dd209fd2bed6ee079/ggml-parakeet-tdt-0.6b-v3-f16.bin"
+      ]
+    },
+    {
+      "name": "gemma-4-E2B-it-Q4_K_M.gguf",
+      "size": 3106738272,
+      "sha256": "740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8",
+      "sources": [
+        "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf"
+      ]
+    },
+    {
+      "name": "WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64.zip",
+      "size": 660507255,
+      "sha256": "7f6c760ad90ff1c8dce181b2d8191232b29c484c847d8cdf7718658361a2fbd2",
+      "sources": [
+        "https://github.com/whispaste/whispaste/releases/download/cuda-ggml-v1.9.5-cu12.8-r1/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64.zip"
+      ]
+    },
+    {
+      "name": "WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz",
+      "size": 686791429,
+      "sha256": "60a9f5cf375729cf348af1f2969fa3b2f90bd816563ecd6116fc82580fdeb880",
+      "sources": [
+        "https://github.com/whispaste/whispaste/releases/download/cuda-ggml-v1.9.5-cu12.8-r1/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz"
+      ]
+    }
+  ]
+}

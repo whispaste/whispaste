@@ -18,6 +18,10 @@ class ClipboardHistoryRingBuffer {
   List<ClipboardHistoryEntry> get entries => List.unmodifiable(_entries);
 
   void add(ClipboardHistoryEntry entry) {
+    // The Linux host reads the clipboard on every panel open, and the paste
+    // puts the user's earlier clipboard back afterwards: unchanged content
+    // must not become a second entry. The first capture time is kept.
+    if (_entries.isNotEmpty && _entries.first.hasSameContentAs(entry)) return;
     _entries.insert(0, entry);
     _evict();
   }

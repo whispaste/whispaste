@@ -13,24 +13,44 @@
 library;
 
 import 'dart:async';
+import 'dart:ffi';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/database.dart';
+import '../core/data/text_writer/text_writer.dart';
+import '../core/platform/hang_watchdog.dart';
 import '../core/logging/app_logger.dart';
 import 'automation_api/automation_api_controller.dart';
 import 'smart_mode/smart_mode_ffi_engine.dart';
+import 'stt/on_device_engine_lifecycle.dart';
+import 'stt/stt_bundle.dart';
 import 'stt_engine_lifecycle_provider.dart';
+import 'stt_parakeet/parakeet_engine_notifier.dart';
+import 'stt_parakeet/parakeet_lifecycle_adapter.dart';
 import 'telemetry_service.dart';
 
 final _log = AppLogger('GracefulShutdown');
 
 Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
+  // Quit first disarms the hang watchdog (#338): the teardown below may hold
+  // the main thread, and a restart would reopen the app the user just quit.
+  await HangWatchdogClient.instance.stop().timeout(
+    const Duration(seconds: 1),
+    onTimeout: () {},
+  );
   try {
-    await container
-        .read(onDeviceEngineLifecycleProvider)
-        .stop()
-        .timeout(const Duration(seconds: 10));
+    final engine = container.read(onDeviceEngineLifecycleProvider);
+    // Quit never waits for a native decode: a busy engine is retired or its
+    // worker killed at once (SttServerStateNotifier / ParakeetEngineNotifier
+    // .stopForQuit).
+    final stopped = switch (engine) {
+      WhisperEngineLifecycleAdapter() => engine.stopForQuit(),
+      ParakeetEngineLifecycleAdapter() => engine.stopForQuit(),
+      _ => engine.stop(),
+    };
+    await stopped.timeout(const Duration(seconds: 10));
   } catch (e) {
     _log.debug('STT engine stop failed during shutdown (non-fatal): $e');
   }
@@ -63,6 +83,18 @@ Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
   }
 
   try {
+    // Typed text still inside its quiet pause is written before the DB
+    // closes (#676); what does not make it stays in the journal and is
+    // replayed on the next start.
+    await TextWriter.shared.flushAll().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {},
+    );
+  } catch (e) {
+    _log.debug('Text flush failed during shutdown (non-fatal): $e');
+  }
+
+  try {
     await container
         .read(historyDatabaseProvider)
         .close()
@@ -79,5 +111,34 @@ Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
         .timeout(const Duration(seconds: 2), onTimeout: () {});
   } catch (e) {
     _log.debug('telemetry flush failed (non-fatal): $e');
+  }
+
+  // A native decode still running on a retired engine: a normal exit runs C++
+  // static destructors while that thread is inside Metal, so end the process
+  // without them (8bfb8d5e). Everything above has already been flushed.
+  final whisperBusy =
+      container.exists(localSttBundleProvider) &&
+      container.read(localSttBundleProvider.notifier).hasNativeCallRunning;
+  final parakeetBusy =
+      container.exists(parakeetEngineProvider) &&
+      container.read(parakeetEngineProvider.notifier).hasNativeCallRunning;
+  if (whisperBusy || parakeetBusy) {
+    _log.warning('Quitting while a native call runs: ending without exit()');
+    endProcessWithoutDestructors();
+  }
+}
+
+/// Ends the process without running C++ static destructors (`_exit` on
+/// macOS/Linux, `ExitProcess` on Windows).
+void endProcessWithoutDestructors() {
+  if (Platform.isWindows) {
+    DynamicLibrary.open(
+      'kernel32.dll',
+    ).lookupFunction<Void Function(Uint32), void Function(int)>('ExitProcess')(
+      0,
+    );
+  } else {
+    DynamicLibrary.process()
+        .lookupFunction<Void Function(Int32), void Function(int)>('_exit')(0);
   }
 }

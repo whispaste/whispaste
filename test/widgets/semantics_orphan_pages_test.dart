@@ -17,7 +17,7 @@ import '../fixtures/test_helpers.dart';
 List<Object> _historyOverrides() {
   final all = generateSampleEntries();
   return [
-    historyEntriesProvider.overrideWith(
+    pagedHistoryProvider.overrideWith(
       (ref) => Stream.value(
         all.where((e) => e.deletedAt == null && !e.archived).toList(),
       ),

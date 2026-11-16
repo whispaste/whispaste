@@ -3,22 +3,25 @@
 /// One [CustomPainter] draws the V2 floating button for **every** platform that
 /// hosts it in a thin native window shell (macOS/Windows now, Linux via issue
 /// 09). It reproduces the approved spike design (`spike/lib/main.dart`
-/// `_drawButton` / `_mic`): a white tint-gradient disc with a painted soft
-/// shadow, a thin neutral hairline border and a dark mic glyph — explicitly
-/// **no** accent ring and **no** glow (ADR 0002, calm UI).
+/// `_drawButton` / `_mic`), flattened in the ticket flat pass: a single-colour disc with a painted soft
+/// shadow, a thin neutral hairline border and a dark mic glyph, which becomes a
+/// stop square while recording (BTN-REC). The recording ring is painted outside
+/// the disc. Still **no** light effect (ADR 0002, calm UI).
 ///
 /// Every dimension, colour and gradient comes from [OverlayDesignSpec.button]
-/// (disc gradient, border, mic geometry as ratios of the disc diameter) and
-/// [OverlayDesignSpec.stateGradients] (per-state mic tint, e.g. the done green
-/// `#30C065`) — there are deliberately **no** design constants in this file.
+/// (flat disc colour, border, mic geometry as ratios of the disc diameter) and
+/// [OverlayDesignSpec.glyphStopsFor] (per-state mic tint, resolved per
+/// background tone, ticket) — there are deliberately **no** design constants in
+/// this file.
 ///
-/// The disc chrome (fill gradient + painted shadow) uses the intrinsic
+/// The disc chrome (flat fill + painted shadow) uses the intrinsic
 /// per-element opacity from [OverlayDesignSpec]. The mic glyph stays fully opaque.
 library;
 
 import 'package:flutter/widgets.dart';
 
 import '../../core/theme/overlay_design_spec.dart';
+import 'wp_logo_mark.dart';
 
 /// Paints the V2 floating-button disc and its mic glyph from the SSOT spec.
 class WpFloatingButtonPainter extends CustomPainter {
@@ -28,7 +31,37 @@ class WpFloatingButtonPainter extends CustomPainter {
     required this.diameter,
     required this.iconColor,
     required this.iconGradient,
+    this.square = false,
+    this.stopSquare = false,
+    this.capsuleWidth,
+    this.showGlyph = true,
+    this.markAlpha = 0,
+    this.glyphAlpha = 1,
   });
+
+  /// Width of the idle capsule (WP-idle capsule). When set, the outline is a
+  /// pill of this width and [diameter] as its height, and the disc, the
+  /// square and the mic all keep their geometry from [diameter].
+  final double? capsuleWidth;
+
+  /// Draws the mic (or the stop square) on top. The resting capsule is too
+  /// slim for it and paints the body only.
+  final bool showGlyph;
+
+  /// Opacity of the WhisPaste wave mark in the foreground colour ([iconColor]),
+  /// the resting face of the idle button (#483). 0 paints no mark.
+  final double markAlpha;
+
+  /// Opacity of the mic (or stop square). Below 1 the capsule fades it in
+  /// while the mark fades out.
+  final double glyphAlpha;
+
+  /// Draws a rounded square ([OverlayDesignSpec.buttonSquareCornerRatio])
+  /// instead of the round disc (ticket button shape).
+  final bool square;
+
+  /// Draws a stop square in place of the mic glyph (BTN-REC: recording).
+  final bool stopSquare;
 
   /// The V2 button appearance tokens, from the spec.
   final FloatingButtonSpec spec;
@@ -47,27 +80,76 @@ class WpFloatingButtonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final r = diameter / 2;
+    final halfW = (capsuleWidth ?? diameter) / 2;
     final center = Offset(
-      OverlayDesignSpec.shadowPadding + r,
+      OverlayDesignSpec.shadowPadding + halfW,
       OverlayDesignSpec.shadowPadding + r,
     );
 
-    _drawShadow(canvas, center, r);
-    _drawDisc(canvas, center, r);
-    _drawBorder(canvas, center, r);
-    _drawMic(canvas, center);
+    _drawShadow(canvas, center, halfW, r);
+    _drawDisc(canvas, center, halfW, r);
+    _drawBorder(canvas, center, halfW, r);
+    if (markAlpha > 0) _drawMark(canvas, center, halfW, r);
+    if (showGlyph && glyphAlpha > 0) {
+      if (glyphAlpha < 1) {
+        canvas.saveLayer(
+          null,
+          Paint()..color = Color.fromRGBO(0, 0, 0, glyphAlpha),
+        );
+        _drawMic(canvas, center);
+        canvas.restore();
+      } else {
+        _drawMic(canvas, center);
+      }
+    }
+  }
+
+  /// The disc, the shadow and the border share one outline: a circle, a
+  /// rounded square when [square] is set, or a pill when a [capsuleWidth] is
+  /// set. [halfW] and [halfH] are the half extents of the outline.
+  void _outline(
+    Canvas canvas,
+    Offset center,
+    double halfW,
+    double halfH,
+    Paint paint,
+  ) {
+    if (capsuleWidth != null) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: halfW * 2, height: halfH * 2),
+          Radius.circular(halfH),
+        ),
+        paint,
+      );
+      return;
+    }
+    if (!square) {
+      canvas.drawCircle(center, halfH, paint);
+      return;
+    }
+    final radius = Radius.circular(
+      halfH * OverlayDesignSpec.buttonSquareCornerRatio,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCircle(center: center, radius: halfH),
+        radius,
+      ),
+      paint,
+    );
   }
 
   // ── Chrome ────────────────────────────────────────────────────────────────────
 
-  void _drawShadow(Canvas canvas, Offset center, double r) {
-    canvas.drawCircle(
+  void _drawShadow(Canvas canvas, Offset center, double halfW, double r) {
+    _outline(
+      canvas,
       center + OverlayDesignSpec.shadowOffset,
+      halfW,
       r,
       Paint()
-        ..color = OverlayDesignSpec.shadowColor.withValues(
-          alpha: OverlayDesignSpec.shadowOpacity,
-        )
+        ..color = spec.shadowColor
         ..maskFilter = const MaskFilter.blur(
           BlurStyle.normal,
           OverlayDesignSpec.shadowBlur,
@@ -75,33 +157,61 @@ class WpFloatingButtonPainter extends CustomPainter {
     );
   }
 
-  void _drawDisc(Canvas canvas, Offset center, double r) {
-    final a = spec.discFillOpacity;
-    final rect = Rect.fromCircle(center: center, radius: r);
-    canvas.drawCircle(
+  void _drawDisc(Canvas canvas, Offset center, double halfW, double r) {
+    // Flat disc (ticket flat pass): one colour, no tint gradient.
+    _outline(
+      canvas,
       center,
+      halfW,
       r,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            spec.discColor.withValues(alpha: a),
-            spec.discGradientEnd.withValues(alpha: a),
-          ],
-        ).createShader(rect),
+      Paint()..color = spec.discColor.withValues(alpha: spec.discFillOpacity),
     );
   }
 
-  void _drawBorder(Canvas canvas, Offset center, double r) {
-    canvas.drawCircle(
+  void _drawBorder(Canvas canvas, Offset center, double halfW, double r) {
+    _outline(
+      canvas,
       center,
+      halfW - spec.borderInset,
       r - spec.borderInset,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = spec.borderWidth
         ..color = spec.borderColor,
     );
+    // UX-048: the dark presets get a 1 px light outer edge around the disc,
+    // following the button's shape like the border above.
+    if (spec.edgeColor.a > 0) {
+      _outline(
+        canvas,
+        center,
+        halfW - 0.5,
+        r - 0.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = spec.edgeColor,
+      );
+    }
+  }
+
+  // ── Wave mark ───────────────────────────────────────────────────────────────
+
+  /// The resting face: the wave mark in the foreground colour, as large as the
+  /// mic glyph in the disc and fitted into the slim capsule.
+  void _drawMark(Canvas canvas, Offset center, double halfW, double r) {
+    final box = capsuleWidth == null
+        ? Rect.fromCenter(
+            center: center,
+            width: spec.iconRatio * diameter,
+            height: spec.iconRatio * diameter,
+          )
+        : Rect.fromCenter(
+            center: center,
+            width: halfW * 2 * 0.5,
+            height: r * 2 * 0.7,
+          );
+    WpLogoMark.paint(canvas, box, iconColor.withValues(alpha: markAlpha));
   }
 
   // ── Mic glyph (always opaque) ───────────────────────────────────────────────
@@ -133,6 +243,18 @@ class WpFloatingButtonPainter extends CustomPainter {
     } else {
       fill.color = iconColor;
       stroke.color = iconColor;
+    }
+
+    if (stopSquare) {
+      final side = OverlayDesignSpec.buttonStopSquareRatio * d;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: side, height: side),
+          Radius.circular(side * OverlayDesignSpec.buttonStopSquareCornerRatio),
+        ),
+        fill,
+      );
+      return;
     }
 
     // Capsule body.
@@ -173,6 +295,12 @@ class WpFloatingButtonPainter extends CustomPainter {
     return old.spec != spec ||
         old.diameter != diameter ||
         old.iconColor != iconColor ||
+        old.square != square ||
+        old.stopSquare != stopSquare ||
+        old.capsuleWidth != capsuleWidth ||
+        old.showGlyph != showGlyph ||
+        old.markAlpha != markAlpha ||
+        old.glyphAlpha != glyphAlpha ||
         !_sameGradient(old.iconGradient, iconGradient);
   }
 

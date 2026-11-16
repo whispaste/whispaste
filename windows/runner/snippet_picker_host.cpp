@@ -19,8 +19,9 @@ constexpr char kRenderChannelName[] = "com.whispaste.snippet_picker_render";
 
 // Fixed panel size (logical px) — see snippet_picker_controller_interface
 // .dart's cross-platform shell contract. Never content-measured.
-constexpr int kLogicalWidth = 360;
-constexpr int kLogicalHeight = 420;
+// 360×420 card plus a 20 px transparent margin per side for the Dart shadow.
+constexpr int kLogicalWidth = 400;
+constexpr int kLogicalHeight = 460;
 
 }  // namespace
 
@@ -167,7 +168,17 @@ bool SnippetPickerHost::EnsureEngineAndShell() {
     return false;
   }
 
-  shell->on_deactivate_cancel = [this]() { Dismiss(/*fire_cancelled=*/true); };
+  // Reported, never acted on here: Dart decides whether the picker closes
+  // (#1680, snippetPickerClosesOnFocusLoss) — a click outside closes it, a
+  // focus change without a click keeps it open.
+  shell->poll_outside_clicks = true;
+  shell->on_focus_lost = [this](bool outside_click) {
+    if (is_dismissing_ || !window_ || !window_->visible()) return;
+    EncodableMap m;
+    m[EncodableValue("cause")] =
+        EncodableValue(std::string(outside_click ? "click" : "other"));
+    SendEvent("onFocusLost", EncodableValue(m));
+  };
 
   // Closes the keyboard-routing gap found during live on-device testing
   // (ticket 29) — see snippet_picker_window.h's file comment. Captures the
@@ -204,15 +215,17 @@ bool SnippetPickerHost::EnsureEngineAndShell() {
 // Show / Dismiss
 // ══════════════════════════════════════════════════════════════════════
 
-void SnippetPickerHost::Show(const std::vector<EncodableMap>& items) {
+void SnippetPickerHost::Show(const std::vector<EncodableMap>& items,
+                             const std::string& query) {
   int px, py, pwidth, pheight;
   ComputePanelRect(&px, &py, &pwidth, &pheight);
   window_->SetPhysicalRect(px, py, pwidth, pheight);
 
   if (render_ready_) {
-    RelaySetItems(items);
+    RelaySetItems(items, query);
   } else {
     pending_items_ = items;
+    pending_query_ = query;
     has_pending_items_ = true;
   }
 
@@ -224,8 +237,8 @@ void SnippetPickerHost::Dismiss(bool fire_cancelled) {
   is_dismissing_ = true;
 
   window_->Hide();
-  // Tell the render engine the panel left the screen — same "stop glass
-  // animations while hidden" signal as SnippetPickerHost.swift's
+  // Tell the render engine the panel left the screen — same "stop animations
+  // while hidden" signal as SnippetPickerHost.swift's
   // panelHidden (its doc explains why: the render engine's frames are
   // never lifecycle-gated).
   if (render_channel_) {
@@ -257,6 +270,7 @@ void SnippetPickerHost::HandleMethodCall(
   if (method == "show") {
     const auto* args_map = std::get_if<EncodableMap>(call.arguments());
     std::vector<EncodableMap> items;
+    std::string query;
     if (args_map) {
       auto it = args_map->find(EncodableValue("items"));
       if (it != args_map->end()) {
@@ -268,6 +282,12 @@ void SnippetPickerHost::HandleMethodCall(
           }
         }
       }
+      auto q = args_map->find(EncodableValue("query"));
+      if (q != args_map->end()) {
+        if (const auto* s = std::get_if<std::string>(&q->second)) {
+          query = *s;
+        }
+      }
     }
 
     if (!EnsureEngineAndShell()) {
@@ -276,14 +296,26 @@ void SnippetPickerHost::HandleMethodCall(
       return;
     }
 
-    Show(items);
+    Show(items, query);
     result->Success();
     return;
   }
 
   // ── hide ────────────────────────────────────────────────────────────
   if (method == "hide") {
+    // `outsideClick` needs no handling here: Dismiss never hands focus back
+    // on Windows (DesktopPasteHost re-activates the target itself).
     Dismiss(/*fire_cancelled=*/false);
+    result->Success();
+    return;
+  }
+
+  // ── focus ───────────────────────────────────────────────────────────
+  // The Snippet hotkey pressed while the picker is open but lost focus
+  // (#1680): activate it again in place, search text kept. The hotkey press
+  // lets this process take the foreground.
+  if (method == "focus") {
+    if (window_ && window_->visible()) window_->Show();
     result->Success();
     return;
   }
@@ -330,7 +362,7 @@ void SnippetPickerHost::HandleRenderCall(
         L"[SnippetPicker] Render engine ready — flushing pending items\n");
     render_ready_ = true;
     if (has_pending_items_) {
-      RelaySetItems(pending_items_);
+      RelaySetItems(pending_items_, pending_query_);
       has_pending_items_ = false;
       pending_items_.clear();
     }
@@ -389,14 +421,15 @@ void SnippetPickerHost::HandleRenderCall(
 // Relay helpers → render engine
 // ══════════════════════════════════════════════════════════════════════
 
-void SnippetPickerHost::RelaySetItems(
-    const std::vector<EncodableMap>& items) {
+void SnippetPickerHost::RelaySetItems(const std::vector<EncodableMap>& items,
+                                      const std::string& query) {
   if (!render_channel_) return;
   EncodableList list(items.size());
   std::transform(items.begin(), items.end(), list.begin(),
                  [](const EncodableMap& item) { return EncodableValue(item); });
   EncodableMap wrapper;
   wrapper[EncodableValue("items")] = EncodableValue(list);
+  wrapper[EncodableValue("query")] = EncodableValue(query);
   render_channel_->InvokeMethod("setItems",
                                 std::make_unique<EncodableValue>(wrapper));
 }

@@ -10,12 +10,40 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:path/path.dart' as p;
 import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import 'download_allowlist.dart';
+import 'download_fragment_guard.dart';
+import 'download_tls_failure.dart';
+import 'file_verification_service.dart';
+import 'tmp_reaper.dart';
 
 final _log = AppLogger('HttpModelFetcher');
+
+/// HTTP statuses that mean "try again later" rather than "this source is
+/// wrong": rate limit (Hugging Face answers 429 to bursts) and passing
+/// gateway/server errors.
+const Set<int> kTransientHttpStatuses = {408, 429, 500, 502, 503, 504};
+
+/// Longest wait a `Retry-After` header may impose before the same source is
+/// asked again; a longer one moves on (or fails) instead of freezing the UI.
+const Duration kMaxRetryAfter = Duration(seconds: 30);
+
+/// The pause before retrying a transient HTTP error: the server's
+/// `Retry-After` in seconds when present (capped at [kMaxRetryAfter]),
+/// otherwise [backoff].
+Duration transientRetryDelay({
+  required String? retryAfter,
+  required Duration backoff,
+}) {
+  final seconds = int.tryParse(retryAfter?.trim() ?? '');
+  if (seconds == null || seconds < 0) return backoff;
+  final wanted = Duration(seconds: seconds);
+  return wanted > kMaxRetryAfter ? kMaxRetryAfter : wanted;
+}
 
 // ---------------------------------------------------------------------------
 // Stall detection — public so call-site retry-loops can detect the cause
@@ -32,12 +60,10 @@ const String httpStallCancelMessage = 'stalled';
 
 /// Translates a [DioException] into a user-facing German string.
 ///
-/// Source of truth: `internal-notes` — Modul 3.
-/// Adding a new branch here is a PRD change; reviewers must reject silent
+/// Adding a new branch here is a deliberate behavior change; reviewers must reject silent
 /// drift.
 String describeDioError(DioException e) {
-  if (e.type == DioExceptionType.cancel &&
-      e.message == httpStallCancelMessage) {
+  if (e.message == httpStallCancelMessage) {
     return 'Verbindung steht — kein Datenfortschritt seit 30 s.';
   }
   if (e.response == null) {
@@ -82,6 +108,10 @@ class FetchProgress {
 
 /// Downloads a single file from [url] to [destPath] with resume support.
 ///
+/// Every URL, including each redirect target, must pass the host allowlist in
+/// `download_allowlist.dart`; a disallowed one throws
+/// [DownloadUrlRejectedException] before any byte is written.
+///
 /// Public interface:
 /// - [fetch]: starts (or resumes) a download and streams progress events.
 /// - [cancel]: cancels the active fetch.
@@ -117,7 +147,24 @@ class HttpModelFetcher {
   }) : _dio = dio ?? _defaultDio();
 
   final Dio _dio;
+
+  /// The token of the running [fetch]. [cancel] cancels it; every request
+  /// attempt gets its own child token, so a stall can end one attempt (and be
+  /// resumed) without ending the whole download.
   CancelToken? _cancelToken;
+
+  /// Set by [cancel]; also ends a [fetchVerified] that is still waiting for
+  /// another download of the same file to finish.
+  bool _cancelRequested = false;
+
+  /// Fetches in flight per destination, across fetcher instances: a second
+  /// fetch of the same file waits until the first has closed its `.tmp`, so
+  /// two writers never append to one fragment (UIA-RT-05).
+  static final Map<String, Future<void>> _inFlight = {};
+
+  /// Same for [fetchVerified], which also covers the hash check: a second
+  /// caller waits and then finds the verified file in place.
+  static final Map<String, Future<void>> _verifiedInFlight = {};
 
   /// Maximum gap between received chunks before a stall-cancel fires.
   ///
@@ -137,8 +184,12 @@ class HttpModelFetcher {
 
   /// Downloads [url] to [destPath], resuming any partial `<destPath>.tmp` file.
   ///
-  /// [expectedSize] is used as a fallback when the server does not return a
-  /// `Content-Length` header.
+  /// [expectedSize] is the pinned length. A body that ends short is resumed
+  /// like a dropped connection, one that is too long restarts once from byte
+  /// 0 and then throws [DownloadLengthException]; a wrong-length file is never
+  /// renamed to [destPath]. A `.tmp` that already has exactly this length is
+  /// renamed without a request. Without a pinned size (<= 0) the server's
+  /// `Content-Length` is the target, if present.
   ///
   /// Progress events are emitted to [onProgress] at most every 500 ms.
   ///
@@ -156,17 +207,280 @@ class HttpModelFetcher {
   }) async {
     final token = CancelToken();
     _cancelToken = token;
+    final key = File(destPath).absolute.path;
+    var waited = false;
+    for (
+      var previous = _inFlight[key];
+      previous != null;
+      previous = _inFlight[key]
+    ) {
+      waited = true;
+      await previous;
+    }
+    if (token.isCancelled) throw token.cancelError!;
+    // A second fetch of the same file (a repeated click, or another screen
+    // starting the same model) waited for the first one. Downloading again
+    // would replace the file while the first caller still verifies it, so
+    // the finished result is reused when it has the expected length.
+    if (waited && expectedSize > 0) {
+      final dest = File(destPath);
+      if (dest.existsSync() && dest.lengthSync() == expectedSize) {
+        _log.info('Reusing the download that just finished: $destPath');
+        return;
+      }
+    }
+    final done = Completer<void>();
+    _inFlight[key] = done.future;
+    try {
+      await _fetchWithRetries(
+        token: token,
+        url: url,
+        destPath: destPath,
+        expectedSize: expectedSize,
+        onProgress: onProgress,
+      );
+    } finally {
+      _inFlight.remove(key);
+      done.complete();
+    }
+  }
+
+  /// Downloads one registry file from an ordered list of [sources] and
+  /// verifies it against the pinned [expectedSize] and [expectedSha256].
+  ///
+  /// Every source must serve the identical file; each one is checked against
+  /// the same hash, so a mirror can never deliver anything else. The next
+  /// source is tried when one answers with an HTTP error (after the retries
+  /// of [fetch] for 429/5xx), stalls or drops past the retry budget, sends a
+  /// wrong length, redirects off the allowlist or delivers bytes with another
+  /// hash. A cancel, a storage error and a TLS failure end the download at
+  /// once: another source cannot fix those. The source used is logged.
+  ///
+  /// Before the first request it
+  /// - waits for any other download of [destPath], in this process or in
+  ///   another WhisPaste process ([DownloadFileLock]);
+  /// - keeps a finished, verified [destPath] (nothing is downloaded);
+  /// - drops a partial `.tmp` that belongs to another file version
+  ///   ([prepareFragmentIdentity]), so a resume across app restarts can only
+  ///   append bytes of this exact file.
+  ///
+  /// [onVerifying] runs before each hash check (the UI shows "verifying").
+  /// Returns the URL the file came from, or null when the file was already
+  /// in place.
+  ///
+  /// Throws [DownloadChecksumException] when the last source delivered a
+  /// file with another hash, otherwise the last source's error.
+  Future<String?> fetchVerified({
+    required List<String> sources,
+    required String destPath,
+    required int expectedSize,
+    required String expectedSha256,
+    void Function(FetchProgress)? onProgress,
+    void Function()? onVerifying,
+    FileVerificationService verifier = const FileVerificationService(),
+  }) async {
+    assert(sources.isNotEmpty, 'fetchVerified needs at least one source');
+    return withDestinationLock(destPath, () async {
+      final dest = File(destPath);
+      if (dest.existsSync()) {
+        if (dest.lengthSync() == expectedSize) {
+          onVerifying?.call();
+          final existing = await verifier.verifyStamped(dest, expectedSha256);
+          if (existing is VerificationOk) {
+            _log.info('${p.basename(destPath)} is already in place');
+            return null;
+          }
+        }
+        await _deleteQuietly(dest);
+      }
+
+      await prepareFragmentIdentity(
+        destPath: destPath,
+        sha256: expectedSha256,
+        sizeBytes: expectedSize,
+      );
+
+      Object? lastError;
+      StackTrace? lastStack;
+      for (var i = 0; i < sources.length; i++) {
+        final url = sources[i];
+        final label =
+            'source ${i + 1}/${sources.length} '
+            '(${Uri.tryParse(url)?.host ?? 'invalid'})';
+        if (_cancelRequested) {
+          throw DioException.requestCancelled(
+            requestOptions: RequestOptions(path: url),
+            reason: 'user cancelled',
+          );
+        }
+        try {
+          await fetch(
+            url: url,
+            destPath: destPath,
+            expectedSize: expectedSize,
+            onProgress: onProgress,
+          );
+        } on DioException catch (e, s) {
+          if (e.type == DioExceptionType.cancel || _cancelRequested) rethrow;
+          if (isTlsDownloadFailure(e)) rethrow;
+          if (e.error is FileSystemException) rethrow;
+          _log.warning(
+            '${p.basename(destPath)}: $label failed (${describeDioError(e)})',
+          );
+          lastError = e;
+          lastStack = s;
+          continue;
+        } on DownloadLengthException catch (e, s) {
+          _log.warning('${p.basename(destPath)}: $label failed ($e)');
+          lastError = e;
+          lastStack = s;
+          continue;
+        } on DownloadUrlRejectedException catch (e, s) {
+          _log.warning('${p.basename(destPath)}: $label failed ($e)');
+          lastError = e;
+          lastStack = s;
+          continue;
+        }
+
+        // [fetch] already refused any other length; the hash covers the rest.
+        onVerifying?.call();
+        final check = await verifier.verifyStamped(dest, expectedSha256);
+        if (check is VerificationOk) {
+          await clearFragmentIdentity(destPath);
+          _log.info('${p.basename(destPath)} downloaded from $label');
+          return url;
+        }
+        if (check case VerificationIoError(
+          :final error,
+        ) when dest.existsSync()) {
+          // Unreadable right after writing: a storage problem, not the
+          // source's fault.
+          throw error is FileSystemException
+              ? error
+              : FileSystemException('$error', destPath);
+        }
+        _log.warning(
+          '${p.basename(destPath)}: $label delivered a file that fails the '
+          'pinned SHA-256 — deleted',
+        );
+        await _deleteQuietly(dest);
+        lastError = DownloadChecksumException(p.basename(destPath));
+        lastStack = StackTrace.current;
+      }
+      Error.throwWithStackTrace(lastError!, lastStack!);
+    });
+  }
+
+  /// Runs [body] as the only download of [destPath]: other callers in this
+  /// process wait in line, another WhisPaste process is kept out by a
+  /// [DownloadFileLock]. A [cancel] during the wait ends it with a
+  /// `DioException(cancel)`, the shape every caller already treats as the
+  /// user's cancel.
+  Future<T> withDestinationLock<T>(
+    String destPath,
+    Future<T> Function() body,
+  ) async {
+    _cancelRequested = false;
+    final key = File(destPath).absolute.path;
+    for (
+      var previous = _verifiedInFlight[key];
+      previous != null;
+      previous = _verifiedInFlight[key]
+    ) {
+      await previous;
+    }
+    if (_cancelRequested) {
+      throw DioException.requestCancelled(
+        requestOptions: RequestOptions(path: destPath),
+        reason: 'user cancelled',
+      );
+    }
+    final done = Completer<void>();
+    _verifiedInFlight[key] = done.future;
+    DownloadFileLock? lock;
+    try {
+      try {
+        lock = await DownloadFileLock.acquire(
+          destPath,
+          isCancelled: () => _cancelRequested,
+        );
+      } on DownloadLockCancelled {
+        throw DioException.requestCancelled(
+          requestOptions: RequestOptions(path: destPath),
+          reason: 'user cancelled',
+        );
+      }
+      return await body();
+    } finally {
+      await lock?.release();
+      _verifiedInFlight.remove(key);
+      done.complete();
+    }
+  }
+
+  Future<void> _fetchWithRetries({
+    required CancelToken token,
+    required String url,
+    required String destPath,
+    required int expectedSize,
+    void Function(FetchProgress)? onProgress,
+  }) async {
+    // Protect the fragment from sibling sweeps while it can still be resumed.
+    // It stays registered after a failure or cancel (the next attempt resumes
+    // it) and is released only once the atomic rename has succeeded.
+    registerResumableFragment('$destPath.tmp');
+    var restartedAfterOverlong = false;
     for (var attempt = 0; ; attempt++) {
+      // One child token per attempt: the stall detector ends only this
+      // attempt (which is then resumed), a user cancel on [token] reaches
+      // every attempt.
+      if (token.isCancelled) throw token.cancelError!;
+      final attemptToken = CancelToken();
+      unawaited(
+        token.whenCancel.then((e) {
+          if (!attemptToken.isCancelled) attemptToken.cancel(e.error);
+        }),
+      );
       try {
         await _fetchInternal(
+          token: attemptToken,
           url: url,
           destPath: destPath,
           expectedSize: expectedSize,
           onProgress: onProgress,
         );
+        releaseResumableFragment('$destPath.tmp');
         return;
+      } on _BodyTooLong catch (tooLong) {
+        // More bytes than the pinned size: the fragment is unusable. Start
+        // over once from byte 0; a fresh download that is still too long is
+        // reported, never renamed into place.
+        if (restartedAfterOverlong) {
+          throw DownloadLengthException(
+            expected: tooLong.expected,
+            actual: tooLong.actual,
+          );
+        }
+        restartedAfterOverlong = true;
+        _log.warning(
+          'Download longer than expected (${tooLong.actual} > '
+          '${tooLong.expected} bytes) — restarting from byte 0',
+        );
+        await _deleteQuietly(File('$destPath.tmp'));
       } on _TransferInterrupted catch (interrupted) {
         if (attempt >= _retryBackoff.length) {
+          if (interrupted.stalled) {
+            // Deliberately not a cancel: callers treat a cancel as the
+            // user's choice and go back to idle without a message, which
+            // made a stalled download fail silently before.
+            throw DioException(
+              requestOptions: interrupted.requestOptions,
+              type: DioExceptionType.receiveTimeout,
+              error: interrupted.error,
+              stackTrace: interrupted.stackTrace,
+              message: httpStallCancelMessage,
+            );
+          }
           throw DioException.connectionError(
             requestOptions: interrupted.requestOptions,
             reason: '${interrupted.error}',
@@ -180,6 +494,26 @@ class HttpModelFetcher {
         );
         await Future<void>.delayed(_retryBackoff[attempt]);
         if (token.isCancelled) throw token.cancelError!;
+      } on DioException catch (e) {
+        // Rate limit (429) and passing server errors: wait and ask the same
+        // source again before the caller moves on to the next source.
+        final status = e.response?.statusCode;
+        if (e.type != DioExceptionType.badResponse ||
+            status == null ||
+            !kTransientHttpStatuses.contains(status) ||
+            attempt >= _retryBackoff.length) {
+          rethrow;
+        }
+        final wait = transientRetryDelay(
+          retryAfter: e.response?.headers.value('retry-after'),
+          backoff: _retryBackoff[attempt],
+        );
+        _log.warning(
+          'HTTP $status from ${Uri.tryParse(url)?.host} — retrying in '
+          '${wait.inSeconds} s (${attempt + 1}/${_retryBackoff.length})',
+        );
+        await Future<void>.delayed(wait);
+        if (token.isCancelled) throw token.cancelError!;
       }
     }
   }
@@ -189,6 +523,7 @@ class HttpModelFetcher {
   /// The [fetch] future will throw a [DioException] with type
   /// [DioExceptionType.cancel].
   void cancel([String reason = 'cancelled']) {
+    _cancelRequested = true;
     _cancelToken?.cancel(reason);
     _cancelToken = null;
   }
@@ -198,6 +533,7 @@ class HttpModelFetcher {
   // -----------------------------------------------------------------------
 
   Future<void> _fetchInternal({
+    required CancelToken token,
     required String url,
     required String destPath,
     required int expectedSize,
@@ -208,14 +544,31 @@ class HttpModelFetcher {
 
     // Resume partial download.
     var startByte = tmpFile.existsSync() ? tmpFile.lengthSync() : 0;
+    if (expectedSize > 0 && startByte > 0) {
+      if (startByte == expectedSize) {
+        // Fully downloaded earlier, only the rename never ran.
+        _log.info('Partial file already complete — no download needed');
+        await _promote(tmpFile, destPath);
+        return;
+      }
+      if (startByte > expectedSize) {
+        _log.warning(
+          'Partial file longer than expected ($startByte > $expectedSize) '
+          '— restarting from byte 0',
+        );
+        await _deleteQuietly(tmpFile);
+        startByte = 0;
+      }
+    }
     if (startByte > 0) _log.info('Resuming download from byte $startByte');
 
     final (response, resolvedStartByte) = await _requestWithResumeRecovery(
+      token: token,
       url: url,
       tmpFile: tmpFile,
       startByte: startByte,
     );
-    startByte = resolvedStartByte;
+    startByte = _bodyStartByte(response, resolvedStartByte);
 
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
@@ -230,29 +583,21 @@ class HttpModelFetcher {
     double currentSpeed = 0;
     int? currentEta;
 
-    // Stall detector — fires `_cancelToken.cancel(httpStallCancelMessage)`
-    // when no bytes have arrived for ≥ [_stallThreshold]. Callers can
-    // compare `DioException.message` against [httpStallCancelMessage] to
-    // distinguish this from a user-initiated cancel, which uses any other
-    // message.
-    //
-    // Note: Dio's `CancelToken.cancel(reason)` stores `reason` in
-    // `DioException.error`, not `DioException.message`. To honour the
-    // PRD contract (`e.message == 'stalled'`), the catch-block below
-    // rewrites the message on stall-classified cancels.
+    // Stall detector — cancels this attempt's [token] when no bytes have
+    // arrived for ≥ [_stallThreshold]. The catch-block below turns that into
+    // a [_TransferInterrupted], so the retry loop resumes from the partial
+    // file; once the retry budget is spent the caller gets
+    // `DioException(receiveTimeout, message: httpStallCancelMessage)`.
     var lastByteAt = DateTime.now();
     var stallFired = false;
     final stallTimer = Timer.periodic(_stallCheckInterval, (_) {
       final silent = DateTime.now().difference(lastByteAt);
-      if (silent >= _stallThreshold) {
-        final ct = _cancelToken;
-        if (ct != null && !ct.isCancelled) {
-          _log.warning(
-            'HTTP download stalled for ${silent.inSeconds}s — cancelling',
-          );
-          stallFired = true;
-          ct.cancel(httpStallCancelMessage);
-        }
+      if (silent >= _stallThreshold && !token.isCancelled) {
+        _log.warning(
+          'HTTP download stalled for ${silent.inSeconds}s — resuming',
+        );
+        stallFired = true;
+        token.cancel(httpStallCancelMessage);
       }
     });
 
@@ -301,20 +646,15 @@ class HttpModelFetcher {
       throw _TransferInterrupted(e, s, response.requestOptions);
     } on SocketException catch (e, s) {
       throw _TransferInterrupted(e, s, response.requestOptions);
-    } on DioException catch (e) {
-      // Translate a stall-classified cancel into the PRD-contract shape:
-      // `DioException(cancel, message: httpStallCancelMessage)`. Dio's
-      // own factory writes the cancel reason into `.error` and overwrites
-      // `.message`, so the outer retry-loop wouldn't recognise the stall
-      // without this rewrite.
+    } on DioException catch (e, s) {
+      // The stall detector ended this attempt: a silent connection is a
+      // dropped one, so the retry loop resumes from the partial file.
       if (stallFired && e.type == DioExceptionType.cancel) {
-        throw DioException(
-          requestOptions: e.requestOptions,
-          response: e.response,
-          type: DioExceptionType.cancel,
-          error: e.error,
-          stackTrace: e.stackTrace,
-          message: httpStallCancelMessage,
+        throw _TransferInterrupted(
+          const HttpException(httpStallCancelMessage),
+          s,
+          response.requestOptions,
+          stalled: true,
         );
       }
       rethrow;
@@ -323,11 +663,37 @@ class HttpModelFetcher {
       await sink.close();
     }
 
-    // Atomic rename.
+    // Never hand on a body of the wrong length. The pinned size wins; without
+    // one the server's Content-Length decides.
+    final target = expectedSize > 0 ? expectedSize : totalBytes;
+    if (target > 0 && received != target) {
+      if (received < target) {
+        throw _TransferInterrupted(
+          HttpException('Body ended after $received of $target bytes'),
+          StackTrace.current,
+          response.requestOptions,
+        );
+      }
+      throw _BodyTooLong(expected: target, actual: received);
+    }
+
+    await _promote(tmpFile, destPath);
+  }
+
+  /// Atomic rename of the finished fragment onto [destPath].
+  Future<void> _promote(File tmpFile, String destPath) async {
     if (File(destPath).existsSync()) {
       await File(destPath).delete();
     }
     await tmpFile.rename(destPath);
+  }
+
+  Future<void> _deleteQuietly(File file) async {
+    try {
+      if (file.existsSync()) await file.delete();
+    } on FileSystemException catch (e) {
+      _log.warning('Could not delete ${file.path}: $e');
+    }
   }
 
   /// Issues the resumed (or fresh) GET for the download body.
@@ -344,31 +710,75 @@ class HttpModelFetcher {
   /// Returns the successful [Response] alongside the start byte actually
   /// used (0 if a 416 recovery happened).
   Future<(Response<ResponseBody>, int)> _requestWithResumeRecovery({
+    required CancelToken token,
     required String url,
     required File tmpFile,
     required int startByte,
   }) async {
     try {
-      final response = await _dio.get<ResponseBody>(
+      final response = await getWithAllowlistedRedirects<ResponseBody>(
+        _dio,
         url,
-        cancelToken: _cancelToken,
+        cancelToken: token,
         options: Options(
           responseType: ResponseType.stream,
           headers: startByte > 0 ? {'Range': 'bytes=$startByte-'} : null,
         ),
       );
+      if (startByte > 0 && response.statusCode == 206) {
+        final rangeStart = _contentRangeStart(response);
+        if (rangeStart != null && rangeStart != startByte) {
+          // Appending a different range would corrupt the file.
+          _log.warning(
+            'Server answered range starting at $rangeStart, asked for '
+            '$startByte — restarting from byte 0',
+          );
+          response.data?.stream.listen(null).cancel();
+          await _deleteQuietly(tmpFile);
+          final fresh = await getWithAllowlistedRedirects<ResponseBody>(
+            _dio,
+            url,
+            cancelToken: token,
+            options: Options(responseType: ResponseType.stream),
+          );
+          return (fresh, 0);
+        }
+      }
       return (response, startByte);
     } on DioException catch (e) {
       if (startByte == 0 || e.response?.statusCode != 416) rethrow;
       _log.warning('Stale .tmp rejected with 416 — restarting from byte 0');
       await tmpFile.delete();
-      final response = await _dio.get<ResponseBody>(
+      final response = await getWithAllowlistedRedirects<ResponseBody>(
+        _dio,
         url,
-        cancelToken: _cancelToken,
+        cancelToken: token,
         options: Options(responseType: ResponseType.stream),
       );
       return (response, 0);
     }
+  }
+
+  /// The offset the body really starts at. A server that ignores Range answers
+  /// 200 with the complete body; appending that to the partial file would
+  /// corrupt the download, so the body is written from byte 0 instead.
+  int _bodyStartByte(Response<ResponseBody> response, int requestedStart) {
+    if (requestedStart == 0 || response.statusCode == 206) {
+      return requestedStart;
+    }
+    _log.warning(
+      'Server ignored Range (HTTP ${response.statusCode}) — restarting from byte 0',
+    );
+    return 0;
+  }
+
+  /// First byte of a `Content-Range: bytes a-b/total` header, or null when
+  /// absent or unparsable.
+  int? _contentRangeStart(Response<ResponseBody> response) {
+    final header = response.headers['content-range'];
+    if (header == null || header.isEmpty) return null;
+    final match = RegExp(r'bytes\s+(\d+)-').firstMatch(header.first);
+    return match == null ? null : int.tryParse(match.group(1)!);
   }
 
   int _resolveTotal(Response<ResponseBody> resp, int start, int expected) {
@@ -414,11 +824,53 @@ Dio _defaultDio() => buildDioWithSentry(
 /// The connection dropped while the body was streaming; the bytes received
 /// so far are in the `.tmp` file, so [HttpModelFetcher.fetch] can resume.
 class _TransferInterrupted implements Exception {
-  const _TransferInterrupted(this.error, this.stackTrace, this.requestOptions);
+  const _TransferInterrupted(
+    this.error,
+    this.stackTrace,
+    this.requestOptions, {
+    this.stalled = false,
+  });
 
   final IOException error;
+
+  /// The stall detector ended the attempt (no bytes for the threshold).
+  final bool stalled;
   final StackTrace stackTrace;
   final RequestOptions requestOptions;
+}
+
+/// The body held more bytes than the pinned size.
+class _BodyTooLong implements Exception {
+  const _BodyTooLong({required this.expected, required this.actual});
+
+  final int expected;
+  final int actual;
+}
+
+/// A download finished (also after one restart from byte 0) with a length
+/// other than the expected one. The file is not put in place.
+class DownloadLengthException implements Exception {
+  const DownloadLengthException({required this.expected, required this.actual});
+
+  final int expected;
+  final int actual;
+
+  @override
+  String toString() =>
+      'Downloaded file size mismatch: expected $expected bytes, got $actual';
+}
+
+/// Every source of [HttpModelFetcher.fetchVerified] was tried and the last
+/// one delivered a file whose SHA-256 differs from the registry. The file was
+/// deleted; nothing is put in place.
+class DownloadChecksumException implements Exception {
+  const DownloadChecksumException(this.filename);
+
+  final String filename;
+
+  @override
+  String toString() =>
+      'Downloaded file failed checksum verification: $filename';
 }
 
 class _SpeedSample {

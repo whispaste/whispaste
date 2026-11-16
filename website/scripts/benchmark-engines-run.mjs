@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Turnkey runner for the engine-benchmark data on `/engine-benchmarks/`
- * (website/internal-notes).
+ * Turnkey runner for the engine-benchmark data on `/engine-benchmarks/`.
  *
  * Times a whisper.cpp `whisper-cli` transcription of a fixed reference clip
  * and reports RTF + WER for that run. Meant to be re-run on every hardware

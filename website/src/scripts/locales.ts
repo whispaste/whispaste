@@ -74,10 +74,11 @@ const EN_SLUGS: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * Legal pages are only maintained in German and English (the German text is
- * binding). Other locales link to the English version.
+ * Legal pages that are only maintained in German and English. The privacy
+ * policy is translated into every locale (the German text stays binding);
+ * the imprint still links to the English version from other locales.
  */
-const LEGAL_SLUGS: ReadonlySet<string> = new Set(['impressum', 'privacy']);
+const LEGAL_SLUGS: ReadonlySet<string> = new Set(['impressum']);
 
 /**
  * The blog is written in German and English only, with identical post slugs

@@ -32,6 +32,19 @@ class OverlayContextMenuAction extends FloatingOverlayEvent {
   final String action;
 }
 
+/// A button of the notice card was clicked (overlay F2). [id] is the wire
+/// name of an `OverlayNoticeActionId`.
+class OverlayNoticeActionClicked extends FloatingOverlayEvent {
+  const OverlayNoticeActionClicked(this.id);
+  final String id;
+}
+
+/// The render engine painted its first frame for the current show (macOS
+/// frame heartbeat, ticket phase 2). Stops the re-boot deadline.
+class OverlayRenderFrame extends FloatingOverlayEvent {
+  const OverlayRenderFrame();
+}
+
 /// The native shell reported a diagnostic about the dedicated render-engine
 /// boot handshake (macOS: `FloatingOverlayHost.swift`'s `renderReady` race —
 /// the render engine boots asynchronously and the shell waits for a "ready"

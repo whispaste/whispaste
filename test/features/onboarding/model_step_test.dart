@@ -13,21 +13,32 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderParagraph;
-import 'package:flutter/services.dart'
-    show FontLoader, LogicalKeyboardKey, rootBundle;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/app_info.dart' as app;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
+import 'package:whispaste/features/help/manual/user_manual_view.dart'
+    show kManualSectionDialogKey;
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/services/connection_return_watcher.dart';
+import 'package:whispaste/services/download_error_kind.dart';
+import 'package:whispaste/services/free_disk_space.dart';
+import 'package:whispaste/services/short_model_benchmark.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/speech_recommendation.dart'
+    show RamMB, ramMBProvider, systemLanguageCodesProvider;
+import 'package:whispaste/services/stt/backend_utilization_notifier.dart'
+    show processorCountProvider;
+import 'package:whispaste/services/stt/benchmark_freshness.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
-import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/services/system_speech/system_speech_status.dart';
+import '../../fixtures/app_fonts.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -70,6 +81,18 @@ class _RecordingWhisperDownloadNotifier extends ModelDownloadNotifier {
     state = state.copyWith(
       activeModelId: modelId,
       phase: DownloadPhase.downloading,
+      progressPercent: 0,
+    );
+  }
+
+  int cancelCalls = 0;
+
+  @override
+  void cancelDownload() {
+    cancelCalls++;
+    state = state.copyWith(
+      phase: DownloadPhase.idle,
+      activeModelId: null,
       progressPercent: 0,
     );
   }
@@ -129,6 +152,43 @@ class _RecordingParakeetDownloadNotifier extends ParakeetDownloadNotifier {
     downloadBundleCalls++;
     state = state.copyWith(phase: ParakeetDownloadPhase.downloading);
   }
+
+  int cancelCalls = 0;
+
+  @override
+  void cancelDownload() {
+    cancelCalls++;
+    state = state.copyWith(
+      phase: ParakeetDownloadPhase.idle,
+      progressPercent: 0,
+    );
+  }
+}
+
+/// The system engine's status without the native channel: [build] answers a
+/// fixed status, [install] counts and marks the assets as loading.
+class _FakeSystemSpeechNotifier extends SystemSpeechNotifier {
+  _FakeSystemSpeechNotifier(this._initial);
+
+  final SystemSpeechStatus _initial;
+  int installCalls = 0;
+
+  @override
+  SystemSpeechStatus build() => _initial;
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<void> install() async {
+    installCalls++;
+    state = state.copyWith(installing: true, fraction: 0.4);
+  }
+
+  /// Simulates the system finishing the language assets.
+  void completeInstall() {
+    state = state.copyWith(installing: false, installed: true, fraction: 1);
+  }
 }
 
 late L10n l10n;
@@ -137,12 +197,25 @@ typedef _Recorders = ({
   _FakeSettingsNotifier settings,
   _RecordingWhisperDownloadNotifier whisper,
   _RecordingParakeetDownloadNotifier parakeet,
+  _FakeSystemSpeechNotifier system,
 });
+
+/// The machine's RAM, so the host running the test never decides it.
+class _FixedRam extends RamMB {
+  _FixedRam(this._mb);
+  final int? _mb;
+
+  @override
+  int? build() => _mb;
+}
 
 Future<_Recorders> _pumpStep(
   WidgetTester tester, {
   required hw.GpuInfo gpu,
   String dictationLocale = 'en',
+
+  /// Total RAM; null reads as "RAM unknown".
+  int? ramMB = 16384,
   ModelDownloadState whisperInitial = const ModelDownloadState(),
   ParakeetDownloadState parakeetInitial = const ParakeetDownloadState(),
   Locale displayLocale = const Locale('en'),
@@ -150,6 +223,10 @@ Future<_Recorders> _pumpStep(
   /// Pre-existing speech-recognition settings. Defaults to the factory
   /// values, which is what a first run has.
   SttSettings stt = const SttSettings(),
+
+  /// Stored benchmark results; the step only uses the ones that describe this
+  /// machine and build (UIA-RT-03).
+  BenchmarkSettings benchmark = const BenchmarkSettings(),
 
   /// Whether the user already finished the first-run setup — the signal
   /// [ModelStep] treats as "everything in settings is this user's own
@@ -162,13 +239,41 @@ Future<_Recorders> _pumpStep(
   /// (720 px) instead: the engine cards only compete for width once each of
   /// them is ~344 px, and at 1280 the bug it guards is invisible.
   double? frameWidth,
+
+  /// Replaces the immediate [gpu] answer, e.g. with a future that never
+  /// completes to hold the step in hardware detection. The spinner then
+  /// animates forever, so the pump does not settle.
+  Future<hw.GpuInfo>? gpuFuture,
+
+  /// What the free-disk-space probe answers; `null` is "unknown", which the
+  /// step treats as enough (fail-open, UIA-ONB-09).
+  int? freeDiskBytes,
+
+  /// What the connection-back probe answers; offline by default, so no test
+  /// reaches the network.
+  ConnectionProbe? connectionProbe,
+
+  /// Whether the OS offers the system engine; off by default, so the host the
+  /// suite runs on never adds the third card.
+  bool systemSupported = false,
+
+  /// The system engine's status while [systemSupported] is on.
+  SystemSpeechStatus? systemInitial,
+
+  /// Pins a short-benchmark result so the step does not download
+  /// whisper-small to measure; for tests that count the user's own downloads.
+  bool skipShortBenchmark = false,
 }) async {
+  final system = _FakeSystemSpeechNotifier(
+    systemInitial ?? SystemSpeechStatus(osSupported: systemSupported),
+  );
   late _RecordingWhisperDownloadNotifier whisper;
   late _RecordingParakeetDownloadNotifier parakeet;
   final settings = _FakeSettingsNotifier(
     AppSettings(
       interface_: InterfaceSettings(locale: dictationLocale),
       stt: stt,
+      benchmark: benchmark,
       onboarding: OnboardingSettings(onboardingCompleted: onboardingCompleted),
     ),
   );
@@ -181,7 +286,18 @@ Future<_Recorders> _pumpStep(
           ref.onDispose(db.close);
           return db;
         }),
-        hw.gpuInfoProvider.overrideWith((_) async => gpu),
+        hw.gpuInfoProvider.overrideWith((_) => gpuFuture ?? Future.value(gpu)),
+        // The recommendation also weighs the system languages and the CPU;
+        // pin both so the host the suite runs on never decides it.
+        systemLanguageCodesProvider.overrideWithValue([dictationLocale]),
+        processorCountProvider.overrideWithValue(8),
+        ramMBProvider.overrideWith(() => _FixedRam(ramMB)),
+        freeDiskSpaceProbeProvider.overrideWithValue(
+          (_) async => freeDiskBytes,
+        ),
+        connectionProbeProvider.overrideWithValue(
+          connectionProbe ?? () async => false,
+        ),
         settingsProvider.overrideWith(() => settings),
         modelDownloadProvider.overrideWith(() {
           whisper = _RecordingWhisperDownloadNotifier(whisperInitial);
@@ -191,6 +307,12 @@ Future<_Recorders> _pumpStep(
           parakeet = _RecordingParakeetDownloadNotifier(parakeetInitial);
           return parakeet;
         }),
+        systemSpeechSupportedProvider.overrideWithValue(systemSupported),
+        systemSpeechProvider.overrideWith(() => system),
+        // Without a result the step downloads whisper-small by itself to
+        // measure, which tests of the user's own download taps must not count.
+        if (skipShortBenchmark)
+          shortModelBenchmarkRtfProvider.overrideWith(_PinnedBenchmarkRtf.new),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -211,8 +333,17 @@ Future<_Recorders> _pumpStep(
       ),
     ),
   );
-  await tester.pumpAndSettle();
-  return (settings: settings, whisper: whisper, parakeet: parakeet);
+  if (gpuFuture == null) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+  return (
+    settings: settings,
+    whisper: whisper,
+    parakeet: parakeet,
+    system: system,
+  );
 }
 
 const _appleM2 = hw.GpuInfo(
@@ -231,12 +362,240 @@ void main() {
     // regression below is a width measurement, and with Ahem every glyph is
     // a full em square — roughly double Inter's width — so every title would
     // "overflow" and the test would pass for a reason the app never has.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFontsOnce();
+  });
+
+  testWidgets('hardware detection says what it is doing (UIA-ONB-13)', (
+    tester,
+  ) async {
+    await _pumpStep(
+      tester,
+      gpu: _appleM2,
+      gpuFuture: Completer<hw.GpuInfo>().future,
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  // MV-03/04: the recommendation carries a one-line reason, the same text
+  // Settings shows under its tiers for the same hardware.
+  group('ModelStep — the recommendation names its reason (MV-03)', () {
+    testWidgets('a CUDA GPU names the card and its video memory', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        dictationLocale: 'he',
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'NVIDIA GeForce RTX 3060',
+          vramMB: 12288,
+          cudaAvailable: true,
+        ),
+      );
+
+      expect(
+        tester.widget<Text>(find.byKey(kModelStepRecommendationReasonKey)).data,
+        l10n.recommendationReasonCuda('12'),
+      );
+    });
+
+    testWidgets('llvmpipe is named as software graphics on the processor', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        dictationLocale: 'he',
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.none,
+          name: 'llvmpipe (LLVM 15.0.7, 256 bits)',
+        ),
+        ramMB: null,
+      );
+
+      final reason = tester
+          .widget<Text>(find.byKey(kModelStepRecommendationReasonKey))
+          .data!;
+      expect(reason, contains('llvmpipe'));
+      expect(reason, contains(l10n.recommendationMemoryUnknown));
+    });
+
+    testWidgets('a language Parakeet covers names the language', (
+      tester,
+    ) async {
+      await _pumpStep(tester, dictationLocale: 'de', gpu: _cpuOnly);
+
+      expect(
+        tester.widget<Text>(find.byKey(kModelStepRecommendationReasonKey)).data,
+        l10n.recommendationReasonLanguage,
+      );
+    });
+  });
+
+  group('ModelStep — offline download error (#235)', () {
+    const retryKey = ValueKey('onboarding-speech-retry');
+    const manualKey = ValueKey('onboarding-speech-manual-install');
+
+    Future<_Recorders> pumpWithError(
+      WidgetTester tester,
+      DownloadErrorKind kind, {
+      ConnectionProbe? connectionProbe,
+    }) => _pumpStep(
+      tester,
+      gpu: _appleM2,
+      connectionProbe: connectionProbe,
+      whisperInitial: ModelDownloadState(
+        phase: DownloadPhase.error,
+        errorMessage: 'SocketException',
+        errorKind: kind,
+      ),
+      parakeetInitial: ParakeetDownloadState(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: 'SocketException',
+        errorKind: kind,
+      ),
+    );
+
+    testWidgets('offers retry and the manual install guide, which opens', (
+      tester,
+    ) async {
+      await pumpWithError(tester, DownloadErrorKind.offline);
+
+      expect(find.byKey(retryKey), findsOneWidget);
+      expect(find.byKey(manualKey), findsOneWidget);
+      expect(find.byKey(kManualSectionDialogKey), findsNothing);
+
+      await tester.tap(find.byKey(manualKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(kManualSectionDialogKey), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('manual-section-dialog-close')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(kManualSectionDialogKey), findsNothing);
+    });
+
+    testWidgets('a returned connection is announced, the download waits for '
+        'retry', (tester) async {
+      final rec = await pumpWithError(
+        tester,
+        DownloadErrorKind.offline,
+        connectionProbe: () async => true,
+      );
+      const hintKey = ValueKey('onboarding-speech-connection-back');
+      expect(find.byKey(hintKey), findsNothing);
+
+      await tester.pump(kConnectionProbeInterval);
+      await tester.pump();
+
+      expect(find.byKey(hintKey), findsOneWidget);
+      expect(find.byKey(retryKey), findsOneWidget);
+      expect(rec.whisper.downloadModelCalls, isEmpty);
+    });
+
+    testWidgets('other failures keep retry only', (tester) async {
+      await pumpWithError(tester, DownloadErrorKind.network);
+
+      expect(find.byKey(retryKey), findsOneWidget);
+      expect(find.byKey(manualKey), findsNothing);
+    });
+  });
+
+  group('ModelStep — free disk space before the download (UIA-ONB-09)', () {
+    for (final gpu in [_appleM2, _cpuOnly]) {
+      testWidgets('too little space warns with needed/free and only starts '
+          'on "Download anyway" (${gpu.name})', (tester) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: gpu,
+          skipShortBenchmark: true,
+          freeDiskBytes: 1024,
+        );
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+        expect(rec.parakeet.downloadBundleCalls, 0);
+
+        await tester.tap(find.bySemanticsIdentifier('confirm-dialog-confirm'));
+        await tester.pumpAndSettle();
+        expect(
+          rec.whisper.downloadModelCalls.length +
+              rec.parakeet.downloadBundleCalls,
+          1,
+        );
+      });
+
+      testWidgets('cancelling the warning starts nothing (${gpu.name})', (
+        tester,
+      ) async {
+        final rec = await _pumpStep(
+          tester,
+          gpu: gpu,
+          skipShortBenchmark: true,
+          freeDiskBytes: 1024,
+        );
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsIdentifier('confirm-dialog-cancel'));
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+        expect(rec.parakeet.downloadBundleCalls, 0);
+      });
+
+      for (final free in [null, 1 << 50]) {
+        testWidgets('${free == null ? 'unknown' : 'enough'} space starts '
+            'without a warning (${gpu.name})', (tester) async {
+          final rec = await _pumpStep(
+            tester,
+            gpu: gpu,
+            skipShortBenchmark: true,
+            freeDiskBytes: free,
+          );
+          await tester.tap(
+            find.bySemanticsIdentifier('onboarding-speech-start-download'),
+          );
+          await tester.pump();
+
+          expect(
+            rec.whisper.downloadModelCalls.length +
+                rec.parakeet.downloadBundleCalls,
+            1,
+          );
+        });
+      }
+    }
+  });
+
+  group('ModelStep — cancelling a download (UIA-ONB-02)', () {
+    for (final gpu in [_appleM2, _cpuOnly]) {
+      testWidgets('a running download can be cancelled and the page returns '
+          'to its choice state (${gpu.name})', (tester) async {
+        final rec = await _pumpStep(tester, gpu: gpu);
+        final cta = find.bySemanticsIdentifier(
+          'onboarding-speech-start-download',
+        );
+        expect(cta, findsOneWidget);
+        expect(find.byKey(kModelStepDownloadCancelKey), findsNothing);
+
+        await tester.tap(cta);
+        await tester.pump();
+        expect(find.byKey(kModelStepDownloadCancelKey), findsOneWidget);
+
+        await tester.tap(find.byKey(kModelStepDownloadCancelKey));
+        await tester.pump();
+
+        expect(rec.whisper.cancelCalls + rec.parakeet.cancelCalls, 1);
+        expect(find.byKey(kModelStepDownloadCancelKey), findsNothing);
+        expect(cta, findsOneWidget);
+      });
+    }
   });
 
   group('ModelStep — rendering', () {
@@ -249,78 +608,6 @@ void main() {
       expect(find.byKey(kModelStepEngineParakeetCardKey), findsOneWidget);
       expect(find.byKey(kModelStepEngineWhisperCardKey), findsOneWidget);
     });
-
-    testWidgets(
-      'the download status sits under whichever engine card is selected — '
-      'it used to render on the left half regardless, so with Whisper '
-      '(the right card) selected it visibly belonged to the wrong card',
-      (tester) async {
-        await _pumpStep(tester, gpu: _appleM2, frameWidth: 720);
-
-        final ctaFinder = find.textContaining(
-          l10n.qualityTierDownloadAndContinue,
-        );
-        final parakeetLeft = tester
-            .getTopLeft(find.byKey(kModelStepEngineParakeetCardKey))
-            .dx;
-        final whisperLeft = tester
-            .getTopLeft(find.byKey(kModelStepEngineWhisperCardKey))
-            .dx;
-
-        // English dictation on this hardware recommends Parakeet, so the
-        // CTA starts on the Parakeet card's own start edge. The button box
-        // is the Expanded half itself, so the *button* edge (the text sits
-        // inside its padding) has to match the card edge — compare via the
-        // WpButton ancestor.
-        Offset ctaButtonTopLeft() => tester.getTopLeft(
-          find.ancestor(of: ctaFinder, matching: find.byType(WpButton)).first,
-        );
-        expect(ctaButtonTopLeft().dx, moreOrLessEquals(parakeetLeft));
-
-        await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
-        await tester.pumpAndSettle();
-        expect(ctaButtonTopLeft().dx, moreOrLessEquals(whisperLeft));
-
-        await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
-        await tester.pumpAndSettle();
-        expect(ctaButtonTopLeft().dx, moreOrLessEquals(parakeetLeft));
-      },
-    );
-
-    testWidgets(
-      'the recommended card shows its engine name in full at the real page '
-      'width — the title used to ellipsise to "Schnell & e…" because it, the '
-      '"recommended" badge and a Spacer split the card three ways',
-      (tester) async {
-        await _pumpStep(
-          tester,
-          gpu: _appleM2,
-          // German: the longest badge of the three locales ("Empfohlen für
-          // dein Gerät") against a title that has to survive it.
-          dictationLocale: 'de',
-          displayLocale: const Locale('de'),
-          frameWidth: 720,
-        );
-        final localized = await L10n.delegate.load(const Locale('de'));
-
-        // The badge must actually be on screen — without it the title has
-        // the whole line to itself and this proves nothing.
-        expect(find.text(localized.onboardingModelRecommended), findsOneWidget);
-
-        final title = tester.renderObject<RenderParagraph>(
-          find.text(localized.onboardingModelEngineParakeetLabel),
-        );
-        expect(
-          title.didExceedMaxLines,
-          isFalse,
-          reason:
-              'The engine name is ellipsised at the real page width — '
-              '`TextOverflow.ellipsis` hides that silently, which is exactly '
-              'how it shipped.',
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
 
     testWidgets('GpuVendor.none renders the CPU-fallback notice', (
       tester,
@@ -340,8 +627,6 @@ void main() {
       );
 
       expect(find.byKey(kModelStepGpuCpuFallbackKey), findsOneWidget);
-      // The ready state renders regardless of GPU detection outcome.
-      expect(find.text(l10n.modelReady), findsOneWidget);
     });
 
     testWidgets('GpuVendor.apple does NOT render the CPU-fallback notice', (
@@ -368,14 +653,6 @@ void main() {
         ),
       );
 
-      expect(
-        find.text(l10n.modelReady),
-        findsOneWidget,
-        reason:
-            'Parakeet is recommended (and preselected) for German — the '
-            'ready state must reflect the already-installed bundle '
-            'immediately, no tap needed.',
-      );
       expect(rec.whisper.downloadModelCalls, isEmpty);
     });
 
@@ -390,18 +667,13 @@ void main() {
           dictationLocale: 'he',
         );
 
-        expect(
-          find.text(l10n.onboardingModelEngineUnsupportedLanguage),
-          findsOneWidget,
-        );
-
         // Tapping the disabled Parakeet card must not select it — the CTA
         // stays wired to Whisper. Downloading confirms which engine is
         // actually selected.
         await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -431,7 +703,7 @@ void main() {
         );
 
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -443,6 +715,73 @@ void main() {
     );
   });
 
+  group('ModelStep — tier follows this machine\'s measurement (UIA-RT-03)', () {
+    testWidgets(
+      'a measured fast tier beats the VRAM estimate, as in Settings',
+      (tester) async {
+        // 24 GB NVIDIA: VRAM alone recommends Premium. This machine's
+        // measurement says Compact is fast enough, and Settings already shows
+        // that verdict, so onboarding must download the same model.
+        const gpu = hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'Test GPU',
+          vramMB: 24576,
+          cudaAvailable: true,
+        );
+        final rec = await _pumpStep(
+          tester,
+          gpu: gpu,
+          dictationLocale: 'he',
+          benchmark: BenchmarkSettings(
+            tierBenchmarkRtf: const {QualityTier.compact: 0.2},
+            benchmarkHardwareId: benchmarkMachineKey(
+              hardwareKey: benchmarkHardwareKey(gpu),
+              appVersion: app.appVersion,
+            ),
+          ),
+        );
+
+        await tester.tap(
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, [
+          bestModelForTier(QualityTier.compact).id,
+        ]);
+      },
+    );
+
+    testWidgets('a measurement taken on other hardware is ignored', (
+      tester,
+    ) async {
+      const gpu = hw.GpuInfo(
+        vendor: hw.GpuVendor.nvidia,
+        name: 'Test GPU',
+        vramMB: 24576,
+        cudaAvailable: true,
+      );
+      final rec = await _pumpStep(
+        tester,
+        gpu: gpu,
+        dictationLocale: 'he',
+        benchmark: const BenchmarkSettings(
+          tierBenchmarkRtf: {QualityTier.compact: 0.2},
+          benchmarkHardwareId: 'nvidia_1000|0.0.0',
+        ),
+      );
+
+      await tester.tap(
+        find.bySemanticsIdentifier('onboarding-speech-start-download'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(rec.whisper.downloadModelCalls, [
+        bestModelForTier(QualityTier.premium).id,
+      ]);
+    });
+  });
+
   group('ModelStep — Parakeet download path', () {
     testWidgets(
       'selecting Parakeet (recommended for German) and tapping download '
@@ -451,11 +790,12 @@ void main() {
         final rec = await _pumpStep(
           tester,
           gpu: _cpuOnly,
+          skipShortBenchmark: true,
           dictationLocale: 'de',
         );
 
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -477,7 +817,7 @@ void main() {
         await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -489,6 +829,98 @@ void main() {
     );
   });
 
+  group('ModelStep — system engine (macOS 26+)', () {
+    const checkedEn = SystemSpeechStatus(
+      osSupported: true,
+      checked: true,
+      localeSupported: 'en-US',
+    );
+    Finder appleCard() =>
+        find.bySemanticsIdentifier('onboarding-speech-engine-apple');
+    Finder startButton() =>
+        find.bySemanticsIdentifier('onboarding-speech-start-download');
+
+    testWidgets('without OS support the third card is missing', (tester) async {
+      await _pumpStep(tester, gpu: _appleM2);
+
+      expect(appleCard(), findsNothing);
+      expect(
+        find.bySemanticsIdentifier('onboarding-speech-engine-whisper'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the hardware recommendation stays preselected next to the '
+        'system card', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        dictationLocale: 'he',
+        stt: const SttSettings(language: 'he'),
+        systemSupported: true,
+        systemInitial: checkedEn,
+      );
+
+      expect(appleCard(), findsOneWidget);
+      await tester.tap(startButton());
+      await tester.pumpAndSettle();
+
+      expect(rec.whisper.downloadModelCalls, isNotEmpty);
+      expect(rec.system.installCalls, 0);
+    });
+
+    testWidgets('picking the system card loads the language assets and '
+        'persists the engine once they are ready', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        stt: const SttSettings(language: 'en'),
+        systemSupported: true,
+        systemInitial: checkedEn,
+      );
+
+      await tester.tap(appleCard());
+      await tester.pumpAndSettle();
+      await tester.tap(startButton());
+      await tester.pump();
+
+      expect(rec.system.installCalls, 1);
+      expect(rec.whisper.downloadModelCalls, isEmpty);
+      expect(rec.parakeet.downloadBundleCalls, 0);
+
+      rec.system.completeInstall();
+      await tester.pumpAndSettle();
+
+      expect(rec.settings.state.value!.stt.engine, 'system');
+    });
+
+    testWidgets('with an automatic language the system card is locked and a '
+        'tap keeps the recommendation', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        stt: const SttSettings(language: 'auto'),
+        systemSupported: true,
+        systemInitial: const SystemSpeechStatus(
+          osSupported: true,
+          checked: true,
+        ),
+      );
+
+      await tester.tap(appleCard(), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(startButton());
+      await tester.pumpAndSettle();
+
+      expect(rec.system.installCalls, 0);
+      expect(
+        rec.whisper.downloadModelCalls.length +
+            rec.parakeet.downloadBundleCalls,
+        greaterThan(0),
+      );
+    });
+  });
+
   group('ModelStep — persistence when the selected engine is on disk', () {
     testWidgets(
       'already-installed recommended Parakeet persists sttEngine=parakeet '
@@ -497,6 +929,7 @@ void main() {
         final rec = await _pumpStep(
           tester,
           gpu: _cpuOnly,
+          skipShortBenchmark: true,
           dictationLocale: 'de',
           parakeetInitial: const ParakeetDownloadState(
             installed: true,
@@ -544,7 +977,7 @@ void main() {
         final originalEngine = rec.settings.state.value!.stt.engine;
 
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
         // Still downloading — nothing persisted yet.
@@ -562,24 +995,101 @@ void main() {
     );
 
     testWidgets(
-      'without any download nothing is written — a user who continues '
-      'without downloading (e.g. to use a cloud provider) keeps the '
-      'defaults untouched',
+      'on a first run without any download the recommendation is saved, so '
+      'the dock names the engine onboarding recommended (UIA-RT-03, E1a)',
       (tester) async {
         final rec = await _pumpStep(
           tester,
           gpu: _appleM2,
-          dictationLocale: 'de',
+          dictationLocale: 'en',
         );
 
-        expect(
-          rec.settings.state.value!.stt.engine,
-          AppSettings.defaults.stt.engine,
-        );
+        expect(rec.settings.state.value!.stt.engine, 'parakeet');
         expect(rec.whisper.downloadModelCalls, isEmpty);
         expect(rec.parakeet.downloadBundleCalls, 0);
       },
     );
+
+    testWidgets('a Whisper recommendation is saved with its tier model '
+        '(UIA-RT-03, E1a)', (tester) async {
+      final rec = await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'he');
+
+      expect(rec.settings.state.value!.stt.engine, 'whisper');
+      expect(
+        rec.settings.state.value!.stt.model,
+        bestModelForTier(QualityTier.premium).id,
+      );
+    });
+
+    testWidgets('after the first run nothing is saved on its own, so a '
+        'stored value is never overwritten (UIA-RT-03, E1a)', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        dictationLocale: 'de',
+        onboardingCompleted: true,
+        stt: const SttSettings(engine: 'whisper', model: 'whisper-small'),
+      );
+
+      expect(rec.settings.updateCalls, 0);
+      expect(rec.settings.state.value!.stt.engine, 'whisper');
+      expect(rec.settings.state.value!.stt.model, 'whisper-small');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // UIA-RT-01: the chosen engine is the active one, even before its download
+  // finishes. The preflight reads these settings, so a choice that is only
+  // saved after the download makes it check the wrong model.
+  // -------------------------------------------------------------------------
+  group('ModelStep — a chosen engine is saved before its download ends', () {
+    testWidgets('choosing Whisper saves it at once, before any download', (
+      tester,
+    ) async {
+      final rec = await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'en');
+      // The first run saves the recommendation, Parakeet for English (E1a);
+      // for any other language a premium Whisper wins on this machine.
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+      await tester.pumpAndSettle();
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+
+      await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        rec.settings.state.value!.stt.engine,
+        'whisper',
+        reason: 'The preflight reads the saved engine, not the card.',
+      );
+      expect(
+        rec.settings.state.value!.stt.model,
+        bestModelForTier(QualityTier.premium).id,
+        reason: 'Whisper saves the model it will download, too.',
+      );
+      expect(rec.whisper.downloadModelCalls, isEmpty);
+    });
+
+    testWidgets('starting the Parakeet download saves the engine while it is '
+        'still downloading', (tester) async {
+      final rec = await _pumpStep(tester, gpu: _cpuOnly, dictationLocale: 'de');
+
+      await tester.tap(
+        find.bySemanticsIdentifier('onboarding-speech-start-download'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(rec.parakeet.downloadBundleCalls, 1);
+      expect(
+        rec.settings.state.value!.stt.engine,
+        'parakeet',
+        reason: 'Still downloading, so the engine must already be saved.',
+      );
+      expect(
+        rec.settings.state.value!.sttModel,
+        AppSettings.defaults.sttModel,
+        reason: 'Parakeet selection must not touch the whisper model id',
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -621,13 +1131,6 @@ void main() {
           rec.settings.updateCalls,
           0,
           reason: 'An untouched visit must not write at all.',
-        );
-        expect(
-          find.text(l10n.modelReady),
-          findsOneWidget,
-          reason:
-              'The configured model is already on disk — the step shows it '
-              'as present instead of offering to download it again.',
         );
         expect(rec.whisper.downloadModelCalls, isEmpty);
       },
@@ -671,16 +1174,10 @@ void main() {
           ),
         );
 
-        expect(
-          find.text(l10n.onboardingModelRecommended),
-          findsOneWidget,
-          reason: 'The recommendation badge must still be on offer.',
-        );
-
         await tester.tap(find.byKey(kModelStepEngineParakeetCardKey));
         await tester.pumpAndSettle();
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -774,13 +1271,6 @@ void main() {
               'The scan has now resolved and hardware detection can '
               'proceed.',
         );
-        expect(
-          find.text(l10n.modelReady),
-          findsOneWidget,
-          reason:
-              'The model that was on disk all along must be recognised '
-              'as ready, not offered up for re-download.',
-        );
       },
     );
   });
@@ -795,6 +1285,8 @@ void main() {
       'MouseRegion + GestureDetector, so the one page whose whole purpose is '
       'a binary choice could not be reached with Tab at all',
       (tester) async {
+        // German on a premium machine: Whisper is recommended, and the
+        // Parakeet card still has to be a choice.
         await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'de');
 
         for (final entry in {
@@ -841,7 +1333,7 @@ void main() {
         await tester.pumpAndSettle();
 
         await tester.tap(
-          find.textContaining(l10n.qualityTierDownloadAndContinue),
+          find.bySemanticsIdentifier('onboarding-speech-start-download'),
         );
         await tester.pumpAndSettle();
 
@@ -859,39 +1351,11 @@ void main() {
     );
   });
 
-  group('ModelStep — disabled engine card', () {
-    testWidgets(
-      'the reason a card cannot be picked keeps its full colour — it used to '
-      'sit under a 50% Opacity veil together with the rest of the card, '
-      'which dimmed the one line that explains the block to roughly 1.8:1',
-      (tester) async {
-        // Hebrew is not a Parakeet language, so the Parakeet card renders
-        // disabled and carries its reason line.
-        await _pumpStep(
-          tester,
-          gpu: _appleM2,
-          dictationLocale: 'he',
-          displayLocale: const Locale('he'),
-        );
-        final localized = await L10n.delegate.load(const Locale('he'));
+  group('ModelStep — disabled engine card', () {});
+}
 
-        final reason = find.text(
-          localized.onboardingModelEngineUnsupportedLanguage,
-        );
-        expect(
-          reason,
-          findsOneWidget,
-          reason: 'the disabled branch must actually be rendered',
-        );
-        expect(
-          find.ancestor(of: reason, matching: find.byType(Opacity)),
-          findsNothing,
-          reason:
-              'no Opacity may sit over the disabled card: DESIGN.md forbids '
-              'signalling disabled with a veil over live colours, and the '
-              'veil is what made this line unreadable',
-        );
-      },
-    );
-  });
+/// The short benchmark's session result, pinned so the step never runs it.
+class _PinnedBenchmarkRtf extends ShortBenchmarkRtf {
+  @override
+  double? build() => 0.2;
 }

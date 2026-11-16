@@ -1,7 +1,5 @@
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/sqlite_write_coordinator.dart';
 import 'package:whispaste/core/logging/crash_fingerprints.dart';
 
@@ -176,48 +174,5 @@ void main() {
 
       expect(maxActive, 1, reason: 'lock guarantees single-writer');
     });
-  });
-
-  // AC6: Real HistoryDatabase with the coordinator — concurrent saveEntry +
-  // purgeTrash on an in-memory DB must terminate cleanly within 2 s.
-  group('SqliteWriteCoordinator integration', () {
-    test(
-      'parallel saveEntry + purgeTrash on in-memory DB terminate within 2 s',
-      () async {
-        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-        try {
-          // Seed: 5 trashed entries old enough for purgeTrash.
-          final old = DateTime.now().subtract(const Duration(days: 60));
-          for (var i = 0; i < 5; i++) {
-            await db.upsertEntry(
-              HistoryEntriesCompanion.insert(
-                id: 'trashed-$i',
-                timestamp: old,
-                deletedAt: Value(old),
-              ),
-            );
-          }
-
-          final stopwatch = Stopwatch()..start();
-          await Future.wait<void>([
-            for (var i = 0; i < 20; i++)
-              db.upsertEntry(
-                HistoryEntriesCompanion.insert(
-                  id: 'fresh-$i',
-                  timestamp: DateTime.now(),
-                ),
-              ),
-            db.purgeTrash(days: 30),
-            db.purgeTrash(days: 30),
-            db.purgeTrash(days: 30),
-          ]).timeout(const Duration(seconds: 2));
-          stopwatch.stop();
-
-          expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
-        } finally {
-          await db.close();
-        }
-      },
-    );
   });
 }

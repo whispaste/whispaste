@@ -182,12 +182,12 @@ const LLMS_TXT_SECTIONS = Object.freeze([
       {
         label: "Anwendungsfälle (Deutsch)",
         url: "https://whispaste.de/use-cases/",
-        note: "Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App",
+        note: "Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in fast jeder App",
       },
       {
         label: "Use cases (English)",
         url: "https://whispaste.de/en/use-cases/",
-        note: "Voice input for developers, students, and everyday writing — straight at the cursor in any app",
+        note: "Voice input for developers, students, and everyday writing — straight at the cursor in almost any app",
       },
     ],
   },
@@ -253,25 +253,30 @@ const LLMS_TXT_SECTIONS = Object.freeze([
   },
 ]);
 
-/**
- * Kuratierte Description für `llms.txt`. Folgt PRD §D-Brand-Sprache: explizit
- * `voice-input tool`, MIT-Lizenz, drei Desktop-Plattformen.
- */
 const LLMS_TXT_TITLE = "WhisPaste";
-const LLMS_TXT_DESCRIPTION =
-  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and copies the transcript to the clipboard or, with Auto-Paste switched on, inserts it at the cursor position of the active application (on Linux through a virtual uinput keyboard). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet (~25 languages, GPU-accelerated on Metal, Vulkan or CUDA with a CPU fallback via sherpa-onnx; several times faster than the compact whisper.cpp model on the same CPU in our Apple M5 benchmark). It is a desktop-only app; iOS and Android are not planned.";
 
 /**
  * Liefert die default-Section-Liste, die `main()` für den Production-Build
  * verwendet. Exportiert, damit Tests den exakten Builder-Aufruf reproduzieren
  * können, ohne die Section-Definition zu duplizieren.
  */
-export function defaultLlmsTxtInput() {
+export function defaultLlmsTxtInput(description) {
   return {
     title: LLMS_TXT_TITLE,
-    description: LLMS_TXT_DESCRIPTION,
+    description,
     sections: LLMS_TXT_SECTIONS,
   };
+}
+
+/**
+ * The one-sentence summary of a language description: its first blockquote
+ * line. `llms.txt` takes it from the English source, so the sentence has one
+ * home.
+ */
+export function summaryOf(markdown) {
+  const line = markdown.split("\n").find((l) => l.startsWith("> "));
+  if (!line) throw new Error("llms source has no '> ' summary line");
+  return line.slice(2).trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -310,7 +315,7 @@ export async function buildOutputs() {
       markdown: await readFile(llmsSourcePath(locale), "utf8"),
     })),
   );
-  const input = defaultLlmsTxtInput();
+  const input = defaultLlmsTxtInput(summaryOf(descriptions[0].markdown));
   /** @type {Record<string, string>} */
   const outputs = {
     "llms.txt": buildLlmsTxt({ ...input, sections: [...input.sections, languagesSection()] }),

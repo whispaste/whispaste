@@ -1,5 +1,4 @@
-/// Round-trip tests for `BehaviorSettings.correctionLearningEnabled` (ticket
-/// 01 `internal-notes`) — the global on/off switch for
+/// Round-trip tests for `BehaviorSettings.correctionLearningEnabled` — the global on/off switch for
 /// vocabulary-learning-from-corrections. Uses the section-based
 /// `copyWithSections` API (new fields go through this, not the legacy flat
 /// `copyWith` locked in by `appsettings_behavior_snapshot_test.dart`).

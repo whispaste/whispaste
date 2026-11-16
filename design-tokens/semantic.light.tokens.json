@@ -40,6 +40,12 @@
     "soft": { "$value": "#0BAACC1F" },
     "glow": { "$value": "#0BAACC1A" }
   },
+  "coffee": {
+    "$type": "color",
+    "fill": { "$value": "{color.coffee.yellow}", "$description": "Coffee support button fill (Kaffee-Gelb)." },
+    "fill-hover": { "$value": "{color.coffee.yellow-hover}" },
+    "on-fill": { "$value": "{color.navy.900}", "$description": "Ink on the coffee fill (AA with room to spare)." }
+  },
   "highlight": {
     "$type": "color",
     "default": { "$value": "{color.amber.400}" },

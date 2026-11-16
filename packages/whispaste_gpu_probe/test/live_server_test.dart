@@ -10,6 +10,8 @@ import 'dart:math';
 import 'package:test/test.dart';
 import 'package:whispaste_gpu_probe/whispaste_gpu_probe.dart';
 
+import 'support/unhashed_catalog.dart';
+
 /// Candidate whose run blocks on [gate] so the test can observe the
 /// "running" (progress shell) phase before releasing it.
 class _GateCandidate implements ProbeCandidate {
@@ -270,7 +272,13 @@ void main() {
         await t.writeAsBytes([0, 1, 2]);
       }
 
-      store = ModelStore(directory: tmp.path, downloader: fake);
+      // Placeholder bytes cannot match the pinned hashes, so the catalogue
+      // runs without them here (hash checks: model_store_test).
+      store = ModelStore(
+        directory: tmp.path,
+        catalog: unhashedCatalog(),
+        downloader: fake,
+      );
       // Bundled CPU binary lives next to the exe → exeDir == tmp.
       File(pathJoin(tmp.path, 'whisper')).writeAsStringSync('x');
       server = LiveProbeServer(

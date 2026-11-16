@@ -66,18 +66,15 @@ class _QuickNoteHotkeyLineState extends ConsumerState<QuickNoteHotkeyLine>
     if (settings == null) return const SizedBox.shrink();
 
     final quickNote = settings.quickNoteHotkey;
-    const labelStyle = TextStyle(
+    final labelStyle = TextStyle(
       fontSize: WpTypography.small,
       color: WpColors.textMuted,
     );
 
+    // No inset of its own: it sits in the editor pane's meta row, which
+    // holds the page inset for every editor (#1498).
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        WpSpacing.xl,
-        0,
-        WpSpacing.xl,
-        WpSpacing.xs,
-      ),
+      padding: EdgeInsets.zero,
       child: Align(
         alignment: AlignmentDirectional.centerStart,
         child: Column(
@@ -213,8 +210,11 @@ class _CollisionNotice extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsetsDirectional.only(end: WpSpacing.xxs, top: 2),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(
+              end: WpSpacing.xxs,
+              top: 2,
+            ),
             child: Icon(
               LucideIcons.circleAlert,
               size: WpIconSize.sm,
@@ -224,7 +224,7 @@ class _CollisionNotice extends StatelessWidget {
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 color: WpColors.error,
               ),

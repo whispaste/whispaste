@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show listEquals;
+
 enum ClipboardEntryKind { text, image }
 
 /// Privacy-exclusion flags surfaced by the native clipboard monitor.
@@ -42,6 +44,13 @@ class ClipboardHistoryEntry {
   final List<int>? imageBytes;
   final int byteSize;
   final DateTime capturedAt;
+
+  /// Same kind and same text or image bytes; the capture time does not count.
+  bool hasSameContentAs(ClipboardHistoryEntry other) =>
+      kind == other.kind &&
+      byteSize == other.byteSize &&
+      textValue == other.textValue &&
+      listEquals(imageBytes, other.imageBytes);
 
   /// Never includes [textValue]/[imageBytes] -- clipboard content must
   /// never end up in logs or breadcrumbs.

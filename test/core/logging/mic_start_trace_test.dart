@@ -57,8 +57,26 @@ void main() {
       expect(
         trace.summary(),
         '[PERF] [s1] mic-start from hotkey: phase→recording 10ms, '
-        'paster primed 15ms, capture started 55ms, first sample 175ms',
+        'overlay visible –, paster primed 15ms, capture started 55ms, '
+        'first sample 175ms, engine loaded –',
       );
+    });
+
+    test('stamps the overlay at the frame moment it was painted', () {
+      var now = 1000000;
+      final trace = MicStartTrace(
+        sessionId: 's6',
+        hotkeyMicros: 990000,
+        clock: () => now,
+      );
+      trace.mark(MicStartStage.phaseRecording);
+      // The frame was painted 22 ms after the hotkey, before the trace
+      // observed it: the stamp must use the painting moment, not "now".
+      now += 50000;
+      trace.markAt(MicStartStage.overlayVisible, 1012000);
+      trace.markAt(MicStartStage.overlayVisible, 1030000); // first one wins
+
+      expect(trace.elapsedMs(MicStartStage.overlayVisible), 22);
     });
 
     test('without a hotkey (tray/CLI/API trigger) the trace start is t₀', () {
@@ -74,7 +92,8 @@ void main() {
       expect(
         trace.summary(),
         '[PERF] [s2] mic-start from trigger: phase→recording 2ms, '
-        'paster primed –, capture started –, first sample 100ms',
+        'overlay visible –, paster primed –, capture started –, '
+        'first sample 100ms, engine loaded –',
       );
     });
 

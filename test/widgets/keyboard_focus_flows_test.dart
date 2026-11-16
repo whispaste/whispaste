@@ -30,7 +30,7 @@ final _navItems = [
     icon: LucideIcons.chartNoAxesColumn,
     label: 'Analytics',
   ),
-  const WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
+  const WpNavItem(id: 'help', icon: LucideIcons.info, label: 'Help'),
 ];
 
 /// Pumps enough frames so focus changes settle without waiting for
@@ -252,7 +252,7 @@ void main() {
       );
       expect(
         tappedIds,
-        equals(['history', 'analytics', 'about']),
+        equals(['history', 'analytics', 'help']),
         reason: 'Traversal order matches top-to-bottom layout order',
       );
     });

@@ -19,10 +19,7 @@ import 'package:whispaste/widgets/wp_row_action.dart';
 
 import '../fixtures/test_helpers.dart';
 
-/// Narrowest the history list panel gets (`WpSplitView._minListWidth`).
-const _minPanelWidth = 240.0;
-
-/// Comfortable default panel width (`WpSplitView._defaultListWidth`),
+/// Comfortable default panel width (`WpCollectionSplit._defaultListWidth`),
 /// used wherever a test is about behaviour rather than about the squeeze.
 const _defaultPanelWidth = 340.0;
 
@@ -146,7 +143,7 @@ void main() {
     );
 
     testWidgets(
-      'notes row keeps Copy and Duplicate visible in the trash view, not '
+      'notes row keeps Copy and Duplicate available in the trash view, not '
       'just in the active-notes view (issue: they used to live inside the '
       '!isTrashView-only branch and silently disappeared on a trashed note)',
       (tester) async {
@@ -163,8 +160,15 @@ void main() {
               'Copy must stay available on a trashed note, matching the '
               'note editor toolbar',
         );
+
+        // Duplicate has no button (#1498); the context menu carries it.
+        await tester.tap(
+          find.byKey(const ValueKey('notes-row-title-n1')),
+          buttons: kSecondaryButton,
+        );
+        await tester.pumpAndSettle();
         expect(
-          find.byIcon(LucideIcons.files),
+          find.byKey(const ValueKey('notes-duplicate-n1')),
           findsOneWidget,
           reason:
               'Duplicate must stay available on a trashed note, matching '
@@ -172,103 +176,5 @@ void main() {
         );
       },
     );
-
-    testWidgets('compact stays denser than the list view', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(_panel(Column(children: [_historyRow(), _compactRow()]))),
-      );
-      await tester.pumpAndSettle();
-
-      final listHeight = tester.getSize(find.byType(HistoryEntryRow)).height;
-      final compactHeight = tester
-          .getSize(find.byType(HistoryCompactRow))
-          .height;
-      expect(compactHeight * 2, lessThan(listHeight));
-    });
-  });
-
-  group('revealing actions costs neither information nor layout', () {
-    testWidgets('the list row keeps its timestamp while hovered', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(_panel(_historyRow())));
-      await tester.pumpAndSettle();
-      // The metadata is one text run, so the time is matched inside it.
-      expect(find.textContaining('09:41'), findsOneWidget);
-
-      await _hover(tester, find.byType(HistoryEntryRow));
-      expect(
-        find.textContaining('09:41'),
-        findsOneWidget,
-        reason: 'actions must not take the timestamp\'s place',
-      );
-    });
-
-    testWidgets('the list row does not change height while hovered', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(_panel(_historyRow())));
-      await tester.pumpAndSettle();
-      final atRest = tester.getSize(find.byType(HistoryEntryRow)).height;
-
-      await _hover(tester, find.byType(HistoryEntryRow));
-      expect(tester.getSize(find.byType(HistoryEntryRow)).height, atRest);
-    });
-
-    testWidgets('the compact row does not change height while hovered', (
-      tester,
-    ) async {
-      await tester.pumpWidget(makeTestable(_panel(_compactRow())));
-      await tester.pumpAndSettle();
-      final atRest = tester.getSize(find.byType(HistoryCompactRow)).height;
-
-      await _hover(tester, find.byType(HistoryCompactRow));
-      expect(tester.getSize(find.byType(HistoryCompactRow)).height, atRest);
-    });
-  });
-
-  group('no overflow while the actions are revealed', () {
-    // Each row is pinned to the narrowest panel it is actually expected to
-    // survive. The list and notes rows hold the app's 240px minimum; the
-    // compact row cannot, because its duration/language/time cluster is
-    // fixed-width and, unlike the list row, it has no second line to move
-    // anything to — three revealed actions plus that cluster need ~320px.
-    // A 150% system font pushes every row one step up. Measured, not
-    // guessed; the ticket records the compact-row limit as a known one.
-    final rows = <(String, Type, Widget Function(), double)>[
-      ('history list row', HistoryEntryRow, _historyRow, _minPanelWidth),
-      ('history compact row', HistoryCompactRow, _compactRow, 320.0),
-      ('notes row', NotesListTile, _notesRow, _minPanelWidth),
-      // The notes row's tightest case: the quick-note mark is permanent, so
-      // this row carries star + mark + title + date with no reveal left to
-      // collapse (ticket 22).
-      (
-        'notes row (quick note)',
-        NotesListTile,
-        () => _notesRow(isQuickNote: true),
-        _minPanelWidth,
-      ),
-    ];
-
-    for (final (name, type, build, minWidth) in rows) {
-      for (final (width, scale) in [(minWidth, 1.0), (360.0, 1.5)]) {
-        testWidgets('$name at ${width.toInt()}px, textScaler $scale', (
-          tester,
-        ) async {
-          await tester.pumpWidget(
-            makeTestable(_panel(build(), width: width, scale: scale)),
-          );
-          await tester.pumpAndSettle();
-          expect(tester.takeException(), isNull);
-
-          await _hover(tester, find.byType(type));
-          expect(
-            tester.takeException(),
-            isNull,
-            reason: 'revealing the actions must not overflow the row',
-          );
-        });
-      }
-    }
   });
 }

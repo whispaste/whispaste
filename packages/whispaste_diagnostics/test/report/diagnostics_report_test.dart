@@ -1,6 +1,6 @@
 /// Unit tests for the core diagnostics report formatter.
 ///
-/// Mirrors the app-side `test/features/about/diagnostics_report_test.dart`
+/// Mirrors the app-side `test/features/help/diagnostics_report_test.dart`
 /// tests, verifying the formatter works identically from the pure-Dart core.
 library;
 

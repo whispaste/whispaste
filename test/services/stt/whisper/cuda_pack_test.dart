@@ -11,15 +11,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/stt/whisper/cuda_pack.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart'
-    show WhisperBackend;
+    show WhisperBackend, WhisperEngineStatus, backendForDevice;
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
-    show
-        backendForDevice,
-        ggmlDeviceTypeGpu,
-        ggmlDeviceTypeIgpu,
-        pickGpuDeviceIndex;
+    show ggmlDeviceTypeGpu, ggmlDeviceTypeIgpu, pickGpuDeviceIndex;
 
 String _sha(List<int> bytes) => sha256.convert(bytes).toString();
 
@@ -116,42 +113,47 @@ void main() {
         WhisperBackend.metal,
       );
     });
+
+    // #1666: the isolate engine keeps the configured `cuda` in `backend` (the
+    // probe and crash-marker key), while an NVIDIA card without the CUDA pack
+    // runs on Vulkan0. Reports must name the device's backend.
+    test('status reports the device backend, keeps the configured key', () {
+      const status = WhisperEngineStatus(
+        isLoaded: true,
+        backend: WhisperBackend.cuda,
+        gpuDevice: 'Vulkan0',
+      );
+      expect(status.backend, WhisperBackend.cuda);
+      expect(status.deviceBackend, WhisperBackend.vulkan);
+      const cpu = WhisperEngineStatus(isLoaded: true);
+      expect(cpu.deviceBackend, WhisperBackend.cpu);
+    });
   });
 
   group('isCudaPackOffered', () {
-    test('only for a published pack, outside the Store, on Turing+', () {
+    test('only for a published pack on Turing+, in every channel', () {
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: false,
-          turingOrNewerNvidia: true,
-        ),
+        isCudaPackOffered(packAvailable: true, turingOrNewerNvidia: true),
         isTrue,
       );
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: true,
-          turingOrNewerNvidia: true,
-        ),
+        isCudaPackOffered(packAvailable: true, turingOrNewerNvidia: false),
         isFalse,
       );
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: false,
-          turingOrNewerNvidia: false,
-        ),
+        isCudaPackOffered(packAvailable: false, turingOrNewerNvidia: true),
         isFalse,
       );
-      expect(
-        isCudaPackOffered(
-          packAvailable: false,
-          isStoreBuild: false,
-          turingOrNewerNvidia: true,
-        ),
-        isFalse,
-      );
+    });
+  });
+
+  group('isCudaPackDownloadAllowed', () {
+    test('never in the Microsoft Store build, always elsewhere', () {
+      expect(isCudaPackDownloadAllowed(channel: DeployChannel.store), isFalse);
+      for (final channel in DeployChannel.values) {
+        if (channel == DeployChannel.store) continue;
+        expect(isCudaPackDownloadAllowed(channel: channel), isTrue);
+      }
     });
   });
 
@@ -330,6 +332,27 @@ void main() {
       store.sweep(pack);
       expect(pending.existsSync(), isFalse);
       expect(Directory(store.packDir(pack)).existsSync(), isFalse);
+    });
+
+    test('a failed extraction (e.g. disk full) removes the staging folder at '
+        'once instead of leaving up to ~1 GB until the next launch', () async {
+      final bytes = zipBytes();
+      final pack = packFor('pack.zip', bytes);
+      final store = CudaPackStore(
+        rootDir: root.path,
+        extract: (archive, outDir) async {
+          File(p.join(outDir, 'module.bin')).writeAsBytesSync(moduleBytes);
+          throw const FileSystemException('No space left on device');
+        },
+      );
+      await stageDownload(store, pack, bytes);
+
+      await expectLater(
+        store.installFromArchive(pack),
+        throwsA(isA<FileSystemException>()),
+      );
+      expect(Directory('${store.packDir(pack)}.partial').existsSync(), isFalse);
+      expect(isCudaPackInstalled(pack, rootDir: root.path), isFalse);
     });
 
     test('sweep removes other pack ids and staging folders, keeps the '

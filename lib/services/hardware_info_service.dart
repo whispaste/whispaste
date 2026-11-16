@@ -7,10 +7,8 @@
 /// that the core package cannot reference directly.
 library;
 
-import 'dart:convert' show utf8;
 import 'dart:io';
 
-import 'package:crypto/crypto.dart' show md5;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart' as diag;
@@ -69,7 +67,9 @@ final gpuInfoProvider = FutureProvider<GpuInfo>((ref) => detectGpu());
 
 final _log = AppLogger('HardwareInfo');
 
-/// Registers the GPU-detection-failure callback that routes events to Sentry.
+/// Registers the GPU-detection-failure callback. The CPU fallback works, so
+/// the report is a warning: it stays in the log and as a breadcrumb and
+/// never becomes a Sentry event on its own (rule 2026-10-27).
 ///
 /// Call once at app startup (after Sentry and CrashReporter are initialized).
 /// The callback fires at most once per session per [clearGpuCache] cycle.
@@ -125,99 +125,14 @@ List<String> gpuAdapterNamesForTelemetry(List<String> adapterNames) {
   return out;
 }
 
-// ---------------------------------------------------------------------------
-// GPU-vendor-distribution telemetry (Ticket 10 — CUDA-build decision)
-// ---------------------------------------------------------------------------
-//
-// Extends the existing opt-out Sentry channel (same consent gate and
-// anonymous device id as every other CrashReporter event — no new consent
-// mechanism) with one anonymous, info-level "vendor" + "platform" signal per
-// app session, so a later CUDA-build decision can be made on real numbers.
-// Deliberately reported, not just detected: `detectGpu()` itself stays
-// cross-platform (it already runs on macOS too, for the local backend
-// selection every platform needs) — only *this report* is gated to
-// Windows/Linux, since macOS has a fundamentally different GPU landscape
-// (Apple Silicon unified memory, no CUDA/Vulkan choice to inform) and is not
-// a target of the CUDA-build decision (see
-// `internal-notes`). Gating
-// the report rather than restructuring `detectGpu()`/the provider keeps this
-// additive and keeps every existing caller of the cross-platform detector
-// unchanged.
+/// A driver version string is sent only in this shape: a leading digit, then
+/// letters, digits, dots, dashes or underscores, at most 40 characters. A
+/// version never contains a path or a user name, so anything else is dropped.
+final _driverVersionPattern = RegExp(r'^[0-9][0-9A-Za-z._-]{0,39}$');
 
-/// Whether the GPU-vendor-distribution signal should be reported for
-/// [operatingSystem] (a [Platform.operatingSystem]-shaped string).
-///
-/// Pure predicate — extracted so the OS gate is unit-testable without
-/// mocking `Platform` (same pattern as `updateChannelDimension` in
-/// `telemetry_service.dart`).
-bool shouldReportGpuVendorTelemetry(String operatingSystem) =>
-    operatingSystem == 'windows' || operatingSystem == 'linux';
-
-/// Share of installs that report the GPU-vendor signal: 1 in 20 (5 %).
-/// Sending it from every session consumed most of the shared Sentry error
-/// quota; a stable per-install sample keeps the vendor distribution
-/// representative at a twentieth of the volume.
-const int _gpuVendorTelemetrySampleModulus = 20;
-
-/// Whether the install identified by [deviceId] belongs to the 5 % sample
-/// that reports the GPU-vendor signal. Deterministic, so an install is
-/// either always or never in the sample.
-bool isInGpuVendorTelemetrySample(String deviceId) {
-  if (deviceId.isEmpty || deviceId == 'unknown') return false;
-  final digest = md5.convert(utf8.encode('gpu-vendor-sample:$deviceId'));
-  final bucket =
-      (digest.bytes[0] << 24 |
-          digest.bytes[1] << 16 |
-          digest.bytes[2] << 8 |
-          digest.bytes[3]) %
-      _gpuVendorTelemetrySampleModulus;
-  return bucket == 0;
-}
-
-/// One-shot guard so [reportGpuVendorTelemetry] sends at most once per app
-/// session. Re-armed by [resetGpuVendorTelemetryForTesting].
-bool _gpuVendorTelemetrySent = false;
-
-/// Reports the anonymous GPU-vendor-distribution signal for [gpu] over the
-/// existing opt-out Sentry channel — at most once per app session, and only
-/// on Windows/Linux (see [shouldReportGpuVendorTelemetry]).
-///
-/// The payload is deliberately exactly two categorical fields — `vendor`
-/// (e.g. `nvidia`/`amd`/`intel`/`none`) and `platform` — never a device
-/// name, serial, or any content. Covered by
-/// `test/services/gpu_vendor_telemetry_test.dart`, which pins the exact
-/// field set as a regression guard.
-///
-/// [operatingSystem] defaults to [Platform.operatingSystem]; tests inject a
-/// fixed value since `Platform` itself cannot be mocked. [inSample] defaults
-/// to [isInGpuVendorTelemetrySample] for the crash reporter's device id;
-/// tests inject it.
-void reportGpuVendorTelemetry(
-  GpuInfo gpu, {
-  String? operatingSystem,
-  bool? inSample,
-}) {
-  final os = operatingSystem ?? Platform.operatingSystem;
-  if (_gpuVendorTelemetrySent) return;
-  if (!shouldReportGpuVendorTelemetry(os)) return;
-  final reporter = CrashReporter.instance;
-  if (!(inSample ?? isInGpuVendorTelemetrySample(reporter?.deviceId ?? ''))) {
-    return;
-  }
-  _gpuVendorTelemetrySent = true;
-
-  reporter?.captureError(
-    message: 'GPU vendor telemetry (Ticket 10 — CUDA build decision)',
-    severity: 'info',
-    type: 'gpu_vendor_telemetry',
-    fingerprint: const [gpuVendorTelemetry],
-    extras: {'vendor': gpu.vendor.name, 'platform': os},
-  );
-}
-
-/// Re-arms the once-per-session guard for [reportGpuVendorTelemetry].
-/// Test-only.
-@visibleForTesting
-void resetGpuVendorTelemetryForTesting() {
-  _gpuVendorTelemetrySent = false;
+/// The driver version to report, or `unknown` when the OS did not provide a
+/// plain version string (macOS Metal has none; the probe may come back empty).
+String gpuDriverVersionForTelemetry(String? raw) {
+  final version = raw?.trim() ?? '';
+  return _driverVersionPattern.hasMatch(version) ? version : 'unknown';
 }

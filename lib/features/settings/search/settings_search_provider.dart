@@ -5,10 +5,13 @@
 /// without Flutter context.
 library;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/l10n/locale_provider.dart';
 import 'settings_search_entry.dart';
+import 'settings_search_keywords.dart';
 
 export 'settings_search_entry.dart';
 
@@ -36,26 +39,25 @@ final settingsSearchQueryProvider =
 /// Filtered list of [SettingsSearchEntry] matching [settingsSearchQueryProvider].
 ///
 /// Empty when the query is blank. Uses the current app locale so title/subtitle
-/// are matched in the user's language; keywords always include both DE and EN.
+/// and synonyms are matched in the user's language; DE and EN keywords always
+/// match as well. Rows this platform does not render are never offered.
 final settingsSearchMatchesProvider = Provider<List<SettingsSearchEntry>>((
   ref,
 ) {
   final query = ref.watch(settingsSearchQueryProvider);
   final locale = ref.watch(localeProvider).languageCode;
-  return matchSettingsEntries(kSettingsSearchTable, query, locale);
+  return matchSettingsEntries(
+    settingsSearchTableFor(defaultTargetPlatform),
+    query,
+    locale,
+  );
 });
 
-/// Set of section keys whose entries match the current query.
-///
-/// Returns `null` when the query is blank — meaning "show all sections".
-/// Returns a (possibly empty) [Set<String>] of matching [SettingsSearchEntry.sectionKey]
-/// values when the query is non-blank.
-final settingsSectionMatchSetProvider = Provider<Set<String>?>((ref) {
-  final query = ref.watch(settingsSearchQueryProvider).trim();
-  if (query.isEmpty) return null;
-  final matches = ref.watch(settingsSearchMatchesProvider);
-  return matches.map((e) => e.sectionKey).toSet();
-});
+/// The rows of [kSettingsSearchTable] that exist on [platform].
+List<SettingsSearchEntry> settingsSearchTableFor(TargetPlatform platform) => [
+  for (final e in kSettingsSearchTable)
+    if (e.isAvailableOn(platform)) e,
+];
 
 // ---------------------------------------------------------------------------
 // Pure match function (testable without Flutter context)
@@ -65,8 +67,8 @@ final settingsSectionMatchSetProvider = Provider<Set<String>?>((ref) {
 /// [query] as a case-insensitive, accent-tolerant substring.
 ///
 /// [locale] is the BCP-47 language tag (e.g. `'de'` or `'en'`) used to select
-/// the localised title/subtitle for matching; keywords are always searched
-/// regardless of locale.
+/// the localised title and the synonyms in that language for matching; the
+/// DE and EN keywords are always searched regardless of locale.
 ///
 /// Returns an empty list when [query] is blank.
 List<SettingsSearchEntry> matchSettingsEntries(
@@ -85,8 +87,11 @@ List<SettingsSearchEntry> matchSettingsEntries(
 
   return table.where((e) {
     if (regex.hasMatch(_fold(e.title(locale)))) return true;
-    if (regex.hasMatch(_fold(e.subtitle(locale)))) return true;
-    return e.keywords.any((kw) => regex.hasMatch(_fold(kw)));
+    if (e.keywords.any((kw) => regex.hasMatch(_fold(kw)))) return true;
+    return localizedSettingsKeywords(
+      e.rowId,
+      locale,
+    ).any((kw) => regex.hasMatch(_fold(kw)));
   }).toList();
 }
 

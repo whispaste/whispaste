@@ -74,6 +74,19 @@ void main() {
       await db.toggleNotePin(note.id, pinned: false);
       expect((await db.getNote(note.id))?.pinned, isFalse);
     });
+
+    test('keeps updatedAt unchanged', () async {
+      final note = await db.createNote();
+      final old = DateTime.utc(2020, 1, 1);
+      await (db.update(db.notes)..where((n) => n.id.equals(note.id))).write(
+        NotesCompanion(updatedAt: Value(old)),
+      );
+
+      await db.toggleNotePin(note.id, pinned: true);
+      final after = await db.getNote(note.id);
+      expect(after?.pinned, isTrue);
+      expect(after?.updatedAt.isAtSameMomentAs(old), isTrue);
+    });
   });
 
   group('softDeleteNote / restoreNote / permanentDeleteNote', () {

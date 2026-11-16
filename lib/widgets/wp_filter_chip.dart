@@ -28,6 +28,7 @@ class WpFilterChip extends StatefulWidget {
     required this.onTap,
     this.icon,
     this.count,
+    this.testId,
   });
 
   final String label;
@@ -37,6 +38,9 @@ class WpFilterChip extends StatefulWidget {
 
   /// Number of search hits for this filter. Shown as a badge when non-null.
   final int? count;
+
+  /// Stable, language-independent id for UI flows (`Semantics.identifier`).
+  final String? testId;
 
   @override
   State<WpFilterChip> createState() => _WpFilterChipState();
@@ -144,7 +148,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
             ),
           ),
           if (widget.count != null) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: WpSpacing.xxs),
             Text(
               '${widget.count}',
               style: TextStyle(
@@ -178,6 +182,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
     // that passes a count would be an abstraction ahead of a second need.
     return MergeSemantics(
       child: Semantics(
+        identifier: widget.testId,
         button: true,
         selected: widget.isActive,
         child: MouseRegion(
@@ -194,6 +199,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
             highlightColor: Colors.transparent,
             child: ConstrainedBox(
               constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
                 minHeight: WpLayout.minTouchTarget,
               ),
               child: Center(

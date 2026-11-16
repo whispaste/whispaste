@@ -139,11 +139,378 @@ void main() {
         'handler', () async {
       final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
       var ups = 0;
-      monitor.onKeyUp = () => ups++;
+      monitor.onKeyUp = (_) => ups++;
 
       await _nativeCall('onKeyUp');
 
       expect(ups, 1);
+    });
+
+    test('onKeyUp reports the native press length, unknown when absent or '
+        'malformed', () async {
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+      final lengths = <Duration?>[];
+      monitor.onKeyUp = lengths.add;
+
+      await _nativeCall('onKeyUp', {'pressMs': 150});
+      await _nativeCall('onKeyUp');
+      await _nativeCall('onKeyUp', {'pressMs': 'soon'});
+
+      expect(lengths, [const Duration(milliseconds: 150), null, null]);
+    });
+
+    test('the native stamp and press length are readable only while the '
+        'callback runs', () async {
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+      final seen = <(Duration?, Duration?)>[];
+      monitor.onKeyUp = (_) =>
+          seen.add((monitor.lastEventAt, monitor.lastPressed));
+
+      await _nativeCall('onKeyUp', {'pressMs': 150, 'atMs': 5600});
+
+      expect(seen, [
+        (const Duration(milliseconds: 5600), const Duration(milliseconds: 150)),
+      ]);
+      expect(monitor.lastEventAt, isNull);
+      expect(monitor.lastPressed, isNull);
+    });
+
+    test('a key-down stamp is read, a negative or non-int stamp is not', () {
+      expect(
+        ChannelKeyboardUpMonitor.eventAtFromArgs({'atMs': 42}),
+        const Duration(milliseconds: 42),
+      );
+      expect(ChannelKeyboardUpMonitor.eventAtFromArgs({'atMs': -1}), isNull);
+      expect(ChannelKeyboardUpMonitor.eventAtFromArgs({'atMs': '42'}), isNull);
+      expect(ChannelKeyboardUpMonitor.eventAtFromArgs(null), isNull);
+    });
+  });
+
+  group('isHeld (lost-release check, #774)', () {
+    test(
+      'passes the native answer through and treats errors as unknown',
+      () async {
+        final monitor = ChannelKeyboardUpMonitor(
+          isWindows: true,
+          isLinux: false,
+        );
+
+        _mockNative((call) async => call.method == 'isHeld' ? true : null);
+        expect(await monitor.isHeld(), isTrue);
+
+        _mockNative((call) async => call.method == 'isHeld' ? false : null);
+        expect(await monitor.isHeld(), isFalse);
+
+        _mockNative((_) async => null);
+        expect(await monitor.isHeld(), isNull);
+
+        _mockNative((_) async => throw MissingPluginException());
+        expect(await monitor.isHeld(), isNull);
+      },
+    );
+
+    test('is not asked where no key-up is available', () async {
+      final calls = <MethodCall>[];
+      _mockNative((call) async {
+        calls.add(call);
+        return true;
+      });
+      final monitor = ChannelKeyboardUpMonitor(
+        isWindows: false,
+        isLinux: false,
+      );
+
+      expect(await monitor.isHeld(), isNull);
+      expect(calls, isEmpty);
+    });
+  });
+
+  group('armRelease modifier mask (Windows, F35-5)', () {
+    test('sends the hotkey modifiers as the native bit mask', () async {
+      final calls = <MethodCall>[];
+      _mockNative((call) async {
+        calls.add(call);
+        return null;
+      });
+      final monitor = ChannelKeyboardUpMonitor(isWindows: true, isLinux: false);
+
+      await monitor.armRelease(
+        modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
+      );
+
+      final arm = calls.singleWhere((c) => c.method == 'armRelease');
+      expect(arm.arguments, {'modifiers': 0x3});
+    });
+
+    test('an unmodified hotkey arms with an empty mask', () async {
+      final calls = <MethodCall>[];
+      _mockNative((call) async {
+        calls.add(call);
+        return null;
+      });
+      final monitor = ChannelKeyboardUpMonitor(isWindows: true, isLinux: false);
+
+      await monitor.armRelease();
+
+      final arm = calls.singleWhere((c) => c.method == 'armRelease');
+      expect(arm.arguments, {'modifiers': 0});
+    });
+
+    test('each hotkey modifier maps to its own bit', () {
+      expect(armedModifierMask([HotKeyModifier.control]), 0x1);
+      expect(armedModifierMask([HotKeyModifier.alt]), 0x2);
+      expect(armedModifierMask([HotKeyModifier.shift]), 0x4);
+      expect(armedModifierMask([HotKeyModifier.meta]), 0x8);
+      expect(armedModifierMask([HotKeyModifier.capsLock]), 0);
+      expect(
+        armedModifierMask([
+          HotKeyModifier.control,
+          HotKeyModifier.alt,
+          HotKeyModifier.shift,
+          HotKeyModifier.meta,
+        ]),
+        0xF,
+      );
+    });
+  });
+
+  group('waylandHotkeyBindingFrom (XP-2-06)', () {
+    test('no Wayland session, old runner or odd reply → not applicable', () {
+      expect(
+        waylandHotkeyBindingFrom({'x11': true, 'portal': false}),
+        WaylandHotkeyBinding.notApplicable,
+      );
+      expect(
+        waylandHotkeyBindingFrom({'x11': true, 'wayland': false}),
+        WaylandHotkeyBinding.notApplicable,
+      );
+      expect(
+        waylandHotkeyBindingFrom(false),
+        WaylandHotkeyBinding.notApplicable,
+      );
+    });
+
+    test('portal found, binding not confirmed yet → pending', () {
+      expect(
+        waylandHotkeyBindingFrom({'wayland': true, 'portal': true}),
+        WaylandHotkeyBinding.pending,
+      );
+    });
+
+    test('bound wins', () {
+      expect(
+        waylandHotkeyBindingFrom({
+          'wayland': true,
+          'portal': true,
+          'bound': true,
+        }),
+        WaylandHotkeyBinding.bound,
+      );
+    });
+
+    test('each native reason maps to its own binding', () {
+      Map<String, Object> failed(String reason) => {
+        'wayland': true,
+        'portal': false,
+        'reason': reason,
+      };
+      expect(
+        waylandHotkeyBindingFrom(failed('no-app-id')),
+        WaylandHotkeyBinding.noAppId,
+      );
+      expect(
+        waylandHotkeyBindingFrom(failed('unavailable')),
+        WaylandHotkeyBinding.unavailable,
+      );
+      expect(
+        waylandHotkeyBindingFrom(failed('declined')),
+        WaylandHotkeyBinding.declined,
+      );
+    });
+
+    test('Wayland without portal and without a reason → unavailable', () {
+      expect(
+        waylandHotkeyBindingFrom({'wayland': true, 'portal': false}),
+        WaylandHotkeyBinding.unavailable,
+      );
+    });
+  });
+
+  group('ChannelKeyboardUpMonitor — Wayland binding', () {
+    test('start passes the localized shortcut description', () async {
+      final calls = <MethodCall>[];
+      _mockNative((call) async {
+        calls.add(call);
+        return {'x11': false, 'portal': true, 'wayland': true};
+      });
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+
+      await monitor.start(_hotKey, description: 'WhisPaste-Diktat');
+
+      expect(
+        calls.single.arguments,
+        containsPair('description', 'WhisPaste-Diktat'),
+      );
+      expect(monitor.waylandBinding, WaylandHotkeyBinding.pending);
+    });
+
+    test(
+      'a later bound / failed push updates the binding and notifies',
+      () async {
+        _mockNative(
+          (_) async => {'x11': false, 'portal': true, 'wayland': true},
+        );
+        final monitor = ChannelKeyboardUpMonitor(
+          isWindows: false,
+          isLinux: true,
+        );
+        var changes = 0;
+        monitor.onWaylandBindingChanged = () => changes++;
+        await monitor.start(_hotKey);
+        expect(changes, 1);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': true,
+          'wayland': true,
+          'bound': true,
+        });
+        expect(monitor.waylandBinding, WaylandHotkeyBinding.bound);
+        expect(monitor.supportsKeyUp, isTrue);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': false,
+          'wayland': true,
+          'reason': 'declined',
+        });
+        expect(monitor.waylandBinding, WaylandHotkeyBinding.declined);
+        expect(changes, 3);
+      },
+    );
+
+    test(
+      'the trigger the desktop bound is read from the start reply',
+      () async {
+        _mockNative(
+          (_) async => {
+            'x11': false,
+            'portal': true,
+            'wayland': true,
+            'bound': true,
+            'triggerDescription': 'LOGO+space',
+          },
+        );
+        final monitor = ChannelKeyboardUpMonitor(
+          isWindows: false,
+          isLinux: true,
+        );
+        await monitor.start(_hotKey);
+        expect(monitor.waylandTrigger, 'LOGO+space');
+      },
+    );
+
+    test(
+      'a changed trigger is read and notifies, an equal one does not',
+      () async {
+        _mockNative(
+          (_) async => {'x11': false, 'portal': true, 'wayland': true},
+        );
+        final monitor = ChannelKeyboardUpMonitor(
+          isWindows: false,
+          isLinux: true,
+        );
+        var changes = 0;
+        monitor.onWaylandBindingChanged = () => changes++;
+        await monitor.start(_hotKey);
+        expect(monitor.waylandTrigger, isNull);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': true,
+          'wayland': true,
+          'bound': true,
+          'triggerDescription': 'LOGO+space',
+        });
+        expect(monitor.waylandTrigger, 'LOGO+space');
+        final afterBound = changes;
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': true,
+          'wayland': true,
+          'bound': true,
+          'triggerDescription': 'CTRL+d',
+        });
+        expect(monitor.waylandTrigger, 'CTRL+d');
+        expect(changes, afterBound + 1);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': true,
+          'wayland': true,
+          'bound': true,
+          'triggerDescription': 'CTRL+d',
+        });
+        expect(
+          changes,
+          afterBound + 1,
+          reason: 'an unchanged trigger is silent',
+        );
+      },
+    );
+
+    test('the settings app ID is read and notifies when it changes', () async {
+      _mockNative((_) async => {'x11': false, 'portal': true, 'wayland': true});
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+      var changes = 0;
+      monitor.onWaylandBindingChanged = () => changes++;
+      await monitor.start(_hotKey);
+      expect(monitor.waylandSettingsAppId, isNull);
+
+      const bound = {
+        'x11': false,
+        'portal': true,
+        'wayland': true,
+        'bound': true,
+      };
+      await _nativeCall('onCapabilities', {
+        ...bound,
+        'settingsAppId': 'de.whispaste.app',
+      });
+      expect(monitor.waylandSettingsAppId, 'de.whispaste.app');
+      final afterId = changes;
+
+      await _nativeCall('onCapabilities', {...bound, 'settingsAppId': ''});
+      expect(
+        monitor.waylandSettingsAppId,
+        isNull,
+        reason: 'an empty ID means no page to open',
+      );
+      expect(changes, afterId + 1);
+    });
+
+    test('an unchanged report does not notify again', () async {
+      _mockNative((_) async => {'x11': true, 'portal': false});
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+      var changes = 0;
+      monitor.onWaylandBindingChanged = () => changes++;
+
+      await monitor.start(_hotKey);
+
+      expect(monitor.waylandBinding, WaylandHotkeyBinding.notApplicable);
+      expect(changes, 0);
+    });
+
+    test('Windows and the no-op monitor are never Wayland', () async {
+      _mockNative((_) async => null);
+      final windows = ChannelKeyboardUpMonitor(isWindows: true, isLinux: false);
+      await windows.start(_hotKey);
+      expect(windows.waylandBinding, WaylandHotkeyBinding.notApplicable);
+      expect(
+        NoopKeyboardUpMonitor().waylandBinding,
+        WaylandHotkeyBinding.notApplicable,
+      );
     });
   });
 

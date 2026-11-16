@@ -21,6 +21,9 @@ class FloatingButtonPanel: NSPanel {
       defer: false
     )
     level = .floating
+    // NSPanel defaults to true: the panel would leave the screen as soon as
+    // WhisPaste loses activation, for example mid-dictation (#484).
+    hidesOnDeactivate = false
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
     isOpaque = false
     backgroundColor = .clear

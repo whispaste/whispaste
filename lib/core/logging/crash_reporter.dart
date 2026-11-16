@@ -10,7 +10,7 @@
 /// - Path sanitization: home directory → `~`, account name → `<user>` in
 ///   messages, exception values and breadcrumbs ([scrubUserPaths])
 /// - Breadcrumb context from AppLogger ring buffer
-/// - Anonymous device ID (MD5 hash of hostname, not a hardware identifier)
+/// - Random per-install ID (install_id.dart), not derived from the machine
 ///
 /// Architecture:
 /// ```
@@ -29,11 +29,9 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
@@ -41,7 +39,9 @@ import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
 
 import '../app_info.dart';
 import 'breadcrumbs.dart';
+import 'crash_error_redaction.dart';
 import 'crash_reporting_consent.dart';
+import 'install_id.dart';
 import 'user_path_scrubber.dart';
 
 // ---------------------------------------------------------------------------
@@ -70,9 +70,24 @@ class CrashReporter {
   /// (e.g., RenderFlex overflow → Sentry tree walk → deactivated widget →
   /// another Sentry capture → infinite cascade that freezes the UI).
   static int _errorCount = 0;
-  static DateTime _errorWindowStart = DateTime.now();
+
+  /// Time source for the throttle windows; tests replace it instead of waiting.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+  static DateTime _errorWindowStart = clock();
   static const _maxErrorsPerWindow = 10;
   static const _errorWindowDuration = Duration(seconds: 2);
+
+  /// Per-session ceiling: Sentry's error quota is shared by every project of
+  /// the organisation (5,000 a month, no server-side filters on the plan), and
+  /// in October 2026 a few devices repeating one state used it up, after which
+  /// real crashes were dropped too. The same error is sent at most
+  /// [_maxEventsPerKeyPerSession] times, and a session sends at most
+  /// [_maxEventsPerSession] events in total. Reset by [init].
+  static final Map<String, int> _sessionCounts = {};
+  static int _sessionTotal = 0;
+  static const _maxEventsPerKeyPerSession = 3;
+  static const _maxEventsPerSession = 30;
 
   /// Transaction throttle — hard SDK-side ceiling on performance events so
   /// no single session can blow through whispaste's Free-Tier span share,
@@ -84,7 +99,7 @@ class CrashReporter {
   /// use. A sampled transaction typically carries 5–15 child spans →
   /// ≤ ~300 spans/hour, well under the per-app Free-Tier slice.
   static int _txCount = 0;
-  static DateTime _txWindowStart = DateTime.now();
+  static DateTime _txWindowStart = clock();
   static const _maxTransactionsPerWindow = 20;
   static const _transactionWindowDuration = Duration(hours: 1);
 
@@ -110,10 +125,6 @@ class CrashReporter {
     }
   }
 
-  /// Anonymous per-install id (hashed hostname) attached to every event;
-  /// `'unknown'` when it could not be derived.
-  String get deviceId => _deviceId;
-
   /// Whether crash reporting consent has been granted.
   /// Gate-controlled: nothing is sent when `false`.
   bool get consentGranted => _consentGranted;
@@ -133,6 +144,14 @@ class CrashReporter {
   /// `true` after an opt-in while Sentry is not running in this session —
   /// reporting resumes on the next app start.
   bool get restartRequired => _consentGranted && !_sentryRunning;
+
+  /// Set while the first-run privacy choice is still open. Nothing is uploaded while held —
+  /// not errors, not transactions. Crash reports cannot be replayed, so
+  /// they are dropped, not queued.
+  bool holdForPrivacyChoice = false;
+
+  /// Consent granted and no privacy choice pending.
+  bool get _uploadAllowed => _consentGranted && !holdForPrivacyChoice;
 
   // -------------------------------------------------------------------------
   // Initialization
@@ -157,7 +176,9 @@ class CrashReporter {
     CrashReportingConsentMarker? consentMarker,
   }) {
     final cr = CrashReporter._();
-    cr._deviceId = _deriveDeviceId();
+    _sessionCounts.clear();
+    _sessionTotal = 0;
+    cr._deviceId = readInstallId();
     cr._consentGranted = consentGranted;
     cr._consentMarker = consentMarker;
     cr._sentryRunning = Sentry.isEnabled;
@@ -202,8 +223,7 @@ class CrashReporter {
   /// Why required: it pre-empts the ticket/75 + WP-7B…7M cluster of
   /// duplicated Sentry issues that burned through the Free-Tier quota
   /// because ad-hoc capture sites kept inventing slightly different
-  /// fingerprint spellings. See `internal-notes`
-  /// — Modul 6.
+  /// fingerprint spellings.
   void captureError({
     required String message,
     required List<String> fingerprint,
@@ -214,7 +234,7 @@ class CrashReporter {
     String? processName,
     Map<String, dynamic>? extras,
   }) {
-    if (!_consentGranted) return;
+    if (!_uploadAllowed) return;
 
     final sentryLevel = switch (severity) {
       'critical' || 'fatal' => SentryLevel.fatal,
@@ -223,17 +243,26 @@ class CrashReporter {
       _ => SentryLevel.info,
     };
 
+    // Sentry is for crashes and critical errors only (rule 2026-10-27):
+    // warnings and info signals stay as context for a later real error.
+    if (!_isReportableLevel(sentryLevel)) {
+      Sentry.addBreadcrumb(
+        Breadcrumb(message: message, level: sentryLevel, category: type),
+      );
+      return;
+    }
+
     if (error != null) {
       _trackCapture(
         Sentry.captureException(
-          error,
+          redactForCrashReport(error),
           stackTrace: stackTrace,
           withScope: (scope) {
             scope.level = sentryLevel;
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', scrubUserPathsInMap(extras));
+              scope.setContexts('extras', redactPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
@@ -254,7 +283,7 @@ class CrashReporter {
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', scrubUserPathsInMap(extras));
+              scope.setContexts('extras', redactPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
@@ -280,10 +309,15 @@ class CrashReporter {
   /// Use Sentry's environment filter to separate dev from production.
   static SentryEvent? beforeSend(SentryEvent event, Hint hint) {
     // Consent gate: drop events when user has opted out.
-    if (_instance != null && !_instance!._consentGranted) return null;
+    if (_instance != null && !_instance!._uploadAllowed) return null;
+
+    // Crashes and errors only; captureMessage with a lower level, from any
+    // call site, never uses the shared quota.
+    final level = event.level;
+    if (level != null && !_isReportableLevel(level)) return null;
 
     // Error cascade throttle — prevent exponential error storms.
-    final now = DateTime.now();
+    final now = clock();
     if (now.difference(_errorWindowStart) > _errorWindowDuration) {
       _errorWindowStart = now;
       _errorCount = 0;
@@ -291,27 +325,17 @@ class CrashReporter {
     _errorCount++;
     if (_errorCount > _maxErrorsPerWindow) return null;
 
-    // Drop events containing API keys, tokens, or other secrets.
-    final exceptions = event.exceptions;
-    if (exceptions != null) {
-      for (final ex in exceptions) {
-        if (ex.value != null && containsSensitiveData(ex.value!)) {
-          return null;
-        }
-      }
-    }
-    final message = event.message;
-    if (message != null && containsSensitiveData(message.formatted)) {
-      return null;
-    }
-    final breadcrumbs = event.breadcrumbs;
-    if (breadcrumbs != null) {
-      for (final b in breadcrumbs) {
-        if (b.message != null && containsSensitiveData(b.message!)) {
-          return null;
-        }
-      }
-    }
+    // Remove SqliteException bound parameters (transcript and note text)
+    // from every text field before the checks below. Covers unhandled errors
+    // that sentry_flutter captures itself, log breadcrumbs and captureMessage
+    // alike, not only the paths that pass through redactForCrashReport.
+    _redactSqliteParameters(event);
+
+    // Drop events whose exception or message holds an API key, token or
+    // other secret. A breadcrumb with one is removed alone, below: the log
+    // lines around a crash must not cost the crash its report.
+    if (_carriesSensitiveData(event)) return null;
+    event.breadcrumbs = _withoutSensitiveBreadcrumbs(event.breadcrumbs);
 
     // Filter out user-facing toast messages (not real errors)
     final messageStr =
@@ -324,30 +348,171 @@ class CrashReporter {
     }
 
     _scrubUserPaths(event);
+    if (!_admitToSession(event)) return null;
     return event;
   }
 
-  /// Replaces the OS account name in the free-text parts of [event]: home
-  /// directories reach Sentry through log breadcrumbs and exception values.
-  static void _scrubUserPaths(SentryEvent event) {
-    final message = event.message;
-    if (message != null) message.formatted = scrubUserPaths(message.formatted);
+  /// Clears the cascade throttle and the per-session ceilings so a test
+  /// starts from an empty session.
+  @visibleForTesting
+  static void resetThrottlesForTesting() {
+    _errorCount = 0;
+    _errorWindowStart = clock();
+    _sessionCounts.clear();
+    _sessionTotal = 0;
+  }
+
+  /// Whether the exception values or the message hold a secret. Breadcrumbs
+  /// are not checked here, see [_withoutSensitiveBreadcrumbs].
+  static bool _carriesSensitiveData(SentryEvent event) {
     for (final ex in event.exceptions ?? const <SentryException>[]) {
       final value = ex.value;
-      if (value != null) ex.value = scrubUserPaths(value);
+      if (value != null && containsSensitiveData(value)) return true;
+    }
+    final message = event.message;
+    if (message != null && containsSensitiveData(message.formatted)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// The breadcrumbs without any that hold a secret. Keeps the list as it is
+  /// when none does, and returns null for a null list.
+  static List<Breadcrumb>? _withoutSensitiveBreadcrumbs(
+    List<Breadcrumb>? breadcrumbs,
+  ) {
+    if (breadcrumbs == null) return null;
+    final kept = [
+      for (final b in breadcrumbs)
+        if (b.message == null || !containsSensitiveData(b.message!)) b,
+    ];
+    return kept.length == breadcrumbs.length ? breadcrumbs : kept;
+  }
+
+  static bool _isReportableLevel(SentryLevel level) =>
+      level == SentryLevel.error || level == SentryLevel.fatal;
+
+  /// Counts [event] against the per-session ceilings; false once the same
+  /// error or the session as a whole has used its share.
+  static bool _admitToSession(SentryEvent event) {
+    if (_sessionTotal >= _maxEventsPerSession) return false;
+    final key = _sessionKey(event);
+    final seen = _sessionCounts[key] ?? 0;
+    if (seen >= _maxEventsPerKeyPerSession) return false;
+    _sessionCounts[key] = seen + 1;
+    _sessionTotal++;
+    return true;
+  }
+
+  /// Groups like Sentry would: the explicit fingerprint plus the first
+  /// exception (type and value) or the message, so different errors that
+  /// share a catch-all fingerprint keep their own share.
+  static String _sessionKey(SentryEvent event) {
+    final ex = event.exceptions?.firstOrNull;
+    final text = ex != null
+        ? '${ex.type}: ${ex.value ?? ''}'
+        : (event.message?.formatted ?? '');
+    final head = text.length > 160 ? text.substring(0, 160) : text;
+    return '${(event.fingerprint ?? const []).join(',')}|$head';
+  }
+
+  /// Strips SqliteException bound parameters from the free-text parts of
+  /// [event]: exception values, the message and breadcrumb messages.
+  static void _redactSqliteParameters(SentryEvent event) {
+    final message = event.message;
+    if (message != null) {
+      message.formatted = redactSqliteParametersInText(message.formatted);
+    }
+    for (final ex in event.exceptions ?? const <SentryException>[]) {
+      final value = ex.value;
+      if (value != null) ex.value = redactSqliteParametersInText(value);
     }
     for (final b in event.breadcrumbs ?? const <Breadcrumb>[]) {
       final text = b.message;
-      if (text != null) b.message = scrubUserPaths(text);
+      if (text != null) b.message = redactSqliteParametersInText(text);
+    }
+  }
+
+  /// Redacts paths in the free-text parts of [event]: the message, the
+  /// transaction name, the culprit, the request, exception values, stack frame paths, and breadcrumb
+  /// messages and string data. Home directories reach Sentry through log
+  /// breadcrumbs and exception values, and file names through the same
+  /// parts (see [redactPathsInText]).
+  static void _scrubUserPaths(SentryEvent event) {
+    final message = event.message;
+    if (message != null) {
+      message.formatted = redactPathsInText(message.formatted);
+    }
+    final transaction = event.transaction;
+    if (transaction != null) event.transaction = redactPathsInText(transaction);
+    final culprit = event.culprit;
+    if (culprit != null) event.culprit = redactPathsInText(culprit);
+    _redactRequest(event.request);
+    for (final ex in event.exceptions ?? const <SentryException>[]) {
+      final value = ex.value;
+      if (value != null) ex.value = redactPathsInText(value);
+      _redactFrames(ex.stackTrace);
+    }
+    for (final thread in event.threads ?? const <SentryThread>[]) {
+      _redactFrames(thread.stacktrace);
+    }
+    for (final b in event.breadcrumbs ?? const <Breadcrumb>[]) {
+      final text = b.message;
+      if (text != null) b.message = redactPathsInText(text);
       final data = b.data;
-      if (data != null) {
-        b.data = {
-          for (final e in data.entries)
-            e.key: e.value is String
-                ? scrubUserPaths(e.value as String)
-                : e.value,
-        };
-      }
+      if (data != null) b.data = redactPathsInMap(data);
+    }
+  }
+
+  /// Sentry `beforeBreadcrumb` callback: applies the same path redaction as
+  /// [beforeSend] as each breadcrumb is recorded. Breadcrumbs are the main
+  /// carrier of home paths (log lines, file operations), so they are cleaned
+  /// at the source and do not depend on the event that later carries them.
+  static Breadcrumb? beforeBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
+    if (breadcrumb == null) return null;
+    final text = breadcrumb.message;
+    if (text != null) breadcrumb.message = redactPathsInText(text);
+    final data = breadcrumb.data;
+    if (data != null) breadcrumb.data = redactPathsInMap(data);
+    return breadcrumb;
+  }
+
+  /// Redacts paths in the URL, query, fragment and header values of
+  /// [request]. Cookies and credential headers are dropped completely.
+  static void _redactRequest(SentryRequest? request) {
+    if (request == null) return;
+    final url = request.url;
+    if (url != null) request.url = redactPathsInText(url);
+    final query = request.queryString;
+    if (query != null) request.queryString = redactPathsInText(query);
+    final fragment = request.fragment;
+    if (fragment != null) request.fragment = redactPathsInText(fragment);
+    request.cookies = null;
+    final headers = request.headers;
+    if (headers.isNotEmpty) {
+      request.headers = {
+        for (final e in headers.entries)
+          if (!_credentialHeaders.contains(e.key.toLowerCase()))
+            e.key: redactPathsInText(e.value),
+      };
+    }
+  }
+
+  static const _credentialHeaders = {
+    'authorization',
+    'proxy-authorization',
+    'cookie',
+    'set-cookie',
+  };
+
+  /// Redacts the local file paths of every frame in [trace]. Dart frames
+  /// such as `package:whispaste/app.dart` stay readable.
+  static void _redactFrames(SentryStackTrace? trace) {
+    for (final frame in trace?.frames ?? const <SentryStackFrame>[]) {
+      final absPath = frame.absPath;
+      if (absPath != null) frame.absPath = redactPathsInText(absPath);
+      final fileName = frame.fileName;
+      if (fileName != null) frame.fileName = redactPathsInText(fileName);
     }
   }
 
@@ -371,7 +536,7 @@ class CrashReporter {
   /// `beforeSendTransaction` consent check stays as a second-layer fallback
   /// for the race where consent flips mid-transaction.
   static double? tracesSampler(SentrySamplingContext context) {
-    if (_instance != null && !_instance!._consentGranted) return 0.0;
+    if (_instance != null && !_instance!._uploadAllowed) return 0.0;
     return null;
   }
 
@@ -391,9 +556,9 @@ class CrashReporter {
     SentryTransaction transaction,
     Hint hint,
   ) {
-    if (_instance != null && !_instance!._consentGranted) return null;
+    if (_instance != null && !_instance!._uploadAllowed) return null;
 
-    final now = DateTime.now();
+    final now = clock();
     if (now.difference(_txWindowStart) > _transactionWindowDuration) {
       _txWindowStart = now;
       _txCount = 0;
@@ -405,21 +570,8 @@ class CrashReporter {
     // every event, transactions included, but only [beforeSend] scrubs
     // them — so drop them here instead of shipping unchecked log lines.
     transaction.breadcrumbs = null;
+    final name = transaction.transaction;
+    if (name != null) transaction.transaction = redactPathsInText(name);
     return transaction;
-  }
-
-  // -------------------------------------------------------------------------
-  // Private — helpers
-  // -------------------------------------------------------------------------
-
-  /// Derives a stable, anonymous device identifier from hostname.
-  static String _deriveDeviceId() {
-    try {
-      final hostname = Platform.localHostname;
-      final bytes = utf8.encode('${hostname}_whispaste');
-      return md5.convert(bytes).toString().substring(0, 12);
-    } on Exception {
-      return 'unknown';
-    }
   }
 }

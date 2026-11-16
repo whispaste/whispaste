@@ -4,11 +4,14 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
+#include "native_context_menu.h"
+
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "floating_overlay_window.h"
+#include "window_drag_mover.h"
 
 // Owns the public MethodChannel com.whispaste.floating_overlay on the MAIN
 // engine and bridges it to the private render channel on the second engine
@@ -54,6 +57,8 @@ class FloatingOverlayHost {
   FlValue* latest_bars_args_ = nullptr;      // Retained; unref'd in dtor.
 
   void EnsureOverlayWindow();
+  // Re-sizes and re-anchors the existing shell to size_class_.
+  void ResizeOverlayWindow();
   void OpenRenderChannel();
 
   // ── Render channel (2nd engine → host) ───────────────────────────────────
@@ -63,18 +68,8 @@ class FloatingOverlayHost {
   void HandleRenderMethodCall(FlMethodCall* method_call);
 
   // ── Context menu ─────────────────────────────────────────────────────────
-  struct MenuItem {
-    std::string id;
-    std::string label;
-  };
-  std::vector<MenuItem> context_menu_items_;
+  NativeMenu context_menu_;
   void ShowContextMenu();
-
-  struct MenuItemCallbackData {
-    FloatingOverlayHost* host;
-    std::string id;
-  };
-  static void OnMenuItemActivated(GtkMenuItem* item, gpointer user_data);
 
   // ── Drag / position state ─────────────────────────────────────────────────
   std::string pending_anchor_mode_ = "topCenter";
@@ -85,8 +80,13 @@ class FloatingOverlayHost {
 
   static void OnWindowMoved(int x, int y, void* user_data);
 
+  // Moves the window on startDrag; KWin ignores WM moves of NOTIFICATION
+  // windows (XP-5-10).
+  static void OnDragEnded(int x, int y, void* user_data);
+  WindowDragMover drag_mover_{OnDragEnded, this};
+
   // ── Compact / position cache ──────────────────────────────────────────────
-  // Size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // Size class: "normal" | "compact" | "mini" | "nano" (mirrors the Dart
   // OverlaySizeVariant serialised as snapshot["size"]).
   std::string size_class_ = "normal";
   // Pending position applied when the window is first created.

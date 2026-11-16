@@ -37,6 +37,13 @@ import 'package:flutter/foundation.dart';
 
 import 'app_logger.dart';
 
+/// A stall at least this long is severe enough to heal the global hotkey
+/// (see HotkeyService.requestHotkeyHeal). Below it, only the warning is logged.
+const Duration kSevereStallThreshold = Duration(seconds: 1);
+
+/// True when [jank] is a severe stall ([kSevereStallThreshold] exceeded).
+bool isSevereStall(Duration jank) => jank > kSevereStallThreshold;
+
 /// Detects UI thread stalls by measuring timer callback jitter.
 ///
 /// Call [start] once after the app is initialized and [dispose] on shutdown.
@@ -61,6 +68,10 @@ class UiThreadWatchdog {
 
   Timer? _timer;
   final _stopwatch = Stopwatch();
+
+  /// Called on a severe stall ([isSevereStall]). Wired by the app shell to a
+  /// hotkey self-heal; null in tests and before the shell is built.
+  void Function(Duration jank)? onSevereStall;
 
   /// Whether the watchdog is currently active.
   bool get isRunning => _timer != null;
@@ -106,6 +117,7 @@ class UiThreadWatchdog {
         '(tick #${t.tick}, monotonic elapsed=${elapsed.inMilliseconds}ms)',
       );
     }
+    if (isSevereStall(jank)) onSevereStall?.call(jank);
   }
 
   /// Returns `true` when running inside `flutter test` or on the web.

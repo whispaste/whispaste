@@ -4,110 +4,85 @@
 /// drifts from them.
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/features/settings/widgets/settings_navigation.dart';
 
 import '../../../fixtures/test_helpers.dart';
+import 'settings_legacy_row_ids.dart';
 
-/// sectionKey -> {languageCode: rendered section heading}.
-const _headings = <String, Map<String, String>>{
-  'interface': {'ru': 'Интерфейс', 'he': 'ממשק'},
-  'stt': {'ru': 'Распознавание речи', 'he': 'זיהוי דיבור'},
-  'smartMode': {'ru': 'Умный режим', 'he': 'Smart Mode'},
-  'audio': {'ru': 'Аудио', 'he': 'אודיו'},
-  'afterTranscription': {'ru': 'После транскрипции', 'he': 'אחרי תמלול'},
-  'overlay': {'ru': 'Оверлей записи', 'he': 'שכבת הקלטה צפה'},
-  'floatingButton': {'ru': 'Плавающая кнопка', 'he': 'כפתור צף'},
-  'hotkey': {'ru': 'Горячая клавиша', 'he': 'קיצור מקלדת'},
-  'sound': {'ru': 'Звук и отклик', 'he': 'צלילים ומשוב'},
-  'recordingSafety': {'ru': 'Безопасность записи', 'he': 'בטיחות הקלטה'},
-  'history': {'ru': 'История', 'he': 'היסטוריה'},
-  'settingsPortability': {
-    'ru': 'Резервное копирование и перенос',
-    'he': 'גיבוי והעברה',
-  },
-  'advanced': {'ru': 'Дополнительно', 'he': 'מתקדם'},
-  'automationApi': {
-    'ru': 'Локальный API автоматизации',
-    'he': 'ממשק API מקומי לאוטומציה',
-  },
-  'updates': {'ru': 'Обновления', 'he': 'עדכונים'},
-  'onboardingReview': {'ru': 'Введение', 'he': 'מבוא'},
-  'reviewSupport': {
-    'ru': 'Оценить и поддержать WhisPaste',
-    'he': 'דרגו ותמוכו ב-WhisPaste',
-  },
-  'privacy': {'ru': 'Конфиденциальность', 'he': 'Privacy'},
-};
+/// The ARB value of [key] in [locale], read from the source file so the test
+/// does not copy translations.
+String _arb(String locale, String key) =>
+    (jsonDecode(File('lib/core/l10n/app_$locale.arb').readAsStringSync())
+            as Map<String, dynamic>)[key]
+        as String;
 
-SettingsSearchEntry _entry(String sectionKey) =>
-    kSettingsSearchTable.singleWhere((e) => e.sectionKey == sectionKey);
+SettingsSearchEntry _entry(String rowId) =>
+    kSettingsSearchTable.singleWhere((e) => e.rowId == rowId);
 
 List<String> _keysFor(String query, String locale) => matchSettingsEntries(
   kSettingsSearchTable,
   query,
   locale,
-).map((e) => e.sectionKey).toList();
+).map((e) => e.rowId).toList();
 
 void main() {
   group('SettingsSearchEntry localisation (ru, he)', () {
-    test('every table entry has an expected heading for ru and he', () {
-      expect(
-        _headings.keys.toSet(),
-        kSettingsSearchTable.map((e) => e.sectionKey).toSet(),
-      );
-    });
-
-    test('title() yields the rendered section heading, not English', () {
-      for (final section in _headings.entries) {
-        for (final locale in section.value.entries) {
+    test('every row title resolves to its ARB value in ru and he', () {
+      for (final row in kSettingsSearchTable) {
+        for (final locale in ['ru', 'he']) {
           expect(
-            _entry(section.key).title(locale.key),
-            locale.value,
-            reason: '${section.key} title in ${locale.key}',
+            row.title(locale),
+            _arb(locale, row.labelKey),
+            reason: '${row.rowId} title in $locale',
           );
         }
       }
     });
 
-    test(
-      'subtitle() resolves per locale instead of falling back to English',
-      () {
-        expect(_entry('interface').subtitle('ru'), 'Внешний вид и поведение');
-        expect(_entry('interface').subtitle('he'), 'מראה והתנהגות');
-      },
-    );
-
     test('an unsupported language tag falls back to English', () {
-      expect(_entry('interface').title('fr'), 'Interface');
-      expect(_entry('interface').title('en-US'), 'Interface');
+      final english = _arb('en', _entry(legacyRowId('interface')).labelKey);
+      expect(_entry(legacyRowId('interface')).title('fr'), english);
+      expect(_entry(legacyRowId('interface')).title('en-US'), english);
     });
   });
 
   group('matchSettingsEntries matches the localised title', () {
     test('Russian title matches in ru', () {
-      expect(_keysFor('Умный', 'ru'), ['smartMode']);
-    });
-
-    test('Russian subtitle matches in ru', () {
-      expect(_keysFor('Внешний вид', 'ru'), contains('interface'));
+      expect(_keysFor(_arb('ru', 'settingsSttEngine'), 'ru'), ['stt-model']);
     });
 
     test('Hebrew title matches in he', () {
-      expect(_keysFor('זיהוי דיבור', 'he'), ['stt']);
+      expect(
+        _keysFor(_arb('he', 'settingsSttEngine'), 'he'),
+        contains('stt-model'),
+      );
     });
 
     test('English keywords still match in ru', () {
-      expect(_keysFor('microphone', 'ru'), contains('audio'));
+      expect(
+        _keysFor('microphone', 'ru'),
+        containsAnyOf(legacyRowIds('audio')),
+      );
     });
   });
 
-  group('SettingsSectionPicker in ru', () {
-    testWidgets('the picker shows Russian section titles, not English', (
+  group('Settings navigation in ru', () {
+    testWidgets('the navigation shows Russian area labels, not English', (
       tester,
     ) async {
+      // Wide enough for the side navigation (content width of at least 760).
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
         makeTestable(
           const SettingsPage(),
@@ -117,22 +92,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final picker = find.byKey(const Key('settings-section-picker'));
-      expect(picker, findsOneWidget);
-      expect(
-        find.descendant(of: picker, matching: find.text('Интерфейс')),
-        findsOneWidget,
-      );
-
-      await tester.tap(picker);
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('settings-section-picker-stt')),
-        findsOneWidget,
-      );
-      expect(find.text('Распознавание речи'), findsWidgets);
-      expect(find.text('Speech Recognition'), findsNothing);
+      final ruL10n = await L10n.delegate.load(const Locale('ru'));
+      final nav = find.byType(SettingsNavigation);
+      expect(nav, findsOneWidget);
+      for (final label in [
+        ruL10n.settingsAreaGeneral,
+        ruL10n.settingsAreaSpeech,
+        ruL10n.settingsAreaTextInsert,
+      ]) {
+        expect(
+          find.descendant(of: nav, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
+      expect(find.text('Speech recognition'), findsNothing);
     });
   });
 }

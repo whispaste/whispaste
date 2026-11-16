@@ -4,10 +4,13 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 
+#include "native_context_menu.h"
+
 #include <string>
 #include <vector>
 
 #include "floating_button_window.h"
+#include "window_drag_mover.h"
 
 // Owns the public MethodChannel com.whispaste.floating_button on the MAIN
 // engine and bridges it to the private render channel on the second engine
@@ -52,8 +55,20 @@ class FloatingButtonHost {
   bool render_ready_ = false;
   std::string pending_state_ = "idle";
   int pending_diameter_ = kButtonDefaultDiameter;
+  // ticket: last setTheme presets, replayed on ready.
+  std::string pending_background_ = "marine";
+  std::string pending_wave_ = "cyan";
+  // ticket button look, cached like the presets for the ready flush.
+  std::string pending_shape_ = "round";
+  bool pending_ring_ = true;
+  double pending_idle_opacity_ = 1.0;
+  bool pending_idle_capsule_ = false;  // overlay_button_idle_capsule
+  // Whether setTheme arrived yet; gates the theme boot arguments (#977).
+  bool has_theme_ = false;
 
   void EnsureButtonWindow();
+  // Entrypoint arguments carrying the cached render state (#977).
+  std::vector<std::string> BootArguments() const;
   void OpenRenderChannel();
 
   // ── Render channel (2nd engine → host) ───────────────────────────────────
@@ -63,18 +78,8 @@ class FloatingButtonHost {
   void HandleRenderMethodCall(FlMethodCall* method_call);
 
   // ── Context menu ─────────────────────────────────────────────────────────
-  struct MenuItem {
-    std::string id;
-    std::string label;
-  };
-  std::vector<MenuItem> context_menu_items_;
+  NativeMenu context_menu_;
   void ShowContextMenu();
-
-  struct MenuItemCallbackData {
-    FloatingButtonHost* host;
-    std::string id;
-  };
-  static void OnMenuItemActivated(GtkMenuItem* item, gpointer user_data);
 
   // ── Drag / position state ─────────────────────────────────────────────────
   // Suppress configure-event → onDragEnded relay during programmatic moves.
@@ -94,6 +99,11 @@ class FloatingButtonHost {
   int pending_y_ = 200;
 
   static void OnWindowMoved(int x, int y, void* user_data);
+
+  // Moves the window on startDrag; KWin ignores WM moves of NOTIFICATION
+  // windows (XP-5-10).
+  static void OnDragEnded(int x, int y, void* user_data);
+  WindowDragMover drag_mover_{OnDragEnded, this};
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Fire-and-forget invoke on the main engine channel.

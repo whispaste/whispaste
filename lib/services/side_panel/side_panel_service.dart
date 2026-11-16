@@ -4,14 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/data/database.dart' show historyDatabaseProvider;
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/text/markdown_plain_text.dart';
 import '../../features/history/data/history_lock.dart';
 import '../../features/snippets/snippets_page.dart'
     show SnippetItem, snippetsProvider;
 import '../clipboard_history/clipboard_history_entry.dart';
 import '../clipboard_history/clipboard_history_provider.dart';
 import '../floating_platform_service_base.dart';
+import '../paste/paste_result_notice.dart';
 import '../paste/paster.dart';
 import '../telemetry_service.dart';
 import 'side_panel_controller_interface.dart';
@@ -20,6 +23,14 @@ import 'side_panel_events.dart';
 import 'side_panel_snapshot.dart';
 
 final _log = AppLogger('SidePanelService');
+
+/// How many recordings the side panel lists (#1643): the newest ones,
+/// pinned first. Its search field filters these rows; the full history
+/// search lives on the Aufnahmen page.
+const sidePanelHistoryLimit = 200;
+
+/// The recordings the panel shows.
+final _sidePanelHistory = historyHeadProvider(sidePanelHistoryLimit);
 
 /// Manages the native side-panel lifecycle (clipboard-quick-paste,
 /// issues 03-06).
@@ -76,7 +87,7 @@ class SidePanelService
     // signal, so this invisible, otherwise-harmless snapshot is the
     // deliberate first call that breaks that deadlock.
     unawaited(controller.updateSnapshot(SidePanelSnapshot(edge: _edgeValue())));
-    ref.listen(historyEntriesProvider, (_, _) => unawaited(_pushIfOpen()));
+    ref.listen(_sidePanelHistory, (_, _) => unawaited(_pushIfOpen()));
     ref.listen(
       historyContentHiddenProvider,
       (_, _) => unawaited(_pushIfOpen()),
@@ -158,7 +169,7 @@ class SidePanelService
   Future<void> _awaitInitialData() async {
     try {
       await Future.wait([
-        ref.read(historyEntriesProvider.future),
+        ref.read(_sidePanelHistory.future),
         ref.read(snippetsProvider.future),
       ]);
     } catch (e, st) {
@@ -194,14 +205,25 @@ class SidePanelService
   }
 
   SidePanelSnapshot _buildSnapshot({required bool visible}) {
-    // A PIN-locked history (`internal-notes`) lists nothing.
+    // A PIN-locked history lists nothing.
+    final historyHidden = ref.read(historyContentHiddenProvider);
     final history =
-        (ref.read(historyContentHiddenProvider)
-            ? null
-            : ref.read(historyEntriesProvider).value) ??
-        const [];
+        (historyHidden ? null : ref.read(_sidePanelHistory).value) ?? const [];
     final snippets = ref.read(snippetsProvider).value ?? const <SnippetItem>[];
-    final clipboard = ref.read(clipboardHistoryProvider);
+    // Copied text is withheld under the same PIN lock as the recordings
+    // (GS-125): no rows, so nothing to show, tooltip or paste.
+    final clipboardLocked = ref.read(historyContentHiddenProvider);
+    final clipboard = clipboardLocked
+        ? const <ClipboardHistoryEntry>[]
+        : ref.read(clipboardHistoryProvider);
+
+    // A load that failed lists nothing, and the panel says so instead of
+    // showing the empty state. A PIN-hidden history is not a failure.
+    final failedSections = {
+      if (!historyHidden && ref.read(_sidePanelHistory).hasError)
+        SidePanelSection.transcriptions,
+      if (ref.read(snippetsProvider).hasError) SidePanelSection.snippets,
+    };
 
     _transcriptionContent = {for (final e in history) e.id: e.content};
     _snippetContent = {for (final s in snippets) s.id: s.body};
@@ -220,6 +242,7 @@ class SidePanelService
             subtitle: _timeLabel(e.timestamp),
             content: e.content,
             colorSlot: e.colorSlot,
+            createdAt: e.timestamp.toLocal(),
           ),
       ],
       snippets: [
@@ -230,6 +253,8 @@ class SidePanelService
         for (final entry in _clipboardEntries.entries)
           _rowFor(entry.key, entry.value),
       ],
+      clipboardLocked: clipboardLocked,
+      failedSections: failedSections,
     );
   }
 
@@ -252,7 +277,14 @@ class SidePanelService
 
   Future<void> _activate(SidePanelSection section, String id) async {
     final content = switch (section) {
-      SidePanelSection.transcriptions => _transcriptionContent[id],
+      // The list carries only a preview: the pasted text is read in full.
+      SidePanelSection.transcriptions =>
+        _transcriptionContent.containsKey(id)
+            ? (await ref.read(historyDatabaseProvider).entryContents([
+                    id,
+                  ]))[id] ??
+                  _transcriptionContent[id]
+            : null,
       SidePanelSection.snippets => _snippetContent[id],
       SidePanelSection.clipboardHistory => _clipboardEntries[id]?.textValue,
     };
@@ -264,6 +296,9 @@ class SidePanelService
       return;
     }
 
+    // Read before the paste: paste() can outlive this panel, and the notice for
+    // a failed row must still reach the user.
+    final reporter = ref.read(pasteResultReporterProvider);
     final paster = ref.read(pasterProvider);
     if (paster == null) {
       // Silent from the user's perspective otherwise: no paste target, no
@@ -274,6 +309,7 @@ class SidePanelService
         'Row activation aborted: no paster available for '
         '${section.name}/$id',
       );
+      unawaited(reporter.report(PasteOutcome.platformUnavailable));
       return;
     }
 
@@ -281,13 +317,27 @@ class SidePanelService
     final options = PasteOptions(
       autoPasteDelayMs: settings.behavior.autoPasteDelay,
       blocklist: settings.behavior.autoPasteBlocklist,
+      copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+      restoreClipboardAfterPaste: settings.behavior.restoreClipboardAfterPaste,
+      restoreClipboardWithoutReceipt:
+          settings.behavior.restoreClipboardWithoutReceipt,
     );
     final stopwatch = Stopwatch()..start();
-    final outcome = await paster.paste(content, options);
+    // Snippets and transcripts lose their Markdown markers for mail and chat
+    // (#644); clipboard history is someone else's text and stays verbatim.
+    final text =
+        section == SidePanelSection.clipboardHistory ||
+            settings.behavior.pasteWithMarkdown
+        ? content
+        : markdownToPlainText(content);
+    final outcome = await paster.paste(text, options);
     _log.info(
       'Row activation paste() for ${section.name}/$id returned $outcome '
       'after ${stopwatch.elapsedMilliseconds}ms',
     );
+    // Reported before the mounted guard: paste() may still be mid clipboard-
+    // restore delay when this panel is disposed, and the notice must survive.
+    unawaited(reporter.report(outcome));
     // paste() may still be mid clipboard-restore delay (>=500ms) when the
     // panel/provider is disposed in the meantime -- guard the post-await ref
     // use per Riverpod's own advice (same guard as SnippetPickerService).

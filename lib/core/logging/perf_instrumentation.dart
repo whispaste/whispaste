@@ -29,6 +29,7 @@
 /// for cross-reference.
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_logger.dart';
@@ -108,14 +109,6 @@ abstract final class PerfBudgets {
   /// detects STALLS (≥ 500 ms blocked main-thread work), not dropped frames
   /// (≥ 16.7 ms @ 60 Hz). Per-frame profiling requires DevTools.
   static const int watchdogThresholdMs = 500;
-
-  // ── Frame budget ───────────────────────────────────────────────────────────
-
-  /// Single-frame budget at 60 Hz (macOS baseline from spike-notes.md §1).
-  ///
-  /// The waveform animation timer ticks at ~33 ms (≈ 30 fps), intentionally
-  /// below this ceiling to leave headroom for compositor compositing.
-  static const double frameMs60Hz = 16.7;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,12 +149,24 @@ class PerfMarkers {
   DateTime? _hotkeyPressedAt;
   int? _hotkeyPressedMonotonicMicros;
 
+  /// Set by [markOverlayShown], consumed by [markOverlayFirstFrame]: the hotkey
+  /// t₀ and the show instant, both on the [monotonicMicros] clock.
+  int? _awaitingFrameFromHotkeyMicros;
+  int? _awaitingFrameShownMicros;
+
   /// Monotonic clock for latency traces that must not jump with wall-clock
   /// adjustments (see `MicStartTrace`).
   static final Stopwatch _monotonic = Stopwatch()..start();
 
   /// Microseconds on the monotonic clock shared by all PERF traces.
-  int monotonicMicros() => _monotonic.elapsedMicroseconds;
+  int monotonicMicros() =>
+      debugMonotonicMicros?.call() ?? _monotonic.elapsedMicroseconds;
+
+  /// Test-only replacement for the monotonic clock, so trace spans can be
+  /// asserted without real waiting (#1491). Cleared by [reset]; must stay
+  /// `null` in production code.
+  @visibleForTesting
+  int Function()? debugMonotonicMicros;
 
   // ── Cold-start ──────────────────────────────────────────────────────────
 
@@ -197,7 +202,7 @@ class PerfMarkers {
   /// recording trigger handler, so the stamp captures the earliest possible
   /// Dart-layer moment of the hotkey event.
   void markHotkeyPressed() {
-    _hotkeyPressedAt = DateTime.now();
+    _hotkeyPressedAt = clock.now();
     _hotkeyPressedMonotonicMicros = monotonicMicros();
     _log.debug('[PERF] hotkey pressed (t₀ for hotkey→overlay)');
   }
@@ -216,16 +221,49 @@ class PerfMarkers {
   /// dogfooding; X ≤ 33 satisfies the AC.
   void markOverlayShown() {
     final pressedAt = _hotkeyPressedAt;
+    _awaitingFrameFromHotkeyMicros = _hotkeyPressedMonotonicMicros;
+    _awaitingFrameShownMicros = monotonicMicros();
     _hotkeyPressedAt = null; // reset — next press gets a clean t₀
     _hotkeyPressedMonotonicMicros = null;
     if (pressedAt == null) return;
-    final elapsedMs = DateTime.now().difference(pressedAt).inMilliseconds;
-    const budget = PerfBudgets.hotkeyOverlayMs;
-    final status = elapsedMs <= budget ? 'OK' : 'OVER BUDGET';
+    final elapsedMs = clock.now().difference(pressedAt).inMilliseconds;
+    // No verdict in the log (#846): the 33 ms target is measured on hardware
+    // via the benchmarks, and a Dart-side delta under load made every busy
+    // start read "OVER BUDGET" without being a defect.
+    _log.info('[PERF] hotkey→overlay: ${elapsedMs}ms');
+  }
+
+  /// Stamps the first painted frame of the show started by [markOverlayShown]
+  /// (ticket phase 2, plan item 6). Fed by the render engine's frame
+  /// acknowledgement, so it includes the cross-engine hop and is the only
+  /// measure of what the user actually sees. Logs nothing when no show is
+  /// awaiting a frame, so repeated acknowledgements cost nothing.
+  void markOverlayFirstFrame() {
+    final shownAt = _awaitingFrameShownMicros;
+    if (shownAt == null) return;
+    final hotkeyAt = _awaitingFrameFromHotkeyMicros;
+    _awaitingFrameShownMicros = null;
+    _awaitingFrameFromHotkeyMicros = null;
+
+    final now = monotonicMicros();
+    _onOverlayFirstFrame?.call(now);
+    final showToFrameMs = (now - shownAt) / 1000.0;
+    final hotkeyText = hotkeyAt == null
+        ? 'n/a'
+        : '${((now - hotkeyAt) / 1000.0).toStringAsFixed(1)}ms';
     _log.info(
-      '[PERF] hotkey→overlay: ${elapsedMs}ms '
-      '(budget: ≤${budget}ms) [$status]',
+      '[PERF] overlay first-frame: hotkey→frame $hotkeyText, '
+      'show→frame ${showToFrameMs.toStringAsFixed(1)}ms',
     );
+  }
+
+  /// Receives the monotonic instant of every overlay first frame, for the
+  /// mic-start trace (`MicStartTrace`). One listener at a time; the
+  /// recording orchestrator sets it per start.
+  void Function(int monotonicMicros)? _onOverlayFirstFrame;
+
+  void setOverlayFirstFrameListener(void Function(int monotonicMicros)? l) {
+    _onOverlayFirstFrame = l;
   }
 
   // ── Hotkey → text (end-to-end latency KPI) ─────────────────────────────
@@ -236,8 +274,7 @@ class PerfMarkers {
   /// Unlike [markOverlayShown] (which resets the marker after computing the
   /// hotkey→overlay latency), this is a non-destructive peek. It lets
   /// `RecordingOrchestrator.startRecording` capture the same t₀ for the
-  /// hotkey→text end-to-end latency KPI (local-only, see
-  /// `internal-notes`)
+  /// hotkey→text end-to-end latency KPI (local-only)
   /// without interfering with the hotkey→overlay pairing above — both
   /// latencies are derived independently from the same key-down event.
   DateTime? get pendingHotkeyPressedAt => _hotkeyPressedAt;
@@ -266,5 +303,9 @@ class PerfMarkers {
     _coldStartBegin = null;
     _hotkeyPressedAt = null;
     _hotkeyPressedMonotonicMicros = null;
+    _awaitingFrameFromHotkeyMicros = null;
+    _awaitingFrameShownMicros = null;
+    _onOverlayFirstFrame = null;
+    debugMonotonicMicros = null;
   }
 }

@@ -15,6 +15,9 @@ import 'package:whispaste/core/logging/crash_reporter.dart';
 
 void main() {
   group('tracesSampler — runtime consent gate', () {
+    // A file that ran earlier in the same isolate (a lab bundle, #1492) may
+    // have left the singleton set.
+    setUp(() async => CrashReporter.instance?.dispose());
     tearDown(() async {
       // Tests that initialise the singleton dispose it so the next test starts
       // from a clean _instance==null state.
@@ -45,6 +48,19 @@ void main() {
       CrashReporter.instance!.consentGranted = false;
 
       expect(CrashReporter.tracesSampler(_dummyContext()), 0.0);
+    });
+
+    test('privacy-choice hold stops transactions until released', () async {
+      await _initSentryNoop();
+      CrashReporter.init();
+      final cr = CrashReporter.instance!;
+      cr.consentGranted = true;
+
+      cr.holdForPrivacyChoice = true;
+      expect(CrashReporter.tracesSampler(_dummyContext()), 0.0);
+
+      cr.holdForPrivacyChoice = false;
+      expect(CrashReporter.tracesSampler(_dummyContext()), isNull);
     });
 
     test('flips with the consent setter (runtime toggle behaviour)', () async {

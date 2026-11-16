@@ -6,6 +6,8 @@ library;
 
 import 'dart:async';
 
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/recording/safety_guard.dart';
 
@@ -13,13 +15,24 @@ import 'package:whispaste/services/recording/safety_guard.dart';
 // Helper
 // ---------------------------------------------------------------------------
 
+/// 300 ms of level above the threshold at 10 samples/s: the shortest run
+/// that counts as speech.
+const _speech = [0.5, 0.5, 0.5];
+
+/// The guard input for a test level: `0.0` stands for a tick without any
+/// signal (digital zero or no data, `-inf` dBFS), every other level for a
+/// live microphone (#984: only a real loss of signal counts as dead).
+GuardSample sampleFor(double level) => level == 0.0
+    ? const GuardSample(dbFs: double.negativeInfinity, level: 0)
+    : GuardSample(dbFs: -40, level: level);
+
 /// Runs [amplitudes] through a [SafetyGuard] configured with [config] and
 /// returns all [SafetyEvent]s emitted before the stream completes.
 Future<List<SafetyEvent>> collectEvents(
   SafetyGuardConfig config,
   List<double> amplitudes,
 ) async {
-  final source = Stream.fromIterable(amplitudes);
+  final source = Stream.fromIterable(amplitudes.map(sampleFor));
   final events = <SafetyEvent>[];
   await source.transform(SafetyGuard(config: config)).forEach(events.add);
   return events;
@@ -95,8 +108,8 @@ void main() {
         maxDurationSeconds: 0,
         samplesPerSecond: 10,
       );
-      // 1 loud sample (speech), then 15 silent samples.
-      final amplitudes = [0.5, ...List.filled(15, 0.0)];
+      // Speech, then 15 silent samples.
+      final amplitudes = [..._speech, ...List.filled(15, 0.0)];
       final events = await collectEvents(config, amplitudes);
 
       expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
@@ -128,8 +141,8 @@ void main() {
           maxDurationSeconds: 0,
           samplesPerSecond: 10,
         );
-        // 1 loud sample (arms speechDetected) + 10 silent samples.
-        final amplitudes = [0.5, ...List.filled(10, 0.0)];
+        // Speech (arms speechDetected) + 10 silent samples.
+        final amplitudes = [..._speech, ...List.filled(10, 0.0)];
         final events = await collectEvents(config, amplitudes);
 
         expect(events, hasLength(1));
@@ -162,7 +175,7 @@ void main() {
       );
       // Pattern: 1 speech + 5 silence, repeated 4 times → max consecutive = 5.
       final amplitudes = [
-        for (var i = 0; i < 4; i++) ...[0.5, ...List.filled(5, 0.0)],
+        for (var i = 0; i < 4; i++) ...[..._speech, ...List.filled(5, 0.0)],
       ];
       final events = await collectEvents(config, amplitudes);
 
@@ -177,7 +190,10 @@ void main() {
         maxDurationSeconds: 0,
         samplesPerSecond: 10,
       );
-      final amplitudes = [0.5, ...List.filled(10, 0.0)]; // exactly 10 silent
+      final amplitudes = [
+        ..._speech,
+        ...List.filled(10, 0.0),
+      ]; // exactly 10 silent
       final events = await collectEvents(config, amplitudes);
 
       expect(events.single, isA<SilenceAutoStop>());
@@ -191,7 +207,7 @@ void main() {
         samplesPerSecond: 10,
       );
       // Speech then long silence — no auto-stop guard.
-      final amplitudes = [0.5, ...List.filled(20, 0.0)];
+      final amplitudes = [..._speech, ...List.filled(20, 0.0)];
       final events = await collectEvents(config, amplitudes);
 
       expect(events.whereType<SilenceAutoStop>(), isEmpty);
@@ -251,6 +267,83 @@ void main() {
   });
 
   // ── Duration limit ───────────────────────────────────────────────────────
+
+  group('Duration limit extension (overlay F2)', () {
+    // maxDuration = 2 s at 10 samples/s → limit at 20 samples; extended once
+    // by 2 s after sample 15 → limit at 40 samples.
+    const config = SafetyGuardConfig(
+      deadMicTimeout: 0,
+      autoStopSilence: 0,
+      maxDurationSeconds: 2,
+      samplesPerSecond: 10,
+    );
+
+    Future<List<(int, SafetyEvent)>> run(
+      SafetyGuard guard,
+      int samples, {
+      int? extendAt,
+    }) async {
+      var i = 0;
+      Stream<GuardSample> source() async* {
+        for (; i < samples; i++) {
+          if (i == extendAt) guard.extendDuration(2);
+          yield sampleFor(0.5);
+        }
+      }
+
+      final events = <(int, SafetyEvent)>[];
+      await source().transform(guard).forEach((e) => events.add((i, e)));
+      return events;
+    }
+
+    test('the limit moves by the extension and warns again', () async {
+      final events = await run(SafetyGuard(config: config), 45, extendAt: 19);
+      final limits = events.where((e) => e.$2 is DurationLimitReached);
+      expect(limits, hasLength(1));
+      expect(limits.single.$1, greaterThanOrEqualTo(39));
+      expect(
+        events.where((e) => e.$2 is DurationWarningAt90),
+        hasLength(2),
+        reason: 'once for the first limit, once for the extended one',
+      );
+    });
+
+    test('a grace keeps the recording alive past the limit until the '
+        'extension arrives (#858)', () async {
+      // Limit at 20 samples; the click lands 2 samples after it, inside the
+      // 1 s grace (10 samples). The extension moves the limit to 40 (the
+      // orchestrator drops the grace then; here it stays, so 50).
+      final guard = SafetyGuard(config: config)..limitGraceSeconds = 1;
+      final events = await run(guard, 60, extendAt: 22);
+      final limits = events.where((e) => e.$2 is DurationLimitReached);
+      expect(limits, hasLength(1));
+      expect(
+        limits.single.$1,
+        greaterThanOrEqualTo(49),
+        reason: 'only the extended limit (40) plus grace (10) stops',
+      );
+    });
+
+    test('without an answer the grace ends in the stop (#858)', () async {
+      final guard = SafetyGuard(config: config)..limitGraceSeconds = 1;
+      final events = await run(guard, 45);
+      final limits = events.where((e) => e.$2 is DurationLimitReached);
+      expect(limits, hasLength(1));
+      expect(limits.single.$1, greaterThanOrEqualTo(29));
+      expect(limits.single.$1, lessThan(31));
+    });
+
+    test('without a limit an extension changes nothing', () async {
+      const unlimited = SafetyGuardConfig(
+        deadMicTimeout: 0,
+        autoStopSilence: 0,
+        maxDurationSeconds: 0,
+        samplesPerSecond: 10,
+      );
+      final events = await run(SafetyGuard(config: unlimited), 30, extendAt: 5);
+      expect(events, isEmpty);
+    });
+  });
 
   group('Duration limit', () {
     test('emits durationLimitReached at maxDurationSeconds', () async {
@@ -353,24 +446,132 @@ void main() {
     );
   });
 
+  // ── Clicks and noise are not speech ──────────────────────────────────────
+
+  group('Speech needs a sustained level', () {
+    const config = SafetyGuardConfig(
+      deadMicTimeout: 1.0,
+      autoStopSilence: 0,
+      maxDurationSeconds: 0,
+      samplesPerSecond: 10,
+    );
+
+    test('one loud sample in silence keeps the dead-mic guard armed', () async {
+      final events = await collectEvents(config, [
+        0.05,
+        ...List.filled(10, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('a two-sample click (200 ms) is not speech either', () async {
+      // The click resets the dead count (the input is live for a moment);
+      // were it speech, the ten dead ticks after it would not count.
+      final events = await collectEvents(config, [
+        ...List.filled(4, 0.0),
+        0.9,
+        0.9,
+        ...List.filled(10, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('noise with short spikes is not speech', () async {
+      // Deterministic: low noise below the threshold, with a one-sample
+      // spike roughly every fourth sample. Noise is a live input, so only
+      // the dead ticks after it trip the guard, which shows the spikes did
+      // not count as speech.
+      final random = Random(42);
+      final amplitudes = [
+        for (var i = 0; i < 40; i++)
+          i % 4 == 3
+              ? 0.03 + random.nextDouble() * 0.2
+              : 0.001 + random.nextDouble() * 0.018,
+        ...List.filled(10, 0.0),
+      ];
+      final events = await collectEvents(config, amplitudes);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('300 ms of level counts as speech and disarms the guard', () async {
+      final events = await collectEvents(config, [
+        ..._speech,
+        ...List.filled(15, 0.0),
+      ]);
+      expect(events, isEmpty);
+    });
+
+    test('speech with single silent gaps still disarms the guard', () async {
+      // Real speech has brief dips between syllables; one silent sample
+      // between loud ones must not restart the 300 ms count.
+      final events = await collectEvents(config, [
+        0.5,
+        0.5,
+        0.0,
+        0.5,
+        0.5,
+        0.0,
+        ...List.filled(15, 0.0),
+      ]);
+      expect(events, isEmpty);
+    });
+
+    test('a dip longer than speechMaxGap restarts the count', () async {
+      // At 10 samples/s the tolerated dip is one sample (80 ms rounds up to
+      // 100 ms); two silent samples (200 ms) restart the 300 ms count.
+      final events = await collectEvents(config, [
+        0.5,
+        0.5,
+        0.0,
+        0.0,
+        0.5,
+        0.5,
+        ...List.filled(10, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('speech scales with the sample rate', () async {
+      const fast = SafetyGuardConfig(
+        deadMicTimeout: 1.0,
+        autoStopSilence: 0,
+        maxDurationSeconds: 0,
+        samplesPerSecond: 20,
+      );
+      // 5 samples at 20/s are 250 ms: not yet speech.
+      final short = await collectEvents(fast, [
+        ...List.filled(5, 0.5),
+        ...List.filled(20, 0.0),
+      ]);
+      expect(short.single, isA<DeadMicTimeoutReached>());
+      // 6 samples are 300 ms.
+      final long = await collectEvents(fast, [
+        ...List.filled(6, 0.5),
+        ...List.filled(20, 0.0),
+      ]);
+      expect(long, isEmpty);
+    });
+  });
+
   // ── Silence threshold boundary ───────────────────────────────────────────
 
   group('Silence threshold boundary', () {
     test(
       'sample at exactly the silence threshold is treated as silent',
       () async {
-        // Level 0.019 < 0.02 → silent. Level 0.02 is NOT silent (< not <=).
+        // Just below the threshold → silent; at it → NOT silent (< not <=).
         const config = SafetyGuardConfig(
           deadMicTimeout: 1.0,
           autoStopSilence: 0,
           maxDurationSeconds: 0,
           samplesPerSecond: 10,
         );
-        // 10 samples at 0.019 → dead-mic fires.
-        final events = await collectEvents(
-          config,
-          List.filled(10, SafetyGuard.silenceThreshold - 0.001),
-        );
+        // 10 samples just below the threshold are not speech, so the dead
+        // ticks after them still fire the dead-mic guard.
+        final events = await collectEvents(config, [
+          ...List.filled(10, SafetyGuard.silenceThreshold - 0.001),
+          ...List.filled(10, 0.0),
+        ]);
         expect(events.single, isA<DeadMicTimeoutReached>());
       },
     );
@@ -382,11 +583,12 @@ void main() {
         maxDurationSeconds: 0,
         samplesPerSecond: 10,
       );
-      // 10 samples at exactly 0.02 → NOT silent, so dead-mic never fires.
-      final events = await collectEvents(
-        config,
-        List.filled(10, SafetyGuard.silenceThreshold),
-      );
+      // 10 samples at exactly the threshold are speech: the dead ticks after
+      // them no longer count.
+      final events = await collectEvents(config, [
+        ...List.filled(10, SafetyGuard.silenceThreshold),
+        ...List.filled(10, 0.0),
+      ]);
       expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
     });
   });

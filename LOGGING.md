@@ -1,5 +1,7 @@
 # Logging & Observability
 
+**Kurzregel:** Alle Logs laufen über den `AppLogger`; direkte Debug-Ausgaben (`print`/`debugPrint`) lehnt das Gate ab.
+
 Kurzreferenz für das Logging-Konzept der Desktop-App (`lib/`). Betrifft nicht
 `website/` (eigenes, sehr schlankes `console.warn`/`console.error`-Regime,
 siehe `website/eslint.config.mjs`) und nicht das Backend (kein eigenes
@@ -66,6 +68,14 @@ class MyService {
 `Logger.root.level` ist `Level.ALL` im Debug-Build, `Level.INFO` im Release —
 Debug-/Verbose-Logging ist damit produktionssicher ausgeschaltet, ohne dass
 Security-/Fehler-Logging (`warning`/`error`, immer ≥ `INFO`) betroffen ist.
+
+**Unbehandelte Fehler (#439):** Fehler aus dem Flutter-Framework (`FlutterError.onError`), aus
+der Zone (`PlatformDispatcher.onError`) und aus Hotkey-Callbacks landen immer im lokalen Log, auch
+bei ausgeschalteten Absturzberichten. Sie werden als `warning` mit Fehlerart und Stacktrace
+protokolliert, ohne Fehlerobjekt und ohne Meldungstext, damit sie kein eigenes Sentry-Ereignis
+erzeugen (`error_log_forwarding.dart`, `hotkey_service.dart`). Bei einem Fehler-Sturm gilt eine
+Drossel: höchstens 5 Einträge je 10 s; eine Zeile markiert den Beginn, die Zahl der ausgelassenen
+Fehler steht beim nächsten Eintrag.
 
 ## Speicherort, Rotation, Retention
 

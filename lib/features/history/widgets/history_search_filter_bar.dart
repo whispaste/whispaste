@@ -5,20 +5,30 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../../core/config/settings_labels.dart';
 import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/recording/recording_state.dart';
+import '../../../core/theme/generated/wp_tokens.g.dart' show WpRadiusTokens;
 import '../../../core/theme/tokens.dart';
 import '../../../services/recording_orchestrator.dart';
+import '../../../services/audio/import/audio_import_providers.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_collection_page.dart';
 import '../../../widgets/wp_search_field.dart';
+import '../../../widgets/wp_sort_menu_button.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
+import 'history_duration_chips.dart';
 import 'history_helpers.dart';
+import 'history_range_chips.dart';
+
+// The multi-select bar moved to widgets/ (shared with Textbausteine); history
+// code keeps importing it from here.
+export '../../../widgets/wp_multi_select_bar.dart';
 
 // ---------------------------------------------------------------------------
 // Suggestion type for autocomplete
@@ -71,7 +81,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
     required this.onSortOrderChanged,
     this.searchFocusNode,
     this.onEmptyTrash,
-    this.newRecordingIsLoud = true,
   });
 
   final TextEditingController controller;
@@ -87,22 +96,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
   final ValueChanged<HistorySortOrder> onSortOrderChanged;
   final FocusNode? searchFocusNode;
   final VoidCallback? onEmptyTrash;
-
-  /// Whether "New recording" is this screen's one loud action.
-  ///
-  /// False while the content area below shows an empty state that carries a
-  /// CTA of its own — "Clear search" when a query found nothing, "Try again"
-  /// after a load error. *The One-Loud-Action Rule* allows one `primary` per
-  /// screen and a centred CTA on an otherwise blank page is the louder of the
-  /// two, so the button gives up the volume and keeps the action.
-  ///
-  /// The other empty states — trash, archive, favourites, today, this week,
-  /// and a history that has simply never been filled — deliberately offer no
-  /// action of their own (see [WpEmptyState]'s rule: the history fills from a
-  /// recording run, and its hint says so). On those this button stays loud,
-  /// which is exactly right: starting a recording is what an empty history
-  /// wants next.
-  final bool newRecordingIsLoud;
 
   @override
   ConsumerState<HistorySearchFilterBar> createState() =>
@@ -182,19 +175,17 @@ class _HistorySearchFilterBarState
       return KeyEventResult.handled;
     }
 
-    // Only the simple tag/lang list is navigable. The smart panel renders three
-    // heterogeneous sections and ignores _selectedIdx entirely, so consuming
-    // arrows there would swallow the caret keys for no visible effect —
-    // deliberately left to a follow-up ticket.
-    if (_suggestionType != _SuggestionType.tag &&
-        _suggestionType != _SuggestionType.lang) {
-      return KeyEventResult.ignored;
-    }
-    if (_suggestions.isEmpty) return KeyEventResult.ignored;
+    // The tag/lang lists and the smart panel (recent searches, then popular
+    // tags) are navigable. The quick-action chips are not, and keep Tab.
+    final navigable =
+        _suggestionType == _SuggestionType.tag ||
+        _suggestionType == _SuggestionType.lang ||
+        _suggestionType == _SuggestionType.smartPanel;
+    if (!navigable || _navigableCount == 0) return KeyEventResult.ignored;
 
     if (key == LogicalKeyboardKey.arrowDown) {
       setState(() {
-        _selectedIdx = (_selectedIdx + 1) % _suggestions.length;
+        _selectedIdx = (_selectedIdx + 1) % _navigableCount;
       });
       return KeyEventResult.handled;
     }
@@ -202,7 +193,7 @@ class _HistorySearchFilterBarState
     if (key == LogicalKeyboardKey.arrowUp) {
       setState(() {
         _selectedIdx = _selectedIdx <= 0
-            ? _suggestions.length - 1
+            ? _navigableCount - 1
             : _selectedIdx - 1;
       });
       return KeyEventResult.handled;
@@ -215,8 +206,8 @@ class _HistorySearchFilterBarState
     // list and hands Tab straight back. Matches settings_search_field.dart:120,
     // which is also Enter-only.
     if (key == LogicalKeyboardKey.enter) {
-      if (_selectedIdx >= 0 && _selectedIdx < _suggestions.length) {
-        _selectSuggestion(_suggestions[_selectedIdx]);
+      if (_selectedIdx >= 0 && _selectedIdx < _navigableCount) {
+        _activateHighlighted();
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
@@ -302,7 +293,9 @@ class _HistorySearchFilterBarState
       _quickTags = topTags;
       _suggestions = topTags;
       _suggestionType = _SuggestionType.smartPanel;
-      _selectedIdx = 0;
+      // Nothing highlighted until the user arrows in, so Enter cannot act on
+      // an item they did not pick (UIA-HIS-14).
+      _selectedIdx = -1;
     });
   }
 
@@ -348,6 +341,25 @@ class _HistorySearchFilterBarState
         _suggestionType = _SuggestionType.none;
         _selectedIdx = 0;
       });
+    }
+  }
+
+  /// Items the arrow keys walk: in the smart panel the recent searches come
+  /// first, then the popular tags (UIA-HIS-14).
+  int get _navigableCount => _suggestionType == _SuggestionType.smartPanel
+      ? _recentSearches.length + _quickTags.length
+      : _suggestions.length;
+
+  /// Runs the highlighted item: a recent search replays, a tag is inserted.
+  void _activateHighlighted() {
+    if (_suggestionType != _SuggestionType.smartPanel) {
+      _selectSuggestion(_suggestions[_selectedIdx]);
+      return;
+    }
+    if (_selectedIdx < _recentSearches.length) {
+      _replayRecentSearch(_recentSearches[_selectedIdx]);
+    } else {
+      _selectSuggestion(_quickTags[_selectedIdx - _recentSearches.length]);
     }
   }
 
@@ -429,15 +441,26 @@ class _HistorySearchFilterBarState
           // Section: Recent Searches
           if (_recentSearches.isNotEmpty) ...[
             _sectionHeader(l10n.historyRecentSearches, textMuted),
-            for (final query in _recentSearches)
-              _recentSearchItem(query, accent, textMuted),
+            for (var i = 0; i < _recentSearches.length; i++)
+              _recentSearchItem(
+                _recentSearches[i],
+                accent,
+                textMuted,
+                highlighted: _selectedIdx == i,
+              ),
           ],
           // Section: Popular Tags
           if (_quickTags.isNotEmpty) ...[
             if (_recentSearches.isNotEmpty)
               const SizedBox(height: WpSpacing.xs),
             _sectionHeader(l10n.historySearchQuickTags, textMuted),
-            for (final tag in _quickTags) _tagItem(tag, accent, textMuted),
+            for (var j = 0; j < _quickTags.length; j++)
+              _tagItem(
+                _quickTags[j],
+                accent,
+                textMuted,
+                highlighted: _selectedIdx == _recentSearches.length + j,
+              ),
           ],
           // Section: Quick Actions
           if (_recentSearches.isNotEmpty || _quickTags.isNotEmpty) ...[
@@ -504,64 +527,83 @@ class _HistorySearchFilterBarState
     );
   }
 
-  Widget _recentSearchItem(String query, Color accent, Color textMuted) {
+  Widget _recentSearchItem(
+    String query,
+    Color accent,
+    Color textMuted, {
+    bool highlighted = false,
+  }) {
     return InkWell(
       onTap: () => _replayRecentSearch(query),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.xxs + 1,
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.clock, size: 13, color: textMuted),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                query,
-                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      child: Container(
+        color: highlighted ? WpColors.accentActiveFill : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xxs + 1,
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
+              const SizedBox(width: WpSpacing.xs),
+              Expanded(
+                child: Text(
+                  query,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    color: textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
-            _DismissIcon(
-              icon: LucideIcons.x,
-              size: 12,
-              color: textMuted,
-              semanticLabel: L10n.of(context).historyRemoveRecentSearch,
-              onTap: () {
-                ref.read(recentSearchesProvider.notifier).removeSearch(query);
-                setState(() {
-                  _recentSearches = _recentSearches
-                      .where((s) => s != query)
-                      .toList();
-                });
-              },
-            ),
-          ],
+              _DismissIcon(
+                testId: 'history-recent-search-remove',
+                icon: LucideIcons.x,
+                size: 12,
+                color: textMuted,
+                semanticLabel: L10n.of(context).historyRemoveRecentSearch,
+                onTap: () {
+                  ref.read(recentSearchesProvider.notifier).removeSearch(query);
+                  setState(() {
+                    _recentSearches = _recentSearches
+                        .where((s) => s != query)
+                        .toList();
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _tagItem(String tag, Color accent, Color textMuted) {
+  Widget _tagItem(
+    String tag,
+    Color accent,
+    Color textMuted, {
+    bool highlighted = false,
+  }) {
     return InkWell(
       onTap: () => _selectSuggestion(tag),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.xxs + 1,
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.tag, size: 13, color: textMuted),
-            const SizedBox(width: WpSpacing.xs),
-            Text(
-              '#$tag',
-              style: TextStyle(fontSize: WpTypography.body, color: textMuted),
-            ),
-          ],
+      child: Container(
+        color: highlighted ? WpColors.accentActiveFill : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xxs + 1,
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.tag, size: WpIconSize.xs, color: textMuted),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                '#$tag',
+                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -590,8 +632,8 @@ class _HistorySearchFilterBarState
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: accent),
-            const SizedBox(width: 4),
+            Icon(icon, size: WpIconSize.xxs, color: accent),
+            const SizedBox(width: WpSpacing.xxs),
             Text(
               label,
               style: TextStyle(
@@ -643,7 +685,7 @@ class _HistorySearchFilterBarState
                       _suggestionType == _SuggestionType.lang
                           ? LucideIcons.globe
                           : LucideIcons.tag,
-                      size: 13,
+                      size: WpIconSize.xs,
                       color: selected ? accent : textMuted,
                     ),
                     const SizedBox(width: WpSpacing.xs),
@@ -675,366 +717,292 @@ class _HistorySearchFilterBarState
     final searchCounts = ref.watch(searchCountsProvider).value;
     final rawQuery = widget.controller.text;
     final parsed = parseSearchQuery(rawQuery);
-    final activeCommands = <String>[];
-    for (final tag in parsed.tagNames) {
-      activeCommands.add('#$tag');
-    }
-    if (parsed.langCode != null) {
-      activeCommands.add('lang:${parsed.langCode}');
-    }
+    final bucket = ref.watch(historyDurationBucketProvider);
+    void setQuery(String value) => widget.controller.text = value;
 
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
+    // Everything that narrows the list shows as a mark next to the search.
+    // Tag, language and `longer:`/`shorter:` stay raw tokens: that is how
+    // they were typed (length has one click path, the duration chips, #1176).
+    final storageLabel = switch (widget.activeFilter) {
+      HistoryFilter.all => null,
+      HistoryFilter.pinned => l10n.historyPinned,
+      HistoryFilter.archived => l10n.historyArchived,
+      HistoryFilter.trash => l10n.historyTrash,
+    };
+    final dateRange = parsed.dateRange;
+    final longer = parsed.longerThanSec;
+    final shorter = parsed.shorterThanSec;
+    final activeFilters = <WpActiveFilter>[
+      if (storageLabel != null)
+        WpActiveFilter(
+          id: 'view',
+          label: storageLabel,
+          onRemove: () => widget.onFilterChanged(HistoryFilter.all),
+        ),
+      for (final tag in parsed.tagNames)
+        WpActiveFilter(
+          id: 'tag-$tag',
+          label: '#$tag',
+          onRemove: () => _removeCommand('#$tag'),
+        ),
+      if (parsed.langCode != null)
+        WpActiveFilter(
+          id: 'lang',
+          label: 'lang:${parsed.langCode}',
+          onRemove: () => _removeCommand('lang:${parsed.langCode}'),
+        ),
+      if (dateRange != null)
+        WpActiveFilter(
+          id: 'period',
+          label: historyRangeLabel(l10n, dateRange),
+          onRemove: () => setQuery(withDateOperator(rawQuery, null)),
+        ),
+      if (longer != null)
+        WpActiveFilter(
+          id: 'longer',
+          label: durationToken(HistoryDurationBound.longer, longer),
+          onRemove: () => setQuery(
+            withDurationOperator(rawQuery, HistoryDurationBound.longer, null),
+          ),
+        ),
+      if (shorter != null)
+        WpActiveFilter(
+          id: 'shorter',
+          label: durationToken(HistoryDurationBound.shorter, shorter),
+          onRemove: () => setQuery(
+            withDurationOperator(rawQuery, HistoryDurationBound.shorter, null),
+          ),
+        ),
+      if (bucket != HistoryDurationBucket.all)
+        WpActiveFilter(
+          id: 'duration',
+          label: historyDurationLabel(l10n, bucket),
+          onRemove: () => ref
+              .read(historyDurationBucketProvider.notifier)
+              .set(HistoryDurationBucket.all),
+        ),
+    ];
+
+    // Period and duration show only when there is something to refine
+    // (concept §4, "risk of overload"): an empty history on a first run gets
+    // no period and duration groups in the popover. Archive and Trash keep
+    // them, so switching storage filters does not change the popover, and an
+    // active refinement always stays reachable with its way back (#1176).
+    final showRefinements =
+        widget.activeFilter != HistoryFilter.all ||
+        bucket != HistoryDurationBucket.all ||
+        dateRange != null ||
+        longer != null ||
+        shorter != null ||
+        (ref.watch(pagedHistoryProvider).value?.isNotEmpty ?? true);
+
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
     // The suggestion panel floats over whatever the list happens to show, so
     // it takes the *pre-composited* card material and the tinted rim that
     // goes with it — the same recipe `WpDropdown` uses for its menu. A
     // translucent frost over unknown content is not a material.
-    const surface = WpColors.floatingSurface;
-    const borderCol = WpColors.cardEdgeHighlight;
+    final surface = WpColors.floatingSurface;
+    final borderCol = WpColors.cardEdgeHighlight;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.sm,
-        WpSpacing.xl,
-        WpSpacing.sm,
+    // Every control sits at the place the page family gives it
+    // (`WpCollectionToolbar`, concept `internal-notes`, #1201): one
+    // row with search, filter marks, the filter popover (view, period,
+    // length), status, view tools and "new recording".
+    return WpCollectionToolbar(
+      screenId: 'history',
+      search: WpSearchField(
+        testId: 'history-search',
+        controller: widget.controller,
+        focusNode: widget.searchFocusNode,
+        hintText: l10n.historySearchTranscriptions,
+        variant: WpSearchFieldVariant.outlined,
+        onClear: _clearSuggestions,
+        suffix: const _SearchHelpButton(),
+        semanticsLabel: l10n.historySearchFieldLabel,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Search field + "new recording" button ────────────────────────
-          //
-          // Same row shape as Notes and Replacements/Snippets: the field takes
-          // everything the row has and stops one `WpSpacing.sm` short of the
-          // primary button. Both boxes are 48 dp — the field's icon-slot
-          // floor, the button's Material tap target — so the row's default
-          // centring lands them on exactly the same two edges.
-          Row(
-            children: [
-              Expanded(
-                child: WpSearchField(
-                  controller: widget.controller,
-                  focusNode: widget.searchFocusNode,
-                  hintText: l10n.historySearchTranscriptions,
-                  variant: WpSearchFieldVariant.outlined,
-                  onClear: _clearSuggestions,
-                  suffix: const _SearchHelpButton(),
-                  semanticsLabel: l10n.historySearchFieldLabel,
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              _NewRecordingButton(isLoud: widget.newRecordingIsLoud),
-            ],
-          ),
-
-          // A one-time `WpDiscoverabilityHint` used to sit here, teaching the
-          // `#tag` and `lang:xx` operators in a line of its own. It was the
-          // only reason this bar stood 21 dp taller than every other search
-          // bar in the app until someone dismissed it, and it said nothing
-          // the info button *inside the field* doesn't already say better:
-          // that popover names both operators with a worked example each
-          // (`#meeting`, `lang:en`) plus the free-text case. One place for
-          // the same lesson, and the search area is now the same height
-          // everywhere from the first frame on.
-
-          // ── Inline autocomplete suggestions ─────────────────────────────
-          // Spans the whole bar rather than stopping at the field's right
-          // edge, and that is a decision rather than an oversight. Nesting it
-          // inside the `Expanded` above would align it with the field, but it
-          // also puts this [AnimatedSize] inside a flex child, where it gets
-          // laid out twice in one frame and restarts its animation from
-          // inside its own `performLayout` — a hard Flutter assert, caught by
-          // the store screenshot goldens. Full-bar width is the honest
-          // alternative: the panel belongs to the search *area*, it ends
-          // flush with the button, and nothing about it has to know how wide
-          // that button's label made it.
-          WpAnimatedSize(
-            duration: WpMotion.durationFor(context, WpMotion.fast),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: _hasSuggestions
-                ? Container(
-                    // Off-scale on purpose: hairline gap so the suggestion
-                    // panel reads as attached to the search field, not floating.
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: surface,
-                      borderRadius: WpRadius.borderSm,
-                      border: Border.all(color: borderCol),
-                    ),
-                    // `minWidth` rather than a wrapper, so the 240 dp height
-                    // cap survives (`enforce()` clamps the infinite minimum
-                    // down to the parent's own maximum).
-                    constraints: const BoxConstraints(
-                      maxHeight: 240,
-                      minWidth: double.infinity,
-                    ),
-                    child: _suggestionType == _SuggestionType.smartPanel
-                        ? _buildSmartPanel(l10n, accent, textMuted)
-                        : _buildSimpleSuggestionList(accent, textMuted),
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          // ── Active command chips ─────────────────────────────────────────
-          if (activeCommands.isNotEmpty) ...[
-            const SizedBox(height: WpSpacing.xs),
-            Wrap(
-              spacing: WpSpacing.xs,
-              runSpacing: WpSpacing.xxs,
-              children: [
-                for (final cmd in activeCommands)
-                  _CommandChip(label: cmd, onRemove: () => _removeCommand(cmd)),
-              ],
+      // Importing audio files is the second way to add a recording, so it
+      // stands with "new recording" in the row's add group instead of a row
+      // of its own (#1498). Drag and drop onto the page stays.
+      addActions: const [_ImportFilesButton()],
+      primaryAction: const _NewRecordingButton(),
+      searchExtras: [
+        // ── Inline autocomplete suggestions ─────────────────────────────
+        // Spans the whole bar rather than stopping at the field's edge: inside
+        // the search row's `Expanded` this [AnimatedSize] would be laid out
+        // twice in one frame and restart its animation from inside its own
+        // `performLayout`, a hard Flutter assert. The panel belongs to the
+        // search *area* and ends flush with the button.
+        WpAnimatedSize(
+          duration: WpMotion.durationFor(context, WpMotion.fast),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _hasSuggestions
+              ? Container(
+                  // Hairline gap ([WpSpacing.xxxs]) so the suggestion
+                  // panel reads as attached to the search field, not floating.
+                  margin: const EdgeInsets.only(top: WpSpacing.xxxs),
+                  decoration: BoxDecoration(
+                    color: surface,
+                    borderRadius: WpRadius.borderSm,
+                    border: Border.all(color: borderCol),
+                  ),
+                  // `minWidth` rather than a wrapper, so the 240 dp height
+                  // cap survives (`enforce()` clamps the infinite minimum
+                  // down to the parent's own maximum).
+                  constraints: const BoxConstraints(
+                    maxHeight: 240,
+                    minWidth: double.infinity,
+                  ),
+                  child: _suggestionType == _SuggestionType.smartPanel
+                      ? _buildSmartPanel(l10n, accent, textMuted)
+                      : _buildSimpleSuggestionList(accent, textMuted),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+      filterSections: [
+        WpFilterSection(
+          id: 'view',
+          label: l10n.collectionFilterShow,
+          children: [
+            WpFilterChip(
+              testId: 'history-filter-all',
+              label: l10n.historyAll,
+              isActive: widget.activeFilter == HistoryFilter.all,
+              onTap: () => widget.onFilterChanged(HistoryFilter.all),
+              count: searchCounts?[HistoryFilter.all],
+            ),
+            WpFilterChip(
+              testId: 'history-filter-pinned',
+              label: l10n.historyPinned,
+              icon: LucideIcons.star,
+              isActive: widget.activeFilter == HistoryFilter.pinned,
+              onTap: () => widget.onFilterChanged(HistoryFilter.pinned),
+              count: searchCounts?[HistoryFilter.pinned],
+            ),
+            WpFilterChip(
+              testId: 'history-filter-archived',
+              label: l10n.historyArchived,
+              icon: LucideIcons.archive,
+              isActive: widget.activeFilter == HistoryFilter.archived,
+              onTap: () => widget.onFilterChanged(HistoryFilter.archived),
+              count: searchCounts?[HistoryFilter.archived],
+            ),
+            WpFilterChip(
+              testId: 'history-filter-trash',
+              label: l10n.historyTrash,
+              icon: LucideIcons.trash2,
+              isActive: widget.activeFilter == HistoryFilter.trash,
+              onTap: () => widget.onFilterChanged(HistoryFilter.trash),
+              count: searchCounts?[HistoryFilter.trash],
             ),
           ],
-
-          // Same gap Notes puts between its search row and its filter chips.
-          // It used to be `sm` here, which made this whole bar 4 dp taller
-          // than the Notes one although both stack the same two rows between
-          // the same `xl/sm` padding — the kind of drift the maintainer reads
-          // as "the search on History is taller than the other searches", and
-          // the reason a search *bar* height equality is now pinned in
-          // `search_field_geometry_consistency_test.dart` alongside the
-          // field's own.
-          const SizedBox(height: WpSpacing.xs),
-
-          // ── Filter chips + controls ──────────────────────────────────────
-          //
-          // `OverflowBar`, not a `Row`, and two `Wrap`s inside it — this row
-          // used to squash and then overflow (ticket 03, point 7). Three
-          // separate causes, all of them fixed here:
-          //
-          //   1. The trailing controls (result count, "Empty trash", three
-          //      icon controls) were plain `Row` children, so they were laid
-          //      out at their *unbounded* intrinsic width and whatever was
-          //      left over went to the chips' `Expanded`. Once the controls
-          //      alone were wider than the panel that leftover went negative
-          //      and the row overflowed — measured at a 340 px panel it
-          //      already overflowed by 7.7 px at 1.0x with the trash button
-          //      showing, and by 266 px at 2.6x.
-          //   2. The chips sat in a `SizedBox(height: minTouchTarget)`, a
-          //      hard 48 dp cap. At 2.6x a chip's own text is taller than
-          //      that, so the pills were clipped rather than merely tight.
-          //      They no longer need it: `WpFilterChip` carries its own
-          //      `minHeight: WpLayout.minTouchTarget` tap surface.
-          //   3. The chips scrolled horizontally, which meant the answer to
-          //      "the filters do not fit" was "hide some of them behind a
-          //      gesture with no affordance". Wrapping shows all six.
-          //
-          // `OverflowBar` keeps the wide-panel look exactly as it was —
-          // chips left, controls flush right on one line — and stacks the
-          // two groups onto separate lines the moment their intrinsic
-          // widths stop fitting, which is the "wrap, don't squash" the
-          // ticket asks for. No width threshold to guess or maintain.
-          // ── Filter chips + controls ──────────────────────────────────────
-          //
-          // One row: the chips take the remaining width and wrap inside it, the
-          // trailing group keeps its place on the right. The three view tools
-          // (select, sort, view) sit inline while the row is wide enough for
-          // the chips to stay on one line beside them; below that they collapse
-          // into ONE 48 dp overflow menu on the same row, so nothing drops to a
-          // band of its own.
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final inlineTools = constraints.maxWidth >= _inlineToolsMinWidth;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Wrap(
-                      spacing: WpSpacing.xs,
-                      runSpacing: WpSpacing.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        WpFilterChip(
-                          label: l10n.historyAll,
-                          isActive: widget.activeFilter == HistoryFilter.all,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.all),
-                          count: searchCounts?[HistoryFilter.all],
-                        ),
-                        WpFilterChip(
-                          label: l10n.historyToday,
-                          isActive: widget.activeFilter == HistoryFilter.today,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.today),
-                          count: searchCounts?[HistoryFilter.today],
-                        ),
-                        WpFilterChip(
-                          label: l10n.historyThisWeek,
-                          isActive: widget.activeFilter == HistoryFilter.week,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.week),
-                          count: searchCounts?[HistoryFilter.week],
-                        ),
-                        WpFilterChip(
-                          label: l10n.historyPinned,
-                          icon: LucideIcons.star,
-                          isActive: widget.activeFilter == HistoryFilter.pinned,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.pinned),
-                          count: searchCounts?[HistoryFilter.pinned],
-                        ),
-                        WpFilterChip(
-                          label: l10n.historyArchived,
-                          icon: LucideIcons.archive,
-                          isActive:
-                              widget.activeFilter == HistoryFilter.archived,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.archived),
-                          count: searchCounts?[HistoryFilter.archived],
-                        ),
-                        WpFilterChip(
-                          label: l10n.historyTrash,
-                          icon: LucideIcons.trash2,
-                          isActive: widget.activeFilter == HistoryFilter.trash,
-                          onTap: () =>
-                              widget.onFilterChanged(HistoryFilter.trash),
-                          count: searchCounts?[HistoryFilter.trash],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.xs),
-                  // Bounded to half the row: a Flexible(flex: 0) would be laid out
-                  // at unbounded width and push the chips into negative space.
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth * 0.5,
-                    ),
-                    child: Wrap(
-                      spacing: WpSpacing.xs,
-                      runSpacing: WpSpacing.xxs,
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        // Result count
-                        if (rawQuery.isNotEmpty)
-                          Text(
-                            l10n.historyResultCount(widget.resultCount),
-                            style: const TextStyle(
-                              fontSize: WpTypography.small,
-                              color: textMuted,
-                            ),
-                          ),
-                        // Empty Trash button (only in trash view, when items exist)
-                        if (widget.onEmptyTrash != null)
-                          // Tooltip dropped, MergeSemantics added — house rule 1 for a
-                          // single tap target whose label is already on screen. The
-                          // tooltip repeated the visible caption word for word: a hover
-                          // card that teaches nothing, and a screen reader saying "Empty
-                          // trash" twice (label plus tooltip field).
-                          MergeSemantics(
-                            child: Semantics(
-                              button: true,
-                              child: InkWell(
-                                borderRadius: WpRadius.borderSm,
-                                onTap: widget.onEmptyTrash,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: WpSpacing.sm,
-                                    vertical: WpSpacing.xxs,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        LucideIcons.trash2,
-                                        size: WpIconSize.sm,
-                                        color: WpColors.error,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      // Flexible for the same reason as
-                                      // WpFilterChip's label: inside the trailing
-                                      // `Wrap` this button is measured against a
-                                      // finite run width, and its caption is the
-                                      // longest string in the group.
-                                      Flexible(
-                                        child: Text(
-                                          l10n.historyEmptyTrash,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: WpTypography.small,
-                                            color: WpColors.error,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (inlineTools) ...[
-                          // Multi-select toggle
-                          Tooltip(
-                            message: widget.multiSelectMode
-                                ? l10n.historyExitSelection
-                                : l10n.historySelectMultiple,
-                            child: InkWell(
-                              borderRadius: WpRadius.borderSm,
-                              onTap: widget.onToggleMultiSelect,
-                              child: Padding(
-                                // Off-scale on purpose: matches the dense icon-button
-                                // padding in WpRowAction so toolbar icons stay uniform.
-                                padding: const EdgeInsets.all(6),
-                                child: Icon(
-                                  widget.multiSelectMode
-                                      ? LucideIcons.checkCheck
-                                      : LucideIcons.listChecks,
-                                  size: WpIconSize.sm,
-                                  color: widget.multiSelectMode
-                                      ? accent
-                                      : textMuted,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Sort order dropdown
-                          _SortDropdown(
-                            sortOrder: widget.sortOrder,
-                            onChanged: widget.onSortOrderChanged,
-                          ),
-                          // View mode toggle
-                          HistoryViewModeToggle(
-                            viewMode: widget.viewMode,
-                            onChanged: widget.onViewModeChanged,
-                          ),
-                        ] else
-                          _HistoryToolsOverflowButton(
-                            multiSelectMode: widget.multiSelectMode,
-                            onToggleMultiSelect: widget.onToggleMultiSelect,
-                            sortOrder: widget.sortOrder,
-                            onSortOrderChanged: widget.onSortOrderChanged,
-                            viewMode: widget.viewMode,
-                            onViewModeChanged: widget.onViewModeChanged,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
+        ),
+        // The period writes the search operator `date:`; the duration
+        // buckets (#879) are the one click path for length, `longer:` and
+        // `shorter:` stay typed operators (#1176).
+        if (showRefinements) ...[
+          WpFilterSection(
+            id: 'period',
+            label: l10n.historyRangeFilterGroup,
+            children: [
+              HistoryRangeChips(
+                parsed: parsed,
+                query: rawQuery,
+                onQueryChanged: setQuery,
+              ),
+            ],
+          ),
+          WpFilterSection(
+            id: 'duration',
+            label: l10n.historyDurationFilterGroup,
+            children: [
+              HistoryDurationChips(
+                active: bucket,
+                onChanged: ref.read(historyDurationBucketProvider.notifier).set,
+              ),
+            ],
           ),
         ],
+      ],
+      activeFilters: activeFilters,
+      status: [
+        if (rawQuery.isNotEmpty)
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              l10n.historyResultCount(widget.resultCount),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+            ),
+          ),
+        // Empty Trash (only in trash view, when items exist): the same
+        // dense ghost danger button the snippets page shows there.
+        if (widget.onEmptyTrash != null)
+          WpButton(
+            testId: 'history-empty-trash',
+            label: l10n.historyEmptyTrash,
+            icon: LucideIcons.trash2,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.danger,
+            size: WpButtonSize.dense,
+            onPressed: widget.onEmptyTrash,
+          ),
+      ],
+      tools: [
+        // The bordered icon button every toolbar control shares (#1498);
+        // `selected` makes it the toggle and announces its state.
+        WpIconButton(
+          key: const ValueKey('history-select-toggle'),
+          testId: 'history-select-toggle',
+          icon: widget.multiSelectMode
+              ? LucideIcons.checkCheck
+              : LucideIcons.listChecks,
+          tooltip: widget.multiSelectMode
+              ? l10n.historyExitSelection
+              : l10n.historySelectMultiple,
+          selected: widget.multiSelectMode,
+          onPressed: widget.onToggleMultiSelect,
+        ),
+        WpSortMenuButton<HistorySortOrder>(
+          testId: 'history-sort',
+          tooltip: _historySortOptions(
+            L10n.of(context),
+          ).firstWhere((option) => option.value == widget.sortOrder).label,
+          options: _historySortOptions(L10n.of(context)),
+          current: widget.sortOrder,
+          onChanged: widget.onSortOrderChanged,
+        ),
+        HistoryViewModeToggle(
+          viewMode: widget.viewMode,
+          onChanged: widget.onViewModeChanged,
+        ),
+      ],
+      toolsOverflow: _HistoryToolsOverflowButton(
+        multiSelectMode: widget.multiSelectMode,
+        onToggleMultiSelect: widget.onToggleMultiSelect,
+        sortOrder: widget.sortOrder,
+        onSortOrderChanged: widget.onSortOrderChanged,
+        viewMode: widget.viewMode,
+        onViewModeChanged: widget.onViewModeChanged,
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Active command chip (removable)
+// Dismiss control of the recent-search rows
 // ---------------------------------------------------------------------------
 
-/// Small focusable "x" dismiss control shared by recent-search rows and
-/// active-filter command chips — keyboard focus + hover feedback, matching
-/// the [WpFocusRing]/[InkWell] pattern every other dismiss/tag control in
+/// Small focusable "x" dismiss control of the recent-search rows
+/// — keyboard focus + hover feedback, matching the [WpFocusRing]/[InkWell]
+/// pattern every other dismiss/tag control in
 /// this feature already uses (e.g. `_EntryTagChip`, `WpFilterChip`).
 class _DismissIcon extends StatefulWidget {
   const _DismissIcon({
+    required this.testId,
     required this.icon,
     required this.size,
     required this.color,
@@ -1042,6 +1010,7 @@ class _DismissIcon extends StatefulWidget {
     required this.onTap,
   });
 
+  final String testId;
   final IconData icon;
   final double size;
   final Color color;
@@ -1064,6 +1033,7 @@ class _DismissIconState extends State<_DismissIcon> {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      identifier: widget.testId,
       label: widget.semanticLabel,
       button: true,
       child: MouseRegion(
@@ -1088,350 +1058,6 @@ class _DismissIconState extends State<_DismissIcon> {
   }
 }
 
-class _CommandChip extends StatelessWidget {
-  const _CommandChip({required this.label, required this.onRemove});
-
-  final String label;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    return Container(
-      // Vertical 2 stays off-scale on purpose: the active-filter pill hugs its
-      // small text; xxs would visibly inflate it.
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xs + 2,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: WpColors.accentActiveFill,
-        borderRadius: WpRadius.borderFull,
-        border: Border.all(color: WpColors.accentBorder30),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              fontWeight: FontWeight.w600,
-              color: accent,
-            ),
-          ),
-          const SizedBox(width: 3),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
-          _DismissIcon(
-            icon: LucideIcons.x,
-            size: 11,
-            color: accent,
-            semanticLabel: L10n.of(context).historyRemoveFilter,
-            onTap: onRemove,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Multi-select action bar
-// ---------------------------------------------------------------------------
-
-class HistoryMultiSelectBar extends StatelessWidget {
-  const HistoryMultiSelectBar({
-    super.key,
-    required this.selectedCount,
-    required this.isTrashView,
-    required this.isArchiveView,
-    required this.onCancelSelection,
-    this.onSelectAll,
-    this.totalCount,
-    this.onMerge,
-    this.onBatchCopy,
-    this.onBatchCopyMarkdown,
-    this.onExport,
-    this.onArchive,
-    this.onDelete,
-    this.onRestore,
-  });
-
-  final int selectedCount;
-  final bool isTrashView;
-  final bool isArchiveView;
-  final VoidCallback onCancelSelection;
-  final VoidCallback? onSelectAll;
-  final int? totalCount;
-  final VoidCallback? onMerge;
-  final VoidCallback? onBatchCopy;
-  final VoidCallback? onBatchCopyMarkdown;
-  final VoidCallback? onExport;
-  final VoidCallback? onArchive;
-  final VoidCallback? onDelete;
-  final VoidCallback? onRestore;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    // Card material at its elevated rung: this bar is a mode band laid over
-    // the list, and the frost keeps the ambient running under it.
-    const bg = WpColors.cardFillElevated;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xl,
-        vertical: WpSpacing.sm,
-      ),
-      decoration: const BoxDecoration(
-        color: bg,
-        // The band's lower edge is `cardEdgeHighlight`, not `accentBorder20`
-        // (Ticket 13): the line is load-bearing — it is what separates the
-        // mode band from the list underneath it — but the *accent* on it was
-        // not. Accent means "you can act on this", and nothing happens when
-        // you touch a boundary. Structurally the same finding as Ticket 32's
-        // B3 (the section-head accent bar, removed by Ticket 08). The accent
-        // that stays on this bar is the selection-count pill, which reports
-        // what the operable controls beside it will act on.
-        border: Border(
-          bottom: BorderSide(color: WpColors.cardEdgeHighlight, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Selection count
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: WpColors.accentBadgeFill,
-                borderRadius: WpRadius.borderFull,
-              ),
-              child: Text(
-                l10n.historyItemsSelected(selectedCount),
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          // Select All / Deselect All toggle
-          if (onSelectAll != null)
-            InkWell(
-              borderRadius: WpRadius.borderSm,
-              onTap: onSelectAll,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.xs,
-                  vertical: WpSpacing.xxs,
-                ),
-                child: Text(
-                  totalCount != null && selectedCount >= totalCount!
-                      ? l10n.historyDeselectAll
-                      : l10n.historySelectAll,
-                  style: const TextStyle(
-                    fontSize: WpTypography.small,
-                    color: accent,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(width: WpSpacing.sm),
-          // Action buttons — wrap in Flexible to prevent overflow
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onMerge != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.merge,
-                      label: l10n.historyMerge,
-                      shortcutHint: formatHotkeyShortcut(
-                        'ctrl',
-                        'm',
-                        l10n: l10n,
-                      ),
-                      onTap: onMerge!,
-                    ),
-                  if (onBatchCopy != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.copy,
-                      label: l10n.historyCopyText,
-                      shortcutHint: formatHotkeyShortcut(
-                        'ctrl',
-                        'c',
-                        l10n: l10n,
-                      ),
-                      onTap: onBatchCopy!,
-                    ),
-                  if (onBatchCopyMarkdown != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.fileText,
-                      label: l10n.historyCopyAsMarkdown,
-                      onTap: onBatchCopyMarkdown!,
-                    ),
-                  if (onExport != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.download,
-                      label: l10n.historyExportAction,
-                      onTap: onExport!,
-                    ),
-                  if (onRestore != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.undo2,
-                      label: l10n.historyRestore,
-                      onTap: onRestore!,
-                    ),
-                  if (onArchive != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: isArchiveView
-                          ? LucideIcons.archiveRestore
-                          : LucideIcons.archive,
-                      label: isArchiveView
-                          ? l10n.historyUnarchive
-                          : l10n.historyArchive,
-                      onTap: onArchive!,
-                    ),
-                  if (onDelete != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.trash2,
-                      label: isTrashView
-                          ? l10n.historyDeleteForever
-                          : l10n.actionDelete,
-                      shortcutHint: hotkeyKeyLabel('delete', l10n: l10n),
-                      onTap: onDelete!,
-                      isDestructive: true,
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: WpSpacing.sm),
-          // Cancel
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          WpButton(
-            label: l10n.actionCancel,
-            variant: WpButtonVariant.ghost,
-            tone: WpButtonTone.neutral,
-            icon: LucideIcons.x,
-            onPressed: onCancelSelection,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Multi-select action button
-// ---------------------------------------------------------------------------
-
-class HistoryMultiSelectAction extends StatefulWidget {
-  const HistoryMultiSelectAction({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.shortcutHint,
-    this.isDestructive = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final String? shortcutHint;
-  final bool isDestructive;
-
-  @override
-  State<HistoryMultiSelectAction> createState() =>
-      _HistoryMultiSelectActionState();
-}
-
-class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
-    final hoverColor = widget.isDestructive
-        ? (WpColors.error)
-        : (WpColors.textPrimary);
-    final color = _hovered ? hoverColor : textSecondary;
-
-    // House idiom (`no_double_announcement_test.dart`, `wp_hero_button.dart`):
-    // one tap target whose label is its own visible text → MergeSemantics plus
-    // a *label-less* Semantics. An explicit `label: widget.label` here is not a
-    // replacement for the subtree's text, it is prepended to it, so the
-    // `Text(widget.label)` below made every batch action announce itself twice
-    // ("Zusammenführen, Zusammenführen"). Merging folds the name in from the
-    // rendered text while the button role and the tap action survive, and the
-    // Tooltip's shortcut hint folds in with it — which is exactly what the
-    // keyboard-first audience needs to hear.
-    return MergeSemantics(
-      child: Semantics(
-        button: true,
-        child: Padding(
-          padding: const EdgeInsets.only(right: WpSpacing.xs),
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: Tooltip(
-              message: widget.shortcutHint != null
-                  ? '${widget.label} (${widget.shortcutHint})'
-                  : widget.label,
-              child: InkWell(
-                borderRadius: WpRadius.borderSm,
-                onTap: widget.onTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.sm,
-                    vertical: WpSpacing.xxs + 2,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // WpIconSize.sm (not .md): matches WpRowAction and
-                      // HistoryPopupMenuRow's fixed 16 for the same action set —
-                      // .md would overwhelm this pill's 12px label.
-                      Icon(widget.icon, size: WpIconSize.sm, color: color),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          fontSize: WpTypography.small,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // View mode toggle — segmented icon button group
 // ---------------------------------------------------------------------------
@@ -1448,38 +1074,41 @@ class HistoryViewModeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The track is card material like the filter chips beside it, not the
-    // old `surfaceVariant` tile: at the resting rung, so the active segment's
-    // accent fill is the only thing in this control that reads as raised.
-    const bgColor = WpColors.cardFill;
+    // The track wears the toolbar's icon-button shell (#1498): 44 px high,
+    // `cardFillElevated` fill, `borderDefault` edge, 8 px corners, so the
+    // segmented control and the filter, select, sort and add buttons beside
+    // it read as one set. The active segment's accent fill is the only
+    // raised part inside it.
     return Container(
-      // Off-scale on purpose: classic 2px segmented-control inset between the
+      height: WpIconButton.extent,
+      // Hairline step: classic segmented-control inset between the
       // track and its segments; xxs would make the track look chunky.
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(WpSpacing.xxxs),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: WpColors.cardFillElevated,
         borderRadius: WpRadius.borderSm,
+        border: Border.all(color: WpColors.borderDefault),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.list,
+            testId: 'history-view-list',
             label: L10n.of(context).historyList,
             isActive: viewMode == HistoryViewMode.list,
             onTap: () => onChanged(HistoryViewMode.list),
           ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.layoutGrid,
+            testId: 'history-view-cards',
             label: L10n.of(context).historyCards,
             isActive: viewMode == HistoryViewMode.cards,
             onTap: () => onChanged(HistoryViewMode.cards),
           ),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryViewModeButton.build
           _HistoryViewModeButton(
             icon: LucideIcons.rows3,
+            testId: 'history-view-compact',
             label: L10n.of(context).historyCompact,
             isActive: viewMode == HistoryViewMode.compact,
             onTap: () => onChanged(HistoryViewMode.compact),
@@ -1492,12 +1121,14 @@ class HistoryViewModeToggle extends StatelessWidget {
 
 class _HistoryViewModeButton extends StatefulWidget {
   const _HistoryViewModeButton({
+    required this.testId,
     required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
   });
 
+  final String testId;
   final IconData icon;
   final String label;
   final bool isActive;
@@ -1506,6 +1137,9 @@ class _HistoryViewModeButton extends StatefulWidget {
   @override
   State<_HistoryViewModeButton> createState() => _HistoryViewModeButtonState();
 }
+
+/// Side of one view segment: the track's inner height.
+const double _segmentExtent = WpIconButton.extent - 2 * WpSpacing.xxxs - 2;
 
 class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
   final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryViewModeButton');
@@ -1527,6 +1161,7 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
         ? (WpColors.accentActiveFill)
         : Colors.transparent;
     return Semantics(
+      identifier: widget.testId,
       label: widget.label,
       button: true,
       // Icon-only segments: without this flag the three announce identically
@@ -1550,23 +1185,18 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
           child: WpFocusRing(
             focusNode: _focusNode,
             radius: WpRadius.sm,
-            // 4 + 16 + 4 = a 24px target, where WpFilterChip two widgets to the
-            // left stretches to WpLayout.minTouchTarget (48). Left as is on
-            // purpose: 24px still clears WCAG 2.2 AA (2.5.8), and the whole
-            // right-hand toolbar cluster is deliberately dense — see the
-            // multi-select button above, whose 6px padding is commented as
-            // "matches WpRowAction so toolbar icons stay uniform".
-            // Growing only this segment would trade a uniform cluster for a
-            // lone tall one; growing the cluster is a design decision across
-            // history + WpRowAction and needs the HITL gate. Bewusst nicht
-            // umgesetzt, künftiges Ticket.
+            // A square segment filling the track's height (44 - 2 × 2 inset
+            // - 2 × 1 edge = 38 px), with the toolbar's 20 px glyph, so the
+            // three views are as easy to hit as the icon buttons beside them.
             child: Container(
-              padding: const EdgeInsets.all(WpSpacing.xxs),
+              width: _segmentExtent,
+              height: _segmentExtent,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: WpRadius.borderSm,
               ),
-              child: Icon(widget.icon, size: WpIconSize.sm, color: color),
+              child: Icon(widget.icon, size: WpIconSize.md, color: color),
             ),
           ),
         ),
@@ -1610,10 +1240,7 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 /// way through the pipeline, and nothing sensible remains to stop. The
 /// spinner says so, the tooltip names the phase.
 class _NewRecordingButton extends ConsumerWidget {
-  const _NewRecordingButton({required this.isLoud});
-
-  /// See [HistorySearchFilterBar.newRecordingIsLoud].
-  final bool isLoud;
+  const _NewRecordingButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1627,17 +1254,19 @@ class _NewRecordingButton extends ConsumerWidget {
         phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.refining;
 
-    return WpButton(
-      label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,
-      // Recording never quiets down: a running recording is the loudest thing
-      // on any screen it appears on, whatever the list behind it is showing.
-      variant: (isLoud || isRecording)
-          ? WpButtonVariant.primary
-          : WpButtonVariant.secondary,
-      tone: isRecording ? WpButtonTone.danger : WpButtonTone.accent,
+    // Beside the search field: an icon button of the same height
+    // (WpLayout.controlHeight, UX-131). Its label is the tooltip and accessible name.
+    return WpIconButton(
+      testId: 'history-new-recording',
       icon: isRecording ? LucideIcons.square : LucideIcons.mic,
-      isLoading: isTranscribing,
-      disabledTooltip: isTranscribing ? l10n.statusTranscribing : null,
+      // While transcribing the tooltip says why the press does nothing.
+      tooltip: isTranscribing
+          ? l10n.statusTranscribing
+          : isRecording
+          ? l10n.historyStopRecording
+          : l10n.historyNewRecording,
+      danger: isRecording,
+      loading: isTranscribing,
       // Live in every phase but `transcribing` — `toggleRecording` decides
       // what the press means (start from idle/done/error, stop while
       // recording), exactly as it does for the hotkey.
@@ -1646,6 +1275,25 @@ class _NewRecordingButton extends ConsumerWidget {
           : () => ref
                 .read(recordingOrchestratorProvider.notifier)
                 .toggleRecording(),
+    );
+  }
+}
+
+/// Opens the file dialog of the import. The dialog itself belongs to
+/// `AudioImportPanel`, which takes the request, so a press here, the tray
+/// entry and the panel's own listener stay one path.
+class _ImportFilesButton extends ConsumerWidget {
+  const _ImportFilesButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return WpIconButton(
+      key: const ValueKey('history-import-add'),
+      testId: 'history-import-add',
+      icon: LucideIcons.filePlus,
+      tooltip: L10n.of(context).historyImportAddFiles,
+      onPressed: () =>
+          ref.read(audioImportPickRequestProvider.notifier).request(),
     );
   }
 }
@@ -1660,19 +1308,14 @@ class _SearchHelpButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const textPrimary = WpColors.textPrimary;
+    final textPrimary = WpColors.textPrimary;
     // A popup menu floats over arbitrary content — pre-composited card
     // material, see `WpColors.floatingSurface`.
-    const surface = WpColors.floatingSurface;
+    final surface = WpColors.floatingSurface;
 
-    return IconButton(
-      icon: const Icon(LucideIcons.info, size: 15, color: textMuted),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(
-        minWidth: WpLayout.minTouchTarget,
-        minHeight: WpLayout.minTouchTarget,
-      ),
+    return WpIconButton.ghost(
+      testId: 'history-search-help',
+      icon: LucideIcons.info,
       tooltip: l10n.historySearchHelpTitle,
       onPressed: () {
         final renderBox = context.findRenderObject() as RenderBox?;
@@ -1699,7 +1342,7 @@ class _SearchHelpButton extends StatelessWidget {
                 children: [
                   Text(
                     l10n.historySearchHelpTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
@@ -1716,6 +1359,12 @@ class _SearchHelpButton extends StatelessWidget {
                     icon: LucideIcons.globe,
                     text: l10n.historySearchHelpLang,
                     example: 'lang:en',
+                  ),
+                  const SizedBox(height: WpSpacing.xxs),
+                  _HelpRow(
+                    icon: LucideIcons.calendarRange,
+                    text: l10n.historySearchHelpRange,
+                    example: 'date:7d',
                   ),
                   const SizedBox(height: WpSpacing.xxs),
                   _HelpRow(
@@ -1746,21 +1395,18 @@ class _HelpRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: textMuted),
+        Icon(icon, size: WpIconSize.xxs, color: textMuted),
         const SizedBox(width: WpSpacing.xs),
         Flexible(
           child: Text(
             text,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-            ),
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
           ),
         ),
         if (example.isNotEmpty) ...[
@@ -1774,11 +1420,11 @@ class _HelpRow extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: WpColors.accentChipFill,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
             ),
             child: Text(
               example,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: accent,
@@ -1792,89 +1438,35 @@ class _HelpRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Sort order dropdown
+// Sort order options (the control itself is the shared WpSortMenuButton)
 // ---------------------------------------------------------------------------
 
-class _SortDropdown extends StatelessWidget {
-  const _SortDropdown({required this.sortOrder, required this.onChanged});
-
-  final HistorySortOrder sortOrder;
-  final ValueChanged<HistorySortOrder> onChanged;
-
-  IconData get _icon {
-    switch (sortOrder) {
-      case HistorySortOrder.newest:
-        return LucideIcons.arrowDownWideNarrow;
-      case HistorySortOrder.oldest:
-        return LucideIcons.arrowUpNarrowWide;
-      case HistorySortOrder.longest:
-        return LucideIcons.ruler;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
-
-    final labels = {
-      HistorySortOrder.newest: l10n.historySortNewest,
-      HistorySortOrder.oldest: l10n.historySortOldest,
-      HistorySortOrder.longest: l10n.historySortLongest,
-    };
-
-    return PopupMenuButton<HistorySortOrder>(
-      icon: Icon(_icon, size: WpIconSize.sm, color: textMuted),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      tooltip: labels[sortOrder] ?? '',
-      onSelected: onChanged,
-      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-      itemBuilder: (ctx) => HistorySortOrder.values.map((order) {
-        final isSelected = order == sortOrder;
-        return PopupMenuItem<HistorySortOrder>(
-          value: order,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                order == HistorySortOrder.newest
-                    ? LucideIcons.arrowDownWideNarrow
-                    : order == HistorySortOrder.oldest
-                    ? LucideIcons.arrowUpNarrowWide
-                    : LucideIcons.ruler,
-                size: 14,
-                color: isSelected ? accent : textMuted,
-              ),
-              const SizedBox(width: WpSpacing.xs),
-              Text(
-                labels[order] ?? '',
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  color: isSelected ? accent : null,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
+List<WpSortOption<HistorySortOrder>> _historySortOptions(L10n l10n) => [
+  WpSortOption(
+    value: HistorySortOrder.newest,
+    id: 'newest',
+    label: l10n.historySortNewest,
+    icon: LucideIcons.arrowDownWideNarrow,
+  ),
+  WpSortOption(
+    value: HistorySortOrder.oldest,
+    id: 'oldest',
+    label: l10n.historySortOldest,
+    icon: LucideIcons.arrowUpNarrowWide,
+  ),
+  WpSortOption(
+    value: HistorySortOrder.longest,
+    id: 'longest',
+    label: l10n.historySortLongest,
+    icon: LucideIcons.ruler,
+  ),
+];
 
 // ---------------------------------------------------------------------------
 // Collapsed view tools (narrow filter row)
 // ---------------------------------------------------------------------------
 
-/// Width at which the filter row keeps its select, sort and view tools inline.
-/// Below it they collapse into [_HistoryToolsOverflowButton]. Sized so the six
-/// filter chips still fit on the row's first line beside the three tools; the
-/// chips wrap inside the row either way, the tools never leave it.
-const double _inlineToolsMinWidth = 720;
-
-/// The one 48 × 48 button that stands in for the select, sort and view tools
+/// The one toolbar icon button that stands in for the select, sort and view tools
 /// on a narrow filter row. Its menu lists the same three controls; the current
 /// view, sort order and selection mode carry a check.
 class _HistoryToolsOverflowButton extends StatefulWidget {
@@ -1905,15 +1497,6 @@ const Object _multiSelectMenuValue = Object();
 
 class _HistoryToolsOverflowButtonState
     extends State<_HistoryToolsOverflowButton> {
-  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryToolsOverflow');
-  bool _isHovered = false;
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
   String _viewLabel(L10n l10n, HistoryViewMode mode) => switch (mode) {
     HistoryViewMode.list => l10n.historyList,
     HistoryViewMode.cards => l10n.historyCards,
@@ -1981,54 +1564,15 @@ class _HistoryToolsOverflowButtonState
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final label = l10n.historyToolsMenu;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
-    final iconColor = widget.multiSelectMode ? accent : textMuted;
-
-    return Semantics(
-      button: true,
-      label: label,
-      child: Tooltip(
-        message: label,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: WpFocusRing(
-            focusNode: _focusNode,
-            radius: WpRadius.sm,
-            child: InkWell(
-              key: const ValueKey('history-toolbar-overflow'),
-              onTap: () => _openMenu(l10n),
-              focusNode: _focusNode,
-              borderRadius: WpRadius.borderSm,
-              // WpFocusRing owns all focus visuals — suppress InkWell's own.
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              child: Container(
-                width: WpLayout.minTouchTarget,
-                height: WpLayout.minTouchTarget,
-                decoration: BoxDecoration(
-                  color: _isHovered
-                      ? WpColors.hover
-                      : WpColors.hoverTransparent,
-                  borderRadius: WpRadius.borderSm,
-                ),
-                child: Icon(
-                  LucideIcons.slidersHorizontal,
-                  size: WpIconSize.sm,
-                  color: _isHovered && !widget.multiSelectMode
-                      ? WpColors.textPrimary
-                      : iconColor,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+    // The bordered icon button the filter, sort and new-recording controls
+    // share (#1498). The accent glyph says that selection mode is on.
+    return WpIconButton(
+      key: const ValueKey('history-toolbar-overflow'),
+      testId: 'history-tools-more',
+      icon: LucideIcons.slidersHorizontal,
+      tooltip: l10n.historyToolsMenu,
+      color: widget.multiSelectMode ? WpColors.accent : null,
+      onPressed: () => _openMenu(l10n),
     );
   }
 }
@@ -2048,7 +1592,7 @@ class _ToolsMenuRow extends StatelessWidget {
         SizedBox(
           width: WpIconSize.sm,
           child: selected
-              ? const Icon(
+              ? Icon(
                   LucideIcons.check,
                   size: WpIconSize.sm,
                   color: WpColors.accent,

@@ -41,3 +41,13 @@
 # .githooks/pre-commit (self-installing, see its header) since git filter
 # commands can't be declared in .gitattributes.
 macos/Flutter/GeneratedPluginRegistrant.swift filter=mas-guard
+
+# Podfile.lock ends in the version of the CocoaPods that last ran
+# `pod install`; the `podlock` clean filter pins that line to
+# macos/.cocoapods-version, so another local CocoaPods is not a change
+# (macos/normalize_podfile_lock.py). Installed by
+# scripts/install-git-filters.sh, like mas-guard.
+macos/Podfile.lock filter=podlock
+
+# Parallel PRs all append to the Unreleased section: keep both sides instead of conflicting
+CHANGELOG.md merge=union

@@ -1,16 +1,10 @@
-/// Shared heading vocabulary for onboarding pages 2–5.
+/// Shared heading vocabulary for the onboarding pages.
 ///
-/// The redesign's central structural fix: before it, page 5 stacked two
-/// headline-sized bold titles while page 3 carried three same-sized block
-/// titles and no page title at all — so no page had a visible hierarchy and
-/// every page looked equally "full". There are now exactly two levels:
-/// [OnboardingPageHeading] (one per page) and [OnboardingSectionLabel] (for
-/// the blocks inside a page), separated by a clear size step (22 vs 14).
-///
-/// Both are start-aligned on [kSettingRowInset] — the horizontal padding
-/// [SettingRow] applies to itself — so headings and the frameless settings
-/// rows beneath them share one reading edge. `EdgeInsetsDirectional` keeps
-/// that edge correct under RTL.
+/// Every page has one [OnboardingPageHeading]: the title the page is about,
+/// plus an optional explanatory line. It is start-aligned on
+/// [kSettingRowInset] — the horizontal padding [SettingRow] applies to itself —
+/// so the heading and the frameless settings rows beneath it share one reading
+/// edge. `EdgeInsetsDirectional` keeps that edge correct under RTL.
 library;
 
 import 'dart:math' as math;
@@ -18,24 +12,30 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../../core/accessibility/announce.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/theme/theme.dart';
 import '../../../core/theme/tokens.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
 
 /// One per page: the title the page is about, plus an optional explanatory
 /// line. Mirrors the Conductor reference's start-aligned "Set up Conductor"
-/// lockup (`internal-notes
-/// SCR-20260804-kayx.png`).
+/// lockup.
 class OnboardingPageHeading extends StatelessWidget {
   const OnboardingPageHeading({
     super.key,
     required this.title,
     this.subtitle,
     this.subtitleMaxWidth = 640,
+    this.testId,
   });
 
   final String title;
   final String? subtitle;
+
+  /// Stable identifier of the heading (`onboarding-<page>-heading`), so the
+  /// guard tests and agents address the title without its localized text.
+  final String? testId;
 
   /// Bounded measure for the explanatory line so it keeps a readable line
   /// length instead of running the full (deliberately wide) page frame.
@@ -51,22 +51,21 @@ class OnboardingPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: WpTypography.headline,
-              fontWeight: FontWeight.bold,
-              color: textPrimary,
+          // A semantic heading: screen readers jump to it on a page change,
+          // where the shell moves keyboard focus to the page.
+          Semantics(
+            header: true,
+            identifier: testId,
+            child: Text(
+              title,
+              textAlign: TextAlign.start,
+              style: WpTextStyles.pageTitle,
             ),
           ),
           if (subtitle != null) ...[
@@ -77,20 +76,54 @@ class OnboardingPageHeading extends StatelessWidget {
             // 8 encoded (clearly below the 32-px header gap, so the lockup
             // stays one unit) survives at 12 with room to spare.
             const SizedBox(height: WpSpacing.sm),
-            _MeasuredMaxWidth(
-              maxWidth: subtitleMaxWidth,
-              child: Text(
-                subtitle!,
-                textAlign: TextAlign.start,
-                style: const TextStyle(
-                  fontSize: WpTypography.subheading,
-                  color: textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ),
+            OnboardingSubtitleText(text: subtitle!, maxWidth: subtitleMaxWidth),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Text scale from which an onboarding page compacts itself: the header keeps
+/// only its title, the explanatory line moves below the page's controls (see
+/// `OnboardingPage`), and the motion clip is left out.
+///
+/// Measured 2026-10-26 on the hotkey page (`ux_small_window_test.dart`
+/// probes): at 1.3 the mode row still sits inside both 1280x680 and 1024x600
+/// unscrolled; at 2.0 it lies more than 200 px below the visible area while
+/// the explanatory line stands above it. 1.6 is the first scale of the band
+/// where the header alone starts to cost a controls-row of room.
+const double kOnboardingCompactTextScale = 1.6;
+
+/// Whether the enclosing page is at or above [kOnboardingCompactTextScale].
+bool onboardingCompactText(BuildContext context) =>
+    MediaQuery.textScalerOf(context).scale(1) >= kOnboardingCompactTextScale;
+
+/// The explanatory line under a page title, start-aligned and width-capped.
+/// Shared by [OnboardingPageHeading] and by a compacted page, which places it
+/// below its controls instead.
+class OnboardingSubtitleText extends StatelessWidget {
+  const OnboardingSubtitleText({
+    super.key,
+    required this.text,
+    this.maxWidth = 640,
+  });
+
+  final String text;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MeasuredMaxWidth(
+      maxWidth: maxWidth,
+      child: Text(
+        text,
+        textAlign: TextAlign.start,
+        style: TextStyle(
+          fontSize: WpTypography.subheading,
+          color: WpColors.textSecondary,
+          height: 1.5,
+        ),
       ),
     );
   }
@@ -185,59 +218,132 @@ class _RenderMeasuredMaxWidth extends RenderProxyBox {
   }
 }
 
-/// A block inside a page. Deliberately a long way below
-/// [OnboardingPageHeading] in weight so a page with several blocks still
-/// reads as one page.
-class OnboardingSectionLabel extends StatelessWidget {
-  const OnboardingSectionLabel({super.key, required this.title, this.subtitle});
+/// Debug label of the focus node that marks one onboarding page, so a
+/// heading can tell this page's controls from the outgoing page's.
+const kOnboardingPageFocusLabel = 'onboardingPage';
 
-  final String title;
-  final String? subtitle;
+/// Marks the subtree of one onboarding page in the focus tree. It never takes
+/// focus itself and is skipped by traversal.
+class OnboardingPageFocusRoot extends StatelessWidget {
+  const OnboardingPageFocusRoot({super.key, required this.child});
+
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+  Widget build(BuildContext context) => Focus(
+    debugLabel: kOnboardingPageFocusLabel,
+    canRequestFocus: false,
+    skipTraversal: true,
+    child: child,
+  );
+}
 
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // `heading` (16), not `subheading` (14). This label heads a whole
-          // column — on Try & Go it introduces the entire quick-start — and at
-          // 14 px it was the same size as the body text underneath it, so the
-          // column read as a footnote to the page rather than as its second
-          // half. 16 gives it a rank of its own without making it a second
-          // page title: the page heading is 22 px, so the ladder now steps
-          // 22 → 16 → 14 instead of jumping 22 → 14 → 14.
-          Text(
-            title,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: WpTypography.heading,
-              fontWeight: FontWeight.w700,
-              color: textPrimary,
-            ),
-          ),
-          if (subtitle != null) ...[
-            // `xxs`, not the hardcoded 2 px this used to be: the only raw
-            // pixel value in the file, and the one gap in the flow that could
-            // not be reasoned about in token steps.
-            const SizedBox(height: WpSpacing.xxs),
-            Text(
-              subtitle!,
-              textAlign: TextAlign.start,
-              style: const TextStyle(
-                fontSize: WpTypography.small,
-                color: textMuted,
-                height: 1.35,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+/// Debug label of the focus node that marks a page's initial control.
+const kOnboardingInitialFocusLabel = 'onboardingInitialFocus';
+
+/// Gives focus to the control inside it when it appears, instead of the page
+/// heading: the inline shortcut recorder must get the keystrokes without a
+/// click. Flutter's `autofocus` cannot do this here, as it only applies
+/// while nothing in the scope has focus, and the outgoing page's heading
+/// still holds it during a page change. As the heading gets no focus, the
+/// page is announced with [announcement] instead.
+class OnboardingInitialFocus extends StatefulWidget {
+  const OnboardingInitialFocus({
+    super.key,
+    required this.announcement,
+    required this.child,
+  });
+
+  /// What a screen reader says when the control takes focus: the page's
+  /// heading and what the control is for.
+  final String announcement;
+  final Widget child;
+
+  @override
+  State<OnboardingInitialFocus> createState() => _OnboardingInitialFocusState();
+}
+
+class _OnboardingInitialFocusState extends State<OnboardingInitialFocus> {
+  final FocusNode _node = FocusNode(
+    debugLabel: kOnboardingInitialFocusLabel,
+    canRequestFocus: false,
+    skipTraversal: true,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _node.children.where((n) => n.canRequestFocus).firstOrNull;
+      if (target == null) return;
+      target.requestFocus();
+      announce(
+        View.of(context),
+        widget.announcement,
+        Directionality.of(context),
+      );
+    });
   }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(focusNode: _node, child: widget.child);
+}
+
+/// Moves focus to the page header when the page appears, so the new page is
+/// announced and Enter and Escape act on it right away (Onboarding v6, V07).
+///
+/// The overlay keys each page by its step, so a page change mounts a new
+/// header and this runs once per page. Focus is a semantics focus too: the
+/// `Focus` node carries the header's semantics, so a screen reader lands on
+/// the title.
+class OnboardingHeadingFocus extends StatefulWidget {
+  const OnboardingHeadingFocus({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<OnboardingHeadingFocus> createState() => _OnboardingHeadingFocusState();
+}
+
+class _OnboardingHeadingFocusState extends State<OnboardingHeadingFocus> {
+  final FocusNode _node = FocusNode(debugLabel: 'onboardingHeading');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_pageHasInitialFocus()) {
+        _node.requestFocus();
+      }
+    });
+  }
+
+  /// This page names its own first control ([OnboardingInitialFocus]).
+  bool _pageHasInitialFocus() =>
+      _page?.descendants.any(
+        (n) => n.debugLabel == kOnboardingInitialFocusLabel,
+      ) ??
+      false;
+
+  FocusNode? get _page => _node.ancestors
+      .where((n) => n.debugLabel == kOnboardingPageFocusLabel)
+      .firstOrNull;
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(focusNode: _node, child: widget.child);
 }

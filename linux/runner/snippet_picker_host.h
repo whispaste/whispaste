@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "snippet_picker_window.h"
+#include "x11_button_watcher.h"
 
 // Owns the public MethodChannel com.whispaste.snippet_picker and bridges it
 // to the private render channel on the second engine
@@ -20,7 +21,7 @@
 //        ↕              (relay / translate)        ↕
 //  public channel                          render channel (2nd engine)
 //
-// Fixed 360×420 logical-pixel panel, positioned by reading the CURRENT
+// Fixed 400×460 logical-pixel panel (360×420 card + shadow inset), positioned by reading the CURRENT
 // cursor position natively (never passed from Dart — see
 // snippet_picker_controller_interface.dart's file comment for the historical
 // vertical-mirror bug this avoids) and clamped into the cursor's monitor
@@ -82,6 +83,7 @@ class SnippetPickerHost {
   bool render_ready_ = false;
   bool has_pending_items_ = false;
   FlValue* pending_items_ = nullptr;  // Owned; a Flutter list of maps.
+  std::string pending_query_;  // Search text pre-filled on the next show.
 
   void EnsureWindowAndEngine();
   void OpenRenderChannel();
@@ -90,12 +92,29 @@ class SnippetPickerHost {
   // CURRENT cursor position, clamped into that cursor's monitor work area.
   static void ComputePanelOrigin(int* x, int* y);
 
-  void Show(FlValue* items);
+  // |query| pre-fills the render engine's search field ("" = none).
+  void Show(FlValue* items, const std::string& query);
   // is_dismissing_ guards against re-entrant Dismiss() calls (e.g. the WM's
   // focus-out firing while a selectItem-triggered Dismiss is already
   // unwinding) — mirrors SnippetPickerHost.swift's isDismissing.
   bool is_dismissing_ = false;
-  void Dismiss(bool fire_cancelled);
+  // |restore_focus| false after a click outside: the clicked window is
+  // taking focus, and handing it back to the saved one would undo the click.
+  void Dismiss(bool fire_cancelled, bool restore_focus = true);
+
+  // Whether the picker is on screen (Show() to Dismiss()).
+  bool visible_ = false;
+
+  // ── Focus loss and clicks outside (#1680) ─────────────────────────────────
+  // Reported to Dart, which decides: a click outside closes the picker, a
+  // focus change without one keeps it open. On X11 a focus-out is "other"
+  // and the XInput2 click watcher below reports the clicks. On Wayland the
+  // process runs under XWayland, which never sees clicks on native Wayland
+  // windows, so a focus-out there is "unknown" and closes the picker.
+  X11ButtonWatcher click_watcher_{/*watch_keys=*/false};
+  static void OnClick(void* user_data);
+  void ReportFocusLost(const char* cause);
+  static bool IsWaylandSession();
 
   // ── X11 focus save/restore (see class comment) ───────────────────────────
   void SaveFocusedWindow();

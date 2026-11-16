@@ -1,5 +1,11 @@
-/// Benchmark helper: generates the silent WAV used to measure a whisper
-/// engine's real-time factor (RTF = processing_time_ms / audio_duration_ms).
+/// Benchmark helper: the audio used to measure a whisper engine's real-time
+/// factor (RTF = processing_time_ms / audio_duration_ms).
+///
+/// The measurement transcribes a spoken German sentence
+/// ([referenceWav]), so the decoder's work counts as in a real dictation;
+/// silence measured only the encoder and called slow machines fluent
+/// (maintainer decision 2a, 2026-10-30). The silent WAV stays as the
+/// fallback when the asset cannot be read, e.g. headless without a bundle.
 ///
 /// The actual timing (`Stopwatch` around `WhisperEngine.transcribe`) happens
 /// at the call site against the in-process engine seam — see
@@ -10,8 +16,27 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show rootBundle;
+
+/// The spoken reference clip, see `assets/benchmark/NOTICE.md`.
+const kBenchmarkReferenceAsset = 'assets/benchmark/reference-de.wav';
+
 class SttBenchmark {
   const SttBenchmark();
+
+  /// The spoken reference clip, or the silent WAV when it cannot be loaded.
+  static Future<Uint8List> referenceWav() async {
+    try {
+      final data = await rootBundle.load(kBenchmarkReferenceAsset);
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    } on Object {
+      return generateBenchmarkWav();
+    }
+  }
+
+  /// Length of a 16 kHz mono 16-bit PCM [wav] with a 44-byte header, in ms.
+  static int durationMs(Uint8List wav) =>
+      ((wav.length - 44).clamp(0, wav.length) * 1000) ~/ (16000 * 2);
 
   /// Generates a 3-second silent WAV (16 kHz, mono, 16-bit PCM).
   static Uint8List generateBenchmarkWav() {

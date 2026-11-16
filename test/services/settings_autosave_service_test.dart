@@ -19,6 +19,7 @@
 /// so no platform channel and no real disk is involved.
 library;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:file/memory.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -385,42 +386,49 @@ void main() {
       );
     }
 
-    test('six rapid changes produce exactly one write', () async {
-      final h = build();
-      addTearDown(h.scheduler.dispose);
+    test('six rapid changes produce exactly one write', () {
+      fakeAsync((async) {
+        final h = build();
 
-      for (var i = 0; i < 6; i++) {
+        for (var i = 0; i < 6; i++) {
+          h.scheduler.scheduleRun();
+        }
+        async.elapse(const Duration(milliseconds: 80));
+        async.flushMicrotasks();
+
+        expect(h.runner.calls, 1);
+        h.scheduler.dispose();
+      });
+    });
+
+    test('a change after the debounce elapsed starts a second run', () {
+      fakeAsync((async) {
+        final h = build();
+
         h.scheduler.scheduleRun();
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      await h.scheduler.settled;
+        async.elapse(const Duration(milliseconds: 60));
+        async.flushMicrotasks();
+        h.scheduler.scheduleRun();
+        async.elapse(const Duration(milliseconds: 60));
+        async.flushMicrotasks();
 
-      expect(h.runner.calls, 1);
+        expect(h.runner.calls, 2);
+        h.scheduler.dispose();
+      });
     });
 
-    test('a change after the debounce elapsed starts a second run', () async {
-      final h = build();
-      addTearDown(h.scheduler.dispose);
+    test('nothing runs while the feature is off', () {
+      fakeAsync((async) {
+        final h = build(config: _config(enabled: false));
 
-      h.scheduler.scheduleRun();
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      await h.scheduler.settled;
-      h.scheduler.scheduleRun();
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-      await h.scheduler.settled;
+        h.scheduler.scheduleRun();
+        h.scheduler.runNow();
+        async.elapse(const Duration(milliseconds: 60));
+        async.flushMicrotasks();
 
-      expect(h.runner.calls, 2);
-    });
-
-    test('nothing runs while the feature is off', () async {
-      final h = build(config: _config(enabled: false));
-      addTearDown(h.scheduler.dispose);
-
-      h.scheduler.scheduleRun();
-      h.scheduler.runNow();
-      await Future<void>.delayed(const Duration(milliseconds: 60));
-
-      expect(h.runner.calls, 0);
+        expect(h.runner.calls, 0);
+        h.scheduler.dispose();
+      });
     });
 
     test('runNow does not wait out the debounce', () async {
@@ -433,15 +441,18 @@ void main() {
       expect(h.runner.calls, 1);
     });
 
-    test('a disposed scheduler stops scheduling', () async {
-      final h = build();
-      h.scheduler.dispose();
+    test('a disposed scheduler stops scheduling', () {
+      fakeAsync((async) {
+        final h = build();
+        h.scheduler.dispose();
 
-      h.scheduler.scheduleRun();
-      h.scheduler.runNow();
-      await Future<void>.delayed(const Duration(milliseconds: 60));
+        h.scheduler.scheduleRun();
+        h.scheduler.runNow();
+        async.elapse(const Duration(milliseconds: 60));
+        async.flushMicrotasks();
 
-      expect(h.runner.calls, 0);
+        expect(h.runner.calls, 0);
+      });
     });
   });
 

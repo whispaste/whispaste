@@ -1,109 +1,80 @@
-/// Unit tests for [NoteAutosave] — pure-Dart debounce, driven via `fakeAsync`
-/// so no real time passes during the test run.
+/// Unit tests for [NoteAutosave], the editors' adapter onto the one text
+/// write path (#676). Timing details live in `text_writer_test.dart`; here
+/// only the hand-over to the writer is checked, on a simulated clock.
 library;
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/data/text_writer/text_journal.dart';
+import 'package:whispaste/core/data/text_writer/text_writer.dart';
 import 'package:whispaste/features/notes/data/note_autosave.dart';
 
 void main() {
-  group('schedule', () {
-    test('saves after the debounce window elapses', () {
-      fakeAsync((async) {
-        final saves = <(String, String)>[];
-        final autosave = NoteAutosave(
-          onSave: (id, content) async {
-            saves.add((id, content));
-          },
-        );
+  late List<(String, String)> saves;
+  late NoteAutosave autosave;
 
-        autosave.schedule('note-1', 'hello');
-        async.elapse(const Duration(milliseconds: 399));
-        expect(saves, isEmpty);
+  void build() {
+    saves = [];
+    autosave = NoteAutosave(
+      onSave: (id, content) async => saves.add((id, content)),
+      writer: TextWriter(journal: MemoryTextJournal()),
+    );
+  }
 
-        async.elapse(const Duration(milliseconds: 1));
-        expect(saves, [('note-1', 'hello')]);
-      });
-    });
-
-    test('rapid keystrokes only save the last content once', () {
-      fakeAsync((async) {
-        final saves = <(String, String)>[];
-        final autosave = NoteAutosave(
-          onSave: (id, content) async {
-            saves.add((id, content));
-          },
-        );
-
-        autosave.schedule('note-1', 'h');
-        async.elapse(const Duration(milliseconds: 100));
-        autosave.schedule('note-1', 'he');
-        async.elapse(const Duration(milliseconds: 100));
-        autosave.schedule('note-1', 'hel');
-        async.elapse(const Duration(milliseconds: 400));
-
-        expect(saves, [('note-1', 'hel')]);
-      });
+  test('rapid keystrokes save the last content once after the pause', () {
+    fakeAsync((async) {
+      build();
+      autosave.schedule('note-1', 'h');
+      async.elapse(const Duration(milliseconds: 100));
+      autosave.schedule('note-1', 'hel');
+      async.elapse(const Duration(milliseconds: 1999));
+      expect(saves, isEmpty);
+      async.elapse(const Duration(milliseconds: 1));
+      expect(saves, [('note-1', 'hel')]);
     });
   });
 
-  group('flush', () {
-    test('saves immediately and cancels the pending timer', () {
-      fakeAsync((async) {
-        final saves = <(String, String)>[];
-        final autosave = NoteAutosave(
-          onSave: (id, content) async {
-            saves.add((id, content));
-          },
-        );
-
-        autosave.schedule('note-1', 'draft');
-        async.flushMicrotasks();
-        autosave.flush();
-        async.flushMicrotasks();
-
-        expect(saves, [('note-1', 'draft')]);
-
-        // The debounce timer was cancelled by flush — elapsing past its
-        // window must not save again.
-        async.elapse(const Duration(milliseconds: 500));
-        expect(saves, [('note-1', 'draft')]);
-      });
-    });
-
-    test('is a no-op when nothing is pending', () {
-      fakeAsync((async) {
-        final saves = <(String, String)>[];
-        final autosave = NoteAutosave(
-          onSave: (id, content) async {
-            saves.add((id, content));
-          },
-        );
-
-        autosave.flush();
-        async.flushMicrotasks();
-
-        expect(saves, isEmpty);
-      });
+  test('flush saves every scheduled note at once, then nothing more', () {
+    fakeAsync((async) {
+      build();
+      autosave.schedule('note-1', 'a');
+      autosave.schedule('note-2', 'b');
+      bool? ok;
+      autosave.flush().then((v) => ok = v);
+      async.flushMicrotasks();
+      expect(ok, isTrue);
+      expect(saves, [('note-1', 'a'), ('note-2', 'b')]);
+      async.elapse(const Duration(seconds: 5));
+      expect(saves, hasLength(2));
     });
   });
 
-  group('dispose', () {
-    test('cancels a pending timer without saving', () {
-      fakeAsync((async) {
-        final saves = <(String, String)>[];
-        final autosave = NoteAutosave(
-          onSave: (id, content) async {
-            saves.add((id, content));
-          },
-        );
+  test('flush reports a failed save instead of throwing', () {
+    fakeAsync((async) {
+      final autosave = NoteAutosave(
+        onSave: (_, _) async => throw StateError('locked'),
+        writer: TextWriter(
+          journal: MemoryTextJournal(),
+          backupWriter: (_, _) async => null,
+        ),
+      );
+      autosave.schedule('note-1', 'x');
+      bool? ok;
+      autosave.flush().then((v) => ok = v);
+      async.flushMicrotasks();
+      expect(ok, isFalse);
+      expect(autosave.writer.hasPending(autosave.keyOf('note-1')), isTrue);
+      autosave.writer.resetForTest();
+    });
+  });
 
-        autosave.schedule('note-1', 'unsaved');
-        autosave.dispose();
-        async.elapse(const Duration(milliseconds: 500));
-
-        expect(saves, isEmpty);
-      });
+  test('discard drops the pending edit of a deleted note', () {
+    fakeAsync((async) {
+      build();
+      autosave.schedule('note-1', 'gone');
+      autosave.discard('note-1');
+      async.elapse(const Duration(seconds: 5));
+      expect(saves, isEmpty);
     });
   });
 }

@@ -10,7 +10,7 @@
 //                ◀─[onDragEnded / onBodyClicked / onContextMenu / ...]───
 //
 //   FloatingOverlayHost ──[com.whispaste.floating_overlay_render]──▶ Dart
-//                        ◀─[startDrag / bodyClicked / showContextMenu / ready]─
+//                        ◀─[startDrag / bodyClicked / closeClicked / noticeAction / showContextMenu / ready]─
 //
 // Public channel contract (com.whispaste.floating_overlay) — UNCHANGED:
 //   Inbound (Dart → host):
@@ -22,7 +22,7 @@
 //     destroy
 //   Outbound (host → Dart):
 //     onDragEnded{x,y,anchorMode}
-//     onCloseClicked   (defined; unused by shared view — may fire in future)
+//     onCloseClicked   (render engine's closeClicked: click on the pill's X)
 //     onBodyClicked
 //     onRetryClicked   (defined; unused by shared view — may fire in future)
 //     onContextMenu{action}
@@ -60,6 +60,8 @@
 #include <utility>
 #include <vector>
 
+#include "native_context_menu.h"
+
 #include "floating_overlay_window.h"
 
 class FloatingOverlayHost {
@@ -95,7 +97,7 @@ class FloatingOverlayHost {
   bool EnsureEngineAndShell(const std::string& size_class);
 
   // Resize the shell (and re-anchor) on a size-class switch
-  // ("normal" | "compact" | "mini").
+  // ("normal" | "compact" | "mini" | "nano").
   void ResizeShell(const std::string& size_class);
 
   // Compute the logical top-left of the shell from the current anchor mode.
@@ -111,7 +113,7 @@ class FloatingOverlayHost {
   // ── Interactions (render engine → native → main engine) ──────────────
   // OS-managed window move via NCLBUTTONDOWN/HTCAPTION trick.
   void BeginDrag();
-  // Build and show a native TrackPopupMenu from context_menu_items_.
+  // Show the native menu built from context_menu_ (native_context_menu.h).
   void ShowNativeContextMenu();
 
   // ── Fire-and-forget event to the main Dart engine ─────────────────────
@@ -142,10 +144,13 @@ class FloatingOverlayHost {
   // Flush order: setWaveformBars first, then updateSnapshot (mirrors macOS).
   bool render_ready_ = false;
   std::optional<flutter::EncodableValue> latest_snapshot_args_;
+  // Last pill width (logical px) reported by the render engine; <= 0 = full.
+  double last_pill_w_ = 0.0;
+  double last_corner_radius_ = 0.0;
   std::optional<flutter::EncodableValue> latest_bars_args_;
 
   // ── Overlay state ─────────────────────────────────────────────────────
-  // Size class: "normal" | "compact" | "mini" (mirrors the Dart
+  // Size class: "normal" | "compact" | "mini" | "nano" (mirrors the Dart
   // OverlaySizeVariant serialised as snapshot["size"]).
   std::string size_class_ = "normal";
 
@@ -158,8 +163,8 @@ class FloatingOverlayHost {
   double anchor_x_ = 0.0;
   double anchor_y_ = 0.0;
 
-  // ── Context menu items (id, wide-string label) ────────────────────────
-  std::vector<std::pair<std::string, std::wstring>> context_menu_items_;
+  // ── Context menu (#393) ───────────────────────────────────────────
+  NativeMenu context_menu_;
 };
 
 #endif  // FLOATING_OVERLAY_HOST_H_

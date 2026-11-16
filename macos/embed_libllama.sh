@@ -40,6 +40,15 @@ skip_embed() {
   exit 1
 }
 
+# A stage built from another llama.cpp pin (or without a LLAMA_PIN stamp) is
+# rebuilt, like libwhisper's WHISPER_PIN.
+# shellcheck disable=SC1091  # plain KEY=value file
+. "${REPO_ROOT}/scripts/llama-cpp.pin"
+if [[ -d "$STAGE_DIR" && "$(cat "$STAGE_DIR/LLAMA_PIN" 2>/dev/null)" != "$LLAMA_TAG $LLAMA_COMMIT" ]]; then
+  echo "note: libllama stage was built from another llama.cpp pin — rebuilding it."
+  rm -rf "$STAGE_DIR"
+fi
+
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libllama staging dir not found ($STAGE_DIR) — attempting to build it now."
   # bash-invoked (not exec'd) for the same reason as embed_libwhisper.sh: a

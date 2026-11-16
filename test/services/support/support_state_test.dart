@@ -3,6 +3,8 @@
 /// flag, and the purchase path.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -53,25 +55,62 @@ class _FakeBridge implements SupportStoreBridge {
   Future<bool> hasVerifiedSupportPurchase() async => supportPurchase;
 }
 
+/// Bridge double that can settle a pending purchase later.
+class _LateBridge extends _FakeBridge
+    implements LateConfirmingSupportStoreBridge {
+  _LateBridge() : super(purchaseResult: SupportPurchaseStatus.pending);
+
+  final controller = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get lateConfirmations => controller.stream;
+
+  Future<void> close() => controller.close();
+}
+
+/// Real telemetry service whose HTTP client records every request body.
+class _RecordingTelemetry {
+  _RecordingTelemetry() {
+    service = TelemetryService(
+      client: MockClient((request) async {
+        bodies.add(request.bodyFields);
+        return http.Response('', 200);
+      }),
+      endpointUrl: 'https://matomo.invalid',
+      siteId: 1,
+      consentGranted: true,
+    );
+  }
+
+  late final TelemetryService service;
+  final bodies = <Map<String, String>>[];
+
+  /// `action/name` of every recorded support event.
+  Future<List<String>> events() async {
+    await service.flush();
+    return [for (final b in bodies) '${b['e_a']}/${b['e_n']}'];
+  }
+}
+
 TelemetryService _silentTelemetry() => TelemetryService(
   client: MockClient((_) async => http.Response('', 200)),
   endpointUrl: '',
   siteId: 0,
   consentGranted: false,
-  dntActive: false,
 );
 
 Future<ProviderContainer> _container({
   required Map<String, Object> prefs,
   required DeployChannel channel,
   SupportStoreBridge bridge = const UnavailableSupportStoreBridge(),
+  TelemetryService? telemetry,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final container = ProviderContainer(
     overrides: [
       deployChannelProvider.overrideWithValue(channel),
       supportStoreBridgeProvider.overrideWithValue(bridge),
-      telemetryProvider.overrideWithValue(_silentTelemetry()),
+      telemetryProvider.overrideWithValue(telemetry ?? _silentTelemetry()),
     ],
   );
   addTearDown(container.dispose);
@@ -166,7 +205,7 @@ void main() {
 
   group('chip visibility', () {
     test(
-      'an unverified user cannot hide the chip (browser clicks never do)',
+      'any user can hide the chip, and the choice survives a restart',
       () async {
         final container = await _container(
           prefs: const {},
@@ -174,8 +213,17 @@ void main() {
         );
 
         await container.read(supportStatusProvider.notifier).hideChip();
+        expect(container.read(supportStatusProvider).showsSponsorChip, isFalse);
 
-        expect(container.read(supportStatusProvider).chipHidden, isFalse);
+        final restarted = await _container(
+          prefs: const {'support_chip_hidden': true},
+          channel: DeployChannel.portable,
+        );
+        expect(restarted.read(supportStatusProvider).showsSponsorChip, isFalse);
+        expect(
+          restarted.read(supportStatusProvider).suppressesPrompts,
+          isFalse,
+        );
       },
     );
 
@@ -350,5 +398,66 @@ void main() {
       expect(result, SupportPurchaseStatus.cancelled);
       expect(container.read(supportStatusProvider).verifiedSupporter, isFalse);
     });
+  });
+
+  group('late confirmation of a pending purchase (#1033)', () {
+    test('reports exactly one success, even on repeated notifications, '
+        'without amount or receipt', () async {
+      final bridge = _LateBridge();
+      addTearDown(bridge.close);
+      final recorder = _RecordingTelemetry();
+      final container = await _container(
+        prefs: const {},
+        channel: DeployChannel.store,
+        bridge: bridge,
+        telemetry: recorder.service,
+      );
+      final notifier = container.read(supportStatusProvider.notifier);
+
+      await notifier.purchase('whispaste.support.once.3');
+      expect(container.read(supportStatusProvider).verifiedSupporter, isFalse);
+
+      expect(await notifier.confirmLatePurchase(), isTrue);
+      expect(await notifier.confirmLatePurchase(), isFalse);
+      bridge.controller
+        ..add(null)
+        ..add(null);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(supportStatusProvider).verifiedSupporter, isTrue);
+      expect(await recorder.events(), [
+        'purchase/pending',
+        'purchase/succeeded_late',
+      ]);
+      // Only the closed event fields are sent: no amount, price or receipt.
+      for (final body in recorder.bodies) {
+        expect(body.keys, isNot(contains('e_v')));
+        expect(body.values.join(' '), isNot(contains('once.3')));
+      }
+    });
+
+    test(
+      'a confirmation without a recorded pending purchase is ignored',
+      () async {
+        final recorder = _RecordingTelemetry();
+        final container = await _container(
+          prefs: const {},
+          channel: DeployChannel.store,
+          telemetry: recorder.service,
+        );
+
+        final reported = await container
+            .read(supportStatusProvider.notifier)
+            .confirmLatePurchase();
+
+        expect(reported, isFalse);
+        expect(await recorder.events(), isEmpty);
+        expect(
+          container.read(supportStatusProvider).verifiedSupporter,
+          isFalse,
+        );
+      },
+    );
   });
 }

@@ -12,9 +12,8 @@
 ///
 /// On slower disks (the user "Idmir Junio" cluster), the freeze stretched
 /// well past the OS responsiveness threshold, the user assumed the app
-/// had crashed, force-quit it, and posted a 1★ store rating. See
-/// `internal-notes` — Modul 4 for the full PRD and
-/// fingerprint inventory.
+/// had crashed, force-quit it, and posted a 1★ store rating. The
+/// fingerprint inventory lives in `crash_fingerprints.dart`.
 ///
 /// Design contract:
 /// - The coordinator is purely a `Stream<ResetPhase>` orchestrator. It
@@ -63,6 +62,8 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
 import '../../core/utils/sharing_violation_retry.dart';
+import '../audio/retention/pending_wipe.dart' show recordPendingWipe;
+import '../path_service.dart' show userAudioDirectories;
 
 final _log = AppLogger('FactoryResetCoordinator');
 
@@ -78,6 +79,7 @@ final _log = AppLogger('FactoryResetCoordinator');
 enum ResetPhase {
   stoppingSubprocess,
   deletingModels,
+  deletingAudio,
   deletingDatabase,
   resettingSecureStore,
   resettingSettings,
@@ -183,8 +185,10 @@ class FactoryResetCoordinator {
     required this._subprocess,
     required this.modelDirPath,
     required this.logsDirPath,
+    this.extraDeletePaths,
     required this._eraseDatabase,
     required this._eraseSecureStore,
+    this._eraseDataKey,
     required this._resetSettings,
     this._stopSubprocessTimeout = kDefaultStopSubprocessTimeout,
     FileSystem? fileSystem,
@@ -209,6 +213,10 @@ class FactoryResetCoordinator {
   final Future<void> Function(Duration delay)? _retryWait;
   final DatabaseEraser _eraseDatabase;
   final SecureStoreEraser _eraseSecureStore;
+
+  /// Removes the data key (#1165). Runs only after history and recordings
+  /// were deleted, so the key never goes while data it protects remains.
+  final SecureStoreEraser? _eraseDataKey;
   final SettingsReset _resetSettings;
   final CrashCaptureSink _capture;
 
@@ -223,6 +231,11 @@ class FactoryResetCoordinator {
   /// Absolute path to the app logs directory. Wiped during
   /// [ResetPhase.deletingModels] alongside [modelDirPath].
   final String logsDirPath;
+
+  /// User-audio directories wiped in the same phase as [modelDirPath]. Defaults
+  /// to [userAudioDirectories], the single list every reset entry point uses
+  /// (retained WAVs + recovery journal, import scratch). Tests inject their own.
+  final List<String>? extraDeletePaths;
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -239,7 +252,13 @@ class FactoryResetCoordinator {
   /// Sentry under the [factoryResetFailed] fingerprint but is **not**
   /// rethrown into the stream, so the UI dialog can render the failed
   /// phase without needing a try/catch around the listener.
+  /// The phases that threw during the last [run], in the order they failed.
+  /// Empty while no run has failed. The UI names these areas to the user.
+  List<ResetPhase> get failedPhases => List.unmodifiable(_failedPhases);
+  final List<ResetPhase> _failedPhases = [];
+
   Stream<ResetPhase> run() async* {
+    _failedPhases.clear();
     // Each phase is best-effort: a failure is captured but NEVER aborts the
     // sequence. This guarantees the final settings-reset phase always runs —
     // the user-visible outcome (settings → defaults, onboarding re-entry) must
@@ -249,11 +268,15 @@ class FactoryResetCoordinator {
     // leave `onboardingCompleted = true` (no re-onboarding).
     var failed = false;
 
-    Future<void> runPhase(Future<void> Function() work) async {
+    Future<void> runPhase(
+      ResetPhase phase,
+      Future<void> Function() work,
+    ) async {
       try {
         await work();
       } catch (error, stackTrace) {
         failed = true;
+        if (!_failedPhases.contains(phase)) _failedPhases.add(phase);
         _capture(
           message: 'Factory reset phase failed',
           fingerprint: const <String>[factoryResetFailed],
@@ -265,29 +288,84 @@ class FactoryResetCoordinator {
 
     // Phase 1 — stop subprocess, wait for actual exit.
     yield ResetPhase.stoppingSubprocess;
-    await runPhase(_stopSubprocessWithBackstop);
+    await runPhase(ResetPhase.stoppingSubprocess, _stopSubprocessWithBackstop);
 
     // Phase 2 — wipe model directory + logs (the large I/O work).
     yield ResetPhase.deletingModels;
-    await runPhase(() async {
+    await runPhase(ResetPhase.deletingModels, () async {
       await _deleteIfExists(modelDirPath);
       // Our own log file sits in this directory and stays open for the
       // whole process lifetime — release it for the delete.
       await _releaseLogFile(() => _deleteIfExists(logsDirPath));
     });
 
-    // Phase 3 — drop the history database file.
+    // Phase 3 — user audio. Its own phase so a locked model directory cannot
+    // keep recordings on the device. Every directory is attempted; a
+    // directory that is still there afterwards fails the phase.
+    yield ResetPhase.deletingAudio;
+    await runPhase(ResetPhase.deletingAudio, () async {
+      final audioDirs = extraDeletePaths ?? userAudioDirectories();
+      Object? firstError;
+      StackTrace? firstStack;
+      for (final path in audioDirs) {
+        try {
+          await _deleteIfExists(path);
+        } catch (error, stackTrace) {
+          firstError ??= error;
+          firstStack ??= stackTrace;
+        }
+      }
+      final stillThere = <String>[
+        for (final path in audioDirs)
+          if (await _fileSystem.directory(path).exists()) path,
+      ];
+      if (stillThere.isEmpty) return;
+      // Only the files are queued, never the folder: a recording made after
+      // the reset must not be swept with them. A folder that cannot be listed
+      // queues nothing.
+      final files = <String>[];
+      var listed = true;
+      for (final path in stillThere) {
+        try {
+          await for (final entity
+              in _fileSystem.directory(path).list(recursive: true)) {
+            if (entity is File) files.add(entity.path);
+          }
+        } catch (error, stackTrace) {
+          _log.warning('reset: could not list $path', error, stackTrace);
+          listed = false;
+        }
+      }
+      if (listed) await recordPendingWipe(files, fileSystem: _fileSystem);
+      if (firstError != null) {
+        Error.throwWithStackTrace(firstError, firstStack!);
+      }
+      throw StateError(
+        'audio directories still present: ${stillThere.join(', ')}',
+      );
+    });
+
+    // Phase 4 — drop the history database file.
     yield ResetPhase.deletingDatabase;
-    await runPhase(_eraseDatabase);
+    await runPhase(ResetPhase.deletingDatabase, _eraseDatabase);
 
-    // Phase 4 — clear secure-store credentials.
+    // Phase 5 — clear secure-store credentials.
     yield ResetPhase.resettingSecureStore;
-    await runPhase(_eraseSecureStore);
+    await runPhase(ResetPhase.resettingSecureStore, _eraseSecureStore);
+    // The data key goes only together with the data it protects: if the
+    // recordings or the history are still there, it stays so they remain
+    // readable (#1165).
+    final eraseDataKey = _eraseDataKey;
+    if (eraseDataKey != null &&
+        !_failedPhases.contains(ResetPhase.deletingAudio) &&
+        !_failedPhases.contains(ResetPhase.deletingDatabase)) {
+      await runPhase(ResetPhase.resettingSecureStore, eraseDataKey);
+    }
 
-    // Phase 5 — reset in-memory settings (triggers onboarding re-entry via
+    // Phase 6 — reset in-memory settings (triggers onboarding re-entry via
     // `onboardingCompleted = false`). ALWAYS runs, even after earlier failures.
     yield ResetPhase.resettingSettings;
-    await runPhase(_resetSettings);
+    await runPhase(ResetPhase.resettingSettings, _resetSettings);
 
     // Terminal — `done` only when every phase succeeded; otherwise `failed`
     // (partial reset: settings were still reset, but some data may remain).

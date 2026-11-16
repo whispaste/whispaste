@@ -1,18 +1,23 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+
 import 'package:whispaste/core/data/database.dart';
+
 import '../data/providers.dart';
 import 'highlighted_text.dart';
 import 'history_date_header.dart';
 import 'history_helpers.dart';
+import '../../../widgets/wp_favourite_star.dart';
+import '../../../widgets/wp_list_item_content.dart';
 import '../../../widgets/wp_row_action.dart';
 import '../../../widgets/wp_row_checkbox.dart';
-import '../../../core/utils/word_count.dart';
+import '../../../core/data/content_metadata_providers.dart';
+import '../../../widgets/wp_copy_feedback.dart';
 
 // ---------------------------------------------------------------------------
 // Card view — responsive grid of entry cards
@@ -21,6 +26,7 @@ import '../../../core/utils/word_count.dart';
 class HistoryCardView extends StatelessWidget {
   const HistoryCardView({
     super.key,
+    this.leading,
     required this.groups,
     required this.selectedId,
     required this.onEntryTap,
@@ -31,15 +37,22 @@ class HistoryCardView extends StatelessWidget {
     required this.multiSelectMode,
     required this.selectedIds,
     this.focusedId,
+    this.onRestore,
+    this.isTrashView = false,
   });
 
   final List<DateGroup> groups;
+
+  /// Shown above the first row, inside the same scroll owner.
+  final Widget? leading;
   final String? selectedId;
   final ValueChanged<HistoryEntry> onEntryTap;
   final ValueChanged<HistoryEntry> onCopy;
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
   final ValueChanged<HistoryEntry>? onDuplicate;
+  final ValueChanged<HistoryEntry>? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -68,14 +81,20 @@ class HistoryCardView extends StatelessWidget {
         }
 
         return ListView.builder(
+          // Scroll offset survives a page switch (#1074).
+          key: const PageStorageKey<String>('history-scroll-cards'),
           padding: const EdgeInsets.fromLTRB(
             sidePad,
             WpSpacing.xs,
             sidePad,
             WpSpacing.xxl,
           ),
-          itemCount: flatItems.length,
+          itemCount: flatItems.length + (leading == null ? 0 : 1),
           itemBuilder: (_, i) {
+            if (leading != null) {
+              if (i == 0) return leading!;
+              i--;
+            }
             final item = flatItems[i];
             if (item.headerLabel != null) {
               return HistoryDateHeader(
@@ -90,34 +109,40 @@ class HistoryCardView extends StatelessWidget {
                   SizedBox(
                     key: ValueKey(entry.id),
                     width: cardWidth,
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryCardState.build
-                    child: HistoryEntryCard(
-                      entry:
-                          entry, // Same overload as the list and compact views
-                      // (history_list_view.dart:69): outside multi-select
-                      // `isSelected` means "open in the detail panel", inside
-                      // it means "checked". The card used to ignore the
-                      // multi-select state entirely, so Ctrl+A filled the
-                      // action bar with "n selected" while every card kept
-                      // its resting look and the following Delete hit a set
-                      // the user could not see.
-                      isSelected: multiSelectMode
-                          ? selectedIds.contains(entry.id)
-                          : entry.id == selectedId,
-                      // The arrow cursor is suppressed in multi-select for
-                      // the same reason as in the other two views: there the
-                      // checkbox column, not the cursor ring, is the state
-                      // the user is manipulating.
-                      isFocused: !multiSelectMode && entry.id == focusedId,
-                      onTap: () => onEntryTap(entry),
-                      onCopy: () => onCopy(entry),
-                      onPin: () => onPin(entry),
-                      onDelete: () => onDelete(entry),
-                      onDuplicate: onDuplicate != null
-                          ? () => onDuplicate!(entry)
-                          : null,
-                      multiSelectMode: multiSelectMode,
-                      isChecked: selectedIds.contains(entry.id),
+                    child: WpCopyAnchor(
+                      target: 'history-${entry.id}',
+                      child: HistoryEntryCard(
+                        entry:
+                            entry, // Same overload as the list and compact views
+                        // (history_list_view.dart:69): outside multi-select
+                        // `isSelected` means "open in the detail panel", inside
+                        // it means "checked". The card used to ignore the
+                        // multi-select state entirely, so Ctrl+A filled the
+                        // action bar with "n selected" while every card kept
+                        // its resting look and the following Delete hit a set
+                        // the user could not see.
+                        isSelected: multiSelectMode
+                            ? selectedIds.contains(entry.id)
+                            : entry.id == selectedId,
+                        // The arrow cursor is suppressed in multi-select for
+                        // the same reason as in the other two views: there the
+                        // checkbox column, not the cursor ring, is the state
+                        // the user is manipulating.
+                        isFocused: !multiSelectMode && entry.id == focusedId,
+                        onTap: () => onEntryTap(entry),
+                        onCopy: () => onCopy(entry),
+                        onPin: () => onPin(entry),
+                        onDelete: () => onDelete(entry),
+                        onDuplicate: onDuplicate != null
+                            ? () => onDuplicate!(entry)
+                            : null,
+                        onRestore: onRestore != null
+                            ? () => onRestore!(entry)
+                            : null,
+                        isTrashView: isTrashView,
+                        multiSelectMode: multiSelectMode,
+                        isChecked: selectedIds.contains(entry.id),
+                      ),
                     ),
                   ),
               ],
@@ -133,9 +158,11 @@ class HistoryCardView extends StatelessWidget {
 // Entry card — used in card grid view
 // ---------------------------------------------------------------------------
 
-class HistoryEntryCard extends StatefulWidget {
+class HistoryEntryCard extends ConsumerStatefulWidget {
   const HistoryEntryCard({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.isSelected,
     required this.onTap,
@@ -155,40 +182,23 @@ class HistoryEntryCard extends StatefulWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
 
   @override
-  State<HistoryEntryCard> createState() => _HistoryEntryCardState();
+  ConsumerState<HistoryEntryCard> createState() => _HistoryEntryCardState();
 }
 
-class _HistoryEntryCardState extends State<HistoryEntryCard> {
+class _HistoryEntryCardState extends ConsumerState<HistoryEntryCard> {
   bool _isHovered = false;
 
-  /// Fixed card height — sized to fit avatar/title row, a 3-line preview,
+  /// Fixed card height — sized to fit the title row, a 3-line preview,
   /// and the metadata row without per-entry content changing the grid's
   /// row height (see `cardWidth` above for the analogous width rule).
   static const double _cardHeight = 180;
-
-  // Memoized once per `entry` change, not recomputed on every hover
-  // setState — see the identical fix in history_list_tile.dart for why.
-  late int _wordCount = _computeWordCount(widget.entry);
-  // The *slot*, not its color — see the identical note in history_list_tile.dart.
-  late WpCategorySlot _avatarSlot = historyAvatarSlot(widget.entry);
-
-  static int _computeWordCount(HistoryEntry entry) {
-    return computeWordCountFast(entry.content);
-  }
-
-  @override
-  void didUpdateWidget(HistoryEntryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.entry != widget.entry) {
-      _wordCount = _computeWordCount(widget.entry);
-      _avatarSlot = historyAvatarSlot(widget.entry);
-    }
-  }
 
   /// Palette for the card chrome — pulled out of [build] so its branching
   /// doesn't count against that method's own complexity.
@@ -204,7 +214,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color borderColor,
   })
   _resolveColors() {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     final isActive = widget.isSelected || widget.isFocused || _isHovered;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
@@ -244,6 +254,17 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
 
   @override
   Widget build(BuildContext context) {
+    final wordCount =
+        ref
+            .watch(
+              contentMetadataProvider((
+                kind: ContentKind.recording,
+                id: widget.entry.id,
+              )),
+            )
+            .value
+            ?.wordCount ??
+        0;
     final l10n = L10n.of(context);
     final colors = _resolveColors();
     final textPrimary = colors.textPrimary;
@@ -251,6 +272,10 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     final textMuted = colors.textMuted;
     final fill = colors.fill;
     final borderColor = colors.borderColor;
+
+    // Suppressed in multi-select like the other two views.
+    final showActions =
+        (_isHovered || widget.isFocused) && !widget.multiSelectMode;
 
     final semanticLabel = widget.entry.title.isNotEmpty
         ? widget.entry.title
@@ -287,13 +312,13 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               // This tile used to carry `WpShadows.subtle` at rest and
               // `WpShadows.card` while active; the argument for it was a
               // light-theme one — halve the black alpha on pearl so the lift
-              // isn't a dark halo — and the light theme was removed on
+              // isn't a dark outline — and the light theme was removed on
               // 2026-08-11. What was left is the case the rule exists to
               // keep out: a black shadow on a near-black ground, muddying
               // the one ambient gradient the frost fill is there to let
               // through. Both twins named beside it in DESIGN.md have since
               // dropped theirs (`wp_list_tile_surface.dart`, Ticket 08; the
-              // entry avatar in `history_helpers.dart`), and hover/focus/
+              // former entry avatar), and hover/focus/
               // selection now read through the fill rung and the edge in
               // [_resolveColors] instead. Gated by
               // `test/core/design/depth_source_test.dart`.
@@ -302,104 +327,113 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top row: avatar + title + hover actions
-                Row(
-                  children: [
-                    // Multi-select checkbox — same leading position and same
-                    // control as the list and compact rows, so the checked
-                    // state is visible and operable in every view mode.
-                    if (widget.multiSelectMode)
-                      Padding(
-                        padding: const EdgeInsets.only(right: WpSpacing.xs),
-                        child: WpRowCheckbox(
-                          value: widget.isChecked,
-                          onChanged: widget.onTap,
+                // Top row: type glyph + title + hover actions. Held at the
+                // dense action box height, so revealing the actions never
+                // shifts the preview below.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: WpListItemContent.titleLineHeight,
+                  ),
+                  child: Row(
+                    children: [
+                      // Multi-select checkbox — same leading position and same
+                      // control as the list and compact rows, so the checked
+                      // state is visible and operable in every view mode.
+                      if (widget.multiSelectMode)
+                        Padding(
+                          padding: const EdgeInsets.only(right: WpSpacing.xs),
+                          child: WpRowCheckbox(
+                            value: widget.isChecked,
+                            onChanged: widget.onTap,
+                          ),
                         ),
-                      ),
-                    HistoryEntryAvatar(
-                      color: _avatarSlot.color(),
-                      icon: historyAvatarIcon,
-                      isPinned: widget
-                          .entry
-                          .pinned, // Off-scale on purpose: smallest of the three avatar
-                      // contexts — the card's title row is tight and shares
-                      // space with hover actions (see history_list_tile.dart's
-                      // 42 for the roomier list row, history_detail_panel.dart's
-                      // 36 default for the header).
-                      size: 32,
-                    ),
-                    const SizedBox(width: WpSpacing.xs),
-                    Expanded(
-                      // Duplicate of the wrapper's label — excluded so the
-                      // card's title is announced once, not twice. The preview
-                      // and metadata below stay announced.
-                      child: ExcludeSemantics(
-                        child: HighlightedText(
-                          text: widget.entry.title.isNotEmpty
-                              ? widget.entry.title
-                              : l10n.historyUntitledRecording,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: WpTypography.subheading,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
+                      // The list row's type glyph (#1498): no coloured disc.
+                      const WpListItemTypeGlyph(icon: historyAvatarIcon),
+                      const SizedBox(width: WpSpacing.sm),
+                      Expanded(
+                        // Duplicate of the wrapper's label — excluded so the
+                        // card's title is announced once, not twice. The preview
+                        // and metadata below stay announced.
+                        child: ExcludeSemantics(
+                          child: HighlightedText(
+                            text: widget.entry.title.isNotEmpty
+                                ? widget.entry.title
+                                : l10n.historyUntitledRecording,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: WpTypography.subheading,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // Action buttons — revealed on hover/focus. Dense, so the
-                    // 32px avatar keeps setting the title row's height and
-                    // the preview below never shifts when they appear.
-                    WpRowActions(
-                      // Suppressed in multi-select like the other two views:
-                      // a per-card Delete next to a live batch selection is
-                      // an easy misfire.
-                      visible:
-                          (_isHovered || widget.isFocused) &&
-                          !widget.multiSelectMode,
-                      dense: true,
-                      children: [
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          icon: LucideIcons.copy,
-                          tooltip: l10n.historyCopyText,
-                          onTap: widget.onCopy,
-                          dense: true,
-                        ),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          faIcon: widget.entry.pinned
-                              ? FontAwesomeIcons.solidStar
-                              : null,
-                          icon: widget.entry.pinned ? null : LucideIcons.star,
-                          activeColor: widget.entry.pinned
-                              ? WpSharedColors.pinnedAccent
-                              : null,
-                          tooltip: widget.entry.pinned
-                              ? l10n.historyUnpin
-                              : l10n.historyPinToTop,
-                          onTap: widget.onPin,
-                          dense: true,
-                        ),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        if (widget.onDuplicate case final onDuplicate?)
-                          WpRowAction(
-                            icon: LucideIcons.files,
-                            tooltip: l10n.actionDuplicate,
-                            onTap: onDuplicate,
-                            dense: true,
+                      // A favourite keeps its star visible at rest, as in the
+                      // list row: the star is the only carrier of that state.
+                      if (widget.entry.pinned && !showActions) ...[
+                        const SizedBox(width: WpSpacing.xs),
+                        WpListItemStarMark(
+                          key: ValueKey(
+                            'history-card-favourite-mark-${widget.entry.id}',
                           ),
-                        WpRowAction(
-                          icon: LucideIcons.trash2,
-                          tooltip: l10n.actionDelete,
-                          onTap: widget.onDelete,
-                          isDestructive: true,
-                          dense: true,
+                          semanticsLabel: l10n.listItemFavouriteMark,
                         ),
                       ],
-                    ),
-                  ],
+                      // Action buttons — revealed on hover/focus. Dense, so they
+                      // fit the title row's fixed height.
+                      WpRowActions(
+                        // Suppressed in multi-select like the other two views:
+                        // a per-card Delete next to a live batch selection is
+                        // an easy misfire.
+                        visible: showActions,
+                        dense: true,
+                        children: [
+                          if (widget.isTrashView &&
+                              widget.onRestore != null) ...[
+                            WpRowAction(
+                              icon: LucideIcons.undo2,
+                              tooltip: l10n.historyRestore,
+                              onTap: widget.onRestore!,
+                              dense: true,
+                            ),
+                            WpRowAction(
+                              icon: LucideIcons.trash2,
+                              tooltip: l10n.historyDeleteForever,
+                              onTap: widget.onDelete,
+                              isDestructive: true,
+                              dense: true,
+                            ),
+                          ] else ...[
+                            WpRowAction(
+                              icon: LucideIcons.copy,
+                              tooltip: l10n.historyCopyText,
+                              onTap: widget.onCopy,
+                              dense: true,
+                            ),
+                            WpFavouriteStar(
+                              isFavourite: widget.entry.pinned,
+                              onToggle: widget.onPin,
+                            ),
+                            if (widget.onDuplicate case final onDuplicate?)
+                              WpRowAction(
+                                icon: LucideIcons.files,
+                                tooltip: l10n.actionDuplicate,
+                                onTap: onDuplicate,
+                                dense: true,
+                              ),
+                            WpRowAction(
+                              icon: LucideIcons.trash2,
+                              tooltip: l10n.actionDelete,
+                              onTap: widget.onDelete,
+                              isDestructive: true,
+                              dense: true,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: WpSpacing.xs),
                 // Content preview (3-4 lines)
@@ -424,20 +458,20 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                       size: WpIconSize.xs,
                       color: textMuted,
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: WpSpacing.xxs),
                     Text(
                       formatHistoryDuration(widget.entry.durationSec),
                       style: TextStyle(
-                        fontSize: WpTypography.micro,
+                        fontSize: WpTypography.caption,
                         color: textMuted,
                       ),
                     ),
-                    if (_wordCount > 0) ...[
+                    if (wordCount > 0) ...[
                       const SizedBox(width: WpSpacing.xs),
                       Text(
-                        '· ~$_wordCount w',
+                        '· ~$wordCount w',
                         style: TextStyle(
-                          fontSize: WpTypography.micro,
+                          fontSize: WpTypography.caption,
                           color: textMuted,
                         ),
                       ),

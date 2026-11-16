@@ -8,6 +8,7 @@
 /// both left- and right-click.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -66,15 +67,19 @@ void main() {
   // Regression test for a flake: this file used to wait for the tray setup
   // with a fixed pumpEventQueue(), which a loaded machine outran (setup
   // does real asset/file I/O) — the test then saw "calls so far: []" and
-  // its still-running setIcon leaked into the next test. 50ms of extra
-  // asset latency reproduced that deterministically; initDone must cover it.
+  // its still-running setIcon leaked into the next test. Holding the asset
+  // load open reproduces that deterministically; initDone must cover it.
+  // The hold is a completer the test releases, not a sleep (#1491).
   test(
     'initDone covers the whole tray setup, even with slow asset I/O',
     () async {
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final assetGate = Completer<void>();
+      var assetRequested = false;
       messenger.setMockMessageHandler('flutter/assets', (message) async {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        assetRequested = true;
+        await assetGate.future;
         final bytes = File('assets/icons/logo-dark.png').readAsBytesSync();
         return ByteData.sublistView(bytes);
       });
@@ -92,6 +97,19 @@ void main() {
       addTearDown(container.dispose);
 
       final tray = container.read(trayServiceProvider.notifier);
+      var initCompleted = false;
+      unawaited(tray.initDone.then((_) => initCompleted = true));
+      await pumpEventQueue();
+      // Windows resolves the icon from files next to the executable and
+      // loads no asset; elsewhere the load is held open right now.
+      if (assetRequested) {
+        expect(
+          initCompleted,
+          isFalse,
+          reason: 'initDone resolved while the icon asset was still loading',
+        );
+      }
+      assetGate.complete();
       await tray.initDone;
 
       expect(tray.isInitialized, isTrue, reason: 'calls so far: $calls');

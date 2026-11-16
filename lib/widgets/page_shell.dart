@@ -1,13 +1,35 @@
 import 'package:flutter/material.dart';
+
+import '../core/theme/generated/wp_tokens.g.dart' show WpShellTokens;
 import '../core/theme/tokens.dart';
+
+/// The one page frame every page shares (Maintainer 2026-10-30): the inset of
+/// the title row, the gap from the page title to the first content, the side
+/// insets and the bottom inset. The app shell paints the title with
+/// [titleTop] and [inset] (its bottom edge sits [titleToContent] above the
+/// content); [WpPageShell] applies the rest. Change a value here, never per page.
+abstract final class WpPageFrame {
+  /// Space above the page title (app shell).
+  static const double titleTop = WpSpacing.lg;
+
+  /// Gap from the bottom of the page title to the first content element.
+  static const double titleToContent = WpSpacing.sm;
+
+  /// Left and right inset of title row and content.
+  static const double inset = WpSpacing.xl;
+
+  /// Bottom inset of scrollable content.
+  static const double bottom = WpSpacing.xl;
+}
 
 /// Reusable page shell — every content page wraps in this for consistent
 /// padding, scrolling, and fluid desktop-native layout.
 ///
 /// The shell fills all available width (no max-width constraint) so content
 /// scales naturally with the window. Pages that need a responsive two-panel
-/// layout should use [WpTwoPanel] inside; pages that need to cap width on
-/// very wide windows constrain their own content (see e.g. FeedbackPage).
+/// layout should use [WpTwoPanel] inside; content whose lines would grow
+/// unreadably long on very wide windows (forms with free text, transcripts)
+/// wraps in [WpReadingWidth], never in a width of its own.
 ///
 /// Two layout modes:
 /// - **Scrollable** (default): content scrolls vertically when it overflows.
@@ -32,12 +54,13 @@ class WpPageShell extends StatelessWidget {
     required this.child,
     this.header,
     this.padding = const EdgeInsets.fromLTRB(
-      WpSpacing.xl,
-      WpSpacing.sm,
-      WpSpacing.xl,
-      WpSpacing.xl,
+      WpPageFrame.inset,
+      WpPageFrame.titleToContent,
+      WpPageFrame.inset,
+      WpPageFrame.bottom,
     ),
     this.scrollable = true,
+    this.bodyPadding,
   });
 
   /// Page content.
@@ -59,12 +82,19 @@ class WpPageShell extends StatelessWidget {
   /// Whether content scrolls vertically (default) or fills fixed height.
   final bool scrollable;
 
+  /// Padding around [child] when it differs from [padding]: a fixed body whose
+  /// own lists carry the page inset (so their scrollbars sit at the edge)
+  /// passes [EdgeInsets.zero] here and keeps the header aligned with every
+  /// other page.
+  final EdgeInsets? bodyPadding;
+
   @override
   Widget build(BuildContext context) {
+    final inset = bodyPadding ?? padding;
     final body = scrollable
-        ? SingleChildScrollView(padding: padding, child: child)
+        ? SingleChildScrollView(padding: inset, child: child)
         // Fixed mode — wrap in Padding, child manages its own height.
-        : Padding(padding: padding, child: child);
+        : Padding(padding: inset, child: child);
 
     if (header == null) return body;
 
@@ -75,6 +105,37 @@ class WpPageShell extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The one reading measure (#197): caps prose and free-text forms at
+/// `shell.reading-measure` from `design-tokens/app.tokens.json` so lines stay
+/// legible on wide windows. Narrower parents are filled as usual. Pages never
+/// pick a width of their own; change the token instead.
+class WpReadingWidth extends StatelessWidget {
+  const WpReadingWidth({
+    super.key,
+    required this.child,
+    this.alignment = AlignmentDirectional.topStart,
+  });
+
+  /// The capped content.
+  final Widget child;
+
+  /// Where the capped column sits when the parent is wider: at the start
+  /// like every page's content, or centred for a lone confirmation.
+  final AlignmentGeometry alignment;
+
+  /// The measure in logical pixels.
+  static const double measure = WpShellTokens.readingMeasure;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: alignment,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: measure),
+      child: child,
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

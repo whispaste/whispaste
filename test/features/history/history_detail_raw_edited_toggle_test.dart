@@ -16,8 +16,8 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/history_page.dart';
-import 'package:whispaste/features/history/widgets/highlighted_text.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
+import 'package:whispaste/widgets/wp_markdown_view.dart';
 import 'package:whispaste/widgets/wp_text_field.dart';
 
 late L10n l10n;
@@ -26,7 +26,7 @@ late L10n l10n;
 /// [HistoryDatabase] instead of creating an empty one — the toggle only
 /// appears once an entry has a Smart-Mode-edited version, which has to be
 /// present in the DB `historyDetailProvider` reads from, not just in the
-/// list's own `historyEntriesProvider` stream.
+/// list's own `pagedHistoryProvider` stream.
 Widget _pumpApp(HistoryDatabase db, HistoryEntry entry) {
   final theme = wpDarkTheme();
 
@@ -39,7 +39,7 @@ Widget _pumpApp(HistoryDatabase db, HistoryEntry entry) {
       gpuInfoProvider.overrideWith(
         (ref) async => const GpuInfo(vendor: GpuVendor.none, name: 'Test'),
       ),
-      historyEntriesProvider.overrideWith((ref) => Stream.value([entry])),
+      pagedHistoryProvider.overrideWith((ref) => Stream.value([entry])),
       archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
       trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
     ],
@@ -104,12 +104,18 @@ Future<void> _openDetail(WidgetTester tester, HistoryDatabase db) async {
 }
 
 /// Scoped to the detail panel: the list's own card also renders a content
-/// preview via [HighlightedText], so an unscoped search can match twice.
+/// preview as plain text, so an unscoped search can match twice.
 Finder _transcriptText(String text) => find.descendant(
   of: find.byType(WpTextFieldSurface),
   matching: find.byWidgetPredicate(
-    (widget) => widget is HighlightedText && widget.text == text,
+    (widget) => widget is WpMarkdownView && widget.source == text,
   ),
+);
+
+/// The raw text is written directly (#1498), so it sits in an editor field
+/// instead of a read-only view; the edited version stays read-only.
+Finder _rawShown() => find.byWidgetPredicate(
+  (w) => w is TextField && (w.controller?.text ?? '') == _rawContent,
 );
 
 void main() {
@@ -123,7 +129,7 @@ void main() {
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
     await _openDetail(tester, db);
 
-    expect(_transcriptText(_rawContent), findsOneWidget);
+    expect(_rawShown(), findsOneWidget);
     expect(_transcriptText(_editedContent), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -140,7 +146,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_transcriptText(_editedContent), findsOneWidget);
-    expect(_transcriptText(_rawContent), findsNothing);
+    expect(_rawShown(), findsNothing);
 
     // Underlying raw content is untouched by viewing the edited version.
     final entry = await db.getEntry('toggle-1');
@@ -162,7 +168,7 @@ void main() {
     await tester.tap(find.text(l10n.historyViewRaw));
     await tester.pumpAndSettle();
 
-    expect(_transcriptText(_rawContent), findsOneWidget);
+    expect(_rawShown(), findsOneWidget);
     expect(_transcriptText(_editedContent), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());

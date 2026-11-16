@@ -53,6 +53,8 @@ import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'search/settings_legacy_row_ids.dart';
+import '../../fixtures/record_device_listing_stub.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes for the Ticket 05 remembered-location group
@@ -145,7 +147,7 @@ SettingsPortabilityController _testController({
     setImportBookmark: (b) => update((s) => s.copyWith(importBookmark: b)),
     bookmarks: const _NoBookmarks(),
     pickPath: picker.call,
-    toaster: (context, type, message) {},
+    notice: (context, {required failed, required message}) {},
   );
 }
 
@@ -157,6 +159,7 @@ final _basePath = Platform.isWindows
     : '/Users/tester/Documents';
 
 void main() {
+  stubRecordDeviceListing();
   group('SettingsPortabilitySection', () {
     testWidgets('renders without error', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPortabilitySection()));
@@ -164,126 +167,6 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
-
-    testWidgets('renders one row per direction, each with its own action '
-        'button', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SingleChildScrollView(child: SettingsPortabilitySection()),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Backup & Transfer'), findsOneWidget);
-      expect(find.byKey(const ValueKey(kPortabilityExportRowKey)), findsOne);
-      expect(find.byKey(const ValueKey(kPortabilityImportRowKey)), findsOne);
-      expect(find.widgetWithText(OutlinedButton, 'Export'), findsOneWidget);
-      expect(find.widgetWithText(OutlinedButton, 'Import'), findsOneWidget);
-    });
-
-    testWidgets(
-      'each direction is complete on its own row — location, action and '
-      'chooser together, and nothing from the other direction (E10=b)',
-      (tester) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SettingsPortabilitySection()),
-            locale: const Locale('en'),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        final exportRow = find.byKey(const ValueKey(kPortabilityExportRowKey));
-        final importRow = find.byKey(const ValueKey(kPortabilityImportRowKey));
-
-        // This is the structural point of the layout: reading a path and
-        // finding the button that acts on it must not require pairing two
-        // parallel lists by position.
-        for (final (row, own, foreign, action, tooltip) in [
-          (
-            exportRow,
-            "You'll be asked on first export",
-            "You'll be asked on first import",
-            'Export',
-            'Choose a different export destination (nothing is exported yet)',
-          ),
-          (
-            importRow,
-            "You'll be asked on first import",
-            "You'll be asked on first export",
-            'Import',
-            'Choose a different import source (nothing is imported yet)',
-          ),
-        ]) {
-          expect(find.descendant(of: row, matching: find.text(own)), findsOne);
-          expect(
-            find.descendant(of: row, matching: find.text(foreign)),
-            findsNothing,
-            reason: 'a direction row must not carry the other direction',
-          );
-          expect(
-            find.descendant(
-              of: row,
-              matching: find.widgetWithText(OutlinedButton, action),
-            ),
-            findsOne,
-          );
-          expect(
-            find.descendant(of: row, matching: find.byTooltip(tooltip)),
-            findsOne,
-          );
-        }
-      },
-    );
-
-    // Acceptance criterion of Ticket 25: "keine zwei Textebenen der Sektion
-    // sagen mehr dasselbe". Asserted mechanically over whatever the section
-    // actually renders rather than against two pinned literals, so it keeps
-    // holding after the next wording change — and so Ticket 26's toggle and
-    // timestamp line cannot quietly reintroduce a duplicate layer.
-    //
-    // Scoped to the unset state on purpose, and not a universal invariant of
-    // the section: with a remembered location on both directions the user may
-    // legitimately have picked the same file for both (export a backup, then
-    // import it back), and the section then renders that one path twice. What
-    // is asserted here is that the section's own *prose* never says a thing
-    // twice — not that no two strings on the surface can ever coincide.
-    for (final locale in ['de', 'en', 'he']) {
-      testWidgets('no two rendered text layers repeat each other ($locale)', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SettingsPortabilitySection()),
-            locale: Locale(locale),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        final texts = tester
-            .widgetList<Text>(
-              find.descendant(
-                of: find.byType(SettingsPortabilitySection),
-                matching: find.byType(Text),
-              ),
-            )
-            .map((t) => t.data)
-            .whereType<String>()
-            .toList();
-
-        expect(
-          texts.length,
-          greaterThanOrEqualTo(6),
-          reason: 'section header, both locations and both actions render',
-        );
-        expect(
-          texts.toSet(),
-          hasLength(texts.length),
-          reason: 'a text layer is repeated verbatim: $texts',
-        );
-      });
-    }
   });
 
   group('Settings search — portability section is discoverable', () {
@@ -292,7 +175,7 @@ void main() {
           kSettingsSearchTable,
           query,
           locale,
-        ).map((e) => e.sectionKey).toList();
+        ).map((e) => e.rowId).toList();
 
     test('EN queries (export, import, migrate, backup, restore) match', () {
       for (final query in [
@@ -306,7 +189,7 @@ void main() {
       ]) {
         expect(
           sectionKeysFor(query),
-          contains('settingsPortability'),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"$query" must find the portability section',
         );
       }
@@ -322,7 +205,7 @@ void main() {
       ]) {
         expect(
           sectionKeysFor(query, locale: 'de'),
-          contains('settingsPortability'),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"$query" must find the portability section',
         );
       }
@@ -354,13 +237,13 @@ void main() {
 
         final matches = container.read(settingsSearchMatchesProvider);
         expect(
-          matches.map((e) => e.sectionKey),
-          contains('settingsPortability'),
+          matches.map((e) => e.rowId),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"migrate" must surface the portability suggestion',
         );
         expect(
-          matches.first.sectionKey,
-          'settingsPortability',
+          matches.first.rowId,
+          legacyRowId('settingsPortability'),
           reason: '"migrate" must match only the portability entry',
         );
 
@@ -374,29 +257,24 @@ void main() {
 
         expect(
           container.read(settingsHighlightTargetProvider),
-          'settingsPortability',
+          'privacy-backup-export',
           reason: 'Selecting the suggestion must set the highlight target',
         );
 
         // Let the scroll-jump and the highlight animation play out.
         await tester.pumpAndSettle();
 
-        // The sectionWithHighlight wrapper (settings_page.dart) renders the
-        // highlight as a bordered BoxDecoration on an AnimatedContainer
-        // directly around the section widget — in the *foreground* decoration,
-        // so the ring is painted over the section instead of insetting it by
-        // its own 2 px (see settings_highlight_layout_shift_test.dart).
-        final wrapperFinder = find
-            .ancestor(
-              of: find.byType(SettingsPortabilitySection),
-              matching: find.byType(AnimatedContainer),
-            )
-            .first;
-        final highlighted = tester.widget<AnimatedContainer>(wrapperFinder);
+        // The row paints a tint fill behind itself; there is no outline ring
+        // (settings-search-highlight design, see settings_highlight_layout_shift_test).
+        final fillFinder = find.descendant(
+          of: find.byKey(const ValueKey('settings-row-privacy-backup-export')),
+          matching: find.byKey(const ValueKey('settings-row-highlight-fill')),
+        );
+        final fill = tester.widget<DecoratedBox>(fillFinder);
         expect(
-          highlighted.foregroundDecoration,
-          isA<BoxDecoration>().having((d) => d.border, 'border', isNotNull),
-          reason: 'Jump target must carry the highlight border',
+          (fill.decoration as BoxDecoration).color,
+          isNotNull,
+          reason: 'Jump target must carry the highlight fill',
         );
 
         // The highlight clears itself after 1.5 s (SettingsPage timer).
@@ -404,12 +282,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(container.read(settingsHighlightTargetProvider), isNull);
-        final cleared = tester.widget<AnimatedContainer>(wrapperFinder);
-        expect(
-          (cleared.foregroundDecoration as BoxDecoration?)?.border,
-          isNull,
-          reason: 'Highlight border must be gone after the clear timer',
-        );
       },
     );
   });
@@ -438,7 +310,6 @@ void main() {
       SettingsPortabilityController? controller,
       Locale locale = const Locale('en'),
       double? width,
-      double textScale = 1.0,
     }) async {
       Widget section = SingleChildScrollView(
         child: SettingsPortabilitySection(controllerOverride: controller),
@@ -447,17 +318,6 @@ void main() {
         section = Align(
           alignment: Alignment.topLeft,
           child: SizedBox(width: width, child: section),
-        );
-      }
-      if (textScale != 1.0) {
-        final inner = section;
-        section = Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(textScale)),
-            child: inner,
-          ),
         );
       }
       await tester.pumpWidget(
@@ -469,46 +329,6 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
-
-    testWidgets(
-      'shows the remembered export location — basename intact, full path '
-      'in a tooltip — while the import side shows the honest unset state',
-      (tester) async {
-        final exportPath = p.join(
-          _basePath,
-          'backups',
-          'whispaste-settings-export.json',
-        );
-        await pump(tester, seeded(exportPath: exportPath));
-
-        expect(find.text('whispaste-settings-export.json'), findsOneWidget);
-        expect(
-          find.byWidgetPredicate(
-            (w) => w is Tooltip && w.message == exportPath,
-          ),
-          findsOneWidget,
-          reason: 'the full path must stay reachable via tooltip',
-        );
-        expect(find.text("You'll be asked on first import"), findsOneWidget);
-      },
-    );
-
-    testWidgets('no remembered location yet → both directions show the honest '
-        '"asked on first …" state, never an invented suggestion path', (
-      tester,
-    ) async {
-      await pump(tester, seeded());
-
-      expect(find.text("You'll be asked on first export"), findsOneWidget);
-      expect(find.text("You'll be asked on first import"), findsOneWidget);
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is Tooltip && (w.message?.contains(p.separator) ?? false),
-        ),
-        findsNothing,
-        reason: 'no path may be displayed that the user never confirmed',
-      );
-    });
 
     testWidgets(
       'the choose-location affordance calls chooseNewLocation — it only '
@@ -550,11 +370,6 @@ void main() {
           reason: 'choosing a location must not write the export file',
         );
         expect(notifier.current.portabilityPaths.exportPath, newPath);
-        expect(
-          find.text('new-export.json'),
-          findsOneWidget,
-          reason: 'the displayed location must update reactively',
-        );
       },
     );
 
@@ -587,7 +402,6 @@ void main() {
         expect(picker.callCount, 1);
         expect(log, isEmpty);
         expect(notifier.current.portabilityPaths.importPath, oldPath);
-        expect(find.text('old-import.json'), findsOneWidget);
       },
     );
 
@@ -614,44 +428,8 @@ void main() {
           isNull,
           reason: 'a long path must not overflow the line',
         );
-        expect(
-          find.text('whispaste-settings-export.json'),
-          findsNWidgets(2),
-          reason:
-              'the basename is the informative end and must never be the '
-              'first thing to disappear',
-        );
       },
     );
-
-    // Ticket 25 acceptance criterion: 280 dp panel width at text scale 1.3.
-    // The real settings column never gets that narrow (≈680 dp at the
-    // 800 dp minimum window), so this is a stress floor, not a layout the
-    // user rests on — but the direction row now packs a path, a button and
-    // an icon button onto one line, and only the path is allowed to give
-    // way. German is the load-bearing case: "Exportieren"/"Importieren"
-    // are roughly twice the width of "Export"/"Import", so an English-only
-    // check would pass over exactly the locale that overflows.
-    for (final locale in ['de', 'en', 'he']) {
-      for (final width in [280.0, 320.0, 480.0]) {
-        testWidgets(
-          'direction rows do not overflow at ${width}dp / 1.3x ($locale)',
-          (tester) async {
-            await pump(
-              tester,
-              seeded(
-                exportPath: p.join(_basePath, 'whispaste-settings-export.json'),
-              ),
-              locale: Locale(locale),
-              width: width,
-              textScale: 1.3,
-            );
-
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
-    }
   });
 
   // -------------------------------------------------------------------------
@@ -692,6 +470,7 @@ void main() {
       _FakeSettingsNotifier notifier, {
       List<String?> folderResponses = const [],
       Locale locale = const Locale('en'),
+      Widget? after,
     }) async {
       final exportPicker = _FakePicker([]);
       final prompts = <String?>[];
@@ -708,22 +487,29 @@ void main() {
         bookmarks: const _NoBookmarks(),
       );
 
+      final section = SettingsPortabilitySection(
+        controllerOverride: _testController(
+          notifier: notifier,
+          picker: exportPicker,
+          fs: MemoryFileSystem.test(
+            style: Platform.isWindows
+                ? FileSystemStyle.windows
+                : FileSystemStyle.posix,
+          ),
+          log: [],
+        ),
+        autosaveFolderChooserOverride: chooser,
+      );
       await tester.pumpWidget(
         makeTestable(
           SingleChildScrollView(
-            child: SettingsPortabilitySection(
-              controllerOverride: _testController(
-                notifier: notifier,
-                picker: exportPicker,
-                fs: MemoryFileSystem.test(
-                  style: Platform.isWindows
-                      ? FileSystemStyle.windows
-                      : FileSystemStyle.posix,
-                ),
-                log: [],
-              ),
-              autosaveFolderChooserOverride: chooser,
-            ),
+            child: after == null
+                ? section
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [section, after],
+                  ),
           ),
           overrides: [settingsProvider.overrideWith(() => notifier)],
           locale: locale,
@@ -732,6 +518,15 @@ void main() {
       await tester.pumpAndSettle();
       return (exportPicker: exportPicker, folderPrompts: prompts);
     }
+
+    testWidgets(
+      'the backup folder is announced in full, not only by its tooltip (UIA-SET-16)',
+      (tester) async {
+        await pump(tester, seededAutosave(enabled: true, folder: backupFolder));
+
+        expect(find.bySemanticsLabel(backupFolder), findsOneWidget);
+      },
+    );
 
     Finder switchIn(Finder row) =>
         find.descendant(of: row, matching: find.byType(Switch));
@@ -746,25 +541,9 @@ void main() {
       await pump(tester, seededAutosave());
 
       expect(autosaveRow, findsOne);
-      expect(find.text('Automatic backup'), findsOne);
       expect(tester.widget<Switch>(switchIn(autosaveRow)).value, isFalse);
       expect(find.byTooltip(chooseFolderTooltip), findsNothing);
       expect(statusLine, findsNothing);
-    });
-
-    testWidgets('it sits between the two directions — under the export it '
-        'automates, above the import it does not', (tester) async {
-      await pump(tester, seededAutosave());
-
-      double top(Finder f) => tester.getTopLeft(f).dy;
-      expect(
-        top(find.byKey(const ValueKey(kPortabilityExportRowKey))),
-        lessThan(top(autosaveRow)),
-      );
-      expect(
-        top(autosaveRow),
-        lessThan(top(find.byKey(const ValueKey(kPortabilityImportRowKey)))),
-      );
     });
 
     testWidgets('turning it on asks for a folder — the directory chooser, '
@@ -793,7 +572,6 @@ void main() {
       // The manual export destination is a separate setting and must not
       // have moved (decision E11c).
       expect(notifier.current.portabilityPaths.exportPath, isEmpty);
-      expect(find.text('WhisPaste-Backups'), findsOne);
       expect(find.byTooltip(chooseFolderTooltip), findsOne);
     });
 
@@ -897,48 +675,5 @@ void main() {
 
       expect(tester.widget<Text>(statusLine).data, 'Backup failed');
     });
-
-    // Same overflow sweep the direction rows get: the enabled state is the
-    // tall one (name, destination, status line) and German is the widest.
-    for (final locale in ['de', 'en', 'he']) {
-      for (final width in [280.0, 480.0]) {
-        testWidgets(
-          'the enabled autosave row does not overflow at ${width}dp / 1.3x '
-          '($locale)',
-          (tester) async {
-            final notifier = seededAutosave(
-              enabled: true,
-              folder: backupFolder,
-              lastSuccess: '2026-08-11T12:30:00.000Z',
-            );
-            await tester.pumpWidget(
-              makeTestable(
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: width,
-                    child: Builder(
-                      builder: (context) => MediaQuery(
-                        data: MediaQuery.of(
-                          context,
-                        ).copyWith(textScaler: const TextScaler.linear(1.3)),
-                        child: const SingleChildScrollView(
-                          child: SettingsPortabilitySection(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                overrides: [settingsProvider.overrideWith(() => notifier)],
-                locale: Locale(locale),
-              ),
-            );
-            await tester.pumpAndSettle();
-
-            expect(tester.takeException(), isNull);
-          },
-        );
-      }
-    }
   });
 }

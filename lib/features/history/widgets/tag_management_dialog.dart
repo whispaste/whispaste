@@ -9,23 +9,41 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_banner.dart';
+import 'history_write_failure.dart';
 
 /// Shows the tag management dialog.
 ///
-/// Returns `true` if any tags were modified (so callers can refresh).
+/// Returns `true` if any tags were modified (so callers can refresh). Esc and
+/// Close both leave; the modification flag is kept by the content, not by the
+/// footer, so both return the same answer.
 Future<bool> showTagManagementDialog({
   required BuildContext context,
   required HistoryDatabase db,
 }) async {
-  final result = await showWpFormDialog<bool>(
+  final l10n = L10n.of(context);
+  var modified = false;
+  await showWpDialog<void>(
     context: context,
-    builder: (ctx, animation) =>
-        _TagManagementContent(animation: animation, db: db),
+    title: l10n.tagManageTitle,
+    content: _TagManagementContent(
+      db: db,
+      onModified: () {
+        modified = true;
+      },
+    ),
+    actions: [
+      WpDialogAction(
+        label: l10n.actionClose,
+        testId: 'tag-management-close',
+        role: WpDialogActionRole.primary,
+      ),
+    ],
   );
-  return result ?? false;
+  return modified;
 }
 
 // ---------------------------------------------------------------------------
@@ -33,10 +51,12 @@ Future<bool> showTagManagementDialog({
 // ---------------------------------------------------------------------------
 
 class _TagManagementContent extends StatefulWidget {
-  const _TagManagementContent({required this.animation, required this.db});
+  const _TagManagementContent({required this.db, required this.onModified});
 
-  final Animation<double> animation;
   final HistoryDatabase db;
+
+  /// Called after every delete, so the caller knows to refresh.
+  final VoidCallback onModified;
 
   @override
   State<_TagManagementContent> createState() => _TagManagementContentState();
@@ -45,7 +65,8 @@ class _TagManagementContent extends StatefulWidget {
 class _TagManagementContentState extends State<_TagManagementContent> {
   List<(Tag, int)> _tags = [];
   bool _loading = true;
-  bool _didModify = false;
+  bool _deleteFailed = false;
+  final _failedKey = GlobalKey();
 
   @override
   void initState() {
@@ -69,22 +90,14 @@ class _TagManagementContentState extends State<_TagManagementContent> {
         context: context,
         title: L10n.of(context).tagDeleteConfirmTitle,
         message: L10n.of(context).tagDeleteConfirmMessage(tag.name, count),
+        confirmLabel: L10n.of(context).actionDelete,
+        cancelLabel: L10n.of(context).actionCancel,
         destructive: true,
       );
       if (!confirmed) return;
     }
 
-    await widget.db.deleteTag(tag.id);
-    _didModify = true;
-    await _load();
-
-    if (mounted) {
-      WpToast.show(
-        context,
-        message: L10n.of(context).tagDeleted(tag.name),
-        type: WpToastType.info,
-      );
-    }
+    await _delete(() => widget.db.deleteTag(tag.id));
   }
 
   Future<void> _deleteUnused() async {
@@ -95,162 +108,116 @@ class _TagManagementContentState extends State<_TagManagementContent> {
       context: context,
       title: L10n.of(context).tagDeleteUnusedTitle,
       message: L10n.of(context).tagDeleteUnusedMessage(unusedCount),
+      confirmLabel: L10n.of(context).actionDelete,
+      cancelLabel: L10n.of(context).actionCancel,
       destructive: true,
     );
     if (!confirmed) return;
 
-    final deleted = await widget.db.deleteUnusedTags();
-    _didModify = true;
-    await _load();
+    await _delete(widget.db.deleteUnusedTags);
+  }
 
-    if (mounted) {
-      WpToast.show(
-        context,
-        message: L10n.of(context).tagDeletedUnused(deleted),
-        type: WpToastType.success,
-      );
+  /// A failed delete stays in this dialog; the page behind it is out of reach.
+  Future<void> _delete(Future<Object?> Function() delete) async {
+    try {
+      await delete();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _deleteFailed = true);
+      // The list may be scrolled away from the banner at its head.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final target = _failedKey.currentContext;
+        if (target != null && target.mounted) {
+          Scrollable.ensureVisible(
+            target,
+            duration: WpMotion.durationFor(target, WpMotion.hoverOut),
+          );
+        }
+      });
+      return;
     }
+    if (!mounted) return;
+    setState(() => _deleteFailed = false);
+    widget.onModified();
+    await _load();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const borderColor = WpColors.borderSubtle;
-
+    final textMuted = WpColors.textMuted;
     final unusedCount = _tags.where((t) => t.$2 == 0).length;
 
-    return ScaleTransition(
-      scale: CurvedAnimation(
-        parent: widget.animation,
-        curve: Curves.easeOutCubic,
-      ),
-      child: FadeTransition(
-        opacity: widget.animation,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
-            child: Material(
-              // Same surface `WpDialog` paints: the pre-composited card
-              // material, because a dialog sits on its own barrier rather
-              // than on the ambient the frost tints need.
-              color: WpColors.floatingSurface,
-              borderRadius: BorderRadius.circular(WpRadius.lg),
-              elevation: 8,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.lg,
-                      WpSpacing.lg,
-                      WpSpacing.sm,
-                      WpSpacing.xs,
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.tags,
-                          size: WpIconSize.md,
-                          color: accent,
-                        ),
-                        const SizedBox(width: WpSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            l10n.tagManageTitle,
-                            style: const TextStyle(
-                              fontSize: WpTypography.heading,
-                              fontWeight: FontWeight.w600,
-                              color: textPrimary,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            LucideIcons.x,
-                            size: WpIconSize.sm,
-                            color: textMuted,
-                          ),
-                          onPressed: () =>
-                              Navigator.of(context).pop(_didModify),
-                          tooltip: MaterialLocalizations.of(
-                            context,
-                          ).closeButtonTooltip,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Divider
-                  const Divider(height: 1, color: borderColor),
-
-                  // Content
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.all(WpSpacing.xl),
-                      child: Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  else if (_tags.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(WpSpacing.xl),
-                      child: Center(
-                        child: Text(
-                          l10n.tagManageEmpty,
-                          style: const TextStyle(
-                            color: textMuted,
-                            fontSize: WpTypography.subheading,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: WpSpacing.xs,
-                        ),
-                        itemCount: _tags.length,
-                        itemBuilder: (context, index) {
-                          final (tag, count) = _tags[index];
-                          return _TagRow(
-                            tag: tag,
-                            count: count,
-                            onDelete: () => _deleteTag(tag, count),
-                          );
-                        },
-                      ),
-                    ),
-
-                  // Footer with "Delete unused" action
-                  if (!_loading && unusedCount > 0) ...[
-                    const Divider(height: 1, color: borderColor),
-                    Padding(
-                      padding: const EdgeInsets.all(WpSpacing.sm),
-                      child: WpButton(
-                        label: l10n.tagDeleteUnusedAction(unusedCount),
-                        variant: WpButtonVariant.ghost,
-                        tone: WpButtonTone.danger,
-                        icon: LucideIcons.trash2,
-                        onPressed: _deleteUnused,
-                      ),
-                    ),
-                  ],
-                ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_deleteFailed)
+          Padding(
+            key: _failedKey,
+            padding: const EdgeInsets.only(bottom: WpSpacing.sm),
+            child: Semantics(
+              identifier: 'tag-delete-failed',
+              liveRegion: true,
+              child: WpBanner(
+                key: const ValueKey('tag-delete-failed'),
+                tone: WpBannerTone.error,
+                message: l10n.historyWriteFailed,
+                action: const HistoryDiagnosticsButton(
+                  testId: 'tag-delete-diagnostics',
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.all(WpSpacing.xl),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (_tags.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(WpSpacing.xl),
+            child: Center(
+              child: Text(
+                l10n.tagManageEmpty,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: textMuted,
+                  fontSize: WpTypography.subheading,
+                ),
+              ),
+            ),
+          ),
+        for (final (tag, count) in _tags)
+          _TagRow(
+            tag: tag,
+            count: count,
+            onDelete: () => _deleteTag(tag, count),
+          ),
+
+        // Bulk action at the foot of the list. It is list content, not a
+        // dialog answer, so it stays out of the footer.
+        if (!_loading && unusedCount > 0) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WpButton(
+              testId: 'tag-delete-unused',
+              label: l10n.tagDeleteUnusedAction(unusedCount),
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.danger,
+              icon: LucideIcons.trash2,
+              onPressed: _deleteUnused,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -303,9 +270,9 @@ class _TagRowState extends State<_TagRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -319,12 +286,12 @@ class _TagRowState extends State<_TagRow> {
         ),
         child: Row(
           children: [
-            const Icon(LucideIcons.hash, size: 14, color: accent),
+            Icon(LucideIcons.hash, size: WpIconSize.xs, color: accent),
             const SizedBox(width: WpSpacing.xs),
             Expanded(
               child: Text(
                 widget.tag.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.subheading,
                   color: textPrimary,
                 ),
@@ -334,29 +301,19 @@ class _TagRowState extends State<_TagRow> {
             const SizedBox(width: WpSpacing.sm),
             Text(
               l10n.tagUsageCount(widget.count),
-              style: const TextStyle(
-                fontSize: WpTypography.small,
-                color: textMuted,
-              ),
+              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
             ),
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(
               opacity: (_hovered || _deleteFocus.hasFocus) ? 1.0 : 0.0,
               duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-              child: IconButton(
+              child: WpIconButton.ghost(
                 focusNode: _deleteFocus,
-                icon: const Icon(
-                  LucideIcons.trash2,
-                  size: 14,
-                  color: WpColors.error,
-                ),
-                onPressed: widget.onDelete,
+                testId: 'tag-management-delete-${widget.tag.id}',
+                icon: LucideIcons.trash2,
+                color: WpColors.error,
                 tooltip: l10n.actionDelete,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: WpLayout.minTouchTarget,
-                  minHeight: WpLayout.minTouchTarget,
-                ),
+                onPressed: widget.onDelete,
               ),
             ),
           ],

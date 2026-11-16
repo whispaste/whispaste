@@ -170,97 +170,93 @@ void main() {
   // installUpdate — macOS swap routing (Slice 01/02). Skipped off macOS, where
   // installUpdate takes the Windows/else branch instead.
   // ---------------------------------------------------------------------------
-  group(
-    'installUpdate macOS routing',
-    () {
-      late Directory tmp;
-      late File dmg;
+  group('installUpdate macOS routing', () {
+    late Directory tmp;
+    late File dmg;
 
-      setUp(() {
-        tmp = Directory.systemTemp.createTempSync('wp-update-test');
-        dmg = File('${tmp.path}/WhisPaste.dmg')..writeAsStringSync('x');
-      });
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('wp-update-test');
+      dmg = File('${tmp.path}/WhisPaste.dmg')..writeAsStringSync('x');
+    });
 
-      tearDown(() {
-        UpdateNotifier.macInstallerOverrideForTesting = null;
-        UpdateNotifier.macBundlePathOverrideForTesting = null;
-        UpdateNotifier.macOpenDmgOverrideForTesting = null;
-        UpdateNotifier.exitOverrideForTesting = null;
-        if (tmp.existsSync()) tmp.deleteSync(recursive: true);
-      });
+    tearDown(() {
+      UpdateNotifier.macInstallerOverrideForTesting = null;
+      UpdateNotifier.macBundlePathOverrideForTesting = null;
+      UpdateNotifier.macOpenDmgOverrideForTesting = null;
+      UpdateNotifier.exitOverrideForTesting = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
 
-      ({ProviderContainer container, UpdateNotifier notifier}) makeReady() {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-        final notifier = container.read(updateProvider.notifier);
-        notifier.debugSetStateForTesting(
-          UpdateState(
-            phase: UpdatePhase.readyToInstall,
-            downloadedPath: dmg.path,
-          ),
-        );
-        return (container: container, notifier: notifier);
-      }
-
-      test('resolved bundle → swap with (dmg, target) then exit(0)', () async {
-        final installer = _RecordingMacInstaller();
-        var exitCode = -1;
-        UpdateNotifier.macInstallerOverrideForTesting = installer;
-        UpdateNotifier.macBundlePathOverrideForTesting = () =>
-            '/Applications/WhisPaste.app';
-        UpdateNotifier.exitOverrideForTesting = (c) => exitCode = c;
-
-        await makeReady().notifier.installUpdate();
-
-        expect(installer.calls, 1);
-        expect(installer.dmgPath, dmg.path);
-        expect(installer.targetBundlePath, '/Applications/WhisPaste.app');
-        expect(exitCode, 0);
-      });
-
-      test(
-        'no resolvable bundle → manual DMG fallback, no swap, no exit',
-        () async {
-          final installer = _RecordingMacInstaller();
-          String? opened;
-          var exitCalls = 0;
-          UpdateNotifier.macInstallerOverrideForTesting = installer;
-          UpdateNotifier.macBundlePathOverrideForTesting = () => null;
-          UpdateNotifier.macOpenDmgOverrideForTesting = (path) async {
-            opened = path;
-          };
-          UpdateNotifier.exitOverrideForTesting = (_) => exitCalls++;
-
-          final r = makeReady();
-          await r.notifier.installUpdate();
-
-          expect(installer.calls, 0);
-          expect(opened, dmg.path);
-          expect(exitCalls, 0);
-          expect(r.container.read(updateProvider).phase, UpdatePhase.idle);
-        },
+    ({ProviderContainer container, UpdateNotifier notifier}) makeReady() {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(updateProvider.notifier);
+      notifier.debugSetStateForTesting(
+        UpdateState(
+          phase: UpdatePhase.readyToInstall,
+          downloadedPath: dmg.path,
+        ),
       );
+      return (container: container, notifier: notifier);
+    }
 
-      test('swap throws → error phase with message, no exit', () async {
-        final installer = _RecordingMacInstaller()
-          ..throwOnSwap = StateError('boom');
+    test('resolved bundle → swap with (dmg, target) then exit(0)', () async {
+      final installer = _RecordingMacInstaller();
+      var exitCode = -1;
+      UpdateNotifier.macInstallerOverrideForTesting = installer;
+      UpdateNotifier.macBundlePathOverrideForTesting = () =>
+          '/Applications/WhisPaste.app';
+      UpdateNotifier.exitOverrideForTesting = (c) => exitCode = c;
+
+      await makeReady().notifier.installUpdate();
+
+      expect(installer.calls, 1);
+      expect(installer.dmgPath, dmg.path);
+      expect(installer.targetBundlePath, '/Applications/WhisPaste.app');
+      expect(exitCode, 0);
+    });
+
+    test(
+      'no resolvable bundle → manual DMG fallback, no swap, no exit',
+      () async {
+        final installer = _RecordingMacInstaller();
+        String? opened;
         var exitCalls = 0;
         UpdateNotifier.macInstallerOverrideForTesting = installer;
-        UpdateNotifier.macBundlePathOverrideForTesting = () =>
-            '/Applications/WhisPaste.app';
+        UpdateNotifier.macBundlePathOverrideForTesting = () => null;
+        UpdateNotifier.macOpenDmgOverrideForTesting = (path) async {
+          opened = path;
+        };
         UpdateNotifier.exitOverrideForTesting = (_) => exitCalls++;
 
         final r = makeReady();
         await r.notifier.installUpdate();
 
+        expect(installer.calls, 0);
+        expect(opened, dmg.path);
         expect(exitCalls, 0);
-        final state = r.container.read(updateProvider);
-        expect(state.phase, UpdatePhase.error);
-        expect(state.errorMessage, isNotNull);
-      });
-    },
-    skip: !Platform.isMacOS ? 'macOS-only install branch' : false,
-  );
+        expect(r.container.read(updateProvider).phase, UpdatePhase.idle);
+      },
+    );
+
+    test('swap throws → error phase with message, no exit', () async {
+      final installer = _RecordingMacInstaller()
+        ..throwOnSwap = StateError('boom');
+      var exitCalls = 0;
+      UpdateNotifier.macInstallerOverrideForTesting = installer;
+      UpdateNotifier.macBundlePathOverrideForTesting = () =>
+          '/Applications/WhisPaste.app';
+      UpdateNotifier.exitOverrideForTesting = (_) => exitCalls++;
+
+      final r = makeReady();
+      await r.notifier.installUpdate();
+
+      expect(exitCalls, 0);
+      final state = r.container.read(updateProvider);
+      expect(state.phase, UpdatePhase.error);
+      expect(state.errorMessage, isNotNull);
+    });
+  }, skip: !Platform.isMacOS ? 'macOS-only install branch' : false);
 
   // ---------------------------------------------------------------------------
   // installUpdate — missing DMG guard fires on every platform (checked before

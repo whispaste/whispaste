@@ -1,8 +1,8 @@
-/// Single display arbiter for the post-recording nudges (review, support).
+/// Single display arbiter for the review and support nudges.
 ///
 /// The nudges never open concurrently, and at most one of them opens per app
-/// session. A prompt claims the arbiter at the moment its dialog is actually
-/// about to open, not when its state flag flips, so a prompt whose claim is
+/// session. A prompt claims the arbiter at the moment its card or dialog is actually
+/// about to appear, not when its state flag flips, so a prompt whose claim is
 /// refused stays silent and is re-evaluated after the next recording.
 ///
 /// A hotkey press closes the open prompt through [closeOpenPrompt]. The close
@@ -12,7 +12,7 @@ library;
 import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The nudge dialogs that compete for the same display window.
+/// The nudges that compete for the same display window.
 enum PromptOwner { review, support }
 
 final class PromptDisplayArbiter {

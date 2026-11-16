@@ -12,7 +12,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/widgets/wp_app_icon.dart';
+import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
@@ -34,9 +35,14 @@ Widget _pumpApp(HistoryDatabase db, HistoryEntry entry) {
       gpuInfoProvider.overrideWith(
         (ref) async => const GpuInfo(vendor: GpuVendor.none, name: 'Test'),
       ),
-      historyEntriesProvider.overrideWith((ref) => Stream.value([entry])),
+      pagedHistoryProvider.overrideWith((ref) => Stream.value([entry])),
+      contentMetadataPreviewProvider.overrideWith((ref, text) async => null),
       archivedEntriesProvider.overrideWith((ref) => Stream.value(const [])),
       trashEntriesProvider.overrideWith((ref) => Stream.value(const [])),
+      // The real index fills in on a background worker; the chip needs a value.
+      contentMetadataProvider.overrideWith(
+        (ref, key) => Stream.value(parseContentMetadata(entry.content)),
+      ),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -52,24 +58,16 @@ Widget _pumpApp(HistoryDatabase db, HistoryEntry entry) {
   );
 }
 
-/// Same waiver as `history_detail_raw_edited_toggle_test.dart` — these tests
-/// assert visibility/content, not layout.
-void _ignoreOverflowErrors() {
-  final originalHandler = FlutterError.onError;
-  FlutterError.onError = (FlutterErrorDetails details) {
-    if (details.toString().contains('overflowed')) return;
-    originalHandler?.call(details);
-  };
-  addTearDown(() => FlutterError.onError = originalHandler);
-}
-
 Future<void> _openDetail(
   WidgetTester tester,
   HistoryDatabase db,
   HistoryEntry entry,
   String title,
 ) async {
-  _ignoreOverflowErrors();
+  tester.view.physicalSize = const Size(1800, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(_pumpApp(db, entry));
   await tester.pumpAndSettle();
 
@@ -226,7 +224,7 @@ void main() {
 
     await _openDetail(tester, db, entry, 'No target entry');
 
-    expect(find.byIcon(LucideIcons.appWindow), findsNothing);
+    expect(find.byType(WpAppIcon), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();

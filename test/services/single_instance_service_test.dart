@@ -3,16 +3,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste/core/data/instance_write_gate.dart';
 import 'package:whispaste/services/single_instance_service.dart';
 
-/// Resolves a `dart` executable usable to spawn `test/fixtures/single_instance_probe.dart`.
-///
-/// Under `flutter test`, [Platform.resolvedExecutable] points at the
-/// `flutter_tester` binary, not `dart` — so fall back to the SDK bundled
-/// alongside the Flutter checkout via `FLUTTER_ROOT`. Returns `null` (rather
-/// than throwing) if neither resolves, so the one test that needs a real
-/// second OS process can skip cleanly instead of failing the whole suite
-/// over test-runner plumbing unrelated to the code under test.
+import '../test_helpers/dart_sdk.dart';
+
 /// On Windows `dart run` starts the probe as a child of the dartdev process
 /// it returns, so killing the handle can leave the probe holding the lock
 /// file until its own hold time runs out (errno 32 on deletion, CI run on
@@ -27,26 +22,6 @@ Future<void> _deleteWhenUnlocked(Directory dir) async {
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
-}
-
-String? _resolveDartExecutable() {
-  final resolved = Platform.resolvedExecutable;
-  if (p.basenameWithoutExtension(resolved).toLowerCase() == 'dart') {
-    return resolved;
-  }
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
-  if (flutterRoot != null) {
-    final candidate = p.join(
-      flutterRoot,
-      'bin',
-      'cache',
-      'dart-sdk',
-      'bin',
-      Platform.isWindows ? 'dart.exe' : 'dart',
-    );
-    if (File(candidate).existsSync()) return candidate;
-  }
-  return null;
 }
 
 final _probePath = p.join(
@@ -70,8 +45,16 @@ void main() {
     SingleInstanceService.onSecondInstanceLaunched = null;
     SingleInstanceService.onRemoteCommand = null;
     SingleInstanceService.lockDirOverride = null;
+    SingleInstanceService.fallbackLockDirOverride = null;
+    SingleInstanceService.debugResetClaim();
     await _deleteWhenUnlocked(tmp);
   });
+
+  /// A lock folder that can never be created: its parent is a plain file.
+  String unavailableDir(String name) {
+    final blocker = File(p.join(tmp.path, '$name-blocker'))..createSync();
+    return p.join(blocker.path, 'single_instance');
+  }
 
   test('acquires the lock and creates instance.lock', () async {
     final primary = await SingleInstanceService.ensureSingleInstance();
@@ -118,18 +101,21 @@ void main() {
     await SingleInstanceService.release();
   });
 
-  test('fails open when the lock directory cannot be created', () async {
+  test('an uncreatable lock directory starts unverified, not as a second '
+      'instance, and keeps the history closed', () async {
     // Point the override at a path that is itself a regular file, so
     // Directory(...).create() fails on every platform — must not be
     // mistaken for "another instance is running".
-    final blocker = File(p.join(tmp.path, 'blocker'))..createSync();
-    SingleInstanceService.lockDirOverride = p.join(
-      blocker.path,
-      'single_instance',
-    );
+    SingleInstanceService.lockDirOverride = unavailableDir('primary');
 
     final result = await SingleInstanceService.ensureSingleInstance();
     expect(result, isTrue);
+    expect(SingleInstanceService.claim, InstanceClaim.unverified);
+    expect(InstanceWriteGate.closed, isTrue);
+    expect(
+      InstanceWriteGate.ensureOpen,
+      throwsA(isA<InstanceCheckUnavailableException>()),
+    );
   });
 
   test('fails open when the lock file itself cannot be opened', () async {
@@ -142,6 +128,132 @@ void main() {
 
     final result = await SingleInstanceService.ensureSingleInstance();
     expect(result, isTrue);
+    expect(SingleInstanceService.claim, InstanceClaim.unverified);
+  });
+
+  group('second lock in the temporary folder (#1647)', () {
+    test('InstanceClaim.from: held anywhere wins, then acquired', () {
+      const a = LockSiteResult.acquired;
+      const h = LockSiteResult.held;
+      const u = LockSiteResult.unavailable;
+      expect(InstanceClaim.from([a, a]), InstanceClaim.primary);
+      expect(InstanceClaim.from([u, a]), InstanceClaim.primary);
+      expect(InstanceClaim.from([a, u]), InstanceClaim.primary);
+      expect(InstanceClaim.from([a, h]), InstanceClaim.secondary);
+      expect(InstanceClaim.from([u, h]), InstanceClaim.secondary);
+      expect(InstanceClaim.from([h, u]), InstanceClaim.secondary);
+      expect(InstanceClaim.from([u, u]), InstanceClaim.unverified);
+    });
+
+    test('tests without a second override use no second lock', () {
+      expect(SingleInstanceService.fallbackLockDir(), isNull);
+    });
+
+    test('a primary holds both locks', () async {
+      final fallback = p.join(tmp.path, 'fallback');
+      SingleInstanceService.fallbackLockDirOverride = fallback;
+
+      expect(await SingleInstanceService.ensureSingleInstance(), isTrue);
+      expect(SingleInstanceService.claim, InstanceClaim.primary);
+      expect(File(p.join(tmp.path, 'instance.lock')).existsSync(), isTrue);
+      expect(File(p.join(fallback, 'instance.lock')).existsSync(), isTrue);
+      expect(InstanceWriteGate.closed, isFalse);
+    });
+
+    test('an unwritable app-data folder still starts normally through the '
+        'second lock', () async {
+      SingleInstanceService.lockDirOverride = unavailableDir('primary');
+      final fallback = p.join(tmp.path, 'fallback');
+      SingleInstanceService.fallbackLockDirOverride = fallback;
+
+      expect(await SingleInstanceService.ensureSingleInstance(), isTrue);
+      expect(SingleInstanceService.claim, InstanceClaim.primary);
+      expect(InstanceWriteGate.closed, isFalse);
+      expect(File(p.join(fallback, 'instance.lock')).existsSync(), isTrue);
+    });
+
+    test('both locks unavailable: unverified with the gate closed', () async {
+      SingleInstanceService.lockDirOverride = unavailableDir('primary');
+      SingleInstanceService.fallbackLockDirOverride = unavailableDir('second');
+
+      expect(await SingleInstanceService.ensureSingleInstance(), isTrue);
+      expect(SingleInstanceService.claim, InstanceClaim.unverified);
+      expect(InstanceWriteGate.closed, isTrue);
+    });
+
+    test('a toggle in an unverified start is queued once, also after the '
+        'confirmation', () async {
+      SingleInstanceService.lockDirOverride = unavailableDir('primary');
+      final commands = <InstanceCommand>[];
+
+      await SingleInstanceService.ensureSingleInstance(
+        command: InstanceCommand.toggle,
+      );
+      SingleInstanceService.lockDirOverride = p.join(tmp.path, 'healed');
+      expect(await SingleInstanceService.confirmUnverifiedStart(), isTrue);
+      SingleInstanceService.onRemoteCommand = commands.add;
+
+      expect(commands, [InstanceCommand.toggle]);
+    });
+
+    test('confirming an unverified start opens the gate, and takes the lock '
+        'when it has become available', () async {
+      SingleInstanceService.lockDirOverride = unavailableDir('primary');
+      await SingleInstanceService.ensureSingleInstance();
+      expect(InstanceWriteGate.closed, isTrue);
+
+      // Still unavailable: the user's answer alone opens the gate.
+      expect(await SingleInstanceService.confirmUnverifiedStart(), isTrue);
+      expect(InstanceWriteGate.closed, isFalse);
+      expect(SingleInstanceService.claim, InstanceClaim.unverified);
+
+      // The folder works again: the next confirmation takes the lock.
+      final healed = p.join(tmp.path, 'healed');
+      SingleInstanceService.lockDirOverride = healed;
+      expect(await SingleInstanceService.confirmUnverifiedStart(), isTrue);
+      expect(SingleInstanceService.claim, InstanceClaim.primary);
+      expect(File(p.join(healed, 'instance.lock')).existsSync(), isTrue);
+    });
+
+    test(
+      'a running instance found only through the second lock makes this '
+      'launch secondary and receives the signal there',
+      () async {
+        final dart = resolveDartExecutable();
+        final fallback = p.join(tmp.path, 'fallback');
+        final holder = await Process.start(dart, [
+          'run',
+          _probePath,
+          fallback,
+          '20000',
+        ]);
+        addTearDown(() async {
+          holder.kill();
+          await holder.exitCode;
+        });
+        final firstLine = await holder.stdout
+            .transform(const SystemEncoding().decoder)
+            .first
+            .timeout(const Duration(minutes: 1));
+        expect(firstLine, contains('PRIMARY'));
+
+        // The app-data lock is free (the running instance could not reach
+        // it), the second one is held.
+        SingleInstanceService.fallbackLockDirOverride = fallback;
+        final mayStart = await SingleInstanceService.ensureSingleInstance(
+          command: InstanceCommand.toggle,
+        );
+
+        expect(mayStart, isFalse);
+        expect(SingleInstanceService.claim, InstanceClaim.secondary);
+        final signal = await File(
+          p.join(fallback, 'focus.signal'),
+        ).readAsString();
+        expect(signal.trim(), endsWith(' toggle'));
+      },
+      tags: ['process'],
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   test(
@@ -166,8 +278,11 @@ void main() {
       await completer.future.timeout(const Duration(seconds: 5));
 
       // A second instance inside the debounce window must not double-fire.
+      // Reading the signal directly runs the watcher's handler on the new
+      // content and returns once it is handled, whichever of the two gets
+      // there first; no fixed wait for the watcher event.
       await signal.writeAsString('second', flush: true);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await SingleInstanceService.debugReadSignal(tmp.path);
 
       expect(callCount, 1);
     },
@@ -203,7 +318,10 @@ void main() {
     // events; on a loaded host they arrived further apart than the
     // debounce window and focused the window twice (runs 36727893561,
     // 36730929605). Rewriting the same content well past the window
-    // reproduces that deterministically on every platform.
+    // reproduces that deterministically on every platform. The pinned clock
+    // stands in for the time between the events.
+    var now = DateTime(2026, 9, 30, 15);
+    SingleInstanceService.clock = () => now;
     final primary = await SingleInstanceService.ensureSingleInstance();
     expect(primary, isTrue);
 
@@ -218,9 +336,11 @@ void main() {
     await signal.writeAsString('2026-09-30T15:00:00.000', flush: true);
     await completer.future.timeout(const Duration(seconds: 5));
 
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    // Well past the 400 ms debounce window.
+    now = now.add(const Duration(milliseconds: 600));
     await signal.writeAsString('2026-09-30T15:00:00.000', flush: true);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Handles the rewritten content like a late watcher event would.
+    await SingleInstanceService.debugReadSignal(tmp.path);
 
     expect(callCount, 1);
   });
@@ -273,6 +393,53 @@ void main() {
         InstanceCommand.focus,
       );
     });
+
+    test('the newsletter link asks for the newsletter status', () {
+      expect(
+        InstanceCommand.fromArgs(const ['whispaste://newsletter/confirmed']),
+        InstanceCommand.newsletterConfirmed,
+      );
+    });
+
+    test('any other app link only focuses the window', () {
+      expect(
+        InstanceCommand.fromArgs(const [
+          'whispaste://newsletter/confirmed?x=1',
+        ]),
+        InstanceCommand.focus,
+      );
+      expect(
+        InstanceCommand.fromArgs(const ['whispaste://settings']),
+        InstanceCommand.focus,
+      );
+    });
+  });
+
+  group('opened URLs (macOS)', () {
+    tearDown(() {
+      SingleInstanceService.onRemoteCommand = null;
+      SingleInstanceService.onSecondInstanceLaunched = null;
+    });
+
+    test('a link opened before the app is ready waits for the handler', () {
+      SingleInstanceService.openUrls(['whispaste://newsletter/confirmed']);
+      final received = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = received.add;
+      expect(received, [InstanceCommand.newsletterConfirmed]);
+    });
+
+    test('an unknown link only focuses, a foreign URL too', () {
+      var focusCalls = 0;
+      final received = <InstanceCommand>[];
+      SingleInstanceService.onRemoteCommand = received.add;
+      SingleInstanceService.onSecondInstanceLaunched = () => focusCalls++;
+      SingleInstanceService.openUrls([
+        'whispaste://evil/run?cmd=x',
+        'https://example.org',
+      ]);
+      expect(received, isEmpty);
+      expect(focusCalls, 2);
+    });
   });
 
   group('remote commands (--toggle / --cancel)', () {
@@ -296,8 +463,24 @@ void main() {
       ).writeAsString('2026-10-07T10:00:00.000 toggle', flush: true);
 
       expect(await received, InstanceCommand.toggle);
-      await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(focusCalls, 0);
+      // A further event for the same write (Windows reports one write as
+      // several) is handled like this direct read, and still never focuses.
+      await SingleInstanceService.debugReadSignal(tmp.path);
+      expect(focusCalls, 0);
+    });
+
+    test('a newsletter signal from a second start is routed', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
+
+      final received = nextCommand();
+      await File(p.join(tmp.path, 'focus.signal')).writeAsString(
+        '2026-10-07T10:00:00.000 newsletterConfirmed',
+        flush: true,
+      );
+
+      expect(await received, InstanceCommand.newsletterConfirmed);
     });
 
     test('a cancel signal is routed to onRemoteCommand', () async {
@@ -403,19 +586,15 @@ void main() {
       expect(delivered, isEmpty);
     });
 
-    test(
-      'SIGUSR2 toggles the primary instance (Unix only)',
-      () async {
-        final primary = await SingleInstanceService.ensureSingleInstance();
-        expect(primary, isTrue);
+    test('SIGUSR2 toggles the primary instance (Unix only)', () async {
+      final primary = await SingleInstanceService.ensureSingleInstance();
+      expect(primary, isTrue);
 
-        final received = nextCommand();
-        Process.killPid(pid, ProcessSignal.sigusr2);
+      final received = nextCommand();
+      Process.killPid(pid, ProcessSignal.sigusr2);
 
-        expect(await received, InstanceCommand.toggle);
-      },
-      skip: Platform.isWindows ? 'SIGUSR2 does not exist on Windows' : false,
-    );
+      expect(await received, InstanceCommand.toggle);
+    }, skip: Platform.isWindows ? 'SIGUSR2 does not exist on Windows' : false);
 
     test('release() drops commands nobody picked up', () async {
       await SingleInstanceService.ensureSingleInstance(
@@ -433,13 +612,7 @@ void main() {
     test(
       'a second real OS process is refused the lock and signals this one',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         final primary = await SingleInstanceService.ensureSingleInstance();
         expect(primary, isTrue);
@@ -470,13 +643,7 @@ void main() {
       'a secondary launched with --toggle forwards the command to the '
       'process holding the lock',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         // A real second OS process holds the lock as primary ...
         final holder = await Process.start(dart, [
@@ -516,13 +683,7 @@ void main() {
     test(
       'a real OS process becomes primary when no lock is held',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         final result = await Process.run(dart, ['run', _probePath, tmp.path]);
         expect(

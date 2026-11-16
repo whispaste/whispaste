@@ -6,12 +6,22 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "app_identity_host.h"
+#include "attention_host.h"
+#include "audio_file_decode_host.h"
+#include "desktop_entry_installer.h"
 #include "desktop_paste_host.h"
+#include "file_dialog_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "keyboard_monitor_host.h"
+#include "power_event_host.h"
+#include "hang_watchdog_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
+#include "system_languages_host.h"
+#include "tray_panel_host.h"
+#include "target_field_host.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -28,10 +38,15 @@ struct _MyApplication {
   // keyboard (visual-refresh-2026 ticket 30). Same lifecycle as the hosts
   // above — no 2nd engine involved, so no window to create.
   DesktopPasteHost* desktop_paste_host;
+  // Decodes imported Ogg/Opus, FLAC and MP3 files (ticket). No engine or
+  // window involved, same lifecycle as the hosts above.
+  AudioFileDecodeHost* audio_file_decode_host;
   // Owns the public Snippet-Picker MethodChannel and lazily manages the
   // picker's 2nd-engine window (visual-refresh-2026 ticket 30). Same
   // lifecycle as floating_overlay_host/floating_button_host above.
   SnippetPickerHost* snippet_picker_host;
+  // Owns the tray panel channel and its second engine (#920, ADR 0038).
+  TrayPanelHost* tray_panel_host;
   // Owns the public Side-Panel MethodChannel, the clipboard-history
   // snapshot-on-open channel, and lazily manages the panel's 2nd-engine
   // window (issue 06). Same lifecycle as the hosts above.
@@ -39,6 +54,25 @@ struct _MyApplication {
   // Owns com.whispaste.keyboard_monitor — push-to-talk key-up via XInput2 or
   // the GlobalShortcuts portal (catchup/09). Same lifecycle as above.
   KeyboardMonitorHost* keyboard_monitor_host;
+  // Owns com.whispaste.power — system sleep/resume for the recording safety
+  // net (ticket, 9.5). Same lifecycle as the hosts above.
+  PowerEventHost* power_event_host;
+  HangWatchdogHost* hang_watchdog_host;
+  // Owns com.whispaste.file_dialog — open/save/folder dialogs in the app
+  // language (XP-5-13). Same lifecycle as the hosts above.
+  FileDialogHost* file_dialog_host;
+  // Owns com.whispaste.attention — urgency hint on the main window for X11
+  // (PAR-046). Same lifecycle as the hosts above.
+  AttentionHost* attention_host;
+  // Owns com.whispaste.app_identity — name and icon of target apps for the
+  // recording rows. Same lifecycle as the hosts above.
+  AppIdentityHost* app_identity_host;
+  // Owns whispaste/system_languages: the process language list for the first
+  // start (same lifecycle as the hosts above).
+  SystemLanguagesHost* system_languages_host;
+  // Owns com.whispaste.inserted_span: bounded read-back of the pasted section for
+  // learning from corrections in the target app (#384).
+  TargetFieldHost* target_field_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -122,9 +156,18 @@ static void my_application_activate(GApplication* application) {
   self->floating_overlay_host = new FloatingOverlayHost(main_messenger);
   self->floating_button_host = new FloatingButtonHost(main_messenger);
   self->desktop_paste_host = new DesktopPasteHost(main_messenger);
+  self->audio_file_decode_host = new AudioFileDecodeHost(main_messenger);
   self->snippet_picker_host = new SnippetPickerHost(main_messenger);
+  self->tray_panel_host = new TrayPanelHost(main_messenger);
   self->side_panel_host = new SidePanelHost(main_messenger);
   self->keyboard_monitor_host = new KeyboardMonitorHost(main_messenger);
+  self->power_event_host = new PowerEventHost(main_messenger);
+  self->hang_watchdog_host = new HangWatchdogHost(main_messenger);
+  self->file_dialog_host = new FileDialogHost(main_messenger, view);
+  self->attention_host = new AttentionHost(main_messenger, window);
+  self->app_identity_host = new AppIdentityHost(main_messenger);
+  self->system_languages_host = new SystemLanguagesHost(main_messenger);
+  self->target_field_host = new TargetFieldHost(main_messenger);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -154,7 +197,9 @@ static gboolean my_application_local_command_line(GApplication* application,
 static void my_application_startup(GApplication* application) {
   // MyApplication* self = MY_APPLICATION(object);
 
-  // Perform any actions required at application startup.
+  // AppImage and tarball integrate themselves (app menu, portal app ID) on
+  // every start, so a moved AppImage is picked up on its next launch.
+  EnsureDesktopEntry(APPLICATION_ID);
 
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
 }
@@ -178,12 +223,30 @@ static void my_application_dispose(GObject* object) {
   self->floating_button_host = nullptr;
   delete self->desktop_paste_host;
   self->desktop_paste_host = nullptr;
+  delete self->audio_file_decode_host;
+  self->audio_file_decode_host = nullptr;
   delete self->snippet_picker_host;
   self->snippet_picker_host = nullptr;
+  delete self->tray_panel_host;
+  self->tray_panel_host = nullptr;
   delete self->side_panel_host;
   self->side_panel_host = nullptr;
   delete self->keyboard_monitor_host;
   self->keyboard_monitor_host = nullptr;
+  delete self->power_event_host;
+  self->power_event_host = nullptr;
+  delete self->hang_watchdog_host;
+  self->hang_watchdog_host = nullptr;
+  delete self->file_dialog_host;
+  self->file_dialog_host = nullptr;
+  delete self->attention_host;
+  self->attention_host = nullptr;
+  delete self->app_identity_host;
+  self->app_identity_host = nullptr;
+  delete self->system_languages_host;
+  self->system_languages_host = nullptr;
+  delete self->target_field_host;
+  self->target_field_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

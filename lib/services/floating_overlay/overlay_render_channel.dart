@@ -1,15 +1,54 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'floating_overlay_controller_interface.dart';
+import 'overlay_waveform_payload.dart';
+
+/// Acknowledges the first painted frame after each hidden→visible show.
+///
+/// The acknowledgement is scheduled as a framework post-frame callback, so it
+/// fires after the frame that presents the show has been built. It is sent once
+/// per show: further visible snapshots within the same show do not re-ack, and
+/// a hide before the frame cancels it.
+class OverlayFrameHeartbeat {
+  OverlayFrameHeartbeat({required this.onFrame});
+
+  /// Called once per show, after its first painted frame.
+  final void Function() onFrame;
+
+  bool _visible = false;
+  bool _pending = false;
+  bool _callbackScheduled = false;
+
+  /// Feed every snapshot the render engine receives.
+  void onSnapshot({required bool visible}) {
+    if (visible && !_visible) _pending = true;
+    if (!visible) _pending = false;
+    _visible = visible;
+    if (_pending && !_callbackScheduled) {
+      _callbackScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback(_ack);
+      // Do not rely on the caller to schedule the frame that runs the callback.
+      SchedulerBinding.instance.scheduleFrame();
+    }
+  }
+
+  void _ack(Duration _) {
+    _callbackScheduled = false;
+    if (!_pending || !_visible) return;
+    _pending = false;
+    onFrame();
+  }
+}
 
 /// The render-engine side of the overlay shell seam (ADR 0002 phase 2).
 ///
 /// Lives inside the dedicated overlay Flutter engine. It receives the relayed
 /// render state from the native shell (`updateSnapshot` / `setWaveformBars`)
-/// and relays the three coarse interactions back
-/// (`startDrag` / `bodyClicked` / `showContextMenu`). It owns no window or
+/// and relays the coarse interactions back (`startDrag` / `bodyClicked` / `closeClicked` /
+/// `showContextMenu` / `noticeAction`). It owns no window or
 /// rendering state itself — the host widget keeps that and rebuilds on each
 /// callback.
 ///
@@ -42,6 +81,7 @@ class OverlayRenderChannel implements RenderChannel {
   static const Duration _kLogThrottle = Duration(seconds: 1);
   DateTime? _lastSnapshotLog;
   DateTime? _lastWaveformLog;
+  bool _pillWidthMissLogged = false;
 
   /// Called with a fully-resolved snapshot relayed from the main engine.
   final void Function(FloatingOverlaySnapshot snapshot) onSnapshot;
@@ -70,8 +110,8 @@ class OverlayRenderChannel implements RenderChannel {
       case 'setWaveformBars':
         final args = call.arguments;
         final raw = args is Map ? args['bars'] : null;
-        if (raw is List) {
-          final bars = raw.map((e) => (e as num?)?.toDouble() ?? 0.0).toList();
+        if (raw is List || raw is Uint8List) {
+          final bars = decodeWaveformBars(raw);
           final now = _clock();
           if (_lastWaveformLog == null ||
               now.difference(_lastWaveformLog!) >= _kLogThrottle) {
@@ -96,9 +136,51 @@ class OverlayRenderChannel implements RenderChannel {
     _channel.invokeMethod('bodyClicked');
   }
 
+  /// Reports a click on the pill's close glyph (the X). The shell relays it
+  /// to the main engine as `onCloseClicked`, which discards the dictation
+  /// (with the long-recording confirmation) instead of stopping it.
+  void closeClicked() {
+    _channel.invokeMethod('closeClicked');
+  }
+
+  /// Reports a click on a notice-card button (overlay F2); the shell relays
+  /// it to the main engine as `onNoticeAction`.
+  void noticeAction(String id) {
+    _channel.invokeMethod('noticeAction', {'id': id});
+  }
+
+  /// Tells the native shell how wide the pill currently is (logical px), so
+  /// its glass backdrop follows the pill. macOS and Windows resize their
+  /// backdrop; Linux acknowledges the call without effect (no native
+  /// backdrop). A rejected call (for example NotImplemented) is only logged,
+  /// the first time, never thrown.
+  void pillWidth(double width, [double? radius]) {
+    _channel
+        .invokeMethod('setPillWidth', {'width': width, 'radius': ?radius})
+        .catchError((Object error) {
+          // Sent on every width tick: log the first miss only.
+          if (!_pillWidthMissLogged) {
+            _pillWidthMissLogged = true;
+            debugPrint('[overlay-engine] setPillWidth not handled: $error');
+          }
+          return null;
+        });
+  }
+
   /// Asks the native shell to show its context menu at the cursor.
   void showContextMenu() {
     _channel.invokeMethod('showContextMenu');
+  }
+
+  /// Acknowledges that this engine painted a frame for the current show (see
+  /// [OverlayFrameHeartbeat]). The shell relays it to the main engine, which
+  /// stops the re-boot deadline. Only macOS consumes it; Windows answers
+  /// NotImplemented, so the failure is swallowed here instead of escaping.
+  void frameRendered() {
+    _channel.invokeMethod('frameRendered').catchError((Object error) {
+      debugPrint('[overlay-engine] frameRendered not handled: $error');
+      return null;
+    });
   }
 
   /// Tells the native shell the inbound handler is registered, so it can flush

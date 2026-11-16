@@ -16,6 +16,25 @@ import 'package:path/path.dart' as p;
 @visibleForTesting
 String? appDataDirOverride;
 
+/// Whether this binary is a local build: debug or profile, never a release.
+///
+/// A local build keeps all its data in a folder of its own ([appDataDir],
+/// [appDataFolderName]), so it never reads, locks or migrates the data of an
+/// installed release (history database, settings, models, single-instance
+/// lock).
+const bool isLocalBuild = !bool.fromEnvironment('dart.vm.product');
+
+/// Name of the app-data folder: `WhisPaste` (`whispaste` on Linux) for a
+/// release, `WhisPaste Dev` (`whispaste-dev`) for a [isLocalBuild].
+String appDataFolderName({
+  required bool linux,
+  bool localBuild = isLocalBuild,
+}) {
+  final name = linux ? 'whispaste' : 'WhisPaste';
+  if (!localBuild) return name;
+  return linux ? '$name-dev' : '$name Dev';
+}
+
 /// Override the STT directory for testing. When non-null, [sttDir] returns
 /// this value instead of the real AppData path, isolating tests from the
 /// host file system.
@@ -75,6 +94,8 @@ String? resolveModelFilename(String modelId) {
 /// - Windows: `%APPDATA%\WhisPaste`
 /// - macOS: `~/Library/Application Support/WhisPaste`
 /// - Linux: `$XDG_CONFIG_HOME/whispaste` or `~/.config/whispaste`
+///
+/// A local build uses its own folder next to it ([appDataFolderName]).
 String appDataDir() {
   final override = appDataDirOverride;
   if (override != null) return override;
@@ -83,30 +104,65 @@ String appDataDir() {
     if (appData == null || appData.isEmpty) {
       throw StateError('APPDATA environment variable is not set');
     }
-    return p.join(appData, 'WhisPaste');
+    return p.join(appData, appDataFolderName(linux: false));
   }
   if (Platform.isMacOS) {
     final home = Platform.environment['HOME'] ?? '';
-    return p.join(home, 'Library', 'Application Support', 'WhisPaste');
+    return p.join(
+      home,
+      'Library',
+      'Application Support',
+      appDataFolderName(linux: false),
+    );
   }
   // Linux / other Unix
   final xdgConfig = Platform.environment['XDG_CONFIG_HOME'];
   if (xdgConfig != null && xdgConfig.isNotEmpty) {
-    return p.join(xdgConfig, 'whispaste');
+    return p.join(xdgConfig, appDataFolderName(linux: true));
   }
   final home = Platform.environment['HOME'] ?? '';
-  return p.join(home, '.config', 'whispaste');
+  return p.join(home, '.config', appDataFolderName(linux: true));
 }
 
 /// Directory containing STT model files and whisper-server.
 String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
 
+/// Root of every folder that holds user audio (retained recordings, parked
+/// dictations, import copies).
+///
+/// - Windows: `%LOCALAPPDATA%\WhisPaste` (#265). The app-data folder under
+///   `%APPDATA%` roams with a domain profile, and audio must never be synced
+///   to another machine. The capture folder lives there too.
+/// - macOS / Linux: [appDataDir].
+///
+/// Follows [appDataDirOverride] so tests stay inside their temp folder, and
+/// falls back to [appDataDir] when `LOCALAPPDATA` is missing or relative.
+String userAudioRootDir() {
+  if (appDataDirOverride != null || !Platform.isWindows) return appDataDir();
+  return userAudioRootDirFor(
+    localAppData: Platform.environment['LOCALAPPDATA'],
+    appDataDir: appDataDir(),
+  );
+}
+
+/// Pure core of [userAudioRootDir] on Windows, testable on any host.
+@visibleForTesting
+String userAudioRootDirFor({
+  required String? localAppData,
+  required String appDataDir,
+}) {
+  if (localAppData == null || !p.windows.isAbsolute(localAppData)) {
+    return appDataDir;
+  }
+  return p.windows.join(localAppData, appDataFolderName(linux: false));
+}
+
 /// Directory holding recent retained dictation WAVs (rotating cap enforced
-/// by the app layer). Deliberately outside the system temp directory — the
-/// app's startup cleanup sweeps `whispaste_*.wav` files there, which would
-/// silently defeat retention.
+/// by the app layer). Deliberately outside the capture folder and the system
+/// temp directory — the app's startup cleanup sweeps `whispaste_*.wav` files
+/// in those places, which would silently defeat retention.
 String retainedAudioDir() =>
-    retainedAudioDirOverride ?? p.join(appDataDir(), 'recordings');
+    retainedAudioDirOverride ?? p.join(userAudioRootDir(), 'recordings');
 
 /// Full path to the whisper-server executable.
 ///
@@ -335,6 +391,34 @@ String? resolveMsixFallbackDataRoot({
         sttDirExistsCheck ??
         (root) => Directory(p.join(root, 'models', 'stt')).existsSync(),
   );
+}
+
+/// The MSIX LocalCache data roots of the installed WhisPaste package, in
+/// sorted package order. Lists `%LOCALAPPDATA%\Packages\` but does not require
+/// `models\stt`, unlike [resolveAllDataRoots], because the install id exists
+/// before any model is downloaded. Empty off Windows.
+List<String> msixLocalCacheRoots() {
+  if (!Platform.isWindows) return const [];
+  final localAppData =
+      localAppDataOverride ?? Platform.environment['LOCALAPPDATA'];
+  if (localAppData == null || localAppData.isEmpty) return const [];
+  try {
+    final packagesDir = Directory(p.join(localAppData, 'Packages'));
+    if (!packagesDir.existsSync()) return const [];
+    final entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort();
+    return msixLocalCacheCandidatesFor(
+      localAppData: localAppData,
+      packageDirNames: entries,
+    );
+  } on FileSystemException {
+    return const [];
+  }
 }
 
 /// Resolves **all** WhisPaste data roots visible from a Standalone-Diagnose

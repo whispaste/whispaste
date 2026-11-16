@@ -65,6 +65,17 @@ class FloatingOverlayWindow {
 
   // Resize the shell (and its Flutter child). Both dimensions in logical px.
   void SetSize(int logical_w, int logical_h);
+
+  // Glass look: a system acrylic backdrop (DWM, Windows 11) clipped to the
+  // pill box. Off restores the plain transparent shell. Older Windows ignore
+  // the DWM attribute, and the Flutter body then stays a translucent tint.
+  // The host currently always passes false: on the never-active overlay the
+  // acrylic only showed its grey fallback colour (#518, see the host).
+  void SetGlassBackdrop(bool on);
+  // Width (logical px) of the painted pill; the acrylic region follows it.
+  // corner_radius (logical px) is the radius of the painted shape; <= 0 keeps
+  // the full capsule (half the pill height).
+  void SetPillWidth(double logical_w, double corner_radius = 0.0);
   void SetPosition(double logical_x, double logical_y);
   std::pair<double, double> GetPosition() const;
 
@@ -99,6 +110,10 @@ class FloatingOverlayWindow {
 
   // ── State ────────────────────────────────────────────────────────────
   HWND hwnd_ = nullptr;
+  bool glass_on_ = false;
+  double corner_radius_ = 0.0;
+  double pill_w_ = 0.0;  // logical; <= 0 means the full window width
+  void ApplyPillRegion(double lead_logical, bool redraw);
   HWND flutter_child_ = nullptr;  // child Flutter view HWND (not owned)
   HWND owner_ = nullptr;          // kept for DPI lookups only
   bool shutting_down_ = false;

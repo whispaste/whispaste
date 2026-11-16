@@ -13,16 +13,21 @@ import 'package:path/path.dart' as p;
 import '../core/config/quality_tier.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/text/byte_size.dart';
 
 // Re-export QualityTier so existing import sites (e.g. tests) that use
 // `model_download_service.dart` as the source continue to resolve without
 // changes.
 export '../core/config/quality_tier.dart' show QualityTier;
+import 'download_disk_space.dart';
+import 'download_error_kind.dart';
 import 'file_verification_service.dart';
+import 'free_disk_space.dart';
 import '../core/utils/sharing_violation_retry.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
 import 'path_service.dart';
+import 'download_tls_failure.dart';
 import 'tmp_reaper.dart';
 
 final _log = AppLogger('Download');
@@ -40,28 +45,36 @@ class SttModelInfo {
     required this.sizeBytes,
     required this.url,
     required this.sha256,
+    this.mirrorUrls = const [],
   });
 
   final String id;
+
+  /// Technical model name ("small", "medium", ...). Only shown in tooltips and
+  /// details, never as the display name (see `displayNameForModel`).
   final String label;
   final String filename;
   final int sizeBytes;
+
+  /// Primary source, pinned to one Hugging Face commit.
   final String url;
   final String sha256;
+
+  /// Further sources of the identical file, tried in order after [url]
+  /// fails (see `HttpModelFetcher.fetchVerified`). Each must be immutable
+  /// and on the download allowlist; every one is checked against [sha256].
+  final List<String> mirrorUrls;
+
+  /// [url] followed by [mirrorUrls].
+  List<String> get sources => [url, ...mirrorUrls];
 
   String get sizeLabel => formatModelSizeLabel(sizeBytes);
 }
 
-/// Renders a byte count as `"3.1 GB"` (>=1 GiB) or `"190 MB"` (<1 GiB) —
-/// shared by every downloadable-model registry ([SttModelInfo],
-/// `SmartModeModelInfo`) so the two don't drift into subtly different
-/// rounding/threshold rules.
-String formatModelSizeLabel(int sizeBytes) {
-  if (sizeBytes >= 1024 * 1024 * 1024) {
-    return '${(sizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-  return '${(sizeBytes / (1024 * 1024)).round()} MB';
-}
+/// Renders a byte count for the UI — the one shared formatter, see
+/// `formatByteSize` (#1152).
+String formatModelSizeLabel(int sizeBytes, {String? locale}) =>
+    formatByteSize(sizeBytes, locale: locale);
 
 /// All STT models the app exposes to the user (quantized, from HuggingFace
 /// whisper.cpp).
@@ -70,32 +83,35 @@ String formatModelSizeLabel(int sizeBytes) {
 /// (Balanced), `whisper-large-v3-turbo` (Premium). Legacy IDs from earlier
 /// versions (`whisper-tiny`, `whisper-base`, `whisper-large-v3`) are
 /// rewritten on settings load by `_migrateModelId` in `settings_sections.dart`.
+// Whisper URLs are pinned to one commit of ggerganov/whisper.cpp (OW-P18), so
+// a re-upload of `main` cannot break a download. The LFS SHA-256 at that
+// commit equals the value below (checked 2026-10-19 via the HF API).
 const List<SttModelInfo> sttModels = [
   SttModelInfo(
     id: 'whisper-small',
-    label: 'Small',
+    label: 'small',
     filename: 'ggml-small-q5_1.bin',
     sizeBytes: 190085487,
     url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin',
+        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin',
     sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
   ),
   SttModelInfo(
     id: 'whisper-medium',
-    label: 'Medium',
+    label: 'medium',
     filename: 'ggml-medium-q5_0.bin',
     sizeBytes: 539212467,
     url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin',
+        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium-q5_0.bin',
     sha256: '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
   ),
   SttModelInfo(
     id: 'whisper-large-v3-turbo',
-    label: 'Large v3 Turbo',
+    label: 'large-v3-turbo',
     filename: 'ggml-large-v3-turbo-q5_0.bin',
     sizeBytes: 574041195,
     url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
+        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin',
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
   ),
 ];
@@ -104,6 +120,10 @@ const List<SttModelInfo> sttModels = [
 /// [ModelDownloadState.errorMessage] when a model file stays locked by
 /// another process and could not be deleted; localized by the UI.
 const String modelDeleteInUseError = 'model_delete_in_use';
+
+/// [errorMessage] code of a model or bundle delete that failed for another
+/// reason (no permission, a locked folder); localized by the UI.
+const String modelDeleteFailedError = 'model_delete_failed';
 
 SttModelInfo? findSttModel(String id) {
   for (final m in sttModels) {
@@ -203,7 +223,7 @@ TierPerformance tierPerformance(
   if (benchmarkRtf != null && benchmarkRtf.containsKey(tier)) {
     final rtf = benchmarkRtf[tier]!;
     if (rtf < 0.3) return TierPerformance.fast;
-    if (rtf < 0.8) return TierPerformance.moderate;
+    if (rtf < kFluentRtf) return TierPerformance.moderate;
     return TierPerformance.slow;
   }
 
@@ -234,26 +254,54 @@ TierPerformance tierPerformance(
   return TierPerformance.slow;
 }
 
-/// Recommends the best tier based on benchmark RTF data.
-/// Returns the fastest tier with RTF < 0.8, or premium if none qualify.
-/// Returns null if no benchmark data available.
+/// The real-time factor below which a model counts as fluent: a dictation
+/// of 10 s is written in under 8 s.
+const kFluentRtf = 0.8;
+
+/// Recommends the best tier based on benchmark RTF data. Only measured tiers
+/// take part: the best one (in quality order) with an RTF below [kFluentRtf].
+/// If none is fluent, the fastest tier that was measured.
+/// Returns null if no benchmark data is available.
 QualityTier? recommendTierFromBenchmark(Map<QualityTier, double> rtfMap) {
   if (rtfMap.isEmpty) return null;
 
-  // Try tiers in order of quality, return first one that's fast enough.
+  // Best quality first: the most accurate tier that is fast enough wins.
   for (final tier in [
-    QualityTier.compact,
-    QualityTier.balanced,
     QualityTier.premium,
+    QualityTier.balanced,
+    QualityTier.compact,
   ]) {
     final rtf = rtfMap[tier];
-    if (rtf != null && rtf < 0.8) {
+    if (rtf != null && rtf < kFluentRtf) {
       return tier;
     }
   }
 
-  // All tiers are slow - still recommend premium as best available.
-  return QualityTier.premium;
+  return rtfMap.entries.reduce((a, b) => a.value <= b.value ? a : b).key;
+}
+
+/// What a tier recommendation rests on: this machine's measurements, or the
+/// VRAM estimate when nothing has been measured here.
+enum TierRecommendationSource { measured, estimated }
+
+/// The recommended tier for this machine. Uses the benchmark when [measuredRtf]
+/// holds results for this machine, otherwise [recommendTier] on the VRAM.
+({QualityTier tier, TierRecommendationSource source})
+resolveTierRecommendation({
+  required int vramMB,
+  hw.GpuVendor? vendor,
+  Map<QualityTier, double>? measuredRtf,
+}) {
+  final measured = measuredRtf == null
+      ? null
+      : recommendTierFromBenchmark(measuredRtf);
+  if (measured != null) {
+    return (tier: measured, source: TierRecommendationSource.measured);
+  }
+  return (
+    tier: recommendTier(vramMB, vendor: vendor),
+    source: TierRecommendationSource.estimated,
+  );
 }
 
 /// Total download size for [tier]'s best model (human-readable).
@@ -282,6 +330,7 @@ class ModelDownloadState {
     this.downloadStartedAt,
     this.statusLabel,
     this.errorMessage,
+    this.errorKind,
     this.downloadedModels = const {},
     this.scanned = false,
   });
@@ -306,6 +355,10 @@ class ModelDownloadState {
   final String? statusLabel;
 
   final String? errorMessage;
+
+  /// User-facing category of the last failure; [errorMessage] is the raw
+  /// diagnostic text and belongs in the log, not on screen.
+  final DownloadErrorKind? errorKind;
 
   /// Set of STT model IDs whose files exist on disk.
   final Set<String> downloadedModels;
@@ -333,6 +386,7 @@ class ModelDownloadState {
     DateTime? downloadStartedAt,
     String? statusLabel,
     String? errorMessage,
+    DownloadErrorKind? errorKind,
     Set<String>? downloadedModels,
     bool? scanned,
   }) {
@@ -347,6 +401,7 @@ class ModelDownloadState {
       downloadStartedAt: downloadStartedAt ?? this.downloadStartedAt,
       statusLabel: statusLabel ?? this.statusLabel,
       errorMessage: errorMessage,
+      errorKind: errorKind,
       downloadedModels: downloadedModels ?? this.downloadedModels,
       scanned: scanned ?? this.scanned,
     );
@@ -430,7 +485,9 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   /// scanned state, not the empty initial state.
   Completer<void>? _initialScanCompleter;
 
-  HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
+  // One fetcher per notifier: cancel and dispose must reach the one that is
+  // downloading (UIA-RT-05).
+  late final HttpModelFetcher _fetcher = fetcherOverride ?? HttpModelFetcher();
 
   FileVerificationService get _verifier =>
       verifierOverride ?? const FileVerificationService();
@@ -501,6 +558,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       state = state.copyWith(
         phase: DownloadPhase.error,
         errorMessage: 'Unknown model: $modelId',
+        errorKind: DownloadErrorKind.unknown,
       );
       return;
     }
@@ -519,39 +577,63 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           phase: DownloadPhase.verifying,
           statusLabel: 'verifying',
         );
-        final result = await _verifier.verify(File(destPath), model.sha256);
+        final result = await _verifier.verifyStamped(
+          File(destPath),
+          model.sha256,
+        );
         if (result is VerificationOk) {
           await _markModelDone(model.id);
           return;
         }
-        await File(destPath).delete(); // Hash mismatch — re-download.
+        // Hash mismatch — re-download. The file may already be gone (the
+        // corruption path deletes it too), which is not an error.
+        await _deleteIfPresent(destPath);
       }
 
-      await _fetcher.fetch(
-        url: model.url,
-        destPath: destPath,
-        expectedSize: model.sizeBytes,
-        onProgress: (prog) => state = state.copyWith(
-          progressPercent: prog.progressPercent,
-          bytesDownloaded: prog.bytesReceived,
-          totalBytes: prog.totalBytes,
-          speedBytesPerSec: prog.speedBytesPerSec,
-          etaSeconds: prog.etaSeconds,
-        ),
+      final shortage = await checkDownloadDiskSpace(
+        dir: sttDir(),
+        downloadBytes: model.sizeBytes,
+        probe: ref.read(freeDiskSpaceProbeProvider),
       );
+      if (shortage != null) {
+        _log.warning(
+          'Not enough disk space for ${model.id}: '
+          'needs ${shortage.neededBytes} B, free ${shortage.freeBytes} B',
+        );
+        state = state.copyWith(
+          phase: DownloadPhase.error,
+          errorMessage: shortage.errorCode,
+        );
+        return;
+      }
 
-      // Phase 2: Verify — SHA256 check.
-      state = state.copyWith(
-        phase: DownloadPhase.verifying,
-        progressPercent: 99,
-        statusLabel: 'verifying',
-      );
-      final result = await _verifier.verify(File(destPath), model.sha256);
-      if (result is! VerificationOk) {
-        await File(destPath).delete().catchError((_) => File(destPath));
+      // Phase 2: Fetch and verify (SHA-256) — source after source.
+      try {
+        await _fetcher.fetchVerified(
+          sources: model.sources,
+          destPath: destPath,
+          expectedSize: model.sizeBytes,
+          expectedSha256: model.sha256,
+          verifier: _verifier,
+          onProgress: (prog) => state = state.copyWith(
+            progressPercent: prog.progressPercent,
+            bytesDownloaded: prog.bytesReceived,
+            totalBytes: prog.totalBytes,
+            speedBytesPerSec: prog.speedBytesPerSec,
+            etaSeconds: prog.etaSeconds,
+          ),
+          onVerifying: () => state = state.copyWith(
+            phase: DownloadPhase.verifying,
+            progressPercent: 99,
+            statusLabel: 'verifying',
+          ),
+        );
+      } on DownloadChecksumException {
+        _log.warning('SHA256 verification failed for ${model.id}');
         state = state.copyWith(
           phase: DownloadPhase.error,
           errorMessage: 'SHA256 verification failed — file may be corrupt.',
+          errorKind: DownloadErrorKind.checksum,
         );
         return;
       }
@@ -562,7 +644,36 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       _handleDioError(e, logFn: _log.error);
     } on Exception catch (e) {
       _log.error('Download error: $e');
-      state = state.copyWith(phase: DownloadPhase.error, errorMessage: '$e');
+      state = state.copyWith(
+        phase: DownloadPhase.error,
+        errorMessage: '$e',
+        errorKind: classifyDownloadError(e),
+      );
+    }
+  }
+
+  /// Starts the failed download again for the same model. The model is the
+  /// one the error state kept in [ModelDownloadState.activeModelId]; without
+  /// it [fallbackModelId] (the model of the currently chosen tier) is used.
+  /// Nothing is invalidated first, so the state the user sees stays intact
+  /// until the new attempt replaces it.
+  Future<void> retry({String? fallbackModelId}) async {
+    final id = state.activeModelId ?? fallbackModelId;
+    if (id == null) {
+      _log.warning('Retry without a model to download');
+      return;
+    }
+    await downloadModel(id);
+  }
+
+  /// Deletes [path] unless it is already gone. A failed delete of a file that
+  /// has disappeared meanwhile is not an error; any other failure is rethrown.
+  Future<void> _deleteIfPresent(String path) async {
+    final file = File(path);
+    try {
+      await file.delete();
+    } on FileSystemException {
+      if (await file.exists()) rethrow;
     }
   }
 
@@ -598,7 +709,15 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           wait: retryWaitOverride,
         );
       } on FileSystemException catch (e) {
-        if (!isSharingViolation(e)) rethrow;
+        if (!isSharingViolation(e)) {
+          _log.warning('Model file not deleted: ${e.message}');
+          state = state.copyWith(
+            phase: DownloadPhase.error,
+            errorMessage: modelDeleteFailedError,
+            errorKind: DownloadErrorKind.storage,
+          );
+          return;
+        }
         // Held by another process (virus scanner, backup tool) beyond the
         // retry budget — keep the model listed and let the user retry.
         _log.warning('Model file still in use, not deleted: ${e.path}');
@@ -655,12 +774,23 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   void _handleDioError(DioException e, {required void Function(String) logFn}) {
     if (e.type == DioExceptionType.cancel) {
       state = state.copyWith(phase: DownloadPhase.idle, activeModelId: null);
+    } else if (isTlsDownloadFailure(e)) {
+      _log.warning('Download TLS failure: ${_describeDioError(e)}');
+      state = state.copyWith(
+        phase: DownloadPhase.error,
+        errorMessage: downloadTlsErrorCode,
+        errorKind: classifyDownloadError(e),
+      );
     } else {
-      final msg = e.response?.statusCode == 403
-          ? 'GitHub API rate limit reached. Please wait a few minutes.'
-          : 'Download failed: ${_describeDioError(e)}';
+      // The model hosts are Hugging Face (and mirrors), not the GitHub API:
+      // the old "GitHub API rate limit" text for 403 was wrong here.
+      final msg = 'Download failed: ${_describeDioError(e)}';
       logFn(msg);
-      state = state.copyWith(phase: DownloadPhase.error, errorMessage: msg);
+      state = state.copyWith(
+        phase: DownloadPhase.error,
+        errorMessage: msg,
+        errorKind: classifyDownloadError(e),
+      );
     }
   }
 

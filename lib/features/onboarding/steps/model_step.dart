@@ -1,28 +1,65 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/l10n/download_error_text.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/engine_recommendation.dart';
+import '../../../services/speech_recommendation.dart';
+import '../../../services/short_model_benchmark.dart';
 import '../../../services/hardware_info_service.dart' as hw;
+import '../../../services/model_hardware_telemetry.dart';
+import '../../../services/connection_return_watcher.dart';
+import '../../../services/download_error_kind.dart';
+import '../../../services/free_disk_space.dart';
 import '../../../services/model_download_service.dart';
+import '../../../services/path_service.dart' show sttDir;
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
+import '../../../services/system_speech/system_speech_channel.dart'
+    show systemSpeechLocaleFor;
+import '../../../services/system_speech/system_speech_status.dart';
+import '../../../widgets/wp_progress_bar.dart';
+import '../../../widgets/dialog.dart' show WpDialogCta, showWpConfirmDialog;
+import '../../../widgets/model_ram_precheck_dialog.dart';
+import '../../../widgets/recommendation_reason.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
+import '../../help/manual/manual_chapters.dart' show manualModelInstallSection;
+import '../../help/manual/user_manual_view.dart' show showManualSectionDialog;
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
+import '../stt_model_readiness.dart';
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
 @visibleForTesting
-const kModelStepGpuCpuFallbackKey = Key('modelStepGpuCpuFallbackNotice');
+const kModelStepGpuCpuFallbackKey = Key('model-step-gpu-cpu-fallback-notice');
 @visibleForTesting
-const kModelStepEngineParakeetCardKey = Key('modelStepEngineParakeetCard');
+const kModelStepEngineParakeetCardKey = Key('model-step-engine-parakeet-card');
 @visibleForTesting
-const kModelStepEngineWhisperCardKey = Key('modelStepEngineWhisperCard');
+const kModelStepEngineWhisperCardKey = Key('model-step-engine-whisper-card');
+@visibleForTesting
+const kModelStepEngineSystemCardKey = Key('model-step-engine-system-card');
+@visibleForTesting
+const kModelStepDownloadCancelKey = Key(_kModelStepDownloadCancelId);
+const _kModelStepDownloadCancelId = 'onboarding-speech-download-cancel';
+@visibleForTesting
+const kModelStepNextBlockedKey = Key('model-step-next-blocked');
+@visibleForTesting
+const kModelStepRecommendationReasonKey = Key(
+  'model-step-recommendation-reason',
+);
+@visibleForTesting
+const kModelStepUseCloudKey = Key(_kModelStepUseCloudId);
+const _kModelStepUseCloudId = 'onboarding-speech-use-cloud';
+@visibleForTesting
+const kModelStepUseLocalKey = Key(_kModelStepUseLocalId);
+const _kModelStepUseLocalId = 'onboarding-speech-use-local';
 
 /// On-device speech recognition setup — the content of the Model onboarding
 /// page (the page owns the heading; see the overlay's page composition).
@@ -36,15 +73,27 @@ const kModelStepEngineWhisperCardKey = Key('modelStepEngineWhisperCard');
 /// it out; only the dictation language can. The user can override the
 /// recommendation by tapping the other card.
 ///
+/// On macOS 26 and later a third card offers the system's own speech
+/// recognition. It is never preselected (the hardware recommendation stays
+/// the default); its language assets install through the system on demand,
+/// with progress in the same slot as a model download and no cancel.
+///
 /// Content only — navigation (Back/Next) is owned by the onboarding shell
 /// and never gated on the download. The engine choice therefore persists as
-/// soon as the selected engine's model is confirmed on disk (recommendation
-/// resolving against an already-installed model, a download completing, or
-/// the user switching to an engine whose model is already installed) instead
-/// of on a step-local Next tap, so leaving the page can never lose a
-/// downloaded selection.
+/// soon as the user picks an engine or starts its download, and again when the
+/// selected engine's model is confirmed on disk. The preflight reads the saved
+/// engine, so a choice must be the active one before its download finishes
+/// (UIA-RT-01). On a first run with nothing configured the recommendation is
+/// saved as well, so leaving without a download still leaves the recommended
+/// engine and tier active (UIA-RT-03, E1a); a configured choice is never
+/// overwritten.
 class ModelStep extends ConsumerStatefulWidget {
-  const ModelStep({super.key});
+  const ModelStep({super.key, this.nextBlocked = false});
+
+  /// Whether the shell's Next is held back because no model is installed and
+  /// none is downloading (UIA-RT-01). The reason is then shown as visible
+  /// text on the page, not only as a disabled button.
+  final bool nextBlocked;
 
   @override
   ConsumerState<ModelStep> createState() => _ModelStepState();
@@ -53,6 +102,9 @@ class ModelStep extends ConsumerStatefulWidget {
 class _ModelStepState extends ConsumerState<ModelStep> {
   OnDeviceEngine? _selectedEngine;
   EngineRecommendation? _recommendation;
+
+  /// The hardware facts behind [_recommendation], for its reason line.
+  SpeechRecommendation? _recommendationFacts;
 
   /// The Whisper tier for this hardware, computed independently of which
   /// engine ends up recommended/selected.
@@ -65,6 +117,110 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   QualityTier? _whisperTier;
   hw.GpuInfo? _gpu;
   bool _hwDetected = false;
+  ShortModelBenchmark? _shortBenchmark;
+  VoidCallback? _cancelBenchmarkDownload;
+  bool _shortBenchmarkBusy = false;
+  bool _shortBenchmarkAttempted = false;
+  bool _shortBenchmarkCancelled = false;
+  bool _shortBenchmarkFallback = false;
+
+  bool get _needsShortBenchmark =>
+      _hwDetected &&
+      _saveRecommendation &&
+      !_shortBenchmarkAttempted &&
+      ref.read(shortModelBenchmarkRtfProvider) == null &&
+      _configuredWhisperModelId == null &&
+      needsShortModelBenchmark(
+        vendor: _gpu?.vendor,
+        vramMB: _gpu?.vramMB,
+        ramMB: _recommendationFacts?.ramMB,
+        gpuName: _gpu?.name,
+        cudaUsable: _gpu?.optimalBackend == 'cuda',
+        gpuAccelerationEnabled:
+            ref.read(settingsProvider).value?.behavior.gpuAcceleration !=
+            'disabled',
+      );
+
+  @override
+  void dispose() {
+    _shortBenchmark?.cancel();
+    _cancelBenchmarkDownload?.call();
+    super.dispose();
+  }
+
+  void _cancelShortBenchmark() {
+    _shortBenchmarkCancelled = true;
+    _shortBenchmark?.cancel();
+    ref.read(modelDownloadProvider.notifier).cancelDownload();
+  }
+
+  Future<void> _runShortBenchmark() async {
+    if (_shortBenchmarkBusy) return;
+    setState(() {
+      _shortBenchmarkAttempted = true;
+      _shortBenchmarkBusy = true;
+      _shortBenchmarkCancelled = false;
+    });
+    double? rtf;
+    try {
+      final downloads = ref.read(modelDownloadProvider.notifier);
+      _cancelBenchmarkDownload = downloads.cancelDownload;
+      await downloads.downloadModel('whisper-small');
+      _cancelBenchmarkDownload = null;
+      if (!mounted || _shortBenchmarkCancelled) return;
+      if (!ref
+          .read(modelDownloadProvider)
+          .downloadedModels
+          .contains('whisper-small')) {
+        return;
+      }
+      final runner = _shortBenchmark = ShortModelBenchmark();
+      rtf = await runner.run(
+        gpu:
+            ref.read(settingsProvider).value?.behavior.gpuAcceleration ??
+            'auto',
+      );
+      if (!mounted || _shortBenchmarkCancelled) return;
+      ref.read(shortModelBenchmarkRtfProvider.notifier).setResult(rtf);
+      final facts = await ref.read(speechRecommendationProvider.future);
+      if (!mounted) return;
+      if (_shortBenchmarkCancelled) {
+        ref.read(shortModelBenchmarkRtfProvider.notifier).setResult(null);
+        return;
+      }
+      setState(() {
+        _recommendationFacts = facts;
+        _recommendation = facts.recommendation;
+        _whisperTier = facts.recommendation.whisper.tier;
+        if (!_engineChosen) _selectedEngine = facts.recommendation.engine;
+      });
+    } on Object {
+      // Download/asset/process failures leave the hardware rule usable.
+      rtf = null;
+      if (mounted) {
+        ref.read(shortModelBenchmarkRtfProvider.notifier).setResult(null);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _shortBenchmarkBusy = false;
+          _shortBenchmarkFallback = rtf == null || _shortBenchmarkCancelled;
+        });
+      }
+      _shortBenchmark = null;
+      _cancelBenchmarkDownload = null;
+      if (mounted) _maybePersistSelection();
+    }
+  }
+
+  /// Whether the user picked an engine on this page (a card tap, or starting
+  /// its download). A pick is saved at once; the page preselecting one is
+  /// saved only while nothing is configured, see [_saveRecommendation].
+  bool _engineChosen = false;
+
+  /// Whether nothing is configured yet (first run, no model of its own on
+  /// disk), so the preselected recommendation is saved too (UIA-RT-03, E1a).
+  bool _saveRecommendation = false;
 
   /// The Whisper model id this user already has configured, captured once at
   /// hardware-detection time — `null` while nothing is configured yet, which
@@ -100,12 +256,10 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // installed" here, permanently (this method runs once, in initState).
     await ref.read(modelDownloadProvider.notifier).awaitInitialScan();
     if (!mounted) return;
-    final locale = settings.locale;
-    final rec = recommendEngine(
-      dictationLanguageCode: locale,
-      vendor: gpu.vendor,
-      vramMB: gpu.vramMB ?? 0,
-    );
+    // The same recommendation Settings shows (UIA-RT-03, MV-04).
+    final facts = await ref.read(speechRecommendationProvider.future);
+    if (!mounted) return;
+    final rec = facts.recommendation;
     final configuredEngine = OnDeviceEngine.fromValue(settings.stt.engine);
     final configuredModelId = settings.stt.model;
     // Does this user already have an engine/model of their own, or is the
@@ -124,11 +278,23 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final configured =
         settings.onboarding.onboardingCompleted ||
         _engineModelInstalled(configuredEngine, configuredModelId);
+    final parakeetEligible =
+        rec.engine == OnDeviceEngine.parakeet ||
+        parakeetRecommendedFor(
+          recommendationLanguages(
+            sttLanguageCode: settings.sttLanguageCode,
+            systemLanguages: ref.read(systemLanguageCodesProvider),
+            uiLocale: settings.locale,
+          ),
+        );
     setState(() {
       _gpu = gpu;
       _recommendation = rec;
-      _whisperTier =
-          rec.tier ?? recommendTier(gpu.vramMB ?? 0, vendor: gpu.vendor);
+      _parakeetEligible = parakeetEligible;
+      _recommendationFacts = facts;
+      // Independent of the engine: a user who overrides Parakeet by hand gets
+      // the tier this machine warrants, from the same rule as Settings.
+      _whisperTier = rec.whisper.tier;
       _configuredWhisperModelId =
           configured && configuredEngine == OnDeviceEngine.whisper
           ? configuredModelId
@@ -138,7 +304,15 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       // out, because silently switching it is exactly the overwrite this
       // guards against. The recommendation stays visible on the other card
       // and is one tap away.
-      _selectedEngine ??= configured ? configuredEngine : rec.engine;
+      // A configured system engine on a Mac without it (older macOS) falls
+      // back to the recommendation: there is no card to show it on.
+      _selectedEngine ??=
+          configured &&
+              (configuredEngine != OnDeviceEngine.system ||
+                  ref.read(systemSpeechSupportedProvider))
+          ? configuredEngine
+          : rec.engine;
+      _saveRecommendation = !configured;
       _hwDetected = true;
     });
     // Resume case: the recommended engine's model may already be on disk
@@ -157,6 +331,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             .read(modelDownloadProvider)
             .downloadedModels
             .contains(whisperModelId);
+      case OnDeviceEngine.system:
+        return ref.read(systemSpeechProvider).installed;
       case OnDeviceEngine.parakeet:
         final dl = ref.read(parakeetDownloadProvider);
         return dl.installed || dl.phase == ParakeetDownloadPhase.done;
@@ -186,27 +362,136 @@ class _ModelStepState extends ConsumerState<ModelStep> {
   /// Whisper recommendation is equivalent to "Parakeet can't do this
   /// language". `false` before hardware detection completes (card starts
   /// disabled, matching the loading state).
-  bool get _parakeetEligible =>
-      _recommendation?.engine == OnDeviceEngine.parakeet;
+  /// Parakeet writes every language this user dictates in. It stays a choice
+  /// when a premium Whisper wins the recommendation for those languages, so
+  /// the card must not read "language not supported" then.
+  bool _parakeetEligible = false;
+
+  /// Why the system engine cannot be picked right now, or null when it can:
+  /// an automatic dictation language (the system needs one language) or a
+  /// language the system does not recognize.
+  String? _systemBlockedReason(L10n l10n, SystemSpeechStatus status) {
+    final code = ref.read(settingsProvider).value?.sttLanguageCode;
+    if (systemSpeechLocaleFor(code) == null) {
+      return l10n.onboardingModelSystemNeedsLanguage;
+    }
+    if (status.localeUnsupported) {
+      return l10n.settingsSttSystemLanguageUnsupported;
+    }
+    return null;
+  }
+
+  /// Whether the system engine card can be picked: the system offers it, has
+  /// answered for the dictation language, and that language is supported.
+  bool _systemSelectable() {
+    final status = ref.read(systemSpeechProvider);
+    return status.osSupported &&
+        status.checked &&
+        _systemBlockedReason(L10n.of(context), status) == null;
+  }
 
   void _selectEngine(OnDeviceEngine engine) {
     if (engine == OnDeviceEngine.parakeet && !_parakeetEligible) return;
-    setState(() => _selectedEngine = engine);
-    // Switching to an engine whose model is already installed is a complete
-    // decision — persist immediately (see class doc).
+    if (engine == OnDeviceEngine.system && !_systemSelectable()) return;
+    setState(() {
+      _selectedEngine = engine;
+      _engineChosen = true;
+    });
+    // A tap is a complete decision — persist immediately (see class doc).
     _maybePersistSelection();
   }
 
-  void _startDownload() {
+  void _cancelDownload() {
     switch (_selectedEngine) {
+      case OnDeviceEngine.whisper:
+        ref.read(modelDownloadProvider.notifier).cancelDownload();
+      case OnDeviceEngine.system:
+        // The system installs its assets on its own; there is no cancel.
+        break;
+      case OnDeviceEngine.parakeet:
+        ref.read(parakeetDownloadProvider.notifier).cancelDownload();
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _startDownload() async {
+    if (_selectedEngine != OnDeviceEngine.system && _needsShortBenchmark) {
+      await _runShortBenchmark();
+      if (!mounted || _shortBenchmarkCancelled) return;
+    }
+    final engine = _selectedEngine;
+    if (engine == null) return;
+    if (engine == OnDeviceEngine.system) {
+      // The system keeps its own assets: no disk or RAM check of the app's
+      // own models applies. Saved first, like a download (UIA-RT-01).
+      _engineChosen = true;
+      _maybePersistSelection();
+      unawaited(ref.read(systemSpeechProvider.notifier).install());
+      return;
+    }
+    // Warn before a download the disk cannot hold, instead of letting it
+    // fail hundreds of MB later (UIA-ONB-09). Soft, like the Smart Mode RAM
+    // check: the probe can be wrong (quotas, network drives), so the user
+    // may still go ahead. An unknown answer is treated as enough.
+    final needed = switch (engine) {
+      OnDeviceEngine.whisper => _effectiveWhisperModel.sizeBytes,
+      OnDeviceEngine.system => 0,
+      OnDeviceEngine.parakeet => parakeetDownloadBytes(
+        gpuWanted: parakeetGpuWantedForSetting(
+          ref.read(settingsProvider).value?.behavior.gpuAcceleration,
+        ),
+      ),
+    };
+    final free = await ref.read(freeDiskSpaceProbeProvider)(sttDir());
+    if (!mounted) return;
+    if (free != null && free < needed) {
+      final l10n = L10n.of(context);
+      final proceed = await showWpConfirmDialog(
+        context: context,
+        title: l10n.onboardingModelDiskSpaceTitle,
+        message: l10n.onboardingModelDiskSpaceBody(
+          formatModelSizeLabel(needed),
+          formatModelSizeLabel(free),
+        ),
+        confirmLabel: l10n.onboardingModelDiskSpaceContinue,
+        cancelLabel: l10n.actionCancel,
+        cta: WpDialogCta.hero,
+      );
+      if (!proceed || !mounted || _selectedEngine != engine) return;
+    }
+    // The model loads right after its download, so the same RAM precheck as
+    // in Settings applies to this explicit choice.
+    final base = ref.read(settingsProvider).value;
+    if (base != null) {
+      final next = engine == OnDeviceEngine.whisper
+          ? base.copyWith(
+              sttEngine: engine.value,
+              sttModel: _effectiveWhisperModel.id,
+            )
+          : base.copyWith(sttEngine: engine.value);
+      final ramProceed = await confirmSttSettingsRam(
+        context: context,
+        settings: next,
+      );
+      if (!ramProceed || !mounted || _selectedEngine != engine) return;
+    }
+    // Saved before the download starts, so the engine is the active one for
+    // the whole time it is downloading (UIA-RT-01).
+    ref
+        .read(modelHardwareTelemetryProvider)
+        .modelChosen(engine: engine, whisperModelId: _effectiveWhisperModel.id);
+    _engineChosen = true;
+    _maybePersistSelection();
+    switch (engine) {
       case OnDeviceEngine.whisper:
         ref
             .read(modelDownloadProvider.notifier)
             .downloadModel(_effectiveWhisperModel.id);
+      case OnDeviceEngine.system:
+        unawaited(ref.read(systemSpeechProvider.notifier).install());
       case OnDeviceEngine.parakeet:
         ref.read(parakeetDownloadProvider.notifier).downloadBundle();
-      case null:
-        break;
     }
   }
 
@@ -219,6 +504,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         final dl = ref.read(modelDownloadProvider);
         return dl.phase == DownloadPhase.done ||
             dl.downloadedModels.contains(_effectiveWhisperModel.id);
+      case OnDeviceEngine.system:
+        return ref.read(systemSpeechProvider).installed;
       case OnDeviceEngine.parakeet:
         final dl = ref.read(parakeetDownloadProvider);
         return dl.phase == ParakeetDownloadPhase.done || dl.installed;
@@ -227,18 +514,22 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     }
   }
 
-  /// Persists the chosen engine (+ Whisper's resolved model) once it is
-  /// actually on disk. No-op otherwise, so this is safe to call from every
-  /// "the ready-state may have just changed" site. Idempotent — repeated
-  /// calls write the same values.
+  /// Persists the engine (+ Whisper's resolved model) once the user has chosen
+  /// it, it is actually on disk, or nothing is configured yet. No-op otherwise, so this is safe to call
+  /// from every "the ready-state may have just changed" site. Idempotent —
+  /// repeated calls write the same values.
   ///
   /// Writes nothing at all when the values already match what is persisted.
-  /// That is the difference between "idempotent" and "silent": entering and
-  /// leaving this page without touching anything must leave settings
-  /// untouched, not re-save them.
+  /// That is the difference between "idempotent" and "silent": once a choice
+  /// is configured, entering and leaving this page without touching anything
+  /// must leave settings untouched, not re-save them.
   void _maybePersistSelection() {
+    if (_shortBenchmarkBusy) return;
     final engine = _selectedEngine;
-    if (engine == null || !_selectedEngineDone()) return;
+    if (engine == null ||
+        !(_engineChosen || _saveRecommendation || _selectedEngineDone())) {
+      return;
+    }
     final modelId = engine == OnDeviceEngine.whisper
         ? _effectiveWhisperModel.id
         : null; // leave the persisted whisper model untouched
@@ -253,6 +544,22 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         .updateSettings(
           (s) => s.copyWith(sttEngine: engine.value, sttModel: modelId),
         );
+  }
+
+  /// The reason line for the selected engine: the recommendation's own when
+  /// the recommended engine is selected, the Whisper tier's when Whisper is
+  /// picked over Parakeet by hand.
+  String? _recommendationReason(L10n l10n) {
+    final rec = _recommendation;
+    final facts = _recommendationFacts;
+    if (rec == null || facts == null) return null;
+    if (_selectedEngine == rec.engine) {
+      return recommendationReason(l10n, facts, rec);
+    }
+    if (_selectedEngine == OnDeviceEngine.whisper) {
+      return recommendationReason(l10n, facts, rec.whisper);
+    }
+    return null;
   }
 
   @override
@@ -272,11 +579,45 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         _maybePersistSelection();
       }
     });
+    ref.listen(systemSpeechProvider, (prev, next) {
+      if (next.installed && !(prev?.installed ?? false)) {
+        _maybePersistSelection();
+      }
+    });
     final whisperDl = ref.watch(modelDownloadProvider);
     final parakeetDl = ref.watch(parakeetDownloadProvider);
+    final systemOffered = ref.watch(systemSpeechSupportedProvider);
+    final systemSpeech = ref.watch(systemSpeechProvider);
+    final systemBlockedReason = systemOffered
+        ? _systemBlockedReason(l10n, systemSpeech)
+        : null;
 
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    if (_shortBenchmarkBusy) {
+      return Semantics(
+        identifier: 'onboarding-short-benchmark',
+        liveRegion: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              whisperDl.isBusy
+                  ? l10n.shortBenchmarkDownloading
+                  : l10n.shortBenchmarkRunning,
+            ),
+            const SizedBox(height: WpSpacing.md),
+            WpButton(
+              testId: 'onboarding-short-benchmark-cancel',
+              variant: WpButtonVariant.secondary,
+              label: l10n.benchmarkCancel,
+              onPressed: _cancelShortBenchmark,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     final whisperModel = _effectiveWhisperModel;
 
@@ -286,6 +627,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // deliberately shaped like whisper's, minus `extracting`).
     final selectedPhase = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperDl.phase,
+      OnDeviceEngine.system => _systemPhaseAsDownloadPhase(systemSpeech),
       OnDeviceEngine.parakeet => _parakeetPhaseAsDownloadPhase(
         parakeetDl.phase,
       ),
@@ -301,24 +643,35 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // here — this predicate now decides whether the selection persists at
     // all, so keeping one definition matters more than it used to.
     final isDone = _selectedEngineDone();
-    final errorMessage = switch (_selectedEngine) {
-      OnDeviceEngine.whisper => whisperDl.errorMessage,
-      OnDeviceEngine.parakeet => parakeetDl.errorMessage,
+    final errorKind = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => whisperDl.errorKind,
+      OnDeviceEngine.system => null,
+      OnDeviceEngine.parakeet => parakeetDl.errorKind,
       null => null,
     };
     final progressPercent = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperDl.progressPercent,
+      OnDeviceEngine.system => systemSpeech.percent,
       OnDeviceEngine.parakeet => parakeetDl.progressPercent,
       null => 0,
     };
     final selectedSizeLabel = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperModel.sizeLabel,
+      OnDeviceEngine.system => '',
       OnDeviceEngine.parakeet => parakeetDownloadSizeLabel(
         gpuWanted: parakeetGpuWantedForSetting(
           ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
         ),
       ),
       null => '',
+    };
+    final systemSelected = _selectedEngine == OnDeviceEngine.system;
+    // The column of the selected card, so the status below sits under it.
+    final engineColumns = systemOffered ? 3 : 2;
+    final selectedColumn = switch (_selectedEngine) {
+      OnDeviceEngine.whisper => 1,
+      OnDeviceEngine.system => 2,
+      _ => 0,
     };
 
     // Content only, no title: the Model page owns the heading (see the
@@ -336,6 +689,18 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_needsShortBenchmark)
+          WpButton(
+            testId: 'onboarding-short-benchmark-run',
+            variant: WpButtonVariant.secondary,
+            label: l10n.shortBenchmarkStart,
+            onPressed: isDownloading ? null : _runShortBenchmark,
+          ),
+        if (_shortBenchmarkFallback)
+          Text(
+            l10n.shortBenchmarkFallback,
+            key: const ValueKey('onboarding-short-benchmark-fallback'),
+          ),
         // GPU CPU fallback notice — purely informational, never blocks Next.
         //
         // Renders only when hardware detection returned `GpuVendor.none`,
@@ -345,17 +710,33 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         // expectation that CPU inference will be slower on the Whisper path
         // (Parakeet is always CPU-only, so it is unaffected).
         if (!_hwDetected)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: WpSpacing.xl),
-            child: SizedBox(
-              width: WpIconSize.lg,
-              height: WpIconSize.lg,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: WpSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: WpIconSize.lg,
+                  height: WpIconSize.lg,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(height: WpSpacing.sm),
+                Text(
+                  l10n.onboardingModelDetectingHardware,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: WpColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           )
         else ...[
           // Two engines side by side — a deliberate 50/50 layout so the
-          // choice reads as two equal alternatives, not a ranked list.
+          // choice reads as two equal alternatives, not a ranked list. On
+          // macOS 26+ the system engine joins as a third equal column; other
+          // systems keep the two-column layout unchanged.
           // IntrinsicHeight + stretch keeps both cards the same height even
           // when one description wraps to more lines than the other.
           //
@@ -373,9 +754,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
                     child: _EngineCard(
                       key: kModelStepEngineParakeetCardKey,
+                      testId: 'onboarding-speech-engine-parakeet',
                       icon: LucideIcons.zap,
                       label: l10n.onboardingModelEngineParakeetLabel,
                       description: l10n.onboardingModelEngineParakeetDesc,
@@ -388,6 +769,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                               .gpuAcceleration,
                         ),
                       ),
+                      languagesLabel: l10n.onboardingModelFactLanguagesParakeet,
+                      speedLabel: l10n.onboardingModelFactSpeedParakeet,
                       isRecommended:
                           _recommendation?.engine == OnDeviceEngine.parakeet,
                       isSelected: _selectedEngine == OnDeviceEngine.parakeet,
@@ -399,13 +782,15 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                   ),
                   const SizedBox(width: WpSpacing.lg),
                   Expanded(
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _EngineCardState.build
                     child: _EngineCard(
                       key: kModelStepEngineWhisperCardKey,
+                      testId: 'onboarding-speech-engine-whisper',
                       icon: LucideIcons.globe,
                       label: l10n.onboardingModelEngineWhisperLabel,
                       description: l10n.onboardingModelEngineWhisperDesc,
                       sizeLabel: whisperModel.sizeLabel,
+                      languagesLabel: l10n.onboardingModelFactLanguagesWhisper,
+                      speedLabel: l10n.onboardingModelFactSpeedWhisper,
                       isRecommended:
                           _recommendation?.engine == OnDeviceEngine.whisper,
                       isSelected: _selectedEngine == OnDeviceEngine.whisper,
@@ -414,10 +799,53 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                       onTap: () => _selectEngine(OnDeviceEngine.whisper),
                     ),
                   ),
+                  if (systemOffered) ...[
+                    const SizedBox(width: WpSpacing.lg),
+                    Expanded(
+                      child: _EngineCard(
+                        key: kModelStepEngineSystemCardKey,
+                        testId: 'onboarding-speech-engine-apple',
+                        icon: LucideIcons.laptop,
+                        label: l10n.settingsSttEngineSystem,
+                        description: l10n.onboardingModelEngineSystemDesc,
+                        sizeLabel: '',
+                        sizeChipLabel: l10n.onboardingModelFactSizeSystem,
+                        languagesLabel: l10n.onboardingModelFactLanguagesSystem,
+                        speedLabel: l10n.onboardingModelFactSpeedSystem,
+                        isRecommended: false,
+                        isSelected: systemSelected,
+                        isDisabled:
+                            !systemSpeech.checked ||
+                            systemBlockedReason != null,
+                        disabledReason: systemBlockedReason,
+                        onTap: () => _selectEngine(OnDeviceEngine.system),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
+
+          // Why the recommendation is what it is, in one line (MV-03). The
+          // same text Settings shows under its tiers.
+          if (_recommendationReason(l10n) case final reason?) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: kSettingRowInset,
+              ),
+              child: Text(
+                reason,
+                key: kModelStepRecommendationReasonKey,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                ),
+              ),
+            ),
+          ],
 
           // The CPU-fallback verdict, directly under the card it is about.
           // It used to stand in front of *both* cards while applying to one
@@ -445,6 +873,10 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                       message: l10n.onboardingModelGpuCpuFallback,
                     ),
                   ),
+                  if (systemOffered) ...[
+                    const SizedBox(width: WpSpacing.lg),
+                    const Expanded(child: SizedBox.shrink()),
+                  ],
                 ],
               ),
             ),
@@ -471,7 +903,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
             child: Row(
               children: [
-                if (_selectedEngine == OnDeviceEngine.whisper) ...[
+                for (var i = 0; i < selectedColumn; i++) ...[
                   const Expanded(child: SizedBox.shrink()),
                   const SizedBox(width: WpSpacing.lg),
                 ],
@@ -479,7 +911,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                   child: _ModelStepDownloadStatus(
                     phase: selectedPhase,
                     progressPercent: progressPercent,
-                    errorMessage: errorMessage,
+                    errorKind: errorKind,
                     isDownloading: isDownloading,
                     isError: isError,
                     isDone: isDone,
@@ -487,9 +919,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     sizeLabel: selectedSizeLabel,
                     l10n: l10n,
                     onStartDownload: _startDownload,
+                    onCancelDownload: systemSelected ? null : _cancelDownload,
+                    ctaLabel: systemSelected
+                        ? l10n.settingsSttSystemInstall
+                        : null,
                   ),
                 ),
-                if (_selectedEngine != OnDeviceEngine.whisper) ...[
+                for (var i = selectedColumn + 1; i < engineColumns; i++) ...[
                   const SizedBox(width: WpSpacing.lg),
                   const Expanded(child: SizedBox.shrink()),
                 ],
@@ -505,23 +941,112 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         // `sm`, which is what made the page read as an undifferentiated
         // column (M2).
         const SizedBox(height: WpSpacing.lg),
-        // "You can change this later in Settings" also covers the cloud
-        // path: the former "use cloud instead" escape link was a pure
-        // navigation affordance and is gone with the shell-owned Next —
-        // cloud users simply continue without downloading.
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
-          child: Text(
-            l10n.onboardingModelChangeLater,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
+        const _CloudSttChoice(),
+        if (widget.nextBlocked) ...[
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingModelNextBlocked,
+              key: kModelStepNextBlockedKey,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                fontWeight: FontWeight.w600,
+                color: WpColors.textPrimary,
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
+        // "You can change this later in Settings" also covers the cloud
+        // path: the former "use cloud instead" escape link was a pure
+        // navigation affordance and is gone with the shell-owned Next. Cloud
+        // users continue without downloading once an API key is saved
+        // (UIA-MDL-GATE, see onboardingModelStepCanAdvanceProvider).
+        // Parakeet has no quality tiers to adjust later, so the hint is Whisper's.
+        if (_selectedEngine == OnDeviceEngine.whisper)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              // A choice, not a fixed answer: the preselected model is the
+              // default and larger ones can be switched to later (MP-2).
+              l10n.onboardingModelDefaultHint,
+              textAlign: TextAlign.start,
+              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+            ),
+          ),
       ],
     );
+  }
+}
+
+/// The cloud alternative to a local model (UIA-MDL-GATE G1a): only a chosen
+/// cloud provider with a saved key opens the gate, so a saved key is offered
+/// as an explicit choice while the local engine is chosen, and a chosen cloud
+/// provider can be switched back. Nothing switches without a tap.
+class _CloudSttChoice extends ConsumerWidget {
+  const _CloudSttChoice();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final settings = ref.watch(settingsProvider).value;
+    final offered = ref.watch(onboardingOfferedCloudSttProvider);
+    final inUse = ref.watch(onboardingCloudSttKeyProvider);
+    if (settings == null || (offered == null && !inUse)) {
+      return const SizedBox.shrink();
+    }
+    final provider = inUse ? settings.sttProviderType : offered!;
+    final String text;
+    final Widget button;
+    if (inUse) {
+      text = l10n.onboardingModelCloudInUse(provider.value);
+      button = WpButton(
+        testId: _kModelStepUseLocalId,
+        label: l10n.onboardingModelUseLocal,
+        variant: WpButtonVariant.ghost,
+        tone: WpButtonTone.neutral,
+        icon: LucideIcons.hardDrive,
+        onPressed: () => _choose(ref, SttProviderType.onDevice),
+      );
+    } else {
+      text = l10n.onboardingModelCloudKeySaved(provider.value);
+      button = WpButton(
+        testId: _kModelStepUseCloudId,
+        label: l10n.onboardingModelUseCloud(provider.value),
+        variant: WpButtonVariant.secondary,
+        icon: LucideIcons.cloud,
+        onPressed: () => _choose(ref, provider),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(
+        start: kSettingRowInset,
+        bottom: WpSpacing.sm,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.start,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: WpColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          button,
+        ],
+      ),
+    );
+  }
+
+  void _choose(WidgetRef ref, SttProviderType provider) {
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(sttProvider: provider.value));
   }
 }
 
@@ -539,6 +1064,17 @@ DownloadPhase _parakeetPhaseAsDownloadPhase(ParakeetDownloadPhase phase) =>
       ParakeetDownloadPhase.error => DownloadPhase.error,
     };
 
+/// The system's language-asset install as a `DownloadPhase`, so the same
+/// status slot shows its progress, failure and "ready".
+DownloadPhase _systemPhaseAsDownloadPhase(SystemSpeechStatus status) =>
+    status.installing
+    ? DownloadPhase.downloading
+    : status.failed
+    ? DownloadPhase.error
+    : status.installed
+    ? DownloadPhase.done
+    : DownloadPhase.idle;
+
 // ---------------------------------------------------------------------------
 // Download status — progress / error / success / download button
 // ---------------------------------------------------------------------------
@@ -547,7 +1083,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
   const _ModelStepDownloadStatus({
     required this.phase,
     required this.progressPercent,
-    required this.errorMessage,
+    required this.errorKind,
     required this.isDownloading,
     required this.isError,
     required this.isDone,
@@ -555,11 +1091,13 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     required this.sizeLabel,
     required this.l10n,
     required this.onStartDownload,
+    required this.onCancelDownload,
+    this.ctaLabel,
   });
 
   final DownloadPhase phase;
   final int progressPercent;
-  final String? errorMessage;
+  final DownloadErrorKind? errorKind;
   final bool isDownloading;
   final bool isError;
   final bool isDone;
@@ -567,6 +1105,13 @@ class _ModelStepDownloadStatus extends StatelessWidget {
   final String sizeLabel;
   final L10n l10n;
   final VoidCallback onStartDownload;
+
+  /// Null when the download cannot be stopped (the system installs its own
+  /// language assets).
+  final VoidCallback? onCancelDownload;
+
+  /// The CTA text when it is not "download and continue (size)".
+  final String? ctaLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -576,11 +1121,12 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         progress: progressPercent / 100.0,
         accent: accent,
         l10n: l10n,
+        onCancel: onCancelDownload,
       );
     }
     if (isError) {
       return _DownloadError(
-        message: errorMessage,
+        kind: errorKind,
         l10n: l10n,
         onRetry: onStartDownload,
       );
@@ -591,7 +1137,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
       // row is still here, reporting a fact rather than an event. Green is
       // the app's one word for "that worked just now", and a permanent row
       // wearing it leaves nothing to say it with.
-      const ready = WpColors.accent;
+      final ready = WpColors.accent;
       // Same floating-surface + edge-highlight pill material as the
       // mic-permission chip and the Auto-Paste status card (Ticket 04) — not
       // tappable, so no InkWell, just the material.
@@ -615,15 +1161,11 @@ class _ModelStepDownloadStatus extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                LucideIcons.circleCheck,
-                size: WpIconSize.sm,
-                color: ready,
-              ),
+              Icon(LucideIcons.circleCheck, size: WpIconSize.sm, color: ready),
               const SizedBox(width: WpSpacing.xs),
               Text(
                 l10n.modelReady,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.subheading,
                   fontWeight: FontWeight.w600,
                   color: ready,
@@ -651,7 +1193,9 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: WpButton(
-        label: '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
+        testId: 'onboarding-speech-start-download',
+        label:
+            ctaLabel ?? '${l10n.qualityTierDownloadAndContinue} ($sizeLabel)',
         variant: WpButtonVariant.primary,
         onPressed: onStartDownload,
         // Full-height CTA: the shortened padding here was paid for by the
@@ -665,7 +1209,8 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 
 // ---------------------------------------------------------------------------
 // Engine card — shows engine name, description, size, recommended badge,
-// selected/disabled state. Two of these (Parakeet, Whisper) form the whole
+// selected/disabled state. Two of these (Parakeet, Whisper; plus the system
+// engine on macOS 26+) form the whole
 // choice — no tier cards, no "choose a different level" expander.
 // ---------------------------------------------------------------------------
 
@@ -694,6 +1239,43 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 /// reason, which never depended on the theme pair.
 Color _decorativeGlyphWash() => WpColors.decorativeGlyphWash;
 
+/// One fact on an engine card's chip row (size, languages, speed).
+class _ModelFactChip extends StatelessWidget {
+  const _ModelFactChip({
+    required this.label,
+    required this.color,
+    required this.borderColor,
+    this.bold = false,
+  });
+
+  final String label;
+  final Color color;
+  final Color borderColor;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.xs,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor),
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: bold ? WpTypography.small : WpTypography.caption,
+          fontWeight: bold ? FontWeight.w500 : FontWeight.normal,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
 class _EngineCardColors {
   const _EngineCardColors({
     required this.accent,
@@ -712,13 +1294,13 @@ class _EngineCardColors {
     required bool isHovered,
     required bool isTappable,
   }) {
-    const accent = WpColors.accent;
-    const surface = WpColors.floatingSurface;
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final surface = WpColors.floatingSurface;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     // The accent ladder's lowest rung (6 %) — the hover fill.
-    const accentSix = WpColors.accentRowHover;
+    final accentSix = WpColors.accentRowHover;
     final hovering = isHovered && isTappable;
 
     return _EngineCardColors(
@@ -771,10 +1353,14 @@ class _EngineCardColors {
 class _EngineCard extends StatefulWidget {
   const _EngineCard({
     super.key,
+    this.testId,
     required this.icon,
     required this.label,
     required this.description,
     required this.sizeLabel,
+    this.sizeChipLabel,
+    required this.languagesLabel,
+    required this.speedLabel,
     required this.isRecommended,
     required this.isSelected,
     required this.isDisabled,
@@ -786,11 +1372,20 @@ class _EngineCard extends StatefulWidget {
   final String label;
   final String description;
   final String sizeLabel;
+
+  /// The size chip's whole text when it is not "size label" (the system
+  /// engine downloads no model of its own).
+  final String? sizeChipLabel;
+  final String languagesLabel;
+  final String speedLabel;
   final bool isRecommended;
   final bool isSelected;
   final bool isDisabled;
   final String? disabledReason;
   final VoidCallback onTap;
+
+  /// Stable id, exposed as the accessibility identifier of the card.
+  final String? testId;
 
   @override
   State<_EngineCard> createState() => _EngineCardState();
@@ -839,6 +1434,7 @@ class _EngineCardState extends State<_EngineCard> {
         button: isTappable,
         enabled: isTappable,
         selected: widget.isSelected,
+        identifier: widget.testId,
         child: WpFocusRing(
           focusNode: _focusNode,
           radius: WpRadius.lg,
@@ -889,8 +1485,8 @@ class _EngineCardState extends State<_EngineCard> {
                       // decorative-glyph tint: a quiet visual identity per
                       // engine (bolt = speed, globe = coverage) that gives the
                       // card depth without competing with the content in front
-                      // of it. It is decoration, not a glow — a flat tinted
-                      // glyph, no shadow, no blur, no bloom around the accent.
+                      // of it. It is decoration, not a light effect — a flat tinted
+                      // glyph, no shadow, no blur, no light around the accent.
                       // `PositionedDirectional` so it sits in the trailing
                       // corner in RTL too, away from the leading icon and
                       // label; being positioned, it takes no part in the card's
@@ -924,92 +1520,107 @@ class _EngineCardState extends State<_EngineCard> {
                             // check fades in on the right when this card is the current
                             // selection — the accent border alone can blur together
                             // with the badge when both cards sit side by side.
-                            Row(
+                            Wrap(
+                              // Name and badge share a line while both fit. At
+                              // large text scale the badge drops under the name
+                              // instead of squeezing the name into "Parake…"
+                              // (UIA-VIS-10). The first line keeps the badge at
+                              // the card's trailing edge, as before.
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              alignment: WrapAlignment.spaceBetween,
+                              spacing: WpSpacing.xs,
+                              runSpacing: WpSpacing.xs,
                               children: [
-                                Icon(
-                                  widget.icon,
-                                  size: WpIconSize.md,
-                                  color: iconColor,
-                                ),
-                                const SizedBox(width: WpSpacing.sm),
-                                // Expanded, and the only widget on this line that takes
-                                // free space: with `Flexible` title + `Flexible` badge +
-                                // a `Spacer`, the three split the width between them and
-                                // the recommended card's title silently ellipsised
-                                // ("Schnell & e…") on a card wide enough to show it in
-                                // full. The badge is bounded to its intrinsic width
-                                // below, so what is left over is the title's.
-                                Expanded(
-                                  child: Text(
-                                    widget.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: WpTypography.subheading,
-                                      fontWeight: FontWeight.w600,
-                                      color: labelColor,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      widget.icon,
+                                      size: WpIconSize.md,
+                                      color: iconColor,
                                     ),
-                                  ),
-                                ),
-                                if (widget.isRecommended &&
-                                    !widget.isDisabled) ...[
-                                  const SizedBox(width: WpSpacing.xs),
-                                  // Inflexible and capped: the pill takes its intrinsic
-                                  // width, so it can never claim a share of the free
-                                  // space the title needs. The cap plus scale-down is
-                                  // what keeps a long localized badge (or an enlarged
-                                  // text scale) shrinking rather than overflowing the
-                                  // shared line — the job the old `Flexible` did, minus
-                                  // the appetite.
-                                  ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 104,
-                                    ),
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: WpSpacing.xs,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: c.badgeFill,
-                                          borderRadius: WpRadius.borderFull,
-                                        ),
-                                        child: Text(
-                                          L10n.of(
-                                            context,
-                                          ).onboardingModelRecommended,
-                                          // Single line always — under tight width the
-                                          // enclosing FittedBox scales the pill down
-                                          // instead of the text wrapping (wrapping
-                                          // would inflate the IntrinsicHeight-coupled
-                                          // card pair).
-                                          maxLines: 1,
-                                          softWrap: false,
-                                          style: TextStyle(
-                                            fontSize: WpTypography.caption,
-                                            fontWeight: FontWeight.w600,
-                                            color: accent,
-                                          ),
+                                    const SizedBox(width: WpSpacing.sm),
+                                    // Flexible, so the title takes the room the name
+                                    // needs; a long name (the system engine's)
+                                    // wraps to a second line before it ellipsises.
+                                    Flexible(
+                                      child: Text(
+                                        widget.label,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: WpTypography.subheading,
+                                          fontWeight: FontWeight.w600,
+                                          color: labelColor,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: WpSpacing.xs),
-                                ],
-                                AnimatedOpacity(
-                                  opacity: widget.isSelected ? 1.0 : 0.0,
-                                  duration: WpMotion.durationFor(
-                                    context,
-                                    WpMotion.fast,
-                                  ),
-                                  curve: WpMotion.defaultCurve,
-                                  child: Icon(
-                                    LucideIcons.circleCheck,
-                                    size: WpIconSize.sm,
-                                    color: accent,
-                                  ),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.isRecommended &&
+                                        !widget.isDisabled) ...[
+                                      const SizedBox(width: WpSpacing.xs),
+                                      // Inflexible and capped: the pill takes its intrinsic
+                                      // width, so it can never claim a share of the free
+                                      // space the title needs. The cap plus scale-down is
+                                      // what keeps a long localized badge (or an enlarged
+                                      // text scale) shrinking rather than overflowing the
+                                      // shared line — the job the old `Flexible` did, minus
+                                      // the appetite.
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 104,
+                                        ),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: WpSpacing.xs,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: c.badgeFill,
+                                              borderRadius: WpRadius.borderFull,
+                                            ),
+                                            child: Text(
+                                              L10n.of(
+                                                context,
+                                              ).onboardingModelRecommended,
+                                              // Single line always — under tight width the
+                                              // enclosing FittedBox scales the pill down
+                                              // instead of the text wrapping (wrapping
+                                              // would inflate the IntrinsicHeight-coupled
+                                              // card pair).
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: TextStyle(
+                                                fontSize: WpTypography.caption,
+                                                fontWeight: FontWeight.w600,
+                                                color: accent,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: WpSpacing.xs),
+                                    ],
+                                    AnimatedOpacity(
+                                      opacity: widget.isSelected ? 1.0 : 0.0,
+                                      duration: WpMotion.durationFor(
+                                        context,
+                                        WpMotion.fast,
+                                      ),
+                                      curve: WpMotion.defaultCurve,
+                                      child: Icon(
+                                        LucideIcons.circleCheck,
+                                        size: WpIconSize.sm,
+                                        color: accent,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -1051,13 +1662,35 @@ class _EngineCardState extends State<_EngineCard> {
                             // of how many lines each description wraps to.
                             const SizedBox(height: WpSpacing.xs),
                             const Spacer(),
-                            Text(
-                              widget.sizeLabel,
-                              style: TextStyle(
-                                fontSize: WpTypography.small,
-                                fontWeight: FontWeight.w500,
-                                color: textMuted,
-                              ),
+                            // The three facts sit on one row of chips, so size,
+                            // languages and speed compare at a glance and the
+                            // card stays within the fixed 1100x720 window. The
+                            // row wraps only at large text scale.
+                            Wrap(
+                              spacing: WpSpacing.xs,
+                              runSpacing: WpSpacing.xxs,
+                              children: [
+                                _ModelFactChip(
+                                  label:
+                                      widget.sizeChipLabel ??
+                                      L10n.of(context).onboardingModelFactSize(
+                                        widget.sizeLabel,
+                                      ),
+                                  color: textMuted,
+                                  borderColor: c.border,
+                                  bold: true,
+                                ),
+                                _ModelFactChip(
+                                  label: widget.languagesLabel,
+                                  color: textMuted,
+                                  borderColor: c.border,
+                                ),
+                                _ModelFactChip(
+                                  label: widget.speedLabel,
+                                  color: textMuted,
+                                  borderColor: c.border,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1084,16 +1717,18 @@ class _DownloadProgress extends StatelessWidget {
     required this.progress,
     required this.accent,
     required this.l10n,
+    required this.onCancel,
   });
 
   final DownloadPhase phase;
   final double progress;
   final Color accent;
   final L10n l10n;
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
 
     final label = switch (phase) {
       DownloadPhase.downloading => '${(progress * 100).round()}%',
@@ -1107,19 +1742,15 @@ class _DownloadProgress extends StatelessWidget {
       // the same reading edge as every other state of this slot.
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: WpRadius.borderFull,
-          child: LinearProgressIndicator(
-            value: phase == DownloadPhase.downloading ? progress : null,
-            backgroundColor: WpColors.accentBadgeFill,
-            color: accent,
-            minHeight: 6,
-          ),
+        WpProgressBar(
+          value: phase == DownloadPhase.downloading ? progress : null,
+          color: accent,
+          height: 6,
         ),
         const SizedBox(height: WpSpacing.xs),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.small,
             color: textSecondary,
             // The one number in the flow that changes in place, several times
@@ -1134,9 +1765,26 @@ class _DownloadProgress extends StatelessWidget {
             // Here it needs no figure-space padding: the label is left-aligned
             // and nothing sits beside it, so only the per-character width has
             // to be fixed, not the character count.
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: [const FontFeature.tabularFigures()],
           ),
         ),
+        // A multi-gigabyte download on a slow line must not leave the user
+        // stuck between waiting it out and quitting the app. The system's own
+        // asset install has no cancel, so it shows none.
+        if (onCancel case final cancel?) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: WpButton(
+              testId: _kModelStepDownloadCancelId,
+              label: l10n.onboardingModelDownloadCancel,
+              variant: WpButtonVariant.ghost,
+              tone: WpButtonTone.neutral,
+              icon: LucideIcons.x,
+              onPressed: cancel,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1146,20 +1794,69 @@ class _DownloadProgress extends StatelessWidget {
 // Download error — shows error message + retry button
 // ---------------------------------------------------------------------------
 
-class _DownloadError extends StatelessWidget {
+class _DownloadError extends ConsumerStatefulWidget {
   const _DownloadError({
-    required this.message,
+    required this.kind,
     required this.l10n,
     required this.onRetry,
   });
 
-  final String? message;
+  /// The raw exception text stays in the log; the page only names what the
+  /// user can act on.
+  final DownloadErrorKind? kind;
   final L10n l10n;
   final VoidCallback onRetry;
 
   @override
+  ConsumerState<_DownloadError> createState() => _DownloadErrorState();
+}
+
+class _DownloadErrorState extends ConsumerState<_DownloadError> {
+  ConnectionReturnWatcher? _watcher;
+  bool _connectionBack = false;
+
+  bool get _offline => widget.kind == DownloadErrorKind.offline;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncWatcher();
+  }
+
+  @override
+  void didUpdateWidget(_DownloadError oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.kind != widget.kind) _syncWatcher();
+  }
+
+  /// Watches for the connection only while the offline error is on screen. It
+  /// only raises a hint; the download starts when the user taps retry.
+  void _syncWatcher() {
+    _watcher?.stop();
+    _watcher = null;
+    _connectionBack = false;
+    if (!_offline) return;
+    _watcher = ConnectionReturnWatcher(
+      probe: ref.read(connectionProbeProvider),
+      onReturned: () {
+        if (mounted) setState(() => _connectionBack = true);
+      },
+    )..start();
+  }
+
+  @override
+  void dispose() {
+    _watcher?.stop();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const errorColor = WpColors.error;
+    final l10n = widget.l10n;
+    // The connection-back hint is good news, not a failure: it takes the
+    // accent tokens and a check instead of the error look.
+    final back = _connectionBack;
+    final toneColor = back ? WpColors.accent : WpColors.error;
 
     return Column(
       children: [
@@ -1167,39 +1864,72 @@ class _DownloadError extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(WpSpacing.md),
           decoration: BoxDecoration(
-            color: WpColors.errorButtonFill,
+            color: back ? WpColors.accentButtonFill : WpColors.errorButtonFill,
             borderRadius: WpRadius.borderMd,
-            border: Border.all(color: WpColors.errorBorder20),
+            border: Border.all(
+              color: back ? WpColors.accentBorder20 : WpColors.errorBorder20,
+            ),
           ),
           child: Row(
             children: [
-              const Icon(
-                LucideIcons.triangleAlert,
+              Icon(
+                back ? LucideIcons.circleCheck : LucideIcons.triangleAlert,
                 size: WpIconSize.sm,
-                color: errorColor,
+                color: toneColor,
               ),
               const SizedBox(width: WpSpacing.sm),
+              // The connection-back hint takes the banner's place instead of
+              // a line of its own: the download-error page has no height to
+              // spare in the fixed onboarding window. A live region, so a
+              // screen reader announces the change.
               Expanded(
-                child: Text(
-                  message ?? l10n.modelDownloadFailed,
-                  style: const TextStyle(
-                    fontSize: WpTypography.small,
-                    color: errorColor,
+                child: Semantics(
+                  liveRegion: true,
+                  container: true,
+                  child: Text(
+                    _connectionBack
+                        ? l10n.modelDownloadConnectionBack
+                        : downloadFailureText(
+                            l10n,
+                            message: null,
+                            kind: widget.kind,
+                          ),
+                    key: _connectionBack
+                        ? const Key('onboarding-speech-connection-back')
+                        : null,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: toneColor,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: WpSpacing.sm),
+        // `xs` between the error banner and the retry it belongs to: the
+        // German download-error page needs 4 px more than the fixed window
+        // offers at `sm` (onboarding_overlay_test measures it per locale).
+        const SizedBox(height: WpSpacing.xs),
         WpButton(
+          testId: 'onboarding-speech-retry',
           label: l10n.overlayRetry,
           variant: WpButtonVariant.secondary,
           tone: WpButtonTone.neutral,
           icon: LucideIcons.refreshCw,
           expanded: true,
-          onPressed: onRetry,
+          onPressed: widget.onRetry,
         ),
+        if (_offline)
+          WpButton(
+            testId: 'onboarding-speech-manual-install',
+            label: l10n.modelInstallManually,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            expanded: true,
+            onPressed: () =>
+                showManualSectionDialog(context, manualModelInstallSection),
+          ),
       ],
     );
   }
@@ -1228,7 +1958,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     // that helper only while every tier state shared one neutral blue. Now
     // that the helper grades slow/unmeasured differently, feeding it a tier
     // this notice does not have would be meaningless.
-    const infoColor = WpColors.accent;
+    final infoColor = WpColors.accent;
     // Frameless, like the recording-duration note on the same page: a filled
     // and outlined banner gave a purely informational line the weight of a
     // warning, and it was the fourth box competing on this page. Dropping the
@@ -1239,8 +1969,8 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 1),
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
           child: Icon(LucideIcons.info, size: WpIconSize.sm, color: infoColor),
         ),
         const SizedBox(width: WpSpacing.xs),
@@ -1253,7 +1983,7 @@ class _GpuCpuFallbackNotice extends StatelessWidget {
             // was set one step below the card descriptions it qualifies — the
             // hardware verdict rendered as the least important thing on a page
             // about hardware.
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.body,
               color: infoColor,
               height: 1.35,

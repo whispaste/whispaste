@@ -1,3 +1,4 @@
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/side_panel/side_panel_render_channel.dart';
@@ -55,126 +56,146 @@ void main() {
   });
 
   group('SidePanelRenderChannel — outbound (render engine → native)', () {
-    test('rowClicked sends the section name and id', () async {
-      final calls = <MethodCall>[];
-      const probe = MethodChannel(name);
-      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call);
-        return null;
-      });
-      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+    test('rowClicked sends the section name and id', () {
+      fakeAsync((time) {
+        final calls = <MethodCall>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
 
-      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
-      addTearDown(channel.dispose);
+        final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+        addTearDown(channel.dispose);
 
-      channel.rowClicked(SidePanelSection.snippets, 'snip-1');
-      await Future<void>.delayed(Duration.zero);
+        channel.rowClicked(SidePanelSection.snippets, 'snip-1');
+        time.flushMicrotasks();
 
-      expect(calls, hasLength(1));
-      expect(calls.single.method, 'rowClicked');
-      expect(calls.single.arguments, {'section': 'snippets', 'id': 'snip-1'});
-    });
-
-    test('beginDrag sends the row payload for a text row', () async {
-      final calls = <MethodCall>[];
-      const probe = MethodChannel(name);
-      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call);
-        return null;
-      });
-      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
-
-      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
-      addTearDown(channel.dispose);
-
-      channel.beginDrag(
-        SidePanelSection.transcriptions,
-        const SidePanelRow(id: 't1', title: 'Hi', content: 'Hi there'),
-      );
-      await Future<void>.delayed(Duration.zero);
-
-      expect(calls, hasLength(1));
-      expect(calls.single.method, 'beginDrag');
-      expect(calls.single.arguments, {
-        'section': 'transcriptions',
-        'id': 't1',
-        'kind': 'text',
-        'content': 'Hi there',
-        'imageBytes': null,
+        expect(calls, hasLength(1));
+        expect(calls.single.method, 'rowClicked');
+        expect(calls.single.arguments, {'section': 'snippets', 'id': 'snip-1'});
       });
     });
 
-    test('beginDrag sends image bytes for an image row', () async {
-      final calls = <MethodCall>[];
-      const probe = MethodChannel(name);
-      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call);
-        return null;
-      });
-      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+    test('beginDrag sends the row payload for a text row', () {
+      fakeAsync((time) {
+        final calls = <MethodCall>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
 
-      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
-      addTearDown(channel.dispose);
+        final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+        addTearDown(channel.dispose);
 
-      channel.beginDrag(
-        SidePanelSection.clipboardHistory,
-        const SidePanelRow(
-          id: 'c1',
-          title: 'Image',
-          kind: SidePanelRowKind.image,
-          imageBytes: [1, 2, 3],
-        ),
-      );
-      await Future<void>.delayed(Duration.zero);
+        channel.beginDrag(
+          SidePanelSection.transcriptions,
+          const SidePanelRow(id: 't1', title: 'Hi', content: 'Hi there'),
+        );
+        time.flushMicrotasks();
 
-      expect(calls.single.arguments, {
-        'section': 'clipboardHistory',
-        'id': 'c1',
-        'kind': 'image',
-        'content': '',
-        'imageBytes': [1, 2, 3],
+        expect(calls, hasLength(1));
+        expect(calls.single.method, 'beginDrag');
+        expect(calls.single.arguments, {
+          'section': 'transcriptions',
+          'id': 't1',
+          'kind': 'text',
+          'content': 'Hi there',
+          'imageBytes': null,
+        });
       });
     });
 
-    test('hoverLeft invokes the host with no arguments', () async {
-      final calls = <MethodCall>[];
-      const probe = MethodChannel(name);
-      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call);
-        return null;
+    test('beginDrag sends image bytes for an image row', () {
+      fakeAsync((time) {
+        final calls = <MethodCall>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
+
+        final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+        addTearDown(channel.dispose);
+
+        channel.beginDrag(
+          SidePanelSection.clipboardHistory,
+          const SidePanelRow(
+            id: 'c1',
+            title: 'Image',
+            kind: SidePanelRowKind.image,
+            imageBytes: [1, 2, 3],
+          ),
+        );
+        time.flushMicrotasks();
+
+        expect(calls.single.arguments, {
+          'section': 'clipboardHistory',
+          'id': 'c1',
+          'kind': 'image',
+          'content': '',
+          'imageBytes': [1, 2, 3],
+        });
       });
-      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
-
-      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
-      addTearDown(channel.dispose);
-
-      channel.hoverLeft();
-      await Future<void>.delayed(Duration.zero);
-
-      expect(calls, hasLength(1));
-      expect(calls.single.method, 'hoverLeft');
     });
 
-    test('notifyReady / reportError invoke the host', () async {
-      final calls = <MethodCall>[];
-      const probe = MethodChannel(name);
-      binaryMessenger.setMockMethodCallHandler(probe, (call) async {
-        calls.add(call);
-        return null;
+    test('hoverLeft invokes the host with no arguments', () {
+      fakeAsync((time) {
+        final calls = <MethodCall>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
+
+        final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+        addTearDown(channel.dispose);
+
+        channel.hoverLeft();
+        time.flushMicrotasks();
+
+        expect(calls, hasLength(1));
+        expect(calls.single.method, 'hoverLeft');
       });
-      addTearDown(() => binaryMessenger.setMockMethodCallHandler(probe, null));
+    });
 
-      final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
-      addTearDown(channel.dispose);
+    test('notifyReady / reportError invoke the host', () {
+      fakeAsync((time) {
+        final calls = <MethodCall>[];
+        const probe = MethodChannel(name);
+        binaryMessenger.setMockMethodCallHandler(probe, (call) async {
+          calls.add(call);
+          return null;
+        });
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(probe, null),
+        );
 
-      channel.notifyReady();
-      channel.reportError('boom');
-      await Future<void>.delayed(Duration.zero);
+        final channel = SidePanelRenderChannel(name: name, onSnapshot: (_) {});
+        addTearDown(channel.dispose);
 
-      expect(calls, hasLength(2));
-      expect(calls[0].method, 'ready');
-      expect(calls[1].method, 'reportError');
-      expect(calls[1].arguments, {'message': 'boom'});
+        channel.notifyReady();
+        channel.reportError('boom');
+        time.flushMicrotasks();
+
+        expect(calls, hasLength(2));
+        expect(calls[0].method, 'ready');
+        expect(calls[1].method, 'reportError');
+        expect(calls[1].arguments, {'message': 'boom'});
+      });
     });
   });
 }

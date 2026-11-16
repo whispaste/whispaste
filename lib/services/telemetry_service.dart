@@ -8,7 +8,7 @@
 /// registry) is sent so Matomo can count visits reliably; it does not enable
 /// cross-session tracking. Only aggregated event counters + categorical
 /// dimensions ever leave the app, and only when [consentGranted] is true, the
-/// endpoint is configured, and OS Do-Not-Track is off.
+/// endpoint is configured.
 ///
 /// **Volume**: hot-path events (recording outcome, insertion, voice-note,
 /// snippet, history-copy, FAB click) are NOT sent per occurrence. They are
@@ -37,8 +37,12 @@ import '../core/app_info.dart' as app_info;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/locale_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/telemetry/first_run_network_gate.dart';
+import '../core/telemetry/onboarding_telemetry_buffer.dart';
 import 'deploy_channel_service.dart';
-import 'update_channel_service.dart';
+import 'hardware_info_service.dart' as hw;
+import 'speech_recommendation.dart' show ramMBProvider;
+import 'telemetry_model_buckets.dart' show modelHardwareDimensions;
 
 final _log = AppLogger('TelemetryService');
 
@@ -52,12 +56,12 @@ const String _aliveLastPingDateKey = 'telemetry_alive_ping_last_date';
 /// accident. Keys mirror the categorical Matomo signal, not user content.
 const Set<String> kTrackableSettingKeys = {
   'stt_provider',
+  'stt_engine',
   'cloud_stt_provider',
   'theme',
   'language',
   'auto_paste',
   'check_updates',
-  'beta_updates',
   'share_usage_stats',
   'error_reporting',
   'hotkey_mode',
@@ -83,7 +87,8 @@ final String _appSessionVisitorId = _generateSessionVisitorId();
 //
 // PRD Säule D forbids a persistent cross-session id, so returning-visitor
 // measurement today relies on Matomo's own IP+UA heuristic (unreliable under
-// dynamic IPs/NAT/VPN). This adds an opt-in-only alternative: a categorical
+// dynamic IPs/NAT/VPN). This adds an alternative that exists only while usage
+// sharing is on (default on, informed opt-out, CONTEXT §6.5): a categorical
 // value that groups visits into weekly cohorts without ever identifying a
 // device across weeks — a new value appears automatically every Monday, and
 // the salt it's derived from never leaves the device (not sent to Matomo,
@@ -125,22 +130,39 @@ String cohortPseudonymDimension({required String salt, DateTime? now}) {
   return digest.toString().substring(0, 16);
 }
 
+/// What [TelemetryService.sendEventNow] did with one event.
+enum TelemetrySendResult {
+  /// The endpoint accepted it.
+  sent,
+
+  /// Consent off or no endpoint configured: nothing may be sent.
+  notAllowed,
+
+  /// Network or server failure; the event may be retried later.
+  failed,
+}
+
+bool _always() => true;
+
 final class TelemetryService {
   TelemetryService({
     required this.client,
     required this.endpointUrl,
     required this.siteId,
     required this.consentGranted,
-    required this.dntActive,
     this.dimensions = const {},
     String? sessionVisitorId,
-  }) : _sessionVisitorId = sessionVisitorId ?? _appSessionVisitorId;
+    this.networkAllowed = _always,
+    DateTime Function()? now,
+  }) : _sessionVisitorId = sessionVisitorId ?? _appSessionVisitorId,
+       _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
 
   final http.Client client;
   final String endpointUrl;
   final int siteId;
   final bool consentGranted;
-  final bool dntActive;
 
   /// Categorical custom dimensions (`dimension1`..`dimensionN`) appended to
   /// every request — all categories, never content.
@@ -153,7 +175,13 @@ final class TelemetryService {
 
   bool get _isConfigured => endpointUrl.isNotEmpty && siteId > 0;
 
-  bool get _shouldDispatch => _isConfigured && consentGranted && !dntActive;
+  /// `false` while a first run's privacy choice is open
+  /// ([FirstRunNetworkGate]): nothing leaves the process then, whatever the
+  /// caller (events, alive ping, batches, settings changes, flush).
+  final bool Function() networkAllowed;
+
+  bool get _shouldDispatch =>
+      _isConfigured && consentGranted && networkAllowed();
 
   /// Records a screen/page view (categorical path only).
   void trackPageView(String path) {
@@ -172,17 +200,63 @@ final class TelemetryService {
     required String action,
     String? name,
     int? value,
+    DateTime? at,
   }) {
     if (!_shouldDispatch) return;
-    final body = <String, String>{
+    _pending.add(
+      _sendSafely(
+        _eventBody(
+          category: category,
+          action: action,
+          name: name,
+          value: value,
+          at: at,
+        ),
+      ),
+    );
+  }
+
+  /// Sends one event right away and reports whether the endpoint took it,
+  /// so a caller can keep it for a later retry. Same consent and
+  /// content rules as [trackEvent]; never throws.
+  Future<TelemetrySendResult> sendEventNow({
+    required String category,
+    required String action,
+    String? name,
+    DateTime? at,
+  }) async {
+    if (!_shouldDispatch) return TelemetrySendResult.notAllowed;
+    try {
+      final response = await _send(
+        _eventBody(category: category, action: action, name: name, at: at),
+      );
+      final ok = response.statusCode >= 200 && response.statusCode < 300;
+      return ok ? TelemetrySendResult.sent : TelemetrySendResult.failed;
+    } catch (e) {
+      _log.debug('telemetry request failed (non-fatal): $e');
+      return TelemetrySendResult.failed;
+    }
+  }
+
+  Map<String, String> _eventBody({
+    required String category,
+    required String action,
+    String? name,
+    int? value,
+    DateTime? at,
+  }) {
+    final cdt = at == null
+        ? null
+        : (at.toUtc().millisecondsSinceEpoch ~/ 1000).toString();
+    return <String, String>{
       'url': 'app://whispaste/event',
       'action_name': 'event',
       'e_c': category,
       'e_a': action,
       'e_n': ?name,
       'e_v': ?value?.toString(),
+      'cdt': ?cdt,
     };
-    _pending.add(_sendSafely(body));
   }
 
   /// Records that a setting changed — only the key, only if whitelisted.
@@ -193,7 +267,7 @@ final class TelemetryService {
 
   /// T5 (Matomo product analysis 2026-09-04): a single aggregated, non-event
   /// "alive" hit per calendar day — deliberately separate from the granular
-  /// opt-in event stream above, for a coarser but steadier active-install
+  /// usage-sharing event stream above, for a coarser but steadier active-install
   /// signal (the ~4.000 Visits/90-Tage app-telemetry sample cannot itself be
   /// extrapolated into an install count).
   ///
@@ -205,7 +279,7 @@ final class TelemetryService {
   /// it was deliberately not implemented here.
   Future<void> sendDailyAlivePingIfDue(SharedPreferences prefs) async {
     if (!_shouldDispatch) return;
-    final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    final today = _now().toUtc().toIso8601String().substring(0, 10);
     if (prefs.getString(_aliveLastPingDateKey) == today) return;
     await _sendSafely({'url': 'app://whispaste/alive', 'action_name': 'alive'});
     await prefs.setString(_aliveLastPingDateKey, today);
@@ -245,7 +319,7 @@ final class TelemetryService {
         '_id': _sessionVisitorId,
         'apiv': '1',
         'send_image': '0',
-        'rand': DateTime.now().microsecondsSinceEpoch.toString(),
+        'rand': _now().microsecondsSinceEpoch.toString(),
       },
     );
   }
@@ -282,7 +356,7 @@ final class TelemetrySessionAggregator {
   /// Drains all accumulated counters into [service] as aggregated events
   /// (`value` = session count) and clears them. Call right before
   /// [TelemetryService.flush] at shutdown. No-op when nothing was counted; the
-  /// service's own consent/DNT/config gate still applies per emitted event.
+  /// service's own consent/config gate still applies per emitted event.
   void drainTo(TelemetryService service) {
     if (_counts.isEmpty) return;
     for (final entry in _counts.entries) {
@@ -300,7 +374,7 @@ final class TelemetrySessionAggregator {
   /// Drains accumulated counters into [service] and awaits the sender's
   /// pending HTTP requests (best-effort). Convenience for shutdown / lifecycle
   /// flush points so callers don't repeat the drain→flush sequence. No-op when
-  /// nothing was counted; the service's own consent/DNT/config gate still
+  /// nothing was counted; the service's own consent/config gate still
   /// applies per emitted event.
   Future<void> drainAndFlush(TelemetryService service) async {
     drainTo(service);
@@ -323,29 +397,15 @@ final class TelemetrySessionAggregator {
 const String _matomoUrl = String.fromEnvironment('WHISPASTE_MATOMO_URL');
 const String _matomoSiteId = String.fromEnvironment('WHISPASTE_MATOMO_SITE_ID');
 
-/// Override for testing OS Do-Not-Track detection.
-@visibleForTesting
-bool? telemetryDntOverride;
-
-/// Best-effort OS Do-Not-Track honouring. Desktop OSes expose no uniform DNT
-/// signal; respect the conventional `DNT=1` environment variable when present.
-bool telemetryDntActive() {
-  if (telemetryDntOverride != null) return telemetryDntOverride!;
-  return Platform.environment['DNT'] == '1';
-}
-
 /// The Matomo Dimension 6 ("Update Channel") value for a request — categorical
-/// only (`stable`/`beta`/`n/a`), never content. Store and package-managed
-/// builds (Homebrew Cask, Scoop — see [isExternallyManaged]) have no Sparkle
-/// feed, so their update channel is reported as `n/a`; direct builds report
-/// the persisted [UpdateChannel.name]. Extracted as a top-level pure function
-/// so the categorical-discipline is unit-testable in isolation (PRD §12 Q3).
-String updateChannelDimension({
-  required DeployChannel deployChannel,
-  required UpdateChannel updateChannel,
-}) {
+/// only (`stable`/`n/a`), never content. Store and package-managed builds
+/// (Homebrew Cask, Scoop — see [isExternallyManaged]) have no Sparkle feed, so
+/// their update channel is reported as `n/a`; direct builds follow the single
+/// stable feed. Extracted as a top-level pure function so the
+/// categorical-discipline is unit-testable in isolation (PRD §12 Q3).
+String updateChannelDimension({required DeployChannel deployChannel}) {
   if (isExternallyManaged(deployChannel)) return 'n/a';
-  return updateChannel.name;
+  return 'stable';
 }
 
 /// Long-lived HTTP client for telemetry — created once, closed on dispose.
@@ -369,16 +429,13 @@ final telemetrySessionAggregatorProvider = Provider<TelemetrySessionAggregator>(
 final telemetryProvider = Provider<TelemetryService>((ref) {
   final settings = ref.watch(settingsProvider).value;
   final consent = settings?.privacy.shareUsageStats ?? false;
+  final gate = ref.read(firstRunNetworkGateProvider);
   final channel = ref.watch(deployChannelProvider);
   final locale = ref.watch(localeProvider);
-  // Update channel loads async from SharedPreferences; fall back to the
-  // stable default until it resolves (categorical — the dimension corrects on
-  // the rebuild once prefs are in).
-  final updateChannel =
-      ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
-
-  // T4: only compute/persist the cohort salt once consent is actually
-  // granted — an undecided or opted-out user gets no local salt at all.
+  final gpu = ref.watch(hw.gpuInfoProvider).value;
+  final ramMB = ref.watch(ramMBProvider);
+  // T4: only compute/persist the cohort salt while consent holds (sharing is
+  // on by default, CONTEXT §6.5) — an opted-out user gets no local salt.
   String? cohortDimension;
   final existingSalt = settings?.privacy.cohortPseudonymSalt;
   if (consent) {
@@ -403,23 +460,69 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
     cohortDimension = cohortPseudonymDimension(salt: salt);
   }
 
+  // Dimensions 8–12 (model and hardware classes) follow the same consent gate
+  // as the cohort value: nothing is computed for an opted-out install.
+  final modelHardware = consent
+      ? modelHardwareDimensions(
+          settings: settings ?? AppSettings.defaults,
+          gpu: gpu,
+          ramMB: ramMB,
+          isMacOS: Platform.isMacOS,
+        )
+      : const <String, String>{};
+
   return TelemetryService(
     client: ref.watch(_telemetryHttpClientProvider),
     endpointUrl: _matomoUrl,
     siteId: int.tryParse(_matomoSiteId) ?? 0,
     consentGranted: consent,
-    dntActive: telemetryDntActive(),
+    networkAllowed: () => gate.isOpen,
     dimensions: {
       'dimension1': app_info.appVersion,
       'dimension2': Platform.operatingSystem,
       'dimension3': settings?.stt.provider ?? 'unknown',
       'dimension4': channel.name,
       'dimension5': locale.languageCode,
-      'dimension6': updateChannelDimension(
-        deployChannel: channel,
-        updateChannel: updateChannel,
-      ),
+      'dimension6': updateChannelDimension(deployChannel: channel),
       'dimension7': ?cohortDimension,
+      ...modelHardware,
     },
   );
 });
+
+/// The first-run hold on background connections (#686). Held while the
+/// onboarding is not completed; opens when the privacy choice is committed or
+/// the onboarding completes. Settings that already say "completed" (every
+/// existing install) open it from the start.
+final firstRunNetworkGateProvider = Provider<FirstRunNetworkGate>((ref) {
+  final settings = ref.read(settingsProvider).value;
+  final gate = FirstRunNetworkGate(
+    held: settings != null && !settings.onboarding.onboardingCompleted,
+  );
+  ref.listen(settingsProvider, (_, next) {
+    if (next.value?.onboarding.onboardingCompleted ?? false) gate.open();
+  });
+  return gate;
+});
+
+/// Onboarding telemetry hold (decision 5a). Events wait here until the privacy choice; the sender goes
+/// through [telemetryProvider] so the consent gate still applies, with
+/// each event keeping its original time.
+final onboardingTelemetryBufferProvider = Provider<OnboardingTelemetryBuffer>(
+  (ref) => OnboardingTelemetryBuffer(
+    send: (event) {
+      try {
+        ref
+            .read(telemetryProvider)
+            .trackEvent(
+              category: event.category,
+              action: event.action,
+              name: event.name,
+              at: event.at,
+            );
+      } catch (e) {
+        _log.debug('buffered onboarding telemetry skipped: $e');
+      }
+    },
+  ),
+);

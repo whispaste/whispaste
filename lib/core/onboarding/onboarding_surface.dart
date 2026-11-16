@@ -11,47 +11,18 @@
 /// one.
 library;
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app_info.dart' show appVersion;
+
+import '../../services/model_hardware_telemetry.dart';
 import '../config/settings_provider.dart';
 import 'onboarding_revision.dart';
-
-/// Schedules [onCheck] once after the first mounted frame, passing whether
-/// onboarding was already completed in a previous session. Shared by
-/// `WpFeatureSpotlightWatcher` and the support prompt — both need this
-/// exact "handle returning users" check on first mount.
-void runOnboardingCheckOnFirstMount(
-  WidgetRef ref,
-  bool Function() mounted,
-  void Function(bool onboardingCompleted) onCheck,
-) {
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted()) return;
-    final onboarded =
-        ref.read(settingsProvider).value?.onboarding.onboardingCompleted ??
-        false;
-    onCheck(onboarded);
-  });
-}
-
-/// Watches for the moment onboarding completes during the current session
-/// (first-run users) and calls [onCompleted] exactly once when it flips to
-/// `true`. Shared by `WpFeatureSpotlightWatcher` and the support prompt.
-void watchOnboardingCompletion(WidgetRef ref, void Function() onCompleted) {
-  ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
-    final wasCompleted = prev?.value?.onboarding.onboardingCompleted ?? false;
-    final isCompleted = next.value?.onboarding.onboardingCompleted ?? false;
-    if (!wasCompleted && isCompleted) {
-      onCompleted();
-    }
-  });
-}
 
 /// Whether the five-step onboarding flow is currently in front of the app —
 /// for any of the three reasons it can be: first-run onboarding is still in
 /// progress, the introduction was manually reopened from Settings, or an
-/// onboarding revision run (`internal-notes`) is in
+/// onboarding revision run is in
 /// progress.
 ///
 /// Pure function so the surfaces that consult it stay unit-testable without a
@@ -89,8 +60,23 @@ final onboardingManuallyOpenProvider =
       OnboardingManuallyOpenNotifier.new,
     );
 
-/// Whether an onboarding revision run (`internal-notes
-/// issues/02`, started by `internal-notes`) is
+/// Asks the onboarding overlay to show the speech model step. A "model
+/// missing" notice raised while the flow is on screen points back into it
+/// instead of out to Settings (UIA-RT-01). Each [request] bumps the count, so
+/// a repeated request still reaches the listener.
+class OnboardingModelStepRequestNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void request() => state++;
+}
+
+final onboardingModelStepRequestProvider =
+    NotifierProvider<OnboardingModelStepRequestNotifier, int>(
+      OnboardingModelStepRequestNotifier.new,
+    );
+
+/// Whether an onboarding revision run is
 /// currently in progress — session state, **never persisted**, for the
 /// exact same reason [OnboardingManuallyOpenNotifier] isn't (see its doc
 /// comment): a crash, force-quit or closed window mid-run must never be
@@ -112,7 +98,7 @@ class OnboardingRevisionRunNotifier extends Notifier<bool> {
   /// revision run that didn't end cleanly (crash, force-quit): a revision
   /// run always begins at step one, regardless of what happens to be
   /// stored. That field otherwise belongs entirely to the first-run resume
-  /// mechanism (`internal-notes`); the overlay
+  /// mechanism; the overlay
   /// neither reads nor writes it again for the rest of a revision run.
   Future<void> start() async {
     state = true;
@@ -126,13 +112,28 @@ class OnboardingRevisionRunNotifier extends Notifier<bool> {
   }
 
   /// Ends a run — reaching the last step's completion action and the
-  /// visible exit (`internal-notes`) both call this
+  /// visible exit both call this
   /// and nothing else: the PRD treats the two identically ("Abbruch
   /// stempelt ebenfalls"). Stamps the registry's current target version so
   /// this run is never offered again, resets the shared step-position field
   /// back to zero, and clears the flag — in that order, so a failure
   /// between the settings write and the flag clear leaves the run still
   /// "in progress" rather than silently losing the stamp.
+  /// Leaves a run without stamping it: the flag clears, the stored version
+  /// stays where it was, so the next start offers the run again in full.
+  /// Used when a link leaves onboarding mid-run (`markRevisionSeen: false` on
+  /// [leaveOnboardingSurface]); the visible exit still goes through [complete].
+  Future<void> abandon() async {
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(onboardingCurrentStep: 0),
+          ),
+        );
+    state = false;
+  }
+
   Future<void> complete() async {
     final registry = ref.read(onboardingRevisionRegistryProvider);
     final target = targetOnboardingContentVersion(
@@ -190,13 +191,25 @@ final onboardingSurfaceActiveProvider = Provider<bool>((ref) {
 /// Those only flip `activePageProvider` — which the overlay, still on top per
 /// [onboardingSurfaceActiveProvider], keeps invisible. Calling this first
 /// makes the overlay unmount so the requested page is actually seen.
-Future<void> leaveOnboardingSurface(WidgetRef ref) async {
+///
+/// [markRevisionSeen] `false` lets a link out of a revision run leave the run
+/// unstamped, so the next start offers the revision again (including the
+/// steps the user skipped). The regular end of the flow stamps it as before.
+Future<void> leaveOnboardingSurface(
+  WidgetRef ref, {
+  bool markRevisionSeen = true,
+}) async {
   if (ref.read(onboardingManuallyOpenProvider)) {
     ref.read(onboardingManuallyOpenProvider.notifier).close();
     return;
   }
   if (ref.read(onboardingRevisionRunProvider)) {
-    await ref.read(onboardingRevisionRunProvider.notifier).complete();
+    final run = ref.read(onboardingRevisionRunProvider.notifier);
+    if (markRevisionSeen) {
+      await run.complete();
+    } else {
+      await run.abandon();
+    }
     return;
   }
   final onboarding = ref.read(settingsProvider).value?.onboarding;
@@ -206,6 +219,7 @@ Future<void> leaveOnboardingSurface(WidgetRef ref) async {
     registry,
     currentOnboardingPlatform(),
   );
+  recordOnboardingCompletedOn(DateTime.now());
   await ref
       .read(settingsProvider.notifier)
       .updateSettings(
@@ -214,6 +228,11 @@ Future<void> leaveOnboardingSurface(WidgetRef ref) async {
             onboardingCompleted: true,
             onboardingCurrentStep: 0,
             onboardingContentVersion: targetVersion,
+            // Leaving early still arms the "Erste Schritte" card: people who
+            // skip the setup need it most. Only a first run reaches this
+            // branch (existing installs return above).
+            firstStepsArmed: true,
+            completedInVersion: appVersion,
           ),
         ),
       );

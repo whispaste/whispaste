@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/snippet_picker/snippet_picker_protocol.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_render_channel.dart';
 
 void main() {
@@ -20,13 +21,64 @@ void main() {
           );
     }
 
+    test('setItems relays the pre-fill query alongside the items', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      List<SnippetPickerRenderItem>? items;
+      String? query;
+      final channel = SnippetPickerRenderChannel(
+        name: 'test.snippet_picker_render_query',
+        onItems: (i, q) {
+          items = i;
+          query = q;
+        },
+        onSubmit: ({required sentence}) =>
+            fail('submitHighlighted must not fire'),
+        onPanelHidden: () => fail('panelHidden must not fire'),
+        onMoveHighlight: (_) => fail('moveHighlight must not fire'),
+      );
+      addTearDown(channel.dispose);
+
+      await receiveNativeCall('test.snippet_picker_render_query', 'setItems', {
+        'items': [
+          {'id': 'a', 'title': 'Signatur', 'body': 'Mit freundlichen Grüßen'},
+        ],
+        'query': 'signatur',
+      });
+
+      expect(items, hasLength(1));
+      expect(query, 'signatur');
+    });
+
+    test('setItems without a query relays an empty pre-fill', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      String? query;
+      final channel = SnippetPickerRenderChannel(
+        name: 'test.snippet_picker_render_noquery',
+        onItems: (_, q) => query = q,
+        onSubmit: ({required sentence}) =>
+            fail('submitHighlighted must not fire'),
+        onPanelHidden: () => fail('panelHidden must not fire'),
+        onMoveHighlight: (_) => fail('moveHighlight must not fire'),
+      );
+      addTearDown(channel.dispose);
+
+      await receiveNativeCall(
+        'test.snippet_picker_render_noquery',
+        'setItems',
+        {'items': <Object>[]},
+      );
+
+      expect(query, '');
+    });
+
     test('panelHidden invokes onPanelHidden', () async {
       TestWidgetsFlutterBinding.ensureInitialized();
       var hidden = false;
       final channel = SnippetPickerRenderChannel(
         name: 'test.snippet_picker_render',
-        onItems: (_) => fail('setItems must not fire'),
-        onSubmit: () => fail('submitHighlighted must not fire'),
+        onItems: (items, query) => fail('setItems must not fire'),
+        onSubmit: ({required sentence}) =>
+            fail('submitHighlighted must not fire'),
         onPanelHidden: () => hidden = true,
         onMoveHighlight: (_) => fail('moveHighlight must not fire'),
       );
@@ -44,8 +96,9 @@ void main() {
         final deltas = <int>[];
         final channel = SnippetPickerRenderChannel(
           name: 'test.snippet_picker_render_move',
-          onItems: (_) => fail('setItems must not fire'),
-          onSubmit: () => fail('submitHighlighted must not fire'),
+          onItems: (items, query) => fail('setItems must not fire'),
+          onSubmit: ({required sentence}) =>
+              fail('submitHighlighted must not fire'),
           onPanelHidden: () => fail('panelHidden must not fire'),
           onMoveHighlight: deltas.add,
         );
@@ -65,9 +118,56 @@ void main() {
         expect(deltas, [1, -1]);
       },
     );
+
+    test('submitHighlighted passes the ⌘+Return sentence flag on', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      final submits = <bool>[];
+      final channel = SnippetPickerRenderChannel(
+        name: 'test.snippet_picker_render_submit',
+        onItems: (items, query) => fail('setItems must not fire'),
+        onSubmit: ({required sentence}) => submits.add(sentence),
+        onPanelHidden: () => fail('panelHidden must not fire'),
+        onMoveHighlight: (_) => fail('moveHighlight must not fire'),
+      );
+      addTearDown(channel.dispose);
+
+      await receiveNativeCall(
+        'test.snippet_picker_render_submit',
+        'submitHighlighted',
+      );
+      await receiveNativeCall(
+        'test.snippet_picker_render_submit',
+        'submitHighlighted',
+        {'sentence': true},
+      );
+
+      expect(submits, [false, true]);
+    });
   });
 
   group('SnippetPickerRenderItem.tryParse', () {
+    test('reads the item kind and hint, defaulting to a plain snippet', () {
+      final plain = SnippetPickerRenderItem.tryParse({
+        'id': 's1',
+        'title': 'T',
+        'body': 'B',
+      });
+      expect(plain?.kind, SnippetPickerItemKind.snippet);
+      expect(plain?.hint, '');
+
+      final preview = SnippetPickerRenderItem.tryParse(
+        fieldPreviewItems(
+          title: 'Absage',
+          template: 'Hallo {{Name}}',
+          fieldNames: ['Name'],
+          values: ['Krüger'],
+          speakFieldNamesHint: true,
+        ).first,
+      );
+      expect(preview?.kind, SnippetPickerItemKind.preview);
+      expect(preview?.hint, kSnippetPickerHintSpeakFieldNames);
+    });
+
     test('parses a well-formed map', () {
       final item = SnippetPickerRenderItem.tryParse({
         'id': 's1',

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * Multi-utterance runner for Parakeet (sherpa-onnx) on the engine-benchmark
- * data (`/engine-benchmarks/`, website/internal-notes
- * issues/05-engine-benchmark-page.md). Same test set and aggregation as
+ * data (`/engine-benchmarks/`). Same test set and aggregation as
  * `benchmark-engines-testset.mjs` (whisper.cpp), so the two engines' numbers
  * are directly comparable.
  *

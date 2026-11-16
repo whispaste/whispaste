@@ -22,6 +22,7 @@
  */
 import LandingPageLayout from "../layouts/LandingPageLayout.astro";
 import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { MODEL_SIZE_BYTES, formatModelSize } from "../data/model-sizes.ts";
 import { t, localePath } from "../scripts/i18n.ts";
 
 const lang = "de" as const;
@@ -54,30 +55,30 @@ const vendorOptions = [
 ] as const;
 
 // Download-Größen = `sizeBytes` aus `sttModels` bzw. Summe der vier
-// `parakeetModelFiles`, jeweils auf MB (1024er) gerundet.
+// `parakeetModelFiles`, jeweils auf MB (1000er) gerundet; Quelle `src/data/model-sizes.ts`.
 const tierRows = [
   {
     tier: "Schnell & Kompakt",
     model: "whisper-small (q5_1)",
-    download: "181 MB",
+    download: formatModelSize(MODEL_SIZE_BYTES.whisperSmall, lang),
     vram: "~900 MB",
   },
   {
     tier: "Ausgewogen",
     model: "whisper-medium (q5_0)",
-    download: "514 MB",
+    download: formatModelSize(MODEL_SIZE_BYTES.whisperMedium, lang),
     vram: "~1,5 GB",
   },
   {
     tier: "Beste Qualität",
     model: "whisper-large-v3-turbo (q5_0)",
-    download: "547 MB",
+    download: formatModelSize(MODEL_SIZE_BYTES.whisperLargeV3Turbo, lang),
     vram: "~2,6 GB",
   },
   {
     tier: "Parakeet",
     model: "parakeet-tdt-0.6b-v3 (int8)",
-    download: "639 MB",
+    download: formatModelSize(MODEL_SIZE_BYTES.parakeetBundle, lang),
     vram: t(lang, "modelSize.table.parakeetVram"),
   },
 ] as const;

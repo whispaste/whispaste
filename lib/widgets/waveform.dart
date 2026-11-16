@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
 import '../core/theme/colors.dart';
 
 /// Real-time waveform visualization — premium bar-style audio level display.
@@ -73,7 +74,9 @@ class _WpWaveformState extends State<WpWaveform>
     _phaseB = List.generate(widget.barCount, (_) => rng.nextDouble());
     _phaseC = List.generate(widget.barCount, (_) => rng.nextDouble());
 
-    // Slower base tick so individual oscillations are visible.
+    // Slower base tick so individual oscillations are visible. A loop
+    // period, not a transition, so it is not a WpMotion slot (motion rule in
+    // design-tokens/README.md).
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),

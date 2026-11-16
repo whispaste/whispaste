@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- R-02: WhisPaste enables or removes its /dev/uinput access only through
+     this action, after the user agreed in the app. -->
+<policyconfig>
+  <vendor>WhisPaste</vendor>
+  <vendor_url>https://whispaste.de/</vendor_url>
+  <action id="de.whispaste.uinput.manage">
+    <description>Allow or remove automatic pasting for WhisPaste</description>
+    <description xml:lang="de">Automatisches Einfügen für WhisPaste freigeben oder entfernen</description>
+    <description xml:lang="es">Permitir o quitar el pegado automático de WhisPaste</description>
+    <description xml:lang="pt">Permitir ou remover a colagem automática do WhisPaste</description>
+    <description xml:lang="ru">Разрешить или отключить автовставку WhisPaste</description>
+    <description xml:lang="he">לאפשר או להסיר הדבקה אוטומטית של WhisPaste</description>
+    <message>WhisPaste needs administrator rights to change access to the virtual keyboard</message>
+    <message xml:lang="de">WhisPaste braucht Administratorrechte, um den Zugriff auf die virtuelle Tastatur zu ändern</message>
+    <message xml:lang="es">WhisPaste necesita permisos de administrador para cambiar el acceso al teclado virtual</message>
+    <message xml:lang="pt">O WhisPaste precisa de permissões de administrador para alterar o acesso ao teclado virtual</message>
+    <message xml:lang="ru">WhisPaste нужны права администратора, чтобы изменить доступ к виртуальной клавиатуре</message>
+    <message xml:lang="he">WhisPaste צריך הרשאות מנהל כדי לשנות את הגישה למקלדת הווירטואלית</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/whispaste/uinput-access</annotate>
+  </action>
+</policyconfig>

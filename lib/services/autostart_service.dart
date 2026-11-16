@@ -2,25 +2,26 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 
+export 'autostart_backend.dart' show AutostartBackend;
+
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import 'autostart_backend.dart';
+import 'desktop_paste/linux_package_format.dart';
+import 'linux_autostart.dart';
+import 'path_service.dart' show isLocalBuild;
 
-/// Abstraction over the `launch_at_startup` plugin's static API so
-/// [AutostartService] can be tested against a deterministic fake instead of
-/// real OS-level registration (Windows registry, macOS login items, Linux
-/// autostart entries).
-abstract class AutostartBackend {
-  Future<bool> isEnabled();
-  Future<void> enable();
-  Future<void> disable();
-}
-
-/// Production backend — delegates to the real `launch_at_startup` plugin.
+/// Production backend — delegates to the real `launch_at_startup` plugin. The
+/// two approval calls go to the same channel, answered by `AutostartHost.swift`
+/// on macOS; everywhere else they are no-ops.
 class _LaunchAtStartupBackend implements AutostartBackend {
   const _LaunchAtStartupBackend();
+
+  static const _channel = MethodChannel('launch_at_startup');
 
   @override
   Future<bool> isEnabled() => launchAtStartup.isEnabled();
@@ -30,6 +31,21 @@ class _LaunchAtStartupBackend implements AutostartBackend {
 
   @override
   Future<void> disable() => launchAtStartup.disable();
+
+  @override
+  Future<bool> requiresApproval() async {
+    if (!Platform.isMacOS) return false;
+    return await _channel.invokeMethod<bool>(
+          'launchAtStartupRequiresApproval',
+        ) ??
+        false;
+  }
+
+  @override
+  Future<void> openLoginItems() async {
+    if (!Platform.isMacOS) return;
+    await _channel.invokeMethod<void>('launchAtStartupOpenLoginItems');
+  }
 }
 
 /// Manages the "launch at startup" registration using the system registry
@@ -44,7 +60,18 @@ class AutostartService extends Notifier<bool> {
   /// `test/widgets/service_bootstrap_test.dart`) to simulate success/failure
   /// deterministically.
   @visibleForTesting
-  AutostartBackend get backend => const _LaunchAtStartupBackend();
+  AutostartBackend get backend => Platform.isLinux
+      ? linuxAutostartBackendFor(
+          format: linuxPackageFormatFrom(
+            env: Platform.environment,
+            executable: Platform.resolvedExecutable,
+            flatpakInfoPresent: File('/.flatpak-info').existsSync(),
+            appImageFilePresent: File(
+              Platform.environment['APPIMAGE'] ?? '',
+            ).existsSync(),
+          ),
+        )
+      : const _LaunchAtStartupBackend();
 
   @override
   bool build() {
@@ -72,13 +99,37 @@ class AutostartService extends Notifier<bool> {
     _setupDone = true;
 
     launchAtStartup.setup(
-      appName: 'WhisPaste',
+      // A local build registers under its own name (Windows Run key), so it
+      // never rewrites or removes the release's entry. Linux writes its own
+      // entry under the application ID (LinuxAutostartBackend).
+      appName: isLocalBuild ? 'WhisPaste Dev' : 'WhisPaste',
       appPath: Platform.resolvedExecutable,
       // MSIX Store packages use a different startup mechanism.
       packageName: 'com.whispaste.app',
       args: ['--autostart'],
     );
   }
+
+  /// Opens System Settings at the Login Items pane, where an unapproved login
+  /// item is switched on.
+  Future<void> openLoginItems() => backend.openLoginItems();
+
+  /// Re-reads the macOS approval state. Called on sync and when the window
+  /// regains focus, since the user approves the login item in System Settings
+  /// and comes back. A failed read counts as "not pending", never as a
+  /// registration failure.
+  Future<void> recheckApproval() async {
+    final approval = await backend.requiresApproval().catchError(
+      (Object _) => false,
+    );
+    ref
+        .read(autostartApprovalNeededProvider.notifier)
+        .report(requiresApproval: approval);
+  }
+
+  /// Runs the sync again, for the "Try again" action of a failed sync
+  /// (UIA-SET-14).
+  Future<void> retrySync() => _syncWithSettings();
 
   /// Sync the autostart state with the persisted setting.
   ///
@@ -102,6 +153,7 @@ class AutostartService extends Notifier<bool> {
         _log.info('Autostart disabled');
       }
       state = settings.interface_.launchAtStartup;
+      await recheckApproval();
       ref.read(autostartSyncFailureProvider.notifier).report(null);
     } catch (e) {
       _log.warning('Autostart sync failed: $e');
@@ -127,6 +179,21 @@ class AutostartSyncFailureNotifier extends Notifier<Object?> {
   /// thrown error on failure.
   void report(Object? error) => state = error;
 }
+
+/// Whether macOS holds WhisPaste's login item back until the user approves it
+/// in System Settings → General → Login Items. Kept apart from the bool state:
+/// that flag is "registered", and an unapproved item is not really either.
+class AutostartApprovalNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void report({required bool requiresApproval}) => state = requiresApproval;
+}
+
+final autostartApprovalNeededProvider =
+    NotifierProvider<AutostartApprovalNotifier, bool>(
+      AutostartApprovalNotifier.new,
+    );
 
 final autostartSyncFailureProvider =
     NotifierProvider<AutostartSyncFailureNotifier, Object?>(

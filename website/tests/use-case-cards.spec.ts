@@ -121,31 +121,19 @@ test.describe('UseCaseCards', () => {
     await expect(thirdCard).toBeFocused();
   });
 
-  test('cards have aria-label attributes', async ({ page }) => {
-    await page.goto('/');
-    const cards = page.locator('#use-cases a.use-case-card');
-
-    const ariaLabels = await cards.evaluateAll((els) =>
-      els.map((el) => el.getAttribute('aria-label') ?? ''),
-    );
-    for (const label of ariaLabels) {
-      expect(label.length).toBeGreaterThan(0);
-    }
-  });
-
-  test('section is placed after the hero\'s how-it-works player in DOM', async ({ page }) => {
-    await page.goto('/');
-
-    // Verify DOM order: #how-it-works (the hero's step player, the single
-    // mechanic explanation) appears before #use-cases.
-    const order = await page.evaluate(() => {
-      const demo = document.querySelector('#how-it-works');
-      const selector = document.querySelector('#use-cases');
-      if (!demo || !selector) return null;
-      const pos = demo.compareDocumentPosition(selector);
-      // DOCUMENT_POSITION_FOLLOWING = 4
-      return (pos & 4) === 4;
+  // WCAG 2.5.3 (#1630): no aria-label that hides the visible text; the
+  // accessible name starts with the visible card title, in every language.
+  for (const path of ['/', '/en/', '/es/', '/pt/', '/it/', '/ru/', '/zh/', '/fr/']) {
+    test(`cards are named by their visible title on ${path}`, async ({ page }) => {
+      await page.goto(path);
+      const cards = page.locator('#use-cases a.use-case-card');
+      await expect(cards).toHaveCount(3);
+      for (const card of await cards.all()) {
+        expect(await card.getAttribute('aria-label')).toBeNull();
+        const title = (await card.locator('.use-case-card__title').innerText()).trim();
+        const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        await expect(card).toHaveAccessibleName(new RegExp(`^${escaped}`));
+      }
     });
-    expect(order).toBe(true);
-  });
+  }
 });

@@ -1,11 +1,10 @@
-/// Post-usage Smart Mode discovery touchpoint —
-/// `internal-notes`.
+/// Post-usage Smart Mode discovery touchpoint.
 ///
 /// [SmartModeUsageHintWatcher] shows a dezent, one-time hint after the first
 /// completed dictation for users who have not engaged with Smart Mode
 /// (standard preset still `off`) — covering both onboarding-skippers and
 /// pre-existing users who onboarded before this feature shipped. Unlike the
-/// feature spotlight (`feature_spotlight_notice.dart`) this never recurs and
+/// former feature spotlight this never recurs and
 /// never bundles multiple entries: it is a single, dismiss-and-forget nudge,
 /// not a recurring prompt (explicitly out of scope per the parent ticket,
 /// same reasoning that rules out mirroring the sponsoring hint's cadence).
@@ -22,9 +21,9 @@ import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/onboarding/onboarding_surface.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/nudge_gate.dart';
 import '../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../widgets/dialog.dart';
-import '../../widgets/wp_button.dart';
 import '../settings/sections/smart_mode_section.dart'
     show startSmartModeDownloadWithRamCheck;
 
@@ -33,9 +32,9 @@ import '../settings/sections/smart_mode_section.dart'
 /// re-read (History already owns that view).
 const int kSmartModeUsageHintTextPreviewLength = 160;
 
-/// Wraps [child], watching [historyEntriesProvider] for a newly completed
+/// Wraps [child], watching [latestRecordingsProvider] for a newly completed
 /// dictation. Renders no visible UI of its own — place it anywhere above the
-/// content layer, same convention as [WpFeatureSpotlightWatcher].
+/// content layer, like the other startup watchers.
 class SmartModeUsageHintWatcher extends ConsumerStatefulWidget {
   const SmartModeUsageHintWatcher({super.key, required this.child});
 
@@ -74,6 +73,18 @@ class _SmartModeUsageHintWatcherState
         );
   }
 
+  /// Central nudge gate (R-11): waits for no dictation and 30 s of idle app
+  /// input before the hint may open.
+  Future<void> _showHintWhenAllowed(String dictatedText) async {
+    _dialogShowing = true;
+    await ref.read(nudgeGateProvider).whenAllowed();
+    if (!mounted) {
+      _dialogShowing = false;
+      return;
+    }
+    await _showHint(dictatedText);
+  }
+
   Future<void> _showHint(String dictatedText) async {
     _dialogShowing = true;
     final l10n = L10n.of(context);
@@ -89,7 +100,7 @@ class _SmartModeUsageHintWatcherState
         children: [
           Text(l10n.smartModeUsageHintBody),
           if (preview.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: WpSpacing.sm),
             Text(
               '"$preview"',
               style: const TextStyle(fontStyle: FontStyle.italic),
@@ -98,16 +109,15 @@ class _SmartModeUsageHintWatcherState
         ],
       ),
       actions: [
-        WpButton(
+        WpDialogAction(
           label: l10n.smartModeUsageHintDismiss,
-          variant: WpButtonVariant.ghost,
-          tone: WpButtonTone.neutral,
-          onPressed: () => Navigator.of(context).pop(),
+          testId: 'smart-mode-usage-hint-dismiss',
+          role: WpDialogActionRole.cancel,
         ),
-        const SizedBox(width: WpSpacing.sm),
-        WpButton(
+        WpDialogAction(
           label: l10n.smartModeUsageHintCta,
-          variant: WpButtonVariant.primary,
+          testId: 'smart-mode-usage-hint-download',
+          role: WpDialogActionRole.primary,
           onPressed: () {
             final notifier = ref.read(smartModeDownloadProvider.notifier);
             Navigator.of(context).pop();
@@ -131,7 +141,7 @@ class _SmartModeUsageHintWatcherState
     // completes, minutes into a session at the earliest, settings are always
     // long since loaded.
     final settingsAsync = ref.watch(settingsProvider);
-    ref.listen<AsyncValue<List<HistoryEntry>>>(historyEntriesProvider, (
+    ref.listen<AsyncValue<List<HistoryEntry>>>(latestRecordingsProvider, (
       prev,
       next,
     ) {
@@ -151,7 +161,7 @@ class _SmartModeUsageHintWatcherState
       if (_dialogShowing) return;
       final settings = settingsAsync.value;
       if (settings == null || !_eligible(settings)) return;
-      unawaited(_showHint(entries.first.content));
+      unawaited(_showHintWhenAllowed(entries.first.content));
     });
     return widget.child;
   }

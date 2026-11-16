@@ -4,9 +4,11 @@
 /// folding into `model_download_service.dart`, so the whisper single-file
 /// download path is untouched.
 ///
-/// Integrity: see [parakeet_model_registry.dart] doc comment — no SHA-256 is
-/// pinned for this repo (HuggingFace Xet storage does not expose one via a
-/// simple HTTP call), so verification here is a byte-size sanity check only.
+/// Integrity: every bundle file is pinned by SHA-256 (see
+/// [parakeet_model_registry.dart]). A fresh download is size-checked and then
+/// hashed off the UI isolate; a mismatch deletes the file and sets a retryable
+/// error. Files already on disk with the right size are only size-checked, so
+/// startup never hashes the bundle.
 library;
 
 import 'dart:async';
@@ -18,8 +20,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../download_disk_space.dart';
+import '../download_error_kind.dart';
+import '../file_verification_service.dart';
+import '../free_disk_space.dart';
 import '../http_model_fetcher.dart';
-import '../model_download_service.dart' show formatModelSizeLabel;
+import '../download_tls_failure.dart';
+import '../model_download_service.dart'
+    show formatModelSizeLabel, modelDeleteFailedError;
 import '../tmp_reaper.dart';
 import 'parakeet_gguf_model.dart';
 import 'parakeet_gpu_policy.dart';
@@ -56,6 +64,7 @@ class ParakeetDownloadState {
     this.bytesDownloaded = 0,
     this.totalBytes = 0,
     this.errorMessage,
+    this.errorKind,
     this.installed = false,
   });
 
@@ -67,6 +76,10 @@ class ParakeetDownloadState {
   final int bytesDownloaded;
   final int totalBytes;
   final String? errorMessage;
+
+  /// User-facing category of the last failure; [errorMessage] is the raw
+  /// diagnostic text and belongs in the log, not on screen.
+  final DownloadErrorKind? errorKind;
 
   /// Whether all four bundle files are present on disk.
   final bool installed;
@@ -82,6 +95,7 @@ class ParakeetDownloadState {
     int? bytesDownloaded,
     int? totalBytes,
     String? errorMessage,
+    DownloadErrorKind? errorKind,
     bool? installed,
   }) => ParakeetDownloadState(
     phase: phase ?? this.phase,
@@ -90,6 +104,7 @@ class ParakeetDownloadState {
     bytesDownloaded: bytesDownloaded ?? this.bytesDownloaded,
     totalBytes: totalBytes ?? this.totalBytes,
     errorMessage: errorMessage,
+    errorKind: errorKind,
     installed: installed ?? this.installed,
   );
 }
@@ -99,7 +114,17 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
   @visibleForTesting
   HttpModelFetcher? fetcherOverride;
 
-  HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
+  // One fetcher per notifier: cancel and dispose must reach the one that is
+  // downloading (UIA-RT-05).
+  late final HttpModelFetcher _fetcher = fetcherOverride ?? HttpModelFetcher();
+
+  Future<void>? _orphanSweep;
+
+  /// The fire-and-forget orphan sweep the last successful [downloadBundle]
+  /// started; `null` before that. Lets tests await the sweep instead of
+  /// polling the disk.
+  @visibleForTesting
+  Future<void>? get debugOrphanSweep => _orphanSweep;
 
   @override
   ParakeetDownloadState build() {
@@ -107,10 +132,35 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
     return ParakeetDownloadState(installed: parakeetModelFilesExistSync());
   }
 
+  /// Whether [file] is on disk at its pinned size (then it is not fetched).
+  bool _bundleFileComplete(ParakeetModelFile file) =>
+      parakeetBundleFileCompleteIn(parakeetModelDir(), file);
+
+  /// The free-space shortage for everything [downloadBundle] still has to
+  /// fetch, or `null` when the volume holds enough.
+  Future<DiskSpaceShortage?> _diskShortage(
+    List<ParakeetModelFile> files,
+    String dir,
+  ) {
+    var missingBytes = 0;
+    for (final file in files) {
+      if (!_bundleFileComplete(file)) missingBytes += file.sizeBytes;
+    }
+    if (_gpuWanted() && !_ggufPresent()) {
+      missingBytes += parakeetGgufActive.sizeBytes;
+    }
+    return checkDownloadDiskSpace(
+      dir: dir,
+      downloadBytes: missingBytes,
+      probe: ref.read(freeDiskSpaceProbeProvider),
+    );
+  }
+
   /// Downloads every missing bundle file, in order. No-op if already
   /// installed or a download is already in flight.
   Future<void> downloadBundle() async {
     if (state.isBusy) return;
+    await _adoptMisplacedFiles();
     if (parakeetModelFilesExistSync() && (!_gpuWanted() || _ggufPresent())) {
       state = state.copyWith(
         phase: ParakeetDownloadPhase.done,
@@ -124,22 +174,32 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       dir.createSync(recursive: true);
     }
 
+    final files = effectiveParakeetModelFiles();
+    final shortage = await _diskShortage(files, dir.path);
+    if (shortage != null) {
+      _log.warning(
+        'Not enough disk space for the Parakeet bundle: '
+        'needs ${shortage.neededBytes} B, free ${shortage.freeBytes} B',
+      );
+      state = state.copyWith(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: shortage.errorCode,
+      );
+      return;
+    }
+
     state = state.copyWith(
       phase: ParakeetDownloadPhase.downloading,
       currentFileIndex: 0,
       progressPercent: 0,
       errorMessage: null,
     );
-
-    final files = effectiveParakeetModelFiles();
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
       final destPath = parakeetModelFilePath(file.filename);
 
-      if (File(destPath).existsSync() &&
-          File(destPath).lengthSync() == file.sizeBytes) {
-        continue; // Already downloaded and size matches — skip.
-      }
+      if (_bundleFileComplete(file)) continue; // Downloaded, size matches.
+      _log.info('Downloading ${file.filename} (${file.sizeBytes} B)');
 
       state = state.copyWith(
         currentFileIndex: i,
@@ -149,31 +209,53 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       );
 
       try {
-        await _fetcher.fetch(
-          url: file.url,
+        // Size and the pinned SHA-256 are checked inside, source after
+        // source; a file that fails is deleted before the next source.
+        await _fetcher.fetchVerified(
+          sources: file.sources,
           destPath: destPath,
           expectedSize: file.sizeBytes,
+          expectedSha256: file.sha256,
           onProgress: (prog) => state = state.copyWith(
             progressPercent: prog.progressPercent,
             bytesDownloaded: prog.bytesReceived,
             totalBytes: prog.totalBytes,
           ),
+          onVerifying: () =>
+              state = state.copyWith(phase: ParakeetDownloadPhase.verifying),
         );
+        state = state.copyWith(phase: ParakeetDownloadPhase.downloading);
+      } on DownloadChecksumException {
+        _log.warning(
+          'SHA-256 check failed for ${file.filename} on every source — '
+          'deleted, re-download required.',
+        );
+        state = state.copyWith(
+          phase: ParakeetDownloadPhase.error,
+          errorMessage:
+              'Downloaded file failed checksum verification: ${file.filename}',
+          errorKind: DownloadErrorKind.checksum,
+        );
+        return;
       } on DioException catch (e) {
         if (e.type == DioExceptionType.cancel) {
           state = state.copyWith(phase: ParakeetDownloadPhase.idle);
           return;
         }
         final description = _describeDioError(e);
+        final tls = isTlsDownloadFailure(e);
         // A connection the fetcher could not resume is the user's network,
         // not a defect — the partial file stays and a retry resumes it.
-        final log = e.type == DioExceptionType.connectionError
+        final log = tls || e.type == DioExceptionType.connectionError
             ? _log.warning
             : _log.error;
         log('Download failed for ${file.filename}: $description');
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
-          errorMessage: 'Download failed: $description',
+          errorMessage: tls
+              ? downloadTlsErrorCode
+              : 'Download failed: $description',
+          errorKind: classifyDownloadError(e),
         );
         return;
       } on Exception catch (e) {
@@ -183,23 +265,7 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
           errorMessage: 'Download failed: $e',
-        );
-        return;
-      }
-
-      // Size sanity check (no SHA-256 available for this repo — see the
-      // library doc comment on parakeet_model_registry.dart).
-      state = state.copyWith(phase: ParakeetDownloadPhase.verifying);
-      final actualSize = await File(destPath).length();
-      if (actualSize != file.sizeBytes) {
-        await File(destPath).delete();
-        _log.warning(
-          'Size mismatch for ${file.filename}: expected=${file.sizeBytes} '
-          'actual=$actualSize — deleted, re-download required.',
-        );
-        state = state.copyWith(
-          phase: ParakeetDownloadPhase.error,
-          errorMessage: 'Downloaded file size mismatch: ${file.filename}',
+          errorKind: classifyDownloadError(e),
         );
         return;
       }
@@ -220,7 +286,33 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
     // reap any OTHER orphaned `.tmp` fragment left in the bundle directory
     // (e.g. from an earlier abandoned attempt) now that this download
     // finished cleanly (fire-and-forget).
-    unawaited(sweepOrphanedTmpFiles(directory: parakeetModelDir()));
+    unawaited(
+      _orphanSweep = sweepOrphanedTmpFiles(directory: parakeetModelDir()),
+    );
+  }
+
+  /// Takes over bundle files a user copied into a folder named after the
+  /// download page (`…-int8`, see [parakeetMisplacedDirNames]) instead of
+  /// [parakeetModelId]. Each moved file must match its pinned SHA-256, or it
+  /// is deleted and downloaded like any missing file.
+  Future<void> _adoptMisplacedFiles() async {
+    final dir = parakeetModelDir();
+    final files = effectiveParakeetModelFiles();
+    final moved = adoptMisplacedParakeetFiles(dir, files);
+    for (final name in moved) {
+      final file = files.firstWhere((f) => f.filename == name);
+      final path = parakeetModelFilePath(name);
+      final check = await const FileVerificationService().verifyStamped(
+        File(path),
+        file.sha256,
+      );
+      if (check is VerificationOk) {
+        _log.info('Adopted $name from a misnamed Parakeet folder');
+      } else {
+        _log.warning('$name from a misnamed folder fails its hash — deleted');
+        await File(path).delete().catchError((_) => File(path));
+      }
+    }
   }
 
   /// Downloads and verifies the GGUF for the GPU engine. Returns `false` when
@@ -245,7 +337,17 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
           bytesDownloaded: prog.bytesReceived,
           totalBytes: prog.totalBytes,
         ),
+        onVerifying: () =>
+            state = state.copyWith(phase: ParakeetDownloadPhase.verifying),
       );
+    } on DownloadChecksumException {
+      _log.warning('GGUF failed its SHA-256 check on every source — deleted');
+      state = state.copyWith(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: 'Downloaded model failed verification (hashMismatch)',
+        errorKind: DownloadErrorKind.checksum,
+      );
+      return false;
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel) {
         state = state.copyWith(phase: ParakeetDownloadPhase.idle);
@@ -255,7 +357,10 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       _log.warning('GGUF download failed: $description');
       state = state.copyWith(
         phase: ParakeetDownloadPhase.error,
-        errorMessage: 'Download failed: $description',
+        errorMessage: isTlsDownloadFailure(e)
+            ? downloadTlsErrorCode
+            : 'Download failed: $description',
+        errorKind: classifyDownloadError(e),
       );
       return false;
     } on Exception catch (e) {
@@ -263,6 +368,7 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       state = state.copyWith(
         phase: ParakeetDownloadPhase.error,
         errorMessage: 'Download failed: $e',
+        errorKind: classifyDownloadError(e),
       );
       return false;
     }
@@ -275,6 +381,7 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       state = state.copyWith(
         phase: ParakeetDownloadPhase.error,
         errorMessage: 'Downloaded model failed verification (${check.name})',
+        errorKind: DownloadErrorKind.checksum,
       );
       return false;
     }
@@ -320,7 +427,8 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       _log.warning('Failed to delete Parakeet bundle: $e');
       state = state.copyWith(
         phase: ParakeetDownloadPhase.error,
-        errorMessage: 'Delete failed: ${e.message}',
+        errorMessage: modelDeleteFailedError,
+        errorKind: DownloadErrorKind.storage,
       );
     }
   }

@@ -25,7 +25,7 @@ void main() {
     };
 
     // Constructor-shaped on purpose: `\bDialog\s*\(` does not match
-    // `showDialog(` or `_SnippetDialog(` (no word boundary before `Dialog`
+    // `showDialog(` or `_ConfirmDialog(` (no word boundary before `Dialog`
     // there), so the guard only fires on an actually constructed dialog.
     final rawDialogPattern = RegExp(
       r'\bAlertDialog\s*\(|\bSimpleDialog\s*\(|\bDialog\s*\(|\bDialog\.\w+\s*\(',

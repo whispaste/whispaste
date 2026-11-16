@@ -54,6 +54,14 @@ void main() {
     });
   });
 
+  group('appVersionKnown', () {
+    test('is false in the test host, where no version was resolved', () {
+      // flutter test passes no APP_VERSION define and initAppInfo never runs,
+      // so version labels must not print one at all (UX-043).
+      expect(appVersionKnown, isFalse);
+    });
+  });
+
   group('sentryRelease', () {
     test('uses the lowercase "whispaste@" prefix, not the display appName', () {
       // Regression guard for the case-sensitivity bug: CI uploads symbols
@@ -70,6 +78,28 @@ void main() {
       // In the test host, appVersion falls back to 'unknown' (no compile-time
       // APP_VERSION define). The contract is just: <prefix>@<version>.
       expect(sentryRelease, equals('whispaste@$appVersion'));
+    });
+  });
+
+  group('formatVersionLine', () {
+    test('appends commit and date when the build carries them', () {
+      expect(
+        formatVersionLine('1.4.2', commit: 'a1b2c3d', date: '2026-11-06'),
+        '1.4.2 · a1b2c3d · 2026-11-06',
+      );
+      expect(
+        formatVersionLine('1.4.2', commit: 'a1b2c3d+', date: '2026-11-06'),
+        '1.4.2 · a1b2c3d+ · 2026-11-06',
+      );
+    });
+
+    test('shows only the version when the stamp is missing or malformed', () {
+      expect(formatVersionLine('1.4.2'), '1.4.2');
+      expect(formatVersionLine('1.4.2', commit: 'dev', date: ''), '1.4.2');
+      expect(
+        formatVersionLine('1.4.2', commit: 'zzz', date: '06.11.2026'),
+        '1.4.2',
+      );
     });
   });
 }

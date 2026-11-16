@@ -19,9 +19,15 @@ class LinuxSnippetPickerController
   LinuxSnippetPickerController() : super(_channelName);
 
   @override
-  Future<void> show({required List<Map<String, String>> items}) =>
-      invokeMethod('show', {'items': items});
+  Future<void> show({
+    required List<Map<String, String>> items,
+    String query = '',
+  }) => invokeMethod('show', {'items': items, 'query': query});
 
   @override
-  Future<void> hide() => invokeMethod('hide');
+  Future<void> hide({bool outsideClick = false}) =>
+      invokeMethod('hide', {'outsideClick': outsideClick});
+
+  @override
+  Future<void> focus() => invokeMethod('focus');
 }

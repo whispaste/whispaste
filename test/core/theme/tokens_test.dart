@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart'
+    show WpRadiusTokens;
 import 'package:whispaste/core/theme/tokens.dart';
 
 void main() {
   group('WpSpacing', () {
     test('values are monotonically increasing', () {
       final values = [
+        WpSpacing.xxxs,
         WpSpacing.xxs,
         WpSpacing.xs,
         WpSpacing.sm,
@@ -25,7 +28,7 @@ void main() {
     });
 
     test('smallest spacing is positive', () {
-      expect(WpSpacing.xxs, greaterThan(0));
+      expect(WpSpacing.xxxs, greaterThan(0));
     });
   });
 
@@ -39,6 +42,12 @@ void main() {
           reason: 'Radius scale must be strictly increasing at index $i',
         );
       }
+    });
+
+    test('steps shared with the token source keep its values', () {
+      expect(WpRadius.sm, WpRadiusTokens.control);
+      expect(WpRadius.sm, WpRadiusTokens.sm);
+      expect(WpRadius.xl, WpRadiusTokens.surface);
     });
 
     test('full radius is very large (pill shape)', () {
@@ -80,39 +89,32 @@ void main() {
 
   group('WpShadows', () {
     test('shadow definitions are not empty', () {
-      expect(WpShadows.subtle, isNotEmpty);
       expect(WpShadows.card, isNotEmpty);
       expect(WpShadows.elevated, isNotEmpty);
-      expect(WpShadows.glassInner, isNotEmpty);
     });
 
-    test('elevated shadow has greater blur than subtle', () {
-      final subtleMaxBlur = WpShadows.subtle
+    test('elevated shadow has greater blur than card', () {
+      final cardMaxBlur = WpShadows.card
           .map((s) => s.blurRadius)
           .reduce((a, b) => a > b ? a : b);
       final elevatedMaxBlur = WpShadows.elevated
           .map((s) => s.blurRadius)
           .reduce((a, b) => a > b ? a : b);
-      expect(elevatedMaxBlur, greaterThan(subtleMaxBlur));
-    });
-
-    test('glassInner uses inner blur style', () {
-      expect(
-        WpShadows.glassInner.any((s) => s.blurStyle == BlurStyle.inner),
-        isTrue,
-      );
+      expect(elevatedMaxBlur, greaterThan(cardMaxBlur));
     });
   });
 
   group('WpLayout', () {
-    test('sidebar width is reasonable for icon-only rail', () {
-      expect(WpLayout.sidebarWidth, greaterThanOrEqualTo(48));
-      expect(WpLayout.sidebarWidth, lessThanOrEqualTo(120));
+    test('sidebar width is reasonable for labelled and icon-only rails', () {
+      expect(WpLayout.sidebarWidth, greaterThanOrEqualTo(200));
+      expect(WpLayout.sidebarWidth, lessThanOrEqualTo(260));
+      expect(WpLayout.sidebarWidthCompact, greaterThanOrEqualTo(48));
+      expect(WpLayout.sidebarWidthCompact, lessThanOrEqualTo(120));
     });
 
     test('status bar height is compact', () {
-      expect(WpLayout.statusBarHeight, greaterThan(0));
-      expect(WpLayout.statusBarHeight, lessThanOrEqualTo(48));
+      expect(WpLayout.dockAreaHeight, greaterThan(0));
+      expect(WpLayout.dockAreaHeight, lessThanOrEqualTo(120));
     });
 
     test('app bar height is reasonable', () {

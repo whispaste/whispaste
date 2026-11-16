@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Stop typing — speak, and your words land at the cursor in any app.<br>
+  Stop typing — speak, and your words land at the cursor in most apps.<br>
   A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop voice-input tool — offline by default, cloud providers optional, no subscription.<br>
   Windows · macOS · Linux · MIT-licensed.
 </p>
@@ -33,10 +33,10 @@
 </p>
 
 <p align="center">
-  <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — History view, dark theme" width="720">
+  <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — Recordings view, dark theme" width="720">
 </p>
 <p align="center">
-  <img src="resources/screenshots/history-detail-dark.png" alt="WhisPaste — History detail view, dark theme" width="720">
+  <img src="resources/screenshots/history-detail-dark.png" alt="WhisPaste — Recordings detail view, dark theme" width="720">
 </p>
 
 ---
@@ -51,21 +51,25 @@ Hotkey → Speak → Text appears at your cursor
 2. **Speak naturally** — a minimal overlay shows a live waveform while the mic is open
 3. **Done** — the transcript is pasted wherever your cursor sits
 
-Works in emails, chat apps, code editors, browsers, terminals — anywhere you would otherwise type.
+Works in emails, chat apps, code editors, browsers, terminals — almost anywhere you would otherwise type.
 
 ## Key Features
 
-**Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app (macOS/Windows/Linux with one-time uinput setup; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
+**Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into most apps (macOS/Windows/Linux; on Linux via a one-time uinput setup or the desktop portal; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
 
-**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux) or NVIDIA Parakeet (~25 languages, GPU-accelerated where available, CPU fallback, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine)
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux, after you accept the NVIDIA CUDA licence) or NVIDIA Parakeet (~25 languages, GPU-accelerated where available, CPU fallback, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine) · Import audio and video files using the file picker, by dropping them onto the window or, for audio files, from the file manager's right-click menu (WAV; MP3, FLAC, M4A/AAC, Ogg/Opus; MP4, MOV, MKV and WebM on macOS, Windows and Linux) — video audio is extracted locally by a bundled helper
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
-**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Edit selected text by voice (select text, press the selection hotkey, say what should change; off by default) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
+**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages, plus your own named presets) · Edit selected text by voice (select text, press the selection hotkey, say what should change; off by default) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux; on Linux the clipboard list is a snapshot taken when the panel opens, not a running history; off by default, turn it on in Settings; on macOS and Windows, apps such as password managers can be excluded from the history; on Linux, copies that password managers mark as confidential can be skipped) · Notes with titles, images and version history (lockable with the History PIN) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
 
-**History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
+**Recordings** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
 
-**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU/ES/PT interface · Autostart · System tray
+**System** — Auto-update with Ed25519-signed releases on macOS and Windows (Sparkle/WinSparkle); Linux checks for new versions and links to the release page; package-manager installs (Homebrew, Scoop) leave updates to the package manager · Dark theme · EN/DE/HE/RU/ES/PT interface · Autostart · System tray
+
+## System Requirements
+
+- **macOS:** 12.0 (Monterey) or newer, Apple Silicon
 
 ## Command-Line Remote Control
 
@@ -77,6 +81,8 @@ whispaste --cancel   # discard the running dictation
 ```
 
 The call is forwarded to the running WhisPaste and the second process exits right away. If WhisPaste is not running, `--toggle` starts it and then begins a dictation; `--cancel` does nothing. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
+
+On GNOME and KDE under Wayland, WhisPaste's hotkey works in other apps only after the desktop binds it. If it does not, Settings and onboarding show the reason and a button to ask the desktop again; without a portal, the same notice names the keyboard settings to use.
 
 | Platform | Command |
 |---|---|
@@ -98,7 +104,7 @@ whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whispe
 
 Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text, plus the compute backend and GPU device the engine ran on. `--gpu disabled` forces the CPU, like "CPU only" in the settings. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
 
-`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing.
+`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing. On Linux it also runs without a display: it then starts a private Xvfb for the check, and exits with 2 if Xvfb is not installed.
 
 ## Development
 
@@ -132,19 +138,17 @@ To build the bundled on-device engines and for the full per-OS toolchain, see [B
 ### Commands
 
 ```bash
-flutter analyze --fatal-infos          # Lint + static analysis
-flutter test                           # Run all tests (excludes goldens)
-flutter test --tags=golden             # Run widget/screenshot tests
+flutter analyze --fatal-infos lib test integration_test tool generators benchmarks  # Lint + static analysis
+flutter test                           # Run all tests
 flutter build windows --release --no-tree-shake-icons
-flutter build macos   --release --no-tree-shake-icons \
-  --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=...
+flutter build macos   --release --no-tree-shake-icons
 ```
 
 ## Privacy
 
 - **Local mode** (offline speech recognition) — audio never leaves your device
 - **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
-- **No account required** — usage analytics are anonymous, self-hosted, and opt-out; optional crash reporting can be turned off
+- **No account required** — usage statistics and crash reports are on by default (anonymous, EU-hosted) and can each be switched off, and so can the update check
 - **Open source** — audit every line
 
 ## Support
@@ -154,11 +158,14 @@ flutter build macos   --release --no-tree-shake-icons \
   <a href="https://ko-fi.com/silviol"><img src="https://img.shields.io/badge/Ko--fi-☕-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
 </p>
 
-In the app, About › Support WhisPaste lists every way to help, including PayPal. The Microsoft Store
-and Mac App Store versions offer optional one-time tips through the store. Tips unlock nothing.
+In the app, Help › Support lists every way to help. The Microsoft Store and Mac App Store
+versions offer an optional one-time tip through the store, followed by GitHub Sponsors,
+Ko-fi, Buy Me a Coffee and PayPal. External support unlocks nothing.
 
 Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).
+
+The optional CUDA acceleration pack is a separate download that contains NVIDIA redistributables under the NVIDIA CUDA Toolkit EULA, not under this project's licence. Its terms (including no reverse engineering and keeping notices intact) apply to those files.
 
 <p align="center">
   <sub>Made by <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>

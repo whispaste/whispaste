@@ -1,11 +1,11 @@
 name: whispaste
 description: "Cross-platform dictation — hotkey, speak, paste anywhere."
 publish_to: 'none'
-version: 1.4.2+51
+version: 1.5.0+52
 
 environment:
   sdk: ^3.12.0
-  flutter: ">=3.44.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
@@ -53,7 +53,7 @@ dependencies:
   # HTTP
   http: ^1.3.0
   dio: ^5.7.0
-  # Local automation API (ticket 03, `internal-notes`) — a
+  # Local automation API — a
   # loopback-only HTTP server power users can script dictation against.
   # Already resolved transitively (dwds' shelf_web_socket dependency); the
   # dictation-trigger route needs it directly instead of only as an
@@ -74,9 +74,19 @@ dependencies:
   # settings export/import target selection (Ticket 03,
   # settings-portability-vollumfang).
   file_selector: ^1.1.0
+  # Drop target for audio files dragged from the file manager (XP-5-12).
+  # 0.9 needs Flutter 3.47; 0.8.4 covers macOS, Windows and Linux.
+  desktop_drop: ^0.8.4
+  # Linux: own FileSelectorPlatform with dialog texts in the app language
+  # (XP-5-13); already resolved through file_selector.
+  file_selector_platform_interface: ^2.7.0
 
   # FFI (platform interop)
   ffi: ^2.2.0
+  # Pure-Dart D-Bus client (Linux only): asks the compositor which window has
+  # focus under Wayland (KWin scripting, the optional GNOME Shell extension),
+  # see lib/services/desktop_paste/focused_target/.
+  dbus: ^0.7.15
 
   # Cross-platform audio engine (replaces Win32 PlaySoundW)
   flutter_soloud: ^4.0.7
@@ -95,6 +105,8 @@ dependencies:
   # CLDR-localised language display names (STT recognition-language dropdown).
   flutter_localized_locales: ^2.0.5
   crypto: ^3.0.6
+  # AES-256-GCM for retained recordings at rest (#1021); pure Dart, no plugin.
+  pointycastle: ^4.0.0
   # Reads the build-time version from Info.plist / Windows resource block /
   # AndroidManifest — Flutter populates these from pubspec.yaml. Used by
   # app_info.dart to keep the runtime appVersion in lockstep with pubspec.
@@ -102,6 +114,9 @@ dependencies:
   logging: ^1.3.0
   shared_preferences: ^2.5.0
   url_launcher: ^6.3.0
+  # RSS/Atom parsing for the news block of the Übersicht (#1568); pure Dart,
+  # already in the tree through other packages. Never loads external entities.
+  xml: ^7.0.1
   # Cross-platform native OS notifications (Windows toast, macOS UserNotifications).
   # Best-effort surface for paste failures — supplements (does NOT replace)
   # the dock-bounce / taskbar-flash + tray-badge attention layers that work
@@ -114,13 +129,13 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
-  # Fuzzy string similarity scoring for the fuzzy text-replacement match
-  # mode (vocabulary-fuzzy-replacements PRD) — more mature/established than
-  # the same author's newer rapidfuzz package at spec time.
-  fuzzywuzzy: ^1.2.0
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics
+  # Pure-Dart GPU probe — provides the VRAM gate (checkVramGate) that keeps a
+  # GPU backend off models that do not fit the detected VRAM.
+  whispaste_gpu_probe:
+    path: packages/whispaste_gpu_probe
 
   # Pure-Dart FileSystem abstraction (LocalFileSystem, MemoryFileSystem).
   # Used by `FactoryResetCoordinator` so production and tests share the
@@ -129,7 +144,8 @@ dependencies:
   # Generic Google-maintained package — NOT Firebase / NOT GCP.
   file: ^7.0.0
   auto_updater: ^1.0.0
-  sherpa_onnx: ^1.13.4
+  sherpa_onnx: ^2.0.1
+  super_clipboard: ^0.9.1
 
 dev_dependencies:
   flutter_test:
@@ -165,10 +181,48 @@ dependency_overrides:
   # the Windows self-update chain EdDSA-verified, mirroring macOS Sparkle.
   auto_updater_windows:
     path: packages/auto_updater_windows
+  # Vendored fork of auto_updater_macos 1.0.0: Sparkle 2.10 dropped CocoaPods,
+  # so the podspec embeds Sparkle.framework from scripts/sparkle.pin
+  # (SHA-256 checked) instead of `s.dependency 'Sparkle'`.
+  auto_updater_macos:
+    path: packages/auto_updater_macos
+  # Vendored fork of hotkey_manager_linux 0.2.0: binds with keybinder's raw
+  # accelerator matching (linux/keybinder_raw.cc). Upstream keeps the cooked
+  # default, under which every Shift+letter hotkey, the default Ctrl+Shift+D
+  # included, never fires on X11. Only the Linux implementation is replaced.
+  hotkey_manager_linux:
+    path: packages/hotkey_manager_linux
+  # Vendored forks of hotkey_manager_macos / hotkey_manager_windows 0.2.0:
+  # upstream answers true to register() whatever the system said, so a
+  # combination owned by another app never reached the conflict status. The
+  # forks answer PlatformException hotkey_unavailable, like the Linux fork.
+  hotkey_manager_macos:
+    path: packages/hotkey_manager_macos
+  hotkey_manager_windows:
+    path: packages/hotkey_manager_windows
+  # Vendored fork of record_macos 2.1.1: stop() stops the AVAudioEngine before
+  # it switches voice processing off, as AVAudioIONode requires. Upstream
+  # switched it on the running engine, which crashed the CoreAudio IO thread
+  # during stop. Drop the fork once a released record_macos (or record_darwin)
+  # stops the engine first.
+  record_macos:
+    path: packages/record_macos
+
+# The history database is encrypted at rest (#1020): package:sqlite3 bundles
+# SQLite3 Multiple Ciphers instead of plain SQLite (MIT, listed in
+# lib/core/licenses/third_party_licenses.dart). Without a key it behaves like
+# plain SQLite, so unencrypted files and in-memory test databases still open.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
 
 flutter:
   uses-material-design: true
   generate: true
+
+  shaders:
+    - assets/shaders/glass_backdrop.frag
 
   assets:
     - assets/icons/
@@ -176,19 +230,56 @@ flutter:
     - assets/icons/2.0x/
     - assets/icons/3.0x/
     - assets/icons/4.0x/
+    - assets/social/
+    # Tray icon state variants (#137); see lib/services/tray_icon_state.dart.
+    - assets/tray/
     - assets/sounds/
-    # Declared before the clips exist so producing one is a pure asset drop —
-    # see assets/onboarding/README.md. Until then the directory holds only
-    # that README and page 1 renders its icon placeholders.
+    # Speech clip for the speed measurement; see assets/benchmark/NOTICE.md.
+    - assets/benchmark/reference-de.wav
+    - assets/sounds/bernstein/
+    # Motion beats M1-M5 per theme (hell, dunkel, marine) plus their still
+    # frames; see assets/onboarding/README.md and website/motion/onboarding.
     - assets/onboarding/
-    # See assets/feature_spotlight/README.md. A missing file degrades
-    # gracefully (FeatureSpotlightEntry.image's doc comment).
-    - assets/feature_spotlight/
+    # macOS permission panel guide per theme (hell, dunkel) plus still frames
+    # (#753); rendered from website/motion/permission-guide.
+    - assets/permission_guide/
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
     - assets/flags/
+    - assets/fonts/licenses/
+    # Licence texts of the native libraries — see lib/core/licenses/third_party_licenses.dart.
+    - assets/licenses/
+    # Mozilla root store for Windows TLS (lib/core/tls/). See assets/tls/NOTICE.md.
+    - assets/tls/
 
+  # Static instances cut from the upstream variable fonts (google/fonts, OFL 1.1):
+  # Bricolage at opsz 24 / wdth 100. Neither family covers Cyrillic or Hebrew,
+  # so Inter stays bundled as the first fallback (ADR 0018).
   fonts:
+    - family: Hanken Grotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk-w400.ttf
+          weight: 400
+        - asset: assets/fonts/HankenGrotesk-Italic-w400.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/HankenGrotesk-w500.ttf
+          weight: 500
+        - asset: assets/fonts/HankenGrotesk-w600.ttf
+          weight: 600
+        - asset: assets/fonts/HankenGrotesk-Italic-w600.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/HankenGrotesk-w700.ttf
+          weight: 700
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-w500.ttf
+          weight: 500
+        - asset: assets/fonts/BricolageGrotesque-w600.ttf
+          weight: 600
+        - asset: assets/fonts/BricolageGrotesque-w700.ttf
+          weight: 700
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Regular.ttf
@@ -205,10 +296,14 @@ msix_config:
   publisher_display_name: silvio_lindstedt
   identity_name: 12342SilvioLindstedt.WhisPaste
   publisher: CN=F08EEF05-5870-4208-B156-E597A1AB80B0
-  msix_version: 1.4.2.0
+  msix_version: 1.5.0.0
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
+  # whispaste:// hands the user back from a web page (newsletter
+  # confirmation); the unpackaged builds register it in the Windows runner
+  # (url_scheme_registration.cpp).
+  protocol_activation: whispaste
   # UI languages the app actually ships (lib/core/l10n). Store listings in
   # other languages (it, zh-CN, fr) are listing-only "additional languages",
   # which Partner Center allows without package support.

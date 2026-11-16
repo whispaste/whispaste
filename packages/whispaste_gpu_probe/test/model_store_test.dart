@@ -8,8 +8,27 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 import 'package:whispaste_gpu_probe/whispaste_gpu_probe.dart';
 
+import 'support/unhashed_catalog.dart';
+
 void main() {
   group('defaultModelCatalog', () {
+    test('every source is pinned to a commit and carries a SHA-256', () {
+      for (final m in defaultModelCatalog()) {
+        if (m.id == 'wav2vec2-de-xlsr53') continue; // no upstream file
+        final sources = m.isBundle
+            ? [for (final f in m.files!) (f.url, f.sha256)]
+            : [(m.entry!.downloadUrl, m.entry!.sha256)];
+        for (final (url, sha) in sources) {
+          expect(
+            url.path,
+            matches(RegExp(r'/resolve/[0-9a-f]{40}/')),
+            reason: '$url',
+          );
+          expect(sha, matches(RegExp(r'^[0-9a-f]{64}$')), reason: '$url');
+        }
+      }
+    });
+
     test('lists ggml models smallest → largest', () {
       final c = defaultModelCatalog();
       expect(c.first.id, 'ggml-tiny');
@@ -50,7 +69,11 @@ void main() {
         await target.writeAsBytes(List.filled(100, 0));
       }
 
-      final s = ModelStore(directory: tmp.path, downloader: fake);
+      final s = ModelStore(
+        directory: tmp.path,
+        catalog: unhashedCatalog(),
+        downloader: fake,
+      );
       var changes = 0;
       await s.download('ggml-tiny', onChange: () => changes++);
 
@@ -58,6 +81,18 @@ void main() {
       final tiny = s.statusJson().firstWhere((m) => m['id'] == 'ggml-tiny');
       expect(tiny['state'], 'present');
       expect(changes, greaterThan(1));
+    });
+
+    test('a file with the wrong hash is deleted and lands as error', () async {
+      Future<void> fake(Uri u, File t, void Function(int, int) onP) async =>
+          t.writeAsBytes([1, 2, 3]);
+
+      final s = ModelStore(directory: tmp.path, downloader: fake);
+      await s.download('ggml-tiny');
+      final tiny = s.statusJson().firstWhere((m) => m['id'] == 'ggml-tiny');
+      expect(tiny['state'], 'error');
+      expect('${tiny['error']}', contains('Prüfsumme'));
+      expect(File(p.join(tmp.path, 'ggml-tiny.bin')).existsSync(), isFalse);
     });
 
     test('a download error lands in the model state', () async {
@@ -78,7 +113,11 @@ void main() {
         await t.writeAsBytes([1]);
       }
 
-      final s = ModelStore(directory: tmp.path, downloader: fake);
+      final s = ModelStore(
+        directory: tmp.path,
+        catalog: unhashedCatalog(),
+        downloader: fake,
+      );
       await s.download('ggml-tiny');
       await s.download('ggml-tiny'); // already present → no second fetch
       expect(calls, 1);
@@ -152,7 +191,11 @@ void main() {
         await t.writeAsBytes(List.filled(10, 0));
       }
 
-      final s = ModelStore(directory: tmp.path, downloader: fake);
+      final s = ModelStore(
+        directory: tmp.path,
+        catalog: unhashedCatalog(),
+        downloader: fake,
+      );
       await s.download('faster-whisper-base');
       expect(fetched, hasLength(4));
       expect(fetched, contains('model.bin'));
@@ -171,7 +214,11 @@ void main() {
           await t.writeAsBytes(List.filled(10, 0));
         }
 
-        final s = ModelStore(directory: tmp.path, downloader: fake);
+        final s = ModelStore(
+          directory: tmp.path,
+          catalog: unhashedCatalog(),
+          downloader: fake,
+        );
         await s.download('sherpa-whisper-base');
 
         // All three files fetched.
@@ -222,3 +269,5 @@ void main() {
     });
   });
 }
+
+/// The default catalogue without hashes, for fakes that write dummy bytes.

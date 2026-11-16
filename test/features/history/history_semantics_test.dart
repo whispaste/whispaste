@@ -275,13 +275,13 @@ void main() {
     });
   });
 
-  group('HistoryMultiSelectAction — batch action semantics', () {
+  group('WpMultiSelectAction — batch action semantics', () {
     testWidgets('announces its caption exactly once', (tester) async {
       final handle = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
           makeTestable(
-            HistoryMultiSelectAction(
+            WpMultiSelectAction(
               icon: LucideIcons.merge,
               label: 'Merge',
               onTap: () {},
@@ -296,9 +296,7 @@ void main() {
         // prepended to the subtree's text rather than replacing it, so the
         // batch bar announced every action twice ("Merge, Merge"). Asserting
         // equality — not `contains` — is the point of this test.
-        final semantics = tester.getSemantics(
-          find.byType(HistoryMultiSelectAction),
-        );
+        final semantics = tester.getSemantics(find.byType(WpMultiSelectAction));
         expect(semantics.label, 'Merge');
         // The fold must not cost the control its role or its tap action, and
         // the shortcut hint has to survive as the tooltip — that hint is how
@@ -342,9 +340,23 @@ void main() {
         // The caption is already on screen, so the tooltip that repeated it
         // word for word taught nothing and made the button announce itself
         // twice (label plus tooltip). House rule 1: fold, don't label.
-        final semantics = tester.getSemantics(find.text('Empty Trash'));
-        final data = semantics.getSemanticsData();
-        expect(semantics.label, 'Empty Trash');
+        // Flutter exposes the merged boundary and its labelled child as
+        // separate debug nodes; inspect the labelled node within the button.
+        final boundary = tester.getSemantics(
+          find.bySemanticsIdentifier('history-empty-trash'),
+        );
+        final nodes = <SemanticsNode>[];
+        void collect(SemanticsNode node) {
+          if (node.label == 'Empty trash') nodes.add(node);
+          node.visitChildren((child) {
+            collect(child);
+            return true;
+          });
+        }
+
+        collect(boundary);
+        expect(nodes, hasLength(1));
+        final data = nodes.single.getSemanticsData();
         expect(data.tooltip, isEmpty);
         expect(data.flagsCollection.isButton, isTrue);
         expect(data.hasAction(SemanticsAction.tap), isTrue);

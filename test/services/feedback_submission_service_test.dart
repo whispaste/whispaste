@@ -8,7 +8,7 @@
 ///   2. [FeedbackSkippedNotConfigured] — empty key
 ///   3. [FeedbackSent] — HTTP 2xx
 ///   4. [FeedbackRateLimitedServer] — HTTP 429
-///   5. [FeedbackRateLimitedServer] — HTTP 400 body contains "rate_limited"
+///   5. [FeedbackRateLimitedServer] — HTTP 400 with a rate-limit trigger code
 ///   6. [FeedbackServerError] — HTTP 5xx
 ///   7. [FeedbackNetworkError] — SocketException
 library;
@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:whispaste/services/feedback_submission_service.dart';
@@ -45,8 +46,7 @@ typedef CapturedMessage = ({
 
 FeedbackSubmissionService _makeService({
   required http.Client client,
-  String supabaseUrl = 'https://example.supabase.co',
-  String supabasePublishableKey = 'test-key',
+  String baseUrl = 'https://api.example.test',
   List<Breadcrumb>? breadcrumbs,
   List<CapturedMessage>? messages,
 }) {
@@ -54,8 +54,7 @@ FeedbackSubmissionService _makeService({
   final capturedMessages = messages;
   return FeedbackSubmissionService(
     client: client,
-    supabaseUrl: supabaseUrl,
-    supabasePublishableKey: supabasePublishableKey,
+    baseUrl: baseUrl,
     timeout: const Duration(seconds: 5),
     breadcrumbSink: capturedCrumbs != null ? capturedCrumbs.add : (_) {},
     messageSink: capturedMessages != null
@@ -74,7 +73,7 @@ void main() {
     // ── SkippedNotConfigured ───────────────────────────────────────────────
 
     test(
-      'returns SkippedNotConfigured when supabaseUrl is empty — no HTTP call',
+      'returns SkippedNotConfigured when the base URL is empty — no HTTP call',
       () async {
         var httpCallMade = false;
         final client = MockClient((_) async {
@@ -82,32 +81,7 @@ void main() {
           return http.Response('', 201);
         });
 
-        final service = _makeService(
-          client: client,
-          supabaseUrl: '',
-          supabasePublishableKey: 'some-key',
-        );
-        final result = await service.submit(_testPayload());
-
-        expect(result, isA<FeedbackSkippedNotConfigured>());
-        expect(httpCallMade, isFalse);
-      },
-    );
-
-    test(
-      'returns SkippedNotConfigured when supabasePublishableKey is empty — no HTTP call',
-      () async {
-        var httpCallMade = false;
-        final client = MockClient((_) async {
-          httpCallMade = true;
-          return http.Response('', 201);
-        });
-
-        final service = _makeService(
-          client: client,
-          supabaseUrl: 'https://example.supabase.co',
-          supabasePublishableKey: '',
-        );
+        final service = _makeService(client: client, baseUrl: '');
         final result = await service.submit(_testPayload());
 
         expect(result, isA<FeedbackSkippedNotConfigured>());
@@ -142,20 +116,6 @@ void main() {
 
       expect(result, isA<FeedbackRateLimitedServer>());
     });
-
-    test(
-      'returns FeedbackRateLimitedServer on HTTP 400 with rate_limited body',
-      () async {
-        final client = MockClient(
-          (_) async =>
-              http.Response('{"message":"rate_limited","code":"P0001"}', 400),
-        );
-        final service = _makeService(client: client);
-        final result = await service.submit(_testPayload());
-
-        expect(result, isA<FeedbackRateLimitedServer>());
-      },
-    );
 
     // ── FeedbackServerError ───────────────────────────────────────────────
 
@@ -209,7 +169,7 @@ void main() {
         final client = MockClient((_) async => http.Response('', 201));
         final service = _makeService(
           client: client,
-          supabaseUrl: '',
+          baseUrl: '',
           breadcrumbs: breadcrumbs,
         );
         await service.submit(_testPayload());
@@ -235,13 +195,71 @@ void main() {
         expect(messages.first.message, 'feedback_server_error');
         expect(messages.first.level, SentryLevel.warning);
         expect(messages.first.extras['status_code'], 500);
-        expect(messages.first.extras['body'], 'Internal Server Error');
+        // A non-Problem-Details body could echo the request: only its length
+        // goes to Sentry.
+        expect(messages.first.extras['body'], '[body omitted: 21 chars]');
+      },
+    );
+
+    test(
+      'does NOT capture Sentry message on a 4xx validation answer',
+      () async {
+        final messages = <CapturedMessage>[];
+        final breadcrumbs = <Breadcrumb>[];
+        final client = MockClient(
+          (_) async => http.Response(jsonEncode({'title': 'Invalid'}), 422),
+        );
+        final service = _makeService(
+          client: client,
+          messages: messages,
+          breadcrumbs: breadcrumbs,
+        );
+        final result = await service.submit(_testPayload());
+
+        expect(result, isA<FeedbackServerError>());
+        expect(messages, isEmpty);
+        expect(breadcrumbs.single.data?['result'], 'server_error');
+      },
+    );
+
+    test(
+      'a Problem Details error keeps title, status and field but not the echoed values',
+      () async {
+        final messages = <CapturedMessage>[];
+        final logged = <String>[];
+        final sub = Logger.root.onRecord.listen((r) => logged.add(r.message));
+        addTearDown(sub.cancel);
+        final client = MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'title': 'Invalid field',
+              'status': 422,
+              'field': 'feedback_text',
+              'detail': 'Great app! user@example.com',
+            }),
+            500,
+          ),
+        );
+        final service = _makeService(client: client, messages: messages);
+        final result = await service.submit(_testPayload());
+
+        final extra = messages.single.extras['body'] as String;
+        expect(extra, contains('Invalid field'));
+        expect(extra, contains('feedback_text'));
+        for (final text in [
+          extra,
+          (result as FeedbackServerError).body,
+          ...logged,
+        ]) {
+          expect(text, isNot(contains('Great app!')));
+          expect(text, isNot(contains('user@example.com')));
+        }
       },
     );
 
     test('truncates oversized response body in the Sentry extra', () async {
       final messages = <CapturedMessage>[];
-      final oversizedBody = 'x' * 1200;
+      final oversizedBody = jsonEncode({'title': 'x' * 1200});
       final client = MockClient((_) async => http.Response(oversizedBody, 500));
       final service = _makeService(client: client, messages: messages);
       await service.submit(_testPayload());
@@ -259,20 +277,6 @@ void main() {
 
       expect(messages, isEmpty);
     });
-
-    test(
-      'does NOT capture Sentry message on rate-limit (400 with rate_limited body)',
-      () async {
-        final messages = <CapturedMessage>[];
-        final client = MockClient(
-          (_) async => http.Response('{"message":"rate_limited"}', 400),
-        );
-        final service = _makeService(client: client, messages: messages);
-        await service.submit(_testPayload());
-
-        expect(messages, isEmpty);
-      },
-    );
 
     test('does NOT capture Sentry message on network error', () async {
       final messages = <CapturedMessage>[];
@@ -305,18 +309,18 @@ void main() {
 
       final service = FeedbackSubmissionService(
         client: client,
-        supabaseUrl: 'https://test.supabase.co',
-        supabasePublishableKey: 'pk_test',
+        baseUrl: 'https://test.example',
       );
       await service.submit(_testPayload());
 
       expect(capturedRequest, isNotNull);
       expect(
         capturedRequest!.url.toString(),
-        'https://test.supabase.co/rest/v1/user_feedback',
+        'https://test.example/v1/feedback',
       );
-      expect(capturedRequest!.headers['apikey'], 'pk_test');
-      expect(capturedRequest!.headers['Prefer'], 'return=minimal');
+      expect(capturedRequest!.headers['Content-Type'], contains('json'));
+      expect(capturedRequest!.headers.containsKey('apikey'), isFalse);
+      expect(capturedRequest!.headers.containsKey('Authorization'), isFalse);
     });
 
     test(
@@ -381,8 +385,27 @@ void main() {
         expect(json['locale'], 'en');
         expect(json.containsKey('contact_email'), isFalse);
         expect(json.containsKey('contact_locale'), isFalse);
+        expect(json['publish_consent'], isFalse);
+        expect(json.containsKey('withdraw_token_hash'), isFalse);
       },
     );
+
+    test('sends the consent text version and hash only with opt-in', () {
+      final payload = FeedbackPayload(
+        rating: 5,
+        feedbackText: 'Great app!',
+        category: 'general',
+        appVersion: '1.0.0',
+        deviceIdHash: 'abc123def456',
+        locale: 'en',
+        publishConsent: true,
+        withdrawTokenHash: 'a' * 64,
+      );
+      final json = payload.toJson();
+      expect(json['publish_consent'], isTrue);
+      expect(json['consent_text_version'], kFeedbackConsentTextVersion);
+      expect(json['withdraw_token_hash'], 'a' * 64);
+    });
 
     test('includes contact fields only when provided', () {
       const payload = FeedbackPayload(

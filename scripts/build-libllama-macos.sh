@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-libllama-macos.sh — reproducible build of the bundled `libllama`
-# shared libraries (llama.cpp b10150, Metal + CPU backends) for the macOS
+# shared libraries (llama.cpp from scripts/llama-cpp.pin, Metal + CPU backends) for the macOS
 # `.app`. Produces flat, relocatable dylibs (`@loader_path` rpath, no absolute
 # paths) plus a SHA-256 manifest, staged where the Xcode "[WP] Embed & Sign
 # libllama" build phase (macos/Runner.xcodeproj) picks them up and copies them
@@ -34,13 +34,11 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # --- Pinned source provenance ------------------------------------------------
-# llama.cpp b10150, github.com/ggml-org/llama.cpp — the exact build already
-# validated end-to-end in the Smart-Mode-v2 spike test (Gemma-4-E2B-it,
-# --reasoning off, 17/18 correct on Metal + CPU-only; see
-# internal-notes), so this pin is not arbitrary.
-LLAMA_TAG="b10150"
+# Pinned source: scripts/llama-cpp.pin (one pin for all platforms).
+# shellcheck disable=SC1091  # plain KEY=value file
+. "$REPO_ROOT/scripts/llama-cpp.pin"
 LLAMA_SRC="$REPO_ROOT/.build/deps/llama.cpp/$LLAMA_TAG"
-LLAMA_PINNED_COMMIT="dee2a846b82f15d27f84a48fa387cb53e0d99c25"
+LLAMA_PINNED_COMMIT="$LLAMA_COMMIT"
 
 BUILD_DIR="$REPO_ROOT/.build/libllama/macos-build"
 STAGE_DIR="$REPO_ROOT/.build/libllama/macos"
@@ -48,12 +46,7 @@ STAGE_DIR="$REPO_ROOT/.build/libllama/macos"
 echo "=== build-libllama-macos ($LLAMA_TAG) ==="
 
 # --- 1. Verify pinned source ------------------------------------------------
-if [[ ! -d "$LLAMA_SRC" ]]; then
-  echo "ERROR: llama.cpp source not found at $LLAMA_SRC" >&2
-  echo "       Fetch it first: git clone https://github.com/ggml-org/llama.cpp \"$LLAMA_SRC\" \\" >&2
-  echo "       && git -C \"$LLAMA_SRC\" checkout $LLAMA_PINNED_COMMIT" >&2
-  exit 1
-fi
+bash "$REPO_ROOT/scripts/fetch-native-deps.sh" llama
 ACTUAL_COMMIT="$(git -C "$LLAMA_SRC" rev-parse HEAD 2>/dev/null || echo 'unknown')"
 if [[ "$ACTUAL_COMMIT" != "$LLAMA_PINNED_COMMIT" ]]; then
   echo "ERROR: llama.cpp source commit mismatch (supply-chain guard)." >&2
@@ -65,6 +58,14 @@ echo "[1/5] source verified: $LLAMA_TAG @ $LLAMA_PINNED_COMMIT"
 
 # --- 2. Configure + build shared libs (Metal + CPU) -------------------------
 echo "[2/5] cmake configure + build (Metal + CPU, shared) …"
+# A CMake cache left by another pin points at that pin's source tree and makes
+# cmake refuse to configure ("source does not match the source used to
+# generate cache"); drop the build dir then so it is configured afresh.
+CACHED_SRC="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)"
+if [[ -n "$CACHED_SRC" && "$CACHED_SRC" != "$LLAMA_SRC" ]]; then
+  echo "      stale cmake cache ($CACHED_SRC) — discarding $BUILD_DIR"
+  rm -rf "$BUILD_DIR"
+fi
 # GGML_NATIVE=OFF: a native build on an M2+ host emits i8mm (smmla) with no
 # runtime check, which raises SIGILL on M1 the first time the CPU path runs.
 cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
@@ -160,6 +161,8 @@ echo "[5/5] writing SHA256SUMS"
 ( cd "$STAGE_DIR" && shasum -a 256 *.dylib > SHA256SUMS )
 # Build-flavor stamp: ensure-libllama-macos.sh rebuilds a stage without it.
 echo "native-off" > "$STAGE_DIR/BUILD_FLAVOR"
+# Pin stamp: ensure-libllama-macos.sh rebuilds a stage built from another pin.
+echo "$LLAMA_TAG $LLAMA_PINNED_COMMIT" > "$STAGE_DIR/LLAMA_PIN"
 cat "$STAGE_DIR/SHA256SUMS"
 
 echo "=== done. libllama staged at $STAGE_DIR ==="

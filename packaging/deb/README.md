@@ -56,10 +56,13 @@ Die Laufzeit-`Depends:` entsprechen den `-dev`-Paketen, gegen die der
 | `libnotify-dev` | `libnotify4` |
 | `libayatana-appindicator3-dev` | `libayatana-appindicator3-1` |
 | `libasound2-dev` | `libasound2` |
+| `libxss-dev` | `libxss1` |
 | `libcurl4-openssl-dev` | `libcurl4` |
 | `libkeybinder-3.0-dev` | `libkeybinder-3.0-0` |
 | `liblzma-dev` | `liblzma5` |
 | (glibc/zlib baseline) | `libc6`, `zlib1g` |
+| (Programme, kein `-dev`: `parecord` nimmt auf, `pactl` listet Mikrofone; vom `record`-Paket gestartet, #85) | `pulseaudio-utils` |
+| (Programm, kein `-dev`: `setfacl` nimmt der Sitzung beim Zurücknehmen der Auto-Paste-Freigabe sofort den Zugriff auf `/dev/uinput`, #538) | `acl` |
 
 Die Konsistenz wird in CI (`packaging-validate.yml` → Job `appimage-deb`)
 gegen `release.yml` geprüft.

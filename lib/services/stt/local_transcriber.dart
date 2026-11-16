@@ -6,22 +6,32 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../transcription/transcriber_interface.dart';
 import 'stt_bundle.dart';
 
-export '../transcription/transcriber.dart' show Transcriber;
+export '../transcription/transcriber.dart'
+    show LanguageReportingTranscriber, Transcriber;
 export '../transcription/transcriber_exception.dart';
 
 /// Implements [Transcriber] by routing through the new [SttServerStateNotifier].
 ///
 /// Ensures the server is running via [localSttBundleProvider], then issues
 /// `POST /inference` through [SttServerStateNotifier.transcribeBytes].
-class LocalSttTranscriber implements Transcriber {
+class LocalSttTranscriber
+    implements
+        Transcriber,
+        LanguageReportingTranscriber,
+        ProgressReportingTranscriber,
+        WavFileTranscriber {
   const LocalSttTranscriber({required this.ref});
 
   final Ref ref;
 
   SttServerStateNotifier get _notifier =>
       ref.read(localSttBundleProvider.notifier);
+
+  @override
+  String? get lastDetectedLanguage => _notifier.lastDetectedLanguage;
 
   @override
   Future<void> prepare() async {
@@ -36,9 +46,38 @@ class LocalSttTranscriber implements Transcriber {
   }
 
   @override
-  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribe(List<int> wavBytes, {String? language}) =>
+      transcribeWithProgress(wavBytes, language: language);
+
+  @override
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) => _transcribe(wavBytes, language: language, onProgress: onProgress);
+
+  /// The whisper worker reads [wavPath] itself (#1665), see
+  /// [WavFileTranscriber].
+  @override
+  Future<String> transcribeWavFile(
+    String wavPath,
+    List<int> wavBytes, {
+    String? language,
+  }) => _transcribe(wavBytes, language: language, wavPath: wavPath);
+
+  Future<String> _transcribe(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+    String? wavPath,
+  }) async {
     try {
-      return await _notifier.transcribeBytes(wavBytes, language: language);
+      return await _notifier.transcribeBytesWithProgress(
+        wavBytes,
+        language: language,
+        onProgress: onProgress,
+        wavPath: wavPath,
+      );
     } on StateError catch (e) {
       throw TranscriberException(
         e.message,

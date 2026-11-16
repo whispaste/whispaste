@@ -17,8 +17,8 @@
 //                                                   cancel/reportError from
 //                                                   render.
 //
-// Panel size is fixed at 360×420 logical px (never content-measured — see
-// the interface doc). Position is read natively (GetCursorPos), never
+// Panel size is fixed at 400×460 logical px (360×420 card + shadow inset,
+// never content-measured — see the interface doc). Position is read natively (GetCursorPos), never
 // passed from Dart, and clamped to the cursor's own monitor's work area —
 // same rationale as SnippetPickerHost.swift's clampToVisibleScreen.
 //
@@ -78,7 +78,9 @@ class SnippetPickerHost {
   // already-offset origin).
   void ComputePanelRect(int* px, int* py, int* pwidth, int* pheight) const;
 
-  void Show(const std::vector<flutter::EncodableMap>& items);
+  // |query| pre-fills the render engine's search field ("" = none).
+  void Show(const std::vector<flutter::EncodableMap>& items,
+            const std::string& query);
 
   // Closes the panel. |fire_cancelled| reports the dismissal to the main
   // engine as onCancelled — false for a pick (already reported via
@@ -91,7 +93,8 @@ class SnippetPickerHost {
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
-  void RelaySetItems(const std::vector<flutter::EncodableMap>& items);
+  void RelaySetItems(const std::vector<flutter::EncodableMap>& items,
+                     const std::string& query);
 
   // Fire-and-forget event to the main Dart engine (safe if no listener).
   void SendEvent(const std::string& method,
@@ -122,6 +125,7 @@ class SnippetPickerHost {
   bool render_ready_ = false;
   bool has_pending_items_ = false;
   std::vector<flutter::EncodableMap> pending_items_;
+  std::string pending_query_;
 
   // ── Re-entrancy guard ─────────────────────────────────────────────
   // Mirrors SnippetPickerHost.swift's isDismissing — Dismiss() orders the

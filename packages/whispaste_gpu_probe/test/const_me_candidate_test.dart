@@ -8,7 +8,7 @@
 /// Running a live probe against a real GTX-650 (or any DirectCompute-capable
 /// GPU) is a MANUAL step and must NOT be part of CI. The expected outcome on a
 /// GTX-650 with AVX+F16C capable CPU is [Outcome.ok] with a reasonable German
-/// transcript. Document the result in `internal-notes` after the
+/// transcript. Record the result in the tracking issue after the
 /// manual run.
 library;
 

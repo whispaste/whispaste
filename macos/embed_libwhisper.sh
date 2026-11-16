@@ -25,11 +25,14 @@ DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 # source is already present. Only skip-with-warning if even that is missing,
 # so CI/lint-only checkouts without the source tree still compile.
 # Dylibs staged from an older whisper.cpp pin would silently ship the old
-# engine, so they are rebuilt too. The build script only replaces the
-# staging dir after a successful compile, so a failed rebuild still embeds
-# the previous dylibs.
+# engine, and a guard staged before a native/ffi_guard change can carry an
+# ABI the Dart side rejects (then no ggml backend loads at all), so both
+# are rebuilt too. The stamp comes from scripts/libwhisper-pin-stamp.sh,
+# the same helper build-libwhisper-macos.sh writes it with (#397). The build
+# script only replaces the staging dir after a successful compile, so a
+# failed rebuild still embeds the previous dylibs.
 BUILD_SCRIPT="${REPO_ROOT}/scripts/build-libwhisper-macos.sh"
-WANTED_PIN="$(sed -n 's/^WHISPER_TAG="\(.*\)"$/\1/p' "$BUILD_SCRIPT")@$(sed -n 's/^WHISPER_PINNED_COMMIT="\(.*\)"$/\1/p' "$BUILD_SCRIPT")"
+WANTED_PIN="$(bash "${REPO_ROOT}/scripts/libwhisper-pin-stamp.sh")"
 if [[ -d "$STAGE_DIR" && "$(cat "$STAGE_DIR/WHISPER_PIN" 2>/dev/null)" != "$WANTED_PIN" ]]; then
   echo "note: staged libwhisper is not $WANTED_PIN — rebuilding."
   if ! bash "$BUILD_SCRIPT"; then

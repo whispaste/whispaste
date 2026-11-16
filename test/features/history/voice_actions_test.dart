@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -22,6 +23,7 @@ import 'package:whispaste/features/history/widgets/voice_note_button.dart';
 import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/features/history/data/history_detail_provider.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
@@ -29,6 +31,9 @@ import 'package:whispaste/services/replacements/correction_learning_service.dart
 import 'package:whispaste/services/replacements/correction_signal.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/voice_action_service.dart';
+import 'package:whispaste/widgets/wp_page_notice.dart';
+
+import '../../test_helpers/pump_until.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes (mirrors recording_orchestrator_test.dart patterns)
@@ -60,7 +65,7 @@ class _FakeAudioService extends AudioServiceNotifier {
   }
 
   @override
-  Future<String?> stopRecording() async {
+  Future<String?> stopRecording({bool keepTail = true}) async {
     state = AudioStatus(filePath: wavPathToReturn);
     return wavPathToReturn;
   }
@@ -78,7 +83,7 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     if (ensureRunningThrows) {
       throw Exception('STT server failed to start');
     }
@@ -86,7 +91,12 @@ class _FakeSttService extends SttServerStateNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+    String? wavPath,
+  }) async {
     return transcriptToReturn;
   }
 
@@ -192,6 +202,24 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   return dir;
 }
 
+/// The real orchestrator with its dictation preflight (onboarding done,
+/// model file on disk) waved through — these tests are about what happens
+/// after the button starts, not about the host's model folder.
+class _ThrowingLearningService extends CorrectionLearningService {
+  int calls = 0;
+
+  @override
+  Future<int> recordSignal(CorrectionSignal signal, HistoryDatabase db) async {
+    calls++;
+    throw StateError('learning store unavailable');
+  }
+}
+
+class _ReadyOrchestrator extends RecordingOrchestrator {
+  @override
+  Future<String?> checkTranscriptionReady() async => null;
+}
+
 /// Wraps a [VoiceNoteButton] with the real [localSttBundleProvider]
 /// (`SttServerStateNotifier`) driven by a fake [WhisperEngine] injected via
 /// [whisperEngineProvider] — the actual FFI engine seam, as opposed to
@@ -201,19 +229,29 @@ Widget _makeTestableButtonViaEngine({
   required HistoryDatabase db,
   required _FakeAudioService fakeAudio,
   required WhisperEngine engine,
+  List<Override> extraOverrides = const [],
+  bool correctionLearningEnabled = true,
 }) {
   final theme = wpDarkTheme();
   return ProviderScope(
     overrides: [
+      ...extraOverrides,
       historyDatabaseProvider.overrideWith((ref) {
         ref.onDispose(db.close);
         return db;
       }),
       audioServiceProvider.overrideWith(() => fakeAudio),
       whisperEngineProvider.overrideWithValue(engine),
+      recordingOrchestratorProvider.overrideWith(_ReadyOrchestrator.new),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
-          AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+          AppSettings.defaults
+              .copyWith(sttModel: 'whisper-small')
+              .copyWithSections(
+                behavior: AppSettings.defaults.behavior.copyWith(
+                  correctionLearningEnabled: correctionLearningEnabled,
+                ),
+              ),
         ),
       ),
       modelDownloadProvider.overrideWith(() => _FakeModelDownloadNotifier()),
@@ -233,7 +271,13 @@ Widget _makeTestableButtonViaEngine({
           child: Consumer(
             builder: (context, ref, _) {
               ref.watch(historyDetailProvider(entryId));
-              return VoiceNoteButton(entryId: entryId);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  WpPageNoticeSlot(page: 'history', area: entryId),
+                  VoiceNoteButton(entryId: entryId),
+                ],
+              );
             },
           ),
         ),
@@ -263,12 +307,13 @@ Widget _makeTestableButton({
       }),
       audioServiceProvider.overrideWith(() => fakeAudio),
       localSttBundleProvider.overrideWith(() => fakeStt),
+      recordingOrchestratorProvider.overrideWith(_ReadyOrchestrator.new),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: theme,
-      // Pin the locale so the error-toast assertion below matches the
-      // English ARB entry regardless of the CI host's system language.
+      // Pin the locale so assertions match the English ARB entry regardless
+      // of the CI host's system language.
       locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
@@ -278,7 +323,13 @@ Widget _makeTestableButton({
             builder: (context, ref, _) {
               // Pre-warm the detail provider so it's loaded before dispatch.
               ref.watch(historyDetailProvider(entryId));
-              return VoiceNoteButton(entryId: entryId);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  WpPageNoticeSlot(page: 'history', area: entryId),
+                  VoiceNoteButton(entryId: entryId),
+                ],
+              );
             },
           ),
         ),
@@ -591,17 +642,14 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      // Should show a WpToast error message (overlay-based, not SnackBar).
-      expect(find.text(l10n.voiceNoteError), findsOneWidget);
+      // The failure stays at the entry, not in a toast.
+      expect(
+        find.byKey(const ValueKey('page-notice-voice-failed')),
+        findsOneWidget,
+      );
 
       // Should return to idle (mic icon).
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
-
-      // Drain the WpToast auto-dismiss timer + animation controller.
-      // Timeline: Future.delayed(3s) → controller.reverse(200ms) → dispose
-      await tester.pump(const Duration(seconds: 3)); // fires Future.delayed
-      await tester.pump(const Duration(milliseconds: 300)); // reverse completes
-      await tester.pump(); // .then() callback disposes
     });
 
     testWidgets('does not start when main recording is active', (tester) async {
@@ -695,31 +743,35 @@ void main() {
 
     // _stopAndTranscribe() reads the WAV off real disk (dart:io File) — a
     // genuine async gap that flutter_test's FakeAsync zone cannot resolve via
-    // pump() alone, so this taps inside tester.runAsync() to let real I/O
-    // (and the shrunk real-time .timeout() below) actually complete. Because
-    // the tap is dispatched from inside runAsync(), the whole downstream
-    // async chain it kicks off — including the WpToast success/error
-    // animation triggered at the end — stays zone-sticky to that real Zone
-    // for its entire lifetime (Dart async functions keep the Zone captured
-    // at their first invocation). So pipelineWait must cover the full toast
-    // lifecycle (~2 s auto-dismiss + ~300 ms reverse) too — settling the
-    // Ticker for good inside the real Zone — otherwise a leftover Ticker
-    // ticks against flutter_test's FakeAsync clock on a *later* test's frame
-    // and crashes with a negative-elapsed-time assertion.
+    // pump() alone. Real event-loop turns alternate with fake-clock pumps
+    // until the button leaves the busy state (loader gone, mic back), bounded
+    // by a deadline, no fixed wait (#1491). The remaining toast lifecycle then
+    // runs on the fake clock via pump(). A test of a shrunk timeout names the
+    // engine call the timeout has to come after as [reached]: until then the
+    // fake clock stands still, so the real file I/O before it cannot lose a
+    // race against fake time.
     Future<void> recordStopAndDrain(
       WidgetTester tester, {
-      required Duration pipelineWait,
+      bool Function()? reached,
     }) async {
       await tester.tap(find.byType(InkWell));
       await tester.pump();
       expect(find.byIcon(LucideIcons.square), findsOneWidget);
 
-      final totalRealWait = pipelineWait + const Duration(milliseconds: 2600);
-      await tester.runAsync(() async {
-        await tester.tap(find.byType(InkWell));
-        await Future<void>.delayed(totalRealWait);
-      });
-      await tester.pump(totalRealWait);
+      await tester.tap(find.byType(InkWell));
+      await tester.pump();
+      if (reached != null) {
+        await pumpUntil(tester, reached, what: 'the engine call');
+      }
+      await pumpUntil(
+        tester,
+        () =>
+            find.byIcon(LucideIcons.mic).evaluate().isNotEmpty &&
+            find.byIcon(LucideIcons.loader).evaluate().isEmpty,
+        what: 'the voice note button to be back at idle',
+        step: const Duration(milliseconds: 50),
+      );
+      await tester.pump(const Duration(seconds: 3));
       await tester.pump();
     }
 
@@ -739,10 +791,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await recordStopAndDrain(
-        tester,
-        pipelineWait: const Duration(milliseconds: 300),
-      );
+      await recordStopAndDrain(tester);
 
       // The FFI engine seam was actually exercised. Exact call counts
       // aren't asserted — ensureRunning() also fires an internal warmup
@@ -768,6 +817,94 @@ void main() {
       // Back to idle.
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
       expect(find.byIcon(LucideIcons.loader), findsNothing);
+    });
+
+    testWidgets('with correction learning off, a voice correction is applied '
+        'but no signal is recorded', (tester) async {
+      final learning = _ThrowingLearningService();
+      final engine = _FakeWhisperEngine(
+        transcriptToReturn: 'correct: Corrected transcript',
+      );
+
+      await tester.pumpWidget(
+        _makeTestableButtonViaEngine(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          engine: engine,
+          correctionLearningEnabled: false,
+          extraOverrides: [
+            correctionLearningServiceProvider.overrideWithValue(learning),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await recordStopAndDrain(tester);
+      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(learning.calls, 0);
+      expect((await db.getEntry(entryId))!.content, 'Corrected transcript');
+    });
+
+    testWidgets('a failing correction signal neither undoes the correction '
+        'nor surfaces an unhandled error', (tester) async {
+      final learning = _ThrowingLearningService();
+      final engine = _FakeWhisperEngine(
+        transcriptToReturn: 'correct: Corrected transcript',
+      );
+
+      await tester.pumpWidget(
+        _makeTestableButtonViaEngine(
+          entryId: entryId,
+          db: db,
+          fakeAudio: fakeAudio,
+          engine: engine,
+          extraOverrides: [
+            correctionLearningServiceProvider.overrideWithValue(learning),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await recordStopAndDrain(tester);
+
+      // The correction toast carries an undo and stays longer than the
+      // helper waits; let it finish so no ticker outlives the test.
+      await tester.pump(const Duration(seconds: 15));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(learning.calls, 1);
+      // The correction is stored, the button is idle again, and the test
+      // zone saw no uncaught error.
+      expect((await db.getEntry(entryId))!.content, 'Corrected transcript');
+      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a correction for an entry that is not loaded shows the write '
+        'failure and the button returns to idle (#732)', (tester) async {
+      final engine = _FakeWhisperEngine(
+        transcriptToReturn: 'correct: Never stored',
+      );
+
+      await tester.pumpWidget(
+        _makeTestableButtonViaEngine(
+          entryId: 'voice-btn-missing-entry',
+          db: db,
+          fakeAudio: fakeAudio,
+          engine: engine,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await recordStopAndDrain(tester);
+
+      expect(find.bySemanticsIdentifier('page-notice-diagnostics'), findsOne);
+      expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+      expect(find.byIcon(LucideIcons.loader), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(
@@ -796,7 +933,7 @@ void main() {
 
         await recordStopAndDrain(
           tester,
-          pipelineWait: const Duration(milliseconds: 400),
+          reached: () => engine.loadCallCount >= 1,
         );
 
         expect(find.byIcon(LucideIcons.mic), findsOneWidget);
@@ -835,9 +972,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // The warmup inference is the first transcribe call; the second is
+        // the one that hangs.
         await recordStopAndDrain(
           tester,
-          pipelineWait: const Duration(milliseconds: 400),
+          reached: () => engine.transcribeCallCount >= 2,
         );
 
         expect(find.byIcon(LucideIcons.mic), findsOneWidget);
@@ -856,6 +995,13 @@ void main() {
               'transcribeBytes() must have attempted to transcribe via '
               'the engine before timing out',
         );
+
+        // The hung decode keeps the engine's stuck guard (5 min) armed on the
+        // fake clock: unmount and let it run out, so no timer outlives the
+        // test.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(minutes: 10));
+        await tester.pump();
       },
     );
   });
@@ -1021,8 +1167,7 @@ void main() {
   });
 
   // =========================================================================
-  // 4. Correction-signal recording (ticket 01
-  //    `internal-notes`) — replicates the
+  // 4. Correction-signal recording — replicates the
   //    `VoiceNoteButton._dispatch` `VoiceActionType.correction` branch's
   //    signal-recording glue (settings guard + no-op guard + service call),
   //    the same "mirror the private dispatch logic" pattern the dispatch
@@ -1061,12 +1206,9 @@ void main() {
 
     /// Mirrors the correction branch of `VoiceNoteButton._dispatch`: applies
     /// [correctedContent] to [entryId]'s content via `updateContent`, and —
-    /// when [learningEnabled] and the content actually changed — records a
+    /// when the content actually changed — records a
     /// [CorrectionSignal] for it.
-    Future<void> dispatchCorrection(
-      String correctedContent, {
-      bool learningEnabled = true,
-    }) async {
+    Future<void> dispatchCorrection(String correctedContent) async {
       container.listen(historyDetailProvider(entryId), (_, _) {});
       final before = (await container.read(
         historyDetailProvider(entryId).future,
@@ -1074,12 +1216,12 @@ void main() {
       final notifier = container.read(historyDetailProvider(entryId).notifier);
       await notifier.updateContent(correctedContent);
 
-      if (learningEnabled && before != correctedContent) {
+      if (before != correctedContent) {
         await const CorrectionLearningService().recordSignal(
           CorrectionSignal(
             sourceText: before,
             targetText: correctedContent,
-            timestamp: DateTime(2026, 1, 1),
+            timestamp: DateTime.now(),
             source: CorrectionSignalSource.voiceCommand,
           ),
           db,
@@ -1113,9 +1255,10 @@ void main() {
 
         final candidates = await const CorrectionLearningService()
             .pendingCandidates(db);
+        // Candidates are word-level since #144: only the changed word counts.
         expect(candidates, hasLength(1));
-        expect(candidates.single.sourceText, 'teh meeting');
-        expect(candidates.single.targetText, 'the meeting');
+        expect(candidates.single.sourceText, 'teh');
+        expect(candidates.single.targetText, 'the');
       },
     );
 
@@ -1133,23 +1276,5 @@ void main() {
         expect(candidates, isEmpty);
       },
     );
-
-    test('no signal is recorded while correction learning is disabled in '
-        'settings', () async {
-      await dispatchCorrection('the meeting', learningEnabled: false);
-      await container
-          .read(historyDetailProvider(entryId).notifier)
-          .updateContent('teh meeting');
-      await dispatchCorrection('the meeting', learningEnabled: false);
-
-      final candidates = await const CorrectionLearningService()
-          .pendingCandidates(db);
-      expect(candidates, isEmpty);
-
-      // The correction itself must still be applied even with learning
-      // off -- only the *learning* is gated, never the correction.
-      final entry = await db.getEntry(entryId);
-      expect(entry!.content, 'the meeting');
-    });
   });
 }

@@ -4,6 +4,8 @@
 /// escalated to Sentry as an error.
 library;
 
+import 'dart:io' show ProcessException;
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -43,6 +45,20 @@ void main() {
         inputDeviceCount: 0,
       ),
       RecordingStartFailure.startFailed,
+    );
+  });
+
+  test('missing capture tool (parecord, #85) is its own failure', () {
+    expect(
+      classifyRecordingStartFailure(
+        const ProcessException('parecord', [], 'No such file', 2),
+        inputDeviceCount: null,
+      ),
+      RecordingStartFailure.audioToolMissing,
+    );
+    expect(
+      RecordingStartFailure.audioToolMissing.errorCode,
+      'audio_tool_missing',
     );
   });
 

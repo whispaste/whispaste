@@ -110,6 +110,13 @@ import PageSheet from "../PageSheet.astro";
     color: var(--color-brand-cyan);
     overflow-wrap: anywhere;
   }
+  .legal-prose :global(.legal-note) {
+    padding: var(--wp-space-3) var(--wp-space-4);
+    margin: 0 0 var(--wp-space-6);
+    border-left: 3px solid var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 8%, transparent);
+    color: var(--color-ink);
+  }
   .legal-prose :global(a) {
     color: var(--color-brand-cyan);
     text-decoration: underline;
