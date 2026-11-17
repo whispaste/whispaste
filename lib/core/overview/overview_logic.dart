@@ -310,7 +310,8 @@ bool overviewTipsEligible({
 /// 1.5.1: no own entries; a patch shows its minor's entries (see
 /// [whatsNewKey]), so a 1.4 user who updates straight to 1.5.1 (the first 1.5
 /// in the Mac App Store) still meets the 1.5 highlights.
-const kWhatsNewReviewedVersion = '1.5.1';
+/// 1.5.2: no own entries, bug fixes only; shows the 1.5 entries like 1.5.1.
+const kWhatsNewReviewedVersion = '1.5.2';
 
 /// One highlight of a version: a title, one sentence, and the place its
 /// "Try it" action leads to (a nav page id, `settings:<row>` or

@@ -2,6 +2,7 @@
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdk.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "clipboard_receipt.h"
+#include "x11_window.h"
 
 namespace {
 
@@ -56,6 +58,21 @@ std::vector<uint8_t> BytesValue(FlValue* value) {
   return bytes;
 }
 
+// Whether the focused window is another app's fullscreen window (#1782).
+// X11 only (WhisPaste runs on XWayland under Wayland); a native Wayland app
+// in front is invisible to X11 and counts as "no".
+bool FullscreenAppInFront() {
+  GdkDisplay* display = gdk_display_get_default();
+  if (display == nullptr || !GDK_IS_X11_DISPLAY(display)) return false;
+  const Window active = X11ActiveWindow(display);
+  if (active == 0) return false;
+  if (X11WindowPid(display, active) ==
+      static_cast<unsigned long>(getpid())) {
+    return false;
+  }
+  return X11WindowIsFullscreen(display, active);
+}
+
 }  // namespace
 
 // ══════════════════════════════════════════════════════════════════════
@@ -93,6 +110,11 @@ SidePanelHost::~SidePanelHost() { Destroy(); }
 
 void SidePanelHost::Teardown() {
   sensors_armed_ = false;
+  if (fullscreen_timer_id_) {
+    g_source_remove(fullscreen_timer_id_);
+    fullscreen_timer_id_ = 0;
+  }
+  fullscreen_in_front_ = false;
   CancelNativeClose();
   if (rebuild_idle_id_) {
     g_source_remove(rebuild_idle_id_);
@@ -161,6 +183,9 @@ void SidePanelHost::RebuildSensors() {
 
   sensors_.clear();
   DisconnectMonitorNotifies();
+  // No strips while a fullscreen app is in front; CheckFullscreen()
+  // rebuilds them once it is gone.
+  if (fullscreen_in_front_) return;
 
   GdkDisplay* display = gdk_display_get_default();
   if (!display) return;
@@ -260,7 +285,25 @@ void SidePanelHost::OnMonitorChanged(GdkDisplay* /*display*/,
   static_cast<SidePanelHost*>(user_data)->RebuildSensors();
 }
 
+// static
+gboolean SidePanelHost::OnFullscreenCheck(gpointer user_data) {
+  static_cast<SidePanelHost*>(user_data)->CheckFullscreen();
+  return G_SOURCE_CONTINUE;
+}
+
+void SidePanelHost::CheckFullscreen() {
+  if (destroyed_ || !sensors_armed_) return;
+  const bool now = FullscreenAppInFront();
+  if (now == fullscreen_in_front_) return;
+  fullscreen_in_front_ = now;
+  RebuildSensors();  // removes the strips, or brings them back
+}
+
 void SidePanelHost::HandleHoverEntered(const GdkRectangle& work_area) {
+  // The periodic check can lag behind a game that just went fullscreen:
+  // do not open; the next CheckFullscreen() removes the strips (not here,
+  // this runs inside the strip's own dwell callback).
+  if (FullscreenAppInFront()) return;
   // Snapshot-on-open (see class comment): read the clipboard exactly once,
   // right before telling the main engine the panel is about to open, so the
   // resulting `updateSnapshot` it pushes back already includes whatever this
@@ -508,6 +551,9 @@ void SidePanelHost::HandleUpdateSnapshot(FlValue* args) {
   }
   if (!sensors_armed_) {
     sensors_armed_ = true;
+    fullscreen_in_front_ = FullscreenAppInFront();
+    fullscreen_timer_id_ = g_timeout_add(
+        static_cast<guint>(kFullscreenCheckMs), OnFullscreenCheck, this);
     RebuildSensors();
   }
 

@@ -5,7 +5,7 @@
   "a11ySidePanel": "Painel de colagem rápida",
   "aboutBuiltWith": "Feito com",
   "aboutCopyDebugInfo": "Copiar informações de depuração",
-  "aboutDiagnosticsContentsDesc": "Versão do app, sistema operacional, caminho do programa sem o seu nome de usuário, modelo de voz (varianter, modelo, estado, último erro), GPU, arquivos de modelo e as últimas 40 linhas do registro. Chaves e tokens são ocultados nas linhas do registro.",
+  "aboutDiagnosticsContentsDesc": "Versão do app, sistema operacional, caminho do programa sem o seu nome de usuário, modelo de voz (variante, modelo, estado, último erro), GPU, arquivos de modelo, os avisos do microfone da sessão atual e as últimas 40 linhas do registro. Chaves e tokens são ocultados nas linhas do registro.",
   "aboutDiagnosticsContentsTitle": "O que o relatório contém",
   "aboutDiagnosticsIncomplete": "Diagnóstico incompleto: {error}",
   "@aboutDiagnosticsIncomplete": {
@@ -2900,6 +2900,7 @@
   "recommendationReasonVulkan": "Recomendado para sua placa de vídeo {name} (Vulkan).",
   "recordingAutoStopped": "Gravação interrompida: silêncio detectado.",
   "recordingGuardFailed": "Nenhum áudio detectado. Tente novamente. Às vezes o microfone precisa de um momento para ser ativado.",
+  "recoveryCrashSkipped": "Uma gravação interrompida não pôde ser processada automaticamente porque o WhisPaste travou ao fazer isso. O áudio foi mantido e você pode recuperá-lo manualmente.",
   "recoveryCudaDisabledToast": "A aceleração CUDA foi desativada por causa de um problema na última inicialização. O WhisPaste agora usa Vulkan, e a gravação funciona normalmente.",
   "recoveryDiscard": "Descartar",
   "recoveryDiscardConfirm": "Descartar esta gravação?",

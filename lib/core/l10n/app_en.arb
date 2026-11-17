@@ -14,7 +14,7 @@
   },
   "aboutBuiltWith": "Built with",
   "aboutCopyDebugInfo": "Copy debug info",
-  "aboutDiagnosticsContentsDesc": "App version, operating system, program path without your user name, speech model (variant, model, status, last error), GPU, model files and the last 40 log lines. API keys and tokens are blacked out in the log lines.",
+  "aboutDiagnosticsContentsDesc": "App version, operating system, program path without your user name, speech model (variant, model, status, last error), GPU, model files, the microphone warnings of the current session and the last 40 log lines. API keys and tokens are blacked out in the log lines.",
   "aboutDiagnosticsContentsTitle": "What the report contains",
   "aboutDiagnosticsIncomplete": "Diagnostics incomplete: {error}",
   "@aboutDiagnosticsIncomplete": {
@@ -4449,6 +4449,10 @@
   "@recommendationReasonVulkan": {"description": "Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.", "placeholders": {"name": {"type": "String", "example": "llvmpipe"}}},
   "recordingAutoStopped": "Recording stopped: silence detected.",
   "recordingGuardFailed": "No audio detected. Please try again. Sometimes the microphone needs a moment to warm up.",
+  "recoveryCrashSkipped": "An interrupted recording could not be processed automatically because WhisPaste crashed while doing so. The audio was kept, so you can recover it by hand.",
+  "@recoveryCrashSkipped": {
+    "description": "Banner for an interrupted recording that the app crashed on while transcribing it at startup (#1783). It is not transcribed automatically again; the Recover button runs it by hand."
+  },
   "recoveryCudaDisabledToast": "CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, recording works as usual.",
   "recoveryDiscard": "Discard",
   "@recoveryDiscard": {

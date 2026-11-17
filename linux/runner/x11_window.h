@@ -43,4 +43,10 @@ unsigned long X11WindowPid(GdkDisplay* display, Window window);
 // _NET_SUPPORTED lists _NET_ACTIVE_WINDOW on the root window).
 bool X11HasActiveWindowHint(GdkDisplay* display);
 
+// Whether [window] is fullscreen (#1782): it carries the EWMH
+// _NET_WM_STATE_FULLSCREEN state, or its frame fills one whole monitor of
+// [display] (borderless-fullscreen games skip the state). False when the
+// window is gone.
+bool X11WindowIsFullscreen(GdkDisplay* display, Window window);
+
 #endif  // RUNNER_X11_WINDOW_H_

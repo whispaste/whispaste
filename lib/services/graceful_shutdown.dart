@@ -22,6 +22,7 @@ import '../core/data/database.dart';
 import '../core/data/text_writer/text_writer.dart';
 import '../core/platform/hang_watchdog.dart';
 import '../core/logging/app_logger.dart';
+import 'audio/recovery/recovery_crash_guard.dart';
 import 'automation_api/automation_api_controller.dart';
 import 'smart_mode/smart_mode_ffi_engine.dart';
 import 'stt/on_device_engine_lifecycle.dart';
@@ -53,6 +54,13 @@ Future<void> runGracefulEngineShutdown(ProviderContainer container) async {
     await stopped.timeout(const Duration(seconds: 10));
   } catch (e) {
     _log.debug('STT engine stop failed during shutdown (non-fatal): $e');
+  }
+
+  // A startup recovery that the quit ended did not crash the app: without
+  // its marker the next start transcribes the recording again (#1783). Only
+  // after the engine stop above, which could still fault natively.
+  if (container.exists(recoveryCrashGuardProvider)) {
+    container.read(recoveryCrashGuardProvider).clearAllAttempts();
   }
 
   try {

@@ -17,13 +17,13 @@ import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
-import '../core/logging/mic_start_trace.dart';
 import 'audio/amplitude_from_pcm.dart';
 import 'audio/capture/capture_dir.dart';
 import 'audio/user_audio_dirs.dart';
 import 'audio/input_device_lookup.dart';
 import 'audio/linux_default_source.dart';
 import 'audio/mic_start_cache.dart';
+import 'audio/mic_warmup_probe.dart';
 import 'audio/pcm_gain_processor.dart';
 import 'audio/quiet_microphone_watch.dart';
 import 'audio/recording_start_stop_arbiter.dart';
@@ -39,6 +39,7 @@ import 'mic_busy_app.dart';
 import 'microphone_priority.dart';
 import 'path_service.dart';
 import 'recording/safety_guard.dart' show GuardSample;
+import 'telemetry_service.dart' show telemetrySessionAggregatorProvider;
 
 final _log = AppLogger('AudioService');
 
@@ -106,6 +107,17 @@ final recordingStopTailWaitProvider = Provider<Future<void> Function(Duration)>(
   (ref) =>
       (d) => Future<void>.delayed(d),
 );
+
+/// How often a running capture checks whether its PCM stream still delivers
+/// (#1784). [micStallReopenAfter] without a chunk reopens it once.
+const Duration micStallCheckInterval = Duration(milliseconds: 500);
+
+/// Starts the periodic stall check of a capture. A provider so tests fire the
+/// checks by hand instead of waiting; the default is [Timer.periodic].
+final micStallTimerProvider =
+    Provider<Timer Function(Duration, void Function(Timer))>(
+      (ref) => Timer.periodic,
+    );
 
 /// Polling interval at which the `record` plugin emits amplitude samples.
 ///
@@ -261,9 +273,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         'Dead mic: "$silent" delivered no signal | lid closed: $lidClosed'
         ' | candidates: [${candidates.join(", ")}]',
       );
-      // Linux only names the silent device for the suggestion (#930); the
-      // automatic avoidance stays a macOS behaviour.
-      if (!Platform.isLinux &&
+      // Windows and Linux only name the silent device for the suggestion
+      // (#929, #930); the automatic avoidance stays a macOS behaviour
+      // (#846). Windows only got a device name here with #929, which made
+      // the old `!Platform.isLinux` reach it by accident (#1784).
+      if (Platform.isMacOS &&
           classifyMicrophone(silent) == MicrophoneKind.builtIn) {
         _deadBuiltInLabel = silent;
         _deadBuiltInWasLidClosed = lidClosed;
@@ -325,6 +339,14 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   Completer<void>? _stopTailAbort;
 
   StreamSubscription<Uint8List>? _pcmSub;
+
+  /// The running capture's stream bookkeeping for the one silent reopen
+  /// (#1784). `null` when idle and from the moment a stop or failure begins.
+  _LiveCapture? _live;
+
+  /// Recorder state events (`record`, `pause`, `stop`), subscribed once per
+  /// recorder. A `stop` nobody asked for reopens the capture (#1784).
+  StreamSubscription<RecordState>? _stateSub;
 
   /// Subscription to [AmplitudeFromPcm.stream] — feeds the perceptual mapper.
   StreamSubscription<double>? _ampSub;
@@ -411,6 +433,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
   Completer<void>? _firstSample;
 
+  /// Start-up diagnostics of the current or last capture (#1777).
+  MicWarmupProbe? _warmup;
+
+  /// How the current or last capture started: reason, chunk counts, timings
+  /// and the first sound's level. Logged with a dead-mic stop so the next
+  /// case shows whether the device sent nothing, only zeros, or went quiet.
+  /// `null` before the first capture.
+  MicWarmupProbe? get micWarmup => _warmup;
+
   @override
   AudioStatus build() {
     ref.onDispose(_cleanup);
@@ -469,6 +500,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // Lazily create a recorder instance.
       _recorder ??= AudioRecorder();
       final recorder = _recorder!;
+      _watchRecorderState(recorder);
 
       // Check / request microphone permission.
       final hasPermission = await _micCache.hasPermission(
@@ -566,6 +598,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       FilePcmSink? pcmSink;
       WavFileWriter? wavWriter;
       Stream<Uint8List> pcmStream;
+      final config = _whisperConfig(device: selectedDevice);
       try {
         pcmSink = await FilePcmSink.open(wavPath);
         wavWriter = WavFileWriter(
@@ -576,9 +609,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         );
         _wavWriter = wavWriter;
         _beginJournal(timestamp, wavPath);
-        pcmStream = await recorder.startStream(
-          _whisperConfig(device: selectedDevice),
-        );
+        _warmup = MicWarmupProbe();
+        pcmStream = await recorder.startStream(config);
       } on Exception catch (e) {
         final failure = classifyRecordingStartFailure(
           e,
@@ -634,10 +666,16 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // chunk from [PcmGainProcessor].
       final gainProcessor = _gainProcessor;
       final firstSample = _firstSample = Completer<void>();
-      final firstSampleDetector = FirstSampleDetector();
-      _pcmSub = pcmStream.listen(
-        (chunk) {
-          if (firstSampleDetector.observe(chunk)) _markLiveSamples(firstSample);
+      final warmup = _warmup ?? MicWarmupProbe();
+      final live = _live = _LiveCapture(
+        config: config,
+        warmup: warmup,
+        onChunk: (chunk) {
+          if (warmup.observe(chunk)) {
+            // A slow start is the one worth reading later (#1777).
+            if (warmup.slowStart) _log.info(warmup.warmupLine());
+            _markLiveSamples(firstSample);
+          }
           final scaled = gainProcessor == null
               ? chunk
               : gainProcessor.process(chunk);
@@ -650,20 +688,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
             _log.error('WAV writer chunk failure: $e', e);
           });
         },
-        onError: (Object e) async {
-          _log.error('PCM stream error: $e', e);
-          // The audio captured so far is kept: the WAV is finalised and
-          // handed to the normal stop path, which transcribes it (or parks it
-          // when that fails). Deleting it here lost the whole recording.
-          await _failActiveRecording(
-            errorMessage: 'pcm_stream_failed',
-            deleteWav: false,
-          );
-        },
-        onDone: () {
-          _log.info('PCM stream closed');
-        },
-        cancelOnError: true,
+      );
+      _listenPcm(live, pcmStream);
+      live.stallTimer = ref.read(micStallTimerProvider)(
+        micStallCheckInterval,
+        (_) => _checkForStall(live),
       );
 
       startedOk = true;
@@ -697,6 +726,175 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Stalled stream: one silent reopen (#1784)
+  // -------------------------------------------------------------------------
+
+  /// Feeds [stream] into [live]'s chunk handler. Used for the first stream
+  /// and for the reopened one, so both write into the same WAV.
+  void _listenPcm(_LiveCapture live, Stream<Uint8List> stream) {
+    _pcmSub = stream.listen(
+      (chunk) {
+        live.quietChecks = 0;
+        live.onChunk(chunk);
+      },
+      onError: (Object e) async {
+        _log.error('PCM stream error: $e', e);
+        // The audio captured so far is kept: the WAV is finalised and
+        // handed to the normal stop path, which transcribes it (or parks it
+        // when that fails). Deleting it here lost the whole recording.
+        await _failActiveRecording(
+          errorMessage: 'pcm_stream_failed',
+          deleteWav: false,
+        );
+      },
+      onDone: () {
+        _log.info('PCM stream closed');
+      },
+      cancelOnError: true,
+    );
+  }
+
+  /// Subscribes once per recorder to its state events. The `record` package
+  /// does not pass on the end of the platform stream, so a recorder that
+  /// stops by itself (Windows after a read error, `record_readercallback.cpp`)
+  /// otherwise leaves a PCM stream that never delivers again.
+  void _watchRecorderState(AudioRecorder recorder) {
+    _stateSub ??= recorder.onStateChanged().listen(
+      _onRecorderState,
+      onError: (Object e) => _log.warning('Recorder state error: $e'),
+    );
+  }
+
+  void _onRecorderState(RecordState recordState) {
+    final live = _live;
+    if (recordState == RecordState.stop && live != null && live.expectsAudio) {
+      _log.warning('Recorder stopped unexpectedly during the recording');
+      unawaited(_reopenCapture(live, MicReopenTrigger.platformStop));
+      return;
+    }
+    _log.debug('Recorder state: ${recordState.name}');
+  }
+
+  /// One periodic stall check: [micStallReopenAfter] without any chunk
+  /// reopens the capture.
+  void _checkForStall(_LiveCapture live) {
+    if (!live.expectsAudio || live.reopenUsed) return;
+    live.quietChecks++;
+    // More than the timeout's worth of checks: at least the full timeout
+    // passed since the last chunk, wherever it fell between two checks.
+    final needed =
+        micStallReopenAfter.inMilliseconds ~/
+        micStallCheckInterval.inMilliseconds;
+    if (live.quietChecks > needed) {
+      _log.warning(
+        'Mic stalled: no PCM chunk for ${micStallReopenAfter.inSeconds} s',
+      );
+      unawaited(_reopenCapture(live, MicReopenTrigger.stalled));
+    }
+  }
+
+  /// Whether [live] still is the running capture, with no stop begun.
+  bool _owns(_LiveCapture live) =>
+      identical(_live, live) && !live.ended && state.isRecording;
+
+  /// Stops the recorder and opens the stream again with the same
+  /// configuration, once per recording (#1784). The WAV writer, level meter
+  /// and session stay; what is already in the WAV is kept. A stop by the
+  /// user wins at every step: [_endLiveCapture] marks [live] as ended, and
+  /// the user's `recorder.stop()` queues behind a stream already being
+  /// opened, so no microphone stays open. If the second stream delivers
+  /// nothing either, the dead-mic guard ends the recording as before.
+  Future<void> _reopenCapture(
+    _LiveCapture live,
+    MicReopenTrigger trigger,
+  ) async {
+    final recorder = _recorder;
+    if (recorder == null || !_owns(live) || live.reopenUsed) return;
+    if (trigger == MicReopenTrigger.platformStop) {
+      // A `stop` event can arrive late from an earlier stop of ours; only a
+      // recorder that really is not recording counts.
+      final stillRecording = await recorder.isRecording().catchError(
+        (Object _) => false,
+      );
+      if (stillRecording) {
+        _log.info('Recorder stop event ignored: the recorder is recording');
+        return;
+      }
+      if (!_owns(live) || live.reopenUsed) return;
+    }
+    live
+      ..reopenUsed = true
+      ..reopening = true;
+    live.stallTimer?.cancel();
+    live.warmup.noteReopen(trigger);
+    _log.warning('Mic reopen: ${trigger.reason}, opening the capture again');
+    // Null while the reopen was given up for a stop by the user: that is no
+    // outcome worth counting.
+    bool? running;
+    try {
+      try {
+        await recorder.stop().timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        _log.warning('Mic reopen: recorder.stop() timed out after 3 s');
+      } on Exception catch (e) {
+        _log.warning('Mic reopen: stopping the recorder failed: $e');
+      }
+      if (!_owns(live)) return;
+      final oldSub = _pcmSub;
+      _pcmSub = null;
+      await oldSub?.cancel();
+      if (!_owns(live)) return;
+      final Stream<Uint8List> stream;
+      try {
+        stream = await recorder.startStream(live.config);
+      } on Exception catch (e) {
+        _log.warning('Mic reopen failed: $e');
+        running = false;
+        return;
+      }
+      // A stop that began meanwhile stops this stream itself.
+      if (!_owns(live)) return;
+      _listenPcm(live, stream);
+      live.quietChecks = 0;
+      running = await recorder.isRecording().catchError((Object _) => false);
+      _log.warning('Mic reopened: recorder running: $running');
+    } finally {
+      live.reopening = false;
+      final outcome = running;
+      if (outcome != null) {
+        live.warmup.noteReopenResult(running: outcome);
+        _countTelemetry(
+          action: 'mic_reopen',
+          name: '${trigger.id}_${outcome ? 'running' : 'failed'}',
+        );
+      }
+    }
+  }
+
+  /// Marks the running capture as ending: no reopen starts from here on, and
+  /// a `stop` event of the recorder is expected. The PCM subscription stays
+  /// with the caller, so a stop tail still reaches the WAV.
+  void _endLiveCapture() {
+    final live = _live;
+    _live = null;
+    if (live == null) return;
+    live.ended = true;
+    live.stallTimer?.cancel();
+  }
+
+  /// One aggregated counter in the `recording` category, like the
+  /// orchestrator's (#1777): fixed ids only, no device names or content.
+  void _countTelemetry({required String action, required String name}) {
+    try {
+      ref
+          .read(telemetrySessionAggregatorProvider)
+          .count(category: 'recording', action: action, name: name);
+    } on Object catch (e) {
+      _log.debug('Telemetry count skipped: $e');
+    }
+  }
+
   /// Tears down a capture that just finished opening but was already
   /// unwanted — a [stopRecording] call arrived while [startRecording] was
   /// still setting up (see [RecordingStartStopArbiter]). Mirrors
@@ -704,6 +902,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// asked for this recording) and resets to idle rather than error (this
   /// is not a failure — it's a stop that arrived a moment too early).
   Future<void> _abortJustStartedRecording(String wavPath) async {
+    _endLiveCapture();
     await _pcmSub?.cancel();
     _pcmSub = null;
     await _stopLevelWatch();
@@ -973,6 +1172,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     required bool deleteWav,
   }) async {
     final wavPath = state.filePath;
+    _endLiveCapture();
     await _pcmSub?.cancel();
     _pcmSub = null;
     await _stopLevelWatch();
@@ -1066,6 +1266,9 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
 
     final wavPath = state.filePath;
+    // From here no reopen starts and the recorder's `stop` is expected; the
+    // PCM subscription keeps feeding the WAV through the tail.
+    _endLiveCapture();
 
     if (keepTail) {
       final abort = _stopTailAbort = Completer<void>();
@@ -1375,6 +1578,9 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   // -------------------------------------------------------------------------
 
   void _cleanup() {
+    _endLiveCapture();
+    _stateSub?.cancel();
+    _stateSub = null;
     _pcmSub?.cancel();
     _ampSub?.cancel();
     _amplitudeFromPcm?.dispose();
@@ -1388,6 +1594,43 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _recorder?.dispose();
     _recorder = null;
   }
+}
+
+/// Stream bookkeeping of one running capture for the silent reopen (#1784).
+/// Pure state, owned by [AudioServiceNotifier].
+class _LiveCapture {
+  _LiveCapture({
+    required this.config,
+    required this.warmup,
+    required this.onChunk,
+  });
+
+  /// The configuration the capture was opened with; a reopen uses it again.
+  final RecordConfig config;
+
+  /// Start-up diagnostics, which also note the reopen.
+  final MicWarmupProbe warmup;
+
+  /// Writes one chunk into the capture's WAV, level meter and live preview.
+  final void Function(Uint8List chunk) onChunk;
+
+  /// Stall checks since the last chunk.
+  int quietChecks = 0;
+
+  /// The one reopen of this capture has been used.
+  bool reopenUsed = false;
+
+  /// A reopen is stopping and opening the stream right now.
+  bool reopening = false;
+
+  /// A stop or failure began; nothing may reopen the stream any more.
+  bool ended = false;
+
+  Timer? stallTimer;
+
+  /// Whether the platform should be delivering audio right now, so a
+  /// recorder `stop` or a pause in chunks is a fault.
+  bool get expectsAudio => !ended && !reopening;
 }
 
 // ---------------------------------------------------------------------------

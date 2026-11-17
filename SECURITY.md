@@ -6,8 +6,8 @@ Security updates are applied to the latest release only.
 
 | Version        | Supported          |
 | -------------- | ------------------ |
-| latest (1.4.x) | :white_check_mark: |
-| < 1.0          | :x:                |
+| latest release | :white_check_mark: |
+| older releases | :x:                |
 
 ## Reporting a Vulnerability
 

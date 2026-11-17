@@ -517,7 +517,15 @@ Future<void> _runApp(List<String> args) async {
   );
 
   // Transcribe the audio of recordings that a crash or quit interrupted, once.
-  unawaited(recoverInterruptedRecordings(container));
+  // Not before the first frame (#1783): the window is usable before the
+  // native transcription starts. A crash inside it is caught by the
+  // recovery crash guard, which keeps that recording out of the next start.
+  unawaited(
+    runAfterFirstFrame(
+      WidgetsBinding.instance.waitUntilFirstFrameRasterized,
+      () => recoverInterruptedRecordings(container),
+    ),
+  );
 
   // RAM check. Low RAM never blocks the app (decision 22, 2026-10-20): the
   // speech recommendation reads the same figure and picks the compact tier.

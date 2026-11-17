@@ -592,4 +592,124 @@ void main() {
       expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
     });
   });
+
+  // ── Start grace for a waking microphone (#1777) ─────────────────────────
+
+  group('Start grace before the first signal (#1777)', () {
+    // 1 s timeout + 2 s grace at 10 samples/s: 10 ticks with a signal seen
+    // before, 30 ticks while the input never delivered anything.
+    const config = SafetyGuardConfig(
+      deadMicTimeout: 1.0,
+      firstSignalGrace: 2.0,
+      autoStopSilence: 0,
+      maxDurationSeconds: 0,
+      samplesPerSecond: 10,
+    );
+
+    test('a first signal after the plain timeout is not a dead mic', () async {
+      // Mute for 2.9 s (past the 1 s timeout), then the device wakes up.
+      final events = await collectEvents(config, [
+        ...List.filled(29, 0.0),
+        0.05,
+        ..._speech,
+      ]);
+
+      expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
+    });
+
+    test(
+      'an input that never delivers still fires after timeout + grace',
+      () async {
+        expect(
+          await collectEvents(config, List.filled(29, 0.0)),
+          isNot(contains(isA<DeadMicTimeoutReached>())),
+        );
+        final events = await collectEvents(config, List.filled(30, 0.0));
+        expect(events.whereType<DeadMicTimeoutReached>(), hasLength(1));
+      },
+    );
+
+    test(
+      'a loss after the first signal counts with the plain timeout',
+      () async {
+        // Quiet but live for 200 ms, then nothing: no grace any more.
+        final events = await collectEvents(config, [
+          0.05,
+          0.05,
+          ...List.filled(10, 0.0),
+        ]);
+        expect(events.whereType<DeadMicTimeoutReached>(), hasLength(1));
+      },
+    );
+
+    // #1784: a waking device can click once and fall back to zeros.
+    test('a single click keeps the start grace', () async {
+      final click = await collectEvents(config, [
+        0.05,
+        ...List.filled(29, 0.0),
+      ]);
+      expect(click.whereType<DeadMicTimeoutReached>(), isEmpty);
+
+      final events = await collectEvents(config, [
+        0.05,
+        ...List.filled(30, 0.0),
+      ]);
+      expect(events.whereType<DeadMicTimeoutReached>(), hasLength(1));
+    });
+
+    test('a signal below -80 dBFS does not end the start grace', () async {
+      final events = <SafetyEvent>[];
+      await Stream.fromIterable([
+        for (var i = 0; i < 5; i++) const GuardSample(dbFs: -85, level: 0),
+        ...List.filled(29, const GuardSample(dbFs: -double.infinity, level: 0)),
+      ]).transform(SafetyGuard(config: config)).forEach(events.add);
+      expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
+    });
+
+    test('the grace needs an unbroken run of signal', () async {
+      // Two clicks with zeros between are no sustained signal.
+      final events = await collectEvents(config, [
+        0.05,
+        0.0,
+        0.05,
+        ...List.filled(29, 0.0),
+      ]);
+      expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
+    });
+
+    test('the grace never turns a disabled dead-mic guard on', () async {
+      const off = SafetyGuardConfig(
+        deadMicTimeout: 0,
+        firstSignalGrace: 2.0,
+        autoStopSilence: 0,
+        maxDurationSeconds: 0,
+        samplesPerSecond: 10,
+      );
+      expect(await collectEvents(off, List.filled(60, 0.0)), isEmpty);
+    });
+
+    test('the no-signal hint still comes after 1 s with the grace', () async {
+      const withHint = SafetyGuardConfig(
+        deadMicTimeout: 3.0,
+        firstSignalGrace: 2.0,
+        autoStopSilence: 0,
+        maxDurationSeconds: 0,
+        samplesPerSecond: 10,
+      );
+      // 4.9 s without signal: hint at 1 s, no stop before 3 s + 2 s.
+      final events = await collectEvents(withHint, List.filled(49, 0.0));
+      expect(events.single, isA<NoSignalWarning>());
+    });
+
+    test('the pipeline grace keeps a really silent mic reported in time', () {
+      // Default 3 s timeout: a waking device gets clearly more than that,
+      // a really silent one is still reported well within 10 s.
+      const grace = SafetyGuard.firstSignalGraceSeconds;
+      expect(grace, greaterThanOrEqualTo(3.0));
+      expect(
+        const SafetyGuardConfig(samplesPerSecond: 25).deadMicTimeout + grace,
+        lessThanOrEqualTo(8.0),
+      );
+    });
+  });
 }

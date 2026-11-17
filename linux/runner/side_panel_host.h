@@ -110,6 +110,16 @@ class SidePanelHost {
   // onboarding done) and "destroy" (issue #967).
   bool sensors_armed_ = false;
   guint rebuild_idle_id_ = 0;
+  // A fullscreen app in front (game, video, slideshow) removes the strips,
+  // so they never sit on top of it and take the mouse at the edge (#1782).
+  // Checked every kFullscreenCheckMs while armed, and once more right
+  // before the panel opens. Linux keeps strips at all because a Wayland
+  // session gives no global pointer position to sample (Windows and macOS
+  // sample it and have no window at the edge).
+  bool fullscreen_in_front_ = false;
+  guint fullscreen_timer_id_ = 0;
+  static gboolean OnFullscreenCheck(gpointer user_data);
+  void CheckFullscreen();
   std::string work_area_signature_;
   std::vector<std::pair<GdkMonitor*, gulong>> monitor_notify_ids_;
   void DisconnectMonitorNotifies();
@@ -194,6 +204,7 @@ class SidePanelHost {
   static constexpr int kSlideDurationMs = 220;
   static constexpr int kDwellMs = 60;
   static constexpr int kCloseGraceMs = 350;
+  static constexpr int kFullscreenCheckMs = 1000;
 };
 
 #endif  // FLUTTER_SIDE_PANEL_HOST_H_

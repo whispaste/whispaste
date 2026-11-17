@@ -2,10 +2,12 @@
 
 #include <flutter/encodable_value.h>
 #include <flutter_windows.h>
+#include <shellapi.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cwchar>
 #include <string>
 #include <vector>
 
@@ -24,20 +26,56 @@ constexpr char kRenderChannelName[] = "com.whispaste.side_panel_render";
 // SetTimer's TIMERPROC callback carries no user-data slot (unlike WM_TIMER
 // delivered through a window's own WndProc, which recovers `this` via
 // GWLP_USERDATA the way SidePanelContentWindow's animation timer does) --
-// see NativeCloseTimerProc below. Exactly one SidePanelHost exists at a
-// time (owned by FlutterWindow), so a single translation-unit-local pointer
-// set in the constructor and cleared in Destroy() is sufficient; this does
-// not need to be a class member.
+// see NativeCloseTimerProc and EdgePollTimerProc below. Exactly one
+// SidePanelHost exists at a time (owned by FlutterWindow), so a single
+// translation-unit-local pointer set in the constructor and cleared in
+// Destroy() is sufficient; this does not need to be a class member.
 SidePanelHost* g_active_host_for_close_timer = nullptr;
 
-// Collects every connected monitor -- same idiom as
-// floating_overlay_window.cpp's NearestMonitorEnumProc, just gathering all
-// handles instead of picking the nearest one (mirrors NSScreen.screens).
-BOOL CALLBACK CollectMonitorsProc(HMONITOR hmon, HDC /*hdc*/,
-                                  LPRECT /*rect*/, LPARAM lparam) {
-  auto* monitors = reinterpret_cast<std::vector<HMONITOR>*>(lparam);
-  monitors->push_back(hmon);
-  return TRUE;
+side_panel_edge::Rect ToEdgeRect(const RECT& r) {
+  return {static_cast<int>(r.left), static_cast<int>(r.top),
+          static_cast<int>(r.right), static_cast<int>(r.bottom)};
+}
+
+// Whether the foreground window is another app's window filling the whole
+// [monitor] (fullscreen or borderless-fullscreen game, video, slideshow).
+// The desktop itself (Progman/WorkerW) also covers the monitor and does not
+// count, neither do WhisPaste's own windows.
+bool ForegroundCoversMonitor(HMONITOR monitor, const RECT& monitor_rect) {
+  HWND fg = GetForegroundWindow();
+  if (!fg || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
+  wchar_t cls[32] = {};
+  if (GetClassNameW(fg, cls, 32) > 0 &&
+      (wcscmp(cls, L"Progman") == 0 || wcscmp(cls, L"WorkerW") == 0)) {
+    return false;
+  }
+  DWORD pid = 0;
+  GetWindowThreadProcessId(fg, &pid);
+  if (pid == GetCurrentProcessId()) return false;
+  if (MonitorFromWindow(fg, MONITOR_DEFAULTTONULL) != monitor) return false;
+  RECT r;
+  if (!GetWindowRect(fg, &r)) return false;
+  return side_panel_edge::CoversMonitor(ToEdgeRect(r),
+                                        ToEdgeRect(monitor_rect));
+}
+
+// Whether a fullscreen app is in front: the foreground window fills the
+// monitor, or the shell reports a fullscreen/D3D/presentation state (the
+// same signal Windows uses to hold back its own notifications).
+bool FullscreenAppInFront(HMONITOR monitor, const RECT& monitor_rect) {
+  if (ForegroundCoversMonitor(monitor, monitor_rect)) return true;
+  QUERY_USER_NOTIFICATION_STATE state;
+  if (SUCCEEDED(SHQueryUserNotificationState(&state))) {
+    return state == QUNS_BUSY || state == QUNS_RUNNING_D3D_FULL_SCREEN ||
+           state == QUNS_PRESENTATION_MODE;
+  }
+  return false;
+}
+
+bool AnyMouseButtonDown() {
+  return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) ||
+         (GetAsyncKeyState(VK_RBUTTON) & 0x8000) ||
+         (GetAsyncKeyState(VK_MBUTTON) & 0x8000);
 }
 
 // Convert a UTF-8 std::string into a wide string for OutputDebugStringW.
@@ -100,10 +138,11 @@ SidePanelHost::SidePanelHost(flutter::FlutterEngine* main_engine, HWND owner)
 
   g_active_host_for_close_timer = this;
 
-  // Mirrors SidePanelHost.swift's init calling rebuildSensors() up front --
-  // the sensor strips exist for the whole app session, independent of
-  // whether the panel itself has ever been opened.
-  RebuildSensors();
+  // No edge trigger yet (#1782, same as Linux since #967): Dart only talks
+  // to this host while the panel is enabled and onboarding is done, so the
+  // first updateSnapshot arms it and "destroy" (setting off) disarms it.
+  // Before, a sensor window was created here for every user, also with the
+  // panel switched off, and swallowed the mouse at the left screen edge.
 
   OutputDebugStringW(L"[SidePanel] Host created\n");
 }
@@ -115,6 +154,9 @@ void SidePanelHost::Destroy() {
   destroyed_ = true;
 
   TeardownActive();
+  if (g_active_host_for_close_timer == this) {
+    g_active_host_for_close_timer = nullptr;
+  }
 
   if (channel_) {
     channel_->SetMethodCallHandler(nullptr);
@@ -125,10 +167,11 @@ void SidePanelHost::Destroy() {
 }
 
 void SidePanelHost::TeardownActive() {
+  // The global stays set (cleared only in Destroy()): a toggle-off followed
+  // by a toggle-on keeps using both timer procs, which reach this host
+  // through it. Both timers are killed right here.
+  DisarmEdgeTrigger();
   CancelNativeClose();
-  if (g_active_host_for_close_timer == this) {
-    g_active_host_for_close_timer = nullptr;
-  }
 
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
@@ -143,8 +186,6 @@ void SidePanelHost::TeardownActive() {
   }
   render_project_.reset();
 
-  sensors_.clear();
-
   render_ready_ = false;
   latest_snapshot_args_.reset();
   is_shown_ = false;
@@ -153,65 +194,64 @@ void SidePanelHost::TeardownActive() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// Sensor strips (one per monitor)
+// Edge trigger (pointer sampling, #1782)
 // ══════════════════════════════════════════════════════════════════════
 
-void SidePanelHost::RebuildSensors() {
-  // Guards against a WM_DISPLAYCHANGE landing during real process teardown,
-  // between Destroy() latching destroyed_ and FlutterWindow::OnDestroy()
-  // resetting the owning unique_ptr -- without this, a destroyed host would
-  // silently resurrect a fresh set of native sensor windows whose events all
-  // no-op in SendEvent (destroyed_ check), leaking window handles for
-  // nothing. A Dart-driven "destroy" toggle-off no longer latches
-  // destroyed_ (see TeardownActive/HandleMethodCall), so this guard does not
-  // apply to that path.
-  if (destroyed_) return;
+void SidePanelHost::ArmEdgeTrigger() {
+  if (destroyed_ || armed_) return;
+  armed_ = true;
+  edge_tracker_.Reset();
+  g_active_host_for_close_timer = this;
+  SetTimer(owner_, kEdgePollTimerId,
+           static_cast<UINT>(side_panel_edge::kPollMs), EdgePollTimerProc);
+  OutputDebugStringW(L"[SidePanel] Edge trigger armed\n");
+}
 
-  // Destroying and recreating on every call (rather than diffing) mirrors
-  // SidePanelHost.swift's rebuildSensors: `sensors.forEach { $0.orderOut
-  // (nil) }` followed by a fresh `NSScreen.screens.map`.
-  sensors_.clear();
+void SidePanelHost::DisarmEdgeTrigger() {
+  if (!armed_) return;
+  armed_ = false;
+  KillTimer(owner_, kEdgePollTimerId);
+  edge_tracker_.Reset();
+  OutputDebugStringW(L"[SidePanel] Edge trigger disarmed\n");
+}
 
-  std::vector<HMONITOR> monitors;
-  EnumDisplayMonitors(nullptr, nullptr, CollectMonitorsProc,
-                      reinterpret_cast<LPARAM>(&monitors));
+void CALLBACK SidePanelHost::EdgePollTimerProc(HWND /*hwnd*/, UINT /*msg*/,
+                                               UINT_PTR /*id*/,
+                                               DWORD /*time*/) {
+  if (g_active_host_for_close_timer) g_active_host_for_close_timer->PollEdge();
+}
 
-  for (HMONITOR hmon : monitors) {
-    MONITORINFO mi = {};
-    mi.cbSize = sizeof(mi);
-    if (!GetMonitorInfoW(hmon, &mi)) continue;
-    const RECT wa = mi.rcWork;
+void SidePanelHost::PollEdge() {
+  if (!armed_ || destroyed_) return;
 
-    UINT dpi = FlutterDesktopGetDpiForMonitor(hmon);
-    double scale = (dpi > 0) ? dpi / 96.0 : 1.0;
-    int width = static_cast<int>(std::round(kSensorWidth * scale));
+  POINT cursor;
+  if (!GetCursorPos(&cursor)) return;  // e.g. secure desktop (UAC, lock)
 
-    // Sensor strip hugs whichever edge current_edge_ selects (issue #150) --
-    // mirrors the same left/right branch in ComputeTargetRect below.
-    const int sensor_x = (current_edge_ == "right")
-                             ? static_cast<int>(wa.right) - width
-                             : static_cast<int>(wa.left);
-
-    auto sensor = std::make_unique<SidePanelSensorWindow>();
-    bool created = sensor->Create(sensor_x, wa.top, width, wa.bottom - wa.top,
-                                  kDwellMs);
-    if (!created) {
-      OutputDebugStringW(L"[SidePanel] Sensor creation failed for a monitor\n");
-      continue;
-    }
-
-    // Captured by value -- this monitor's work area is fixed for the
-    // lifetime of this sensor; a real geometry change comes back through
-    // WM_DISPLAYCHANGE -> RebuildSensors(), which replaces the whole vector
-    // (and therefore this callback) anyway.
-    sensor->on_hover_entered = [this, wa]() { HandleHoverEntered(wa); };
-    sensor->on_raw_enter = [this]() { HandleRawEnter(); };
-    sensor->on_raw_exit = [this]() { HandleRawExit(); };
-
-    sensors_.push_back(std::move(sensor));
+  // The monitor under the pointer, read live: a display change needs no
+  // rebuild, unlike the old per-monitor sensor windows.
+  bool in_zone = false;
+  RECT work_area = {};
+  HMONITOR mon = MonitorFromPoint(cursor, MONITOR_DEFAULTTONULL);
+  MONITORINFO mi = {};
+  mi.cbSize = sizeof(mi);
+  if (mon && GetMonitorInfoW(mon, &mi)) {
+    work_area = mi.rcWork;
+    const UINT dpi = FlutterDesktopGetDpiForMonitor(mon);
+    const double scale = (dpi > 0) ? dpi / 96.0 : 1.0;
+    const int width =
+        static_cast<int>(std::round(side_panel_edge::kZoneWidth * scale));
+    in_zone = side_panel_edge::InZone(
+        static_cast<int>(cursor.x), static_cast<int>(cursor.y),
+        ToEdgeRect(work_area), width, current_edge_ == "right");
+    // Only checked at the edge, so the cost stays off the common path.
+    if (in_zone && FullscreenAppInFront(mon, mi.rcMonitor)) in_zone = false;
   }
 
-  OutputDebugStringW(L"[SidePanel] Sensors rebuilt\n");
+  const side_panel_edge::Events events = edge_tracker_.Update(
+      in_zone, AnyMouseButtonDown(), static_cast<int64_t>(GetTickCount64()));
+  if (events.raw_enter) HandleRawEnter();
+  if (events.open) HandleHoverEntered(work_area);
+  if (events.raw_exit) HandleRawExit();
 }
 
 void SidePanelHost::HandleHoverEntered(const RECT& work_area) {
@@ -260,11 +300,10 @@ void CALLBACK SidePanelHost::NativeCloseTimerProc(HWND hwnd, UINT /*msg*/,
   SidePanelHost* host = g_active_host_for_close_timer;
   host->close_timer_armed_ = false;
 
-  // Fire-point guard: once the content window covers the sensor's screen
-  // point, TrackMouseEvent reports the sensor strip as "left" (WindowFromPoint
-  // now resolves to the content window) even though the pointer never
-  // physically moved, which keeps re-arming this timer via
-  // HandleRawExit/HandleContentExit. Rather than chase every message race
+  // Fire-point guard: the pointer leaves the edge zone onto the open panel
+  // (HandleRawExit), and TrackMouseEvent can report the panel as "left"
+  // while the pointer still rests on it, both of which keep re-arming this
+  // timer via HandleRawExit/HandleContentExit. Rather than chase every race
   // that can (re-)arm the timer, make the final call here, at the one place
   // the irreversible close decision actually happens.
   if (host->content_window_ && host->content_window_->visible() &&
@@ -495,17 +534,11 @@ void SidePanelHost::HandleMethodCall(
     return;
   }
 
-  // A toggle-off (above) clears sensors_ along with everything else. A
-  // re-enable's Dart-side controller sends no explicit "create"/"init" call
-  // -- its first real call is what signals the feature is wanted again, so
-  // re-arm the edge sensors here instead of leaving them permanently gone.
-  // A no-op on the common path (sensors_ is already populated from the
-  // constructor or a previous rebuild).
-  if (sensors_.empty()) {
-    RebuildSensors();
-  }
-
   if (method == "updateSnapshot") {
+    // The first snapshot (SidePanelService.onControllerReady sends one right
+    // away) says the panel is wanted: arm the edge trigger. Also re-arms
+    // after a toggle-off + toggle-on. A no-op while already armed.
+    ArmEdgeTrigger();
     const auto* args_map = std::get_if<EncodableMap>(call.arguments());
     if (args_map) {
       HandleUpdateSnapshot(*args_map);
@@ -524,17 +557,17 @@ void SidePanelHost::HandleUpdateSnapshot(const EncodableMap& args) {
     if (const auto* b = std::get_if<bool>(&it->second)) visible = *b;
   }
 
-  // Issue #150: relocate the sensor strip immediately if the user's chosen
-  // edge changed since the last snapshot. Every updateSnapshot carries this
-  // field (SidePanelService always fills it in, see side_panel_snapshot
-  // .dart), so a missing/malformed value keeps the previous edge rather than
-  // silently resetting to "left".
+  // Issue #150: follow the user's chosen edge; the next pointer sample
+  // already uses it. Every updateSnapshot carries this field
+  // (SidePanelService always fills it in, see side_panel_snapshot.dart), so
+  // a missing/malformed value keeps the previous edge rather than silently
+  // resetting to "left".
   auto edge_it = args.find(EncodableValue("edge"));
   if (edge_it != args.end()) {
     if (const auto* s = std::get_if<std::string>(&edge_it->second)) {
       if (*s != current_edge_ && (*s == "left" || *s == "right")) {
         current_edge_ = *s;
-        RebuildSensors();
+        edge_tracker_.Reset();
       }
     }
   }

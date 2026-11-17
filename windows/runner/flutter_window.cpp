@@ -258,15 +258,6 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     keyboard_monitor_host_->HandleHotkeyDown(lparam);
   }
 
-  // Monitor/DPI topology changed — rebuild the side panel's per-monitor
-  // sensor strips (mirrors SidePanelHost.rebuildSensors's
-  // didChangeScreenParameters observer on macOS). WM_DISPLAYCHANGE is
-  // broadcast to every top-level window, so this main window's own
-  // WndProc is a valid place to observe it — never consumes the message.
-  if (message == WM_DISPLAYCHANGE && side_panel_host_) {
-    side_panel_host_->RebuildSensors();
-  }
-
   // Clipboard content changed — forward to the native clipboard-history
   // monitor (issue 05 Windows port). WM_CLIPBOARDUPDATE is delivered to
   // every window registered via AddClipboardFormatListener, so this main

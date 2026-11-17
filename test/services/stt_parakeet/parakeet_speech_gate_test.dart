@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -160,6 +161,131 @@ void main() {
         isFalse,
       );
       expect(checks, parakeetSpeechGateWindows(130 * 16000).length);
+    });
+  });
+
+  // #1780: a launch that died inside the native check must not die there
+  // again on the next start (Sentry FLUTTER_WHISPASTE-SH).
+  test('the gate registers only the CPU backend, never Vulkan (#1780)', () {
+    // Registering every ggml module creates a Vulkan instance first, which
+    // crashed a broken driver natively on every start. The VAD is CPU only.
+    final source = File(
+      'lib/services/stt_parakeet/parakeet_speech_gate.dart',
+    ).readAsStringSync();
+    expect(source, isNot(contains('loadGgmlBackendModules(')));
+    expect(source, isNot(contains('loadAllFromPath(')));
+    expect(source, contains('WhisperFfiEngine.loadCpuBackendOnly('));
+  });
+
+  group('crash marker', () {
+    late Directory dir;
+    var version = '1.5.2';
+    ParakeetSpeechGateCrashMarker marker() => ParakeetSpeechGateCrashMarker(
+      dir: () => dir.path,
+      appVersion: () => version,
+    );
+    File attemptFile() => File('${dir.path}/.speech_gate_attempt');
+    final samples = Float32List(16000);
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('speech_gate_marker');
+      version = '1.5.2';
+    });
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    ParakeetSpeechGate gate({
+      required Future<int?> Function() runNative,
+      Duration timeout = parakeetSpeechGateTimeout,
+    }) => ParakeetSpeechGate(
+      libraryPath: '/unused',
+      modelPath: '/unused',
+      timeout: timeout,
+      crashMarker: marker(),
+      runNative: runNative,
+    );
+
+    test('the marker is on disk during the native call, gone after', () async {
+      var markedDuringCall = false;
+      final g = gate(
+        runNative: () async {
+          markedDuringCall = attemptFile().existsSync();
+          return 1;
+        },
+      );
+      expect(await g.check(samples), ParakeetSpeechCheck.speech);
+      expect(markedDuringCall, isTrue);
+      expect(attemptFile().existsSync(), isFalse);
+    });
+
+    test('a failed native call removes the marker too', () async {
+      final g = gate(runNative: () async => throw StateError('vad'));
+      expect(await g.check(samples), ParakeetSpeechCheck.unavailable);
+      expect(attemptFile().existsSync(), isFalse);
+    });
+
+    test('a timed-out call keeps the marker until it returns', () async {
+      final release = Completer<int?>();
+      final g = gate(runNative: () => release.future, timeout: Duration.zero);
+      expect(await g.check(samples), ParakeetSpeechCheck.unavailable);
+      expect(attemptFile().existsSync(), isTrue);
+      release.complete(0);
+      await pumpEventQueue();
+      expect(attemptFile().existsSync(), isFalse);
+    });
+
+    test(
+      'a marker left by a crashed launch skips the native call (fail-open)',
+      () async {
+        marker().markAttempt(); // the previous launch died inside the call
+        var nativeCalls = 0;
+        final g = gate(
+          runNative: () async {
+            nativeCalls++;
+            return 0;
+          },
+        );
+        expect(await g.check(samples), ParakeetSpeechCheck.unavailable);
+        expect(await g.hasSpeech(samples), isTrue);
+        expect(nativeCalls, 0);
+        expect(attemptFile().existsSync(), isFalse);
+
+        // Still off on the next launch of the same version.
+        final next = gate(
+          runNative: () async {
+            nativeCalls++;
+            return 0;
+          },
+        );
+        expect(await next.check(samples), ParakeetSpeechCheck.unavailable);
+        expect(nativeCalls, 0);
+      },
+    );
+
+    test('a new app version runs the native check again', () async {
+      marker().markAttempt();
+      expect(marker().recoverFromPreviousLaunch(), isTrue);
+      expect(marker().disabled, isTrue);
+      version = '1.5.3';
+      expect(marker().disabled, isFalse);
+      final g = gate(runNative: () async => 0);
+      expect(await g.check(samples), ParakeetSpeechCheck.noSpeech);
+    });
+
+    test('without a crash nothing is turned off', () {
+      expect(marker().recoverFromPreviousLaunch(), isFalse);
+      expect(marker().disabled, isFalse);
+    });
+
+    test('an unwritable folder never throws (best effort)', () {
+      final broken = ParakeetSpeechGateCrashMarker(
+        dir: () => '${dir.path}/file/sub',
+        appVersion: () => version,
+      );
+      File('${dir.path}/file').writeAsStringSync('not a folder');
+      expect(broken.markAttempt, returnsNormally);
+      expect(broken.recoverFromPreviousLaunch(), isFalse);
+      expect(broken.disabled, isFalse);
+      expect(broken.clearAttempt, returnsNormally);
     });
   });
 }

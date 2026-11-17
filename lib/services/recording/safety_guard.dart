@@ -61,7 +61,12 @@ sealed class SafetyEvent {
 }
 
 /// The microphone delivered no signal at all ([GuardSample.hasSignal] false)
-/// for [SafetyGuardConfig.deadMicTimeout] seconds before any speech.
+/// for [SafetyGuardConfig.deadMicTimeout] seconds before any speech. While
+/// the input has not delivered a sustained signal yet in this recording
+/// ([SafetyGuard.firstSignalMinDuration] above
+/// [SafetyGuard.firstSignalMinDbFs]), the wait is
+/// [SafetyGuardConfig.firstSignalGrace] longer (a waking device, #1777,
+/// #1784).
 final class DeadMicTimeoutReached extends SafetyEvent {
   const DeadMicTimeoutReached();
 }
@@ -125,12 +130,23 @@ class SafetyGuardConfig {
     this.deadMicTimeout = 3.0,
     this.autoStopSilence = 0.0,
     this.maxDurationSeconds = 120,
+    this.firstSignalGrace = 0.0,
   });
 
   /// Seconds without any signal (digital zero, no data, non-finite) before
   /// speech, after which dead-mic fires. A quiet level never counts.
   /// `0` disables dead-mic detection.
   final double deadMicTimeout;
+
+  /// Seconds added to [deadMicTimeout] while the input has not delivered any
+  /// signal yet in this recording (#1777). Some microphones (e.g. laptop
+  /// microphone arrays behind an audio DSP) deliver only digital zeros or
+  /// nothing for seconds after waking from idle; that start-up is not a dead
+  /// microphone. Once any signal arrived, a loss counts with [deadMicTimeout]
+  /// alone; a single click does not count as that signal (#1784, see
+  /// [SafetyGuard.firstSignalMinDuration]). Has no effect when dead-mic
+  /// detection is off.
+  final double firstSignalGrace;
 
   /// Seconds of silence *after* speech is detected before auto-stop fires.
   /// `0` disables silence-auto-stop.
@@ -181,6 +197,24 @@ class SafetyGuard extends StreamTransformerBase<GuardSample, SafetyEvent> {
   /// Seconds without any signal after the start before [NoSignalWarning].
   static const double noSignalWarningSeconds = 1.0;
 
+  /// The start grace the recording pipeline passes as
+  /// [SafetyGuardConfig.firstSignalGrace] (#1777). A working microphone
+  /// delivers within a second and never reaches it; a waking laptop
+  /// microphone array was seen to need more than the 3 s default timeout. A
+  /// really silent input is still reported, with the default after 7 s; the
+  /// no-signal hint still comes after [noSignalWarningSeconds].
+  static const double firstSignalGraceSeconds = 4.0;
+
+  /// Shortest unbroken run of real signal that ends the start grace (#1784).
+  /// A waking device can click once and fall back to digital zeros; that
+  /// click must not cut the grace back to the plain timeout.
+  static const Duration firstSignalMinDuration = Duration(milliseconds: 200);
+
+  /// Level each tick of that run must exceed. Far below any room noise of a
+  /// working microphone (about -70 dBFS in a quiet room), far above the
+  /// dither of a waking one.
+  static const double firstSignalMinDbFs = -80;
+
   final SafetyGuardConfig config;
 
   /// Seconds added to [SafetyGuardConfig.maxDurationSeconds] by
@@ -226,6 +260,9 @@ class SafetyGuard extends StreamTransformerBase<GuardSample, SafetyEvent> {
     var speechDetected = false;
     var silentSamples = 0;
     var deadSamples = 0;
+    var hadSignal = false;
+    var signalRun = 0;
+    final signalRunNeeded = _samplesFor(firstSignalMinDuration);
     var guardFired = false;
     var noSignalWarningFired = false;
     var signalArrivedFired = false;
@@ -271,6 +308,10 @@ class SafetyGuard extends StreamTransformerBase<GuardSample, SafetyEvent> {
       // is a working microphone and resets the count (#984).
       if (!speechDetected) {
         deadSamples = sample.hasSignal ? 0 : deadSamples + 1;
+        // Only a sustained signal ends the start grace, never a single
+        // click of a waking device (#1784).
+        signalRun = sample.dbFs > firstSignalMinDbFs ? signalRun + 1 : 0;
+        if (signalRun >= signalRunNeeded) hadSignal = true;
         if (sample.hasSignal && noSignalWarningFired && !signalArrivedFired) {
           signalArrivedFired = true;
           controller.add(signalArrived);
@@ -287,9 +328,12 @@ class SafetyGuard extends StreamTransformerBase<GuardSample, SafetyEvent> {
           controller.add(noSignalWarning);
         }
 
+        // Before the first signal the device may still be waking up (#1777):
+        // it gets the start grace on top. A loss after a signal does not.
+        final deadLimit =
+            config.deadMicTimeout + (hadSignal ? 0 : config.firstSignalGrace);
         if (config.deadMicTimeout > 0 &&
-            deadSamples >=
-                (config.deadMicTimeout * config.samplesPerSecond).round()) {
+            deadSamples >= (deadLimit * config.samplesPerSecond).round()) {
           emitTerminal(deadMicTimeoutReached);
           return;
         }

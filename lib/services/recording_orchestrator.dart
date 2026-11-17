@@ -38,6 +38,7 @@ import 'app_profiles/app_profile_choice.dart';
 import 'app_profiles/app_profile_resolver.dart';
 import 'app_profiles/app_profile_storage.dart';
 import 'audio/encryption/recording_vault.dart';
+import 'audio/mic_warmup_probe.dart';
 import 'audio/signal_loss_detector.dart';
 import 'audio/user_audio_dirs.dart';
 import 'clipboard_history/app_clipboard.dart';
@@ -851,6 +852,7 @@ class RecordingOrchestrator extends Notifier<void> {
         audioNotifier.firstSampleArrived?.then((_) {
           micTrace.mark(MicStartStage.firstSample);
           _log.info(micTrace.summary());
+          _countSlowMicStart(audioNotifier);
           _playStartToneForSession(sid);
         }),
       );
@@ -1122,6 +1124,8 @@ class RecordingOrchestrator extends Notifier<void> {
           settings.recordingSafety.autoStopSilence,
       maxDurationSeconds: settings.behavior.maxRecordDuration,
       samplesPerSecond: amplitudeSamplesPerSecond,
+      // A microphone that is still waking up is not dead (#1777).
+      firstSignalGrace: SafetyGuard.firstSignalGraceSeconds,
     );
     final guard = SafetyGuard(config: guardConfig);
     guard.limitGraceSeconds = durationLimitGraceSeconds;
@@ -4433,21 +4437,31 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
     _stopInFlight = true;
+    var ownsLock = true;
 
     // Guard-fire is expected user behaviour (no microphone input), not a crash.
     // Goes in at info level so the AppLogger pipeline turns it into a Sentry
     // breadcrumb — context for any later real error, but not a standalone issue.
     _log.info('guard-fire: dead-mic (no audio detected before timeout)');
     try {
+      final guardConfig = _guard?.config;
       _cancelAmplitude();
       final audioNotifier = ref.read(audioServiceProvider.notifier);
-      await audioNotifier.stopRecording();
+      _logDeadMicDiagnosis(audioNotifier, guardConfig);
+      // No stop tail: nothing came from the microphone, so there is nothing
+      // in flight worth waiting 250 ms (and the automatic level) for (#1784).
+      await audioNotifier.stopRecording(keepTail: false);
       ref.read(micSwitchOfferProvider.notifier).set(null);
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(
         RecordingIntent.fail,
         errorMessage: 'recording_guard_failed',
       );
+      // The recording is over: hand the stop lock back right away (#1784).
+      // Holding it through the device lookup below rejected a hotkey press
+      // that retried at once as "still busy".
+      ownsLock = false;
+      _stopInFlight = false;
       // A silent built-in microphone is avoided by the next start (#846).
       await audioNotifier.noteDeadMicrophone();
       // The notice is already on screen. Another input (#595) is handed in
@@ -4463,15 +4477,60 @@ class RecordingOrchestrator extends Notifier<void> {
       }
     } on Exception catch (e) {
       _log.warning('Error during dead-mic cleanup: $e');
-      ref.read(micSwitchOfferProvider.notifier).set(null);
-      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
-      _stateMachine.transition(
-        RecordingIntent.fail,
-        errorMessage: 'recording_guard_failed',
-      );
+      // Only while this recording still owns the lock: after the release
+      // above the error is already shown and a new recording may run.
+      if (ownsLock) {
+        ref.read(micSwitchOfferProvider.notifier).set(null);
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'recording_guard_failed',
+        );
+      }
     } finally {
-      _stopInFlight = false;
+      if (ownsLock) _stopInFlight = false;
     }
+  }
+
+  /// One line that tells the cause of a dead-mic stop from the log alone
+  /// (#1777): whether the device sent nothing, only digital zeros, or sound
+  /// that stopped, with timings and the timeouts that applied.
+  void _logDeadMicDiagnosis(
+    AudioServiceNotifier audioNotifier,
+    SafetyGuardConfig? config,
+  ) {
+    final timeouts = config == null
+        ? ''
+        : ' | timeout: ${config.deadMicTimeout} s'
+              ' + start grace ${config.firstSignalGrace} s';
+    final warmup = audioNotifier.micWarmup;
+    final details = warmup?.diagnosis() ?? 'no capture data';
+    _log.warning('Dead-mic stop: $details$timeouts');
+    // Counted so the case is visible in the usage statistics (#1777): only a
+    // fixed reason id, nothing about the device or the content.
+    _countTelemetry(
+      action: 'guard_failed',
+      name: (warmup?.state ?? MicWarmupState.noData).id,
+    );
+  }
+
+  /// A slow but successful microphone start, as a coarse time class (#1777).
+  /// Only starts at or above [MicWarmupProbe.slowStartMs] count, so a warm
+  /// microphone adds nothing to the statistics.
+  void _countSlowMicStart(AudioServiceNotifier audioNotifier) {
+    final warmup = audioNotifier.micWarmup;
+    final ms = warmup?.firstSoundMs;
+    if (warmup == null || ms == null || !warmup.slowStart) return;
+    _countTelemetry(action: 'slow_start', name: warmupBucket(ms));
+  }
+
+  /// One aggregated counter in the `recording` category (in memory, sent
+  /// with the session's other counters).
+  void _countTelemetry({required String action, required String name}) {
+    if (!ref.mounted) return;
+    ref
+        .read(telemetrySessionAggregatorProvider)
+        .count(category: 'recording', action: action, name: name);
   }
 
   /// Auto-stop triggered: stop recording and run transcription pipeline.

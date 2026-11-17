@@ -6,6 +6,7 @@ library;
 
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/database.dart';
@@ -23,6 +24,8 @@ import '../import/audio_import_queue.dart';
 import '../retention/pending_wipe.dart';
 import 'recording_journal.dart';
 import 'recording_journal_provider.dart';
+import 'recovery_crash_guard.dart';
+import '../../telemetry_service.dart';
 
 final _log = AppLogger('RecordingRecovery');
 
@@ -59,6 +62,19 @@ final interruptedRecordingsProvider = FutureProvider<RecordingJournalScan>((
     _log.warning('Pending wipe cleanup before recovery failed: $e');
   }
   return ref.watch(recordingJournalProvider).scan();
+});
+
+/// Interrupted recordings that an earlier transcription attempt crashed the
+/// app on (#1783). The history page marks them as not processed
+/// automatically; a manual recovery stays possible.
+final recoveryCrashedIdsProvider = Provider<Set<String>>((ref) {
+  final scan = ref.watch(interruptedRecordingsProvider).value;
+  if (scan == null || scan.recordings.isEmpty) return const {};
+  final guard = ref.watch(recoveryCrashGuardProvider);
+  return {
+    for (final recording in scan.recordings)
+      if (guard.crashedBefore(recording.id)) recording.id,
+  };
 });
 
 /// What a recover action achieved.
@@ -109,6 +125,7 @@ final recordingRecoveryProvider = Provider<RecordingRecovery>(
   (ref) => RecordingRecovery(
     audioDir: retainedAudioDir(),
     captureDir: currentCaptureDir,
+    crashGuard: ref.read(recoveryCrashGuardProvider),
     retainAudio: () =>
         ref.read(settingsProvider).value?.privacy.retainRecentAudio ?? false,
     parkWindow: () =>
@@ -157,12 +174,38 @@ final recordingRecoveryProvider = Provider<RecordingRecovery>(
   ),
 );
 
+/// Longest wait for the first frame before the startup recovery runs anyway:
+/// a window that starts hidden may not draw one for a long time.
+const Duration kRecoveryFirstFrameTimeout = Duration(seconds: 10);
+
+/// Pause between the first frame and the startup recovery, so the app is
+/// usable before the native transcription starts (#1783).
+const Duration kRecoveryStartDelay = Duration(seconds: 2);
+
+/// Runs [run] once [firstFrame] completed (or [timeout] passed) and a further
+/// [delay] elapsed.
+Future<void> runAfterFirstFrame(
+  Future<void> firstFrame,
+  Future<void> Function() run, {
+  Duration timeout = kRecoveryFirstFrameTimeout,
+  Duration delay = kRecoveryStartDelay,
+}) async {
+  await firstFrame.timeout(timeout, onTimeout: () {});
+  await Future<void>.delayed(delay);
+  await run();
+}
+
 /// Recovers every interrupted recording once, at startup. Never throws.
 Future<void> recoverInterruptedRecordings(ProviderContainer container) async {
   try {
     final scan = await container.read(interruptedRecordingsProvider.future);
     final recovery = container.read(recordingRecoveryProvider);
     final journal = container.read(recordingJournalProvider);
+    final guard = recovery.crashGuard;
+    if (guard != null) {
+      _reportPreviousCrash(container, guard.takePreviousCrash());
+      guard.forgetAllExcept(scan.recordings.map((r) => r.id));
+    }
     for (final recording in scan.recordings) {
       // A journal that a live recording or transcription owns is not
       // interrupted. The journal file also vanishes when its recording ended
@@ -170,6 +213,15 @@ Future<void> recoverInterruptedRecordings(ProviderContainer container) async {
       if (journal.isLive(recording.id) ||
           !await File(recording.journalPath).exists()) {
         _log.info('Interrupted recording ${recording.id}: owned by a live run');
+        continue;
+      }
+      // An earlier start of this version died while transcribing it (#1783).
+      // It stays in the journal for a manual recovery from the history page.
+      if (guard != null && guard.skipsAutomatic(recording.id)) {
+        _log.warning(
+          'Interrupted recording ${recording.id}: not transcribed '
+          'automatically, an earlier attempt crashed the app',
+        );
         continue;
       }
       // One failing recording must not stop the others from being recovered.
@@ -191,10 +243,33 @@ Future<void> recoverInterruptedRecordings(ProviderContainer container) async {
   }
 }
 
+/// Logs and counts the recordings an earlier start died on (#1783). Only the
+/// count leaves the device, never an id or content.
+void _reportPreviousCrash(ProviderContainer container, List<String> ids) {
+  if (ids.isEmpty) return;
+  _log.warning(
+    'Previous start crashed while transcribing ${ids.length} interrupted '
+    'recording(s); they are not transcribed automatically again in this '
+    'version: ${ids.join(', ')}',
+  );
+  try {
+    container
+        .read(telemetryProvider)
+        .trackEvent(
+          category: 'recovery',
+          action: 'crash_skipped',
+          value: ids.length,
+        );
+  } on Object catch (e) {
+    _log.debug('recovery telemetry skipped: $e');
+  }
+}
+
 class RecordingRecovery {
   RecordingRecovery({
     required this.audioDir,
     required this.transcribe,
+    this.crashGuard,
     this.captureDir,
     this.park,
     this.retainAudio,
@@ -211,6 +286,10 @@ class RecordingRecovery {
 
   /// Imports and transcribes one WAV.
   final Future<RecoveryTranscription> Function(String wavPath) transcribe;
+
+  /// Marks each transcription on disk, so a native crash inside it is not
+  /// repeated at every start (#1783). Null: no crash-loop protection.
+  final RecoveryCrashGuard? crashGuard;
 
   /// Keeps a WAV for a retry after a repeatable failure. Null: such audio is
   /// kept as [RecoveryOutcome.failed] instead.
@@ -251,7 +330,7 @@ class RecordingRecovery {
       await _removeJournal(recording);
       return RecoveryOutcome.noAudio;
     }
-    final result = await _transcribeSafely(wav);
+    final result = await _transcribeGuarded(recording.id, wav);
     if (result.succeeded) {
       await _removeAudio(wav);
       await _removeJournal(recording);
@@ -268,7 +347,7 @@ class RecordingRecovery {
     // Past its retry window the audio is not kept: a recording that keeps
     // failing would otherwise hold its WAV on disk for every later start.
     if (!isRepeatableTranscriptionError(code) ||
-        !expiresAt.isAfter(DateTime.now())) {
+        !expiresAt.isAfter(clock.now())) {
       await _removeAudio(wav);
       await _removeJournal(recording);
       return RecoveryOutcome.discarded;
@@ -291,6 +370,21 @@ class RecordingRecovery {
     }
     await _removeJournal(recording);
     return RecoveryOutcome.parked;
+  }
+
+  /// Runs [_transcribeSafely] between the crash marker's write and removal:
+  /// only a process that dies inside the transcription keeps the marker.
+  Future<RecoveryTranscription> _transcribeGuarded(
+    String id,
+    String wavPath,
+  ) async {
+    final guard = crashGuard;
+    guard?.markAttempt(id);
+    try {
+      return await _transcribeSafely(wavPath);
+    } finally {
+      guard?.clearAttempt(id);
+    }
   }
 
   /// Runs [transcribe]; an exception counts as a failure without an engine

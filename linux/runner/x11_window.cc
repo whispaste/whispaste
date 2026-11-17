@@ -4,6 +4,8 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
+#include "side_panel_edge_core.h"
+
 std::string X11WindowResName(GdkDisplay* display, Window window) {
   Display* xdisplay = gdk_x11_display_get_xdisplay(display);
   XClassHint hint = {};
@@ -124,4 +126,85 @@ bool X11HasActiveWindowHint(GdkDisplay* display) {
   }
   if (data != nullptr) XFree(data);
   return found;
+}
+
+namespace {
+
+// Whether the atom list [property] of [window] contains [atom] (EWMH
+// _NET_WM_STATE, _NET_WM_WINDOW_TYPE). False when an atom is unknown to the
+// server or the window is gone.
+bool X11WindowListsAtom(GdkDisplay* display, Window window,
+                        const char* property, const char* atom) {
+  Display* xdisplay = gdk_x11_display_get_xdisplay(display);
+  const Atom list = XInternAtom(xdisplay, property, True);
+  const Atom wanted = XInternAtom(xdisplay, atom, True);
+  if (list == None || wanted == None) return false;
+
+  Atom type = None;
+  int format = 0;
+  unsigned long count = 0;
+  unsigned long after = 0;
+  unsigned char* data = nullptr;
+  int status = BadImplementation;
+  const bool clean = WithX11ErrorTrap(display, [&] {
+    status = XGetWindowProperty(xdisplay, window, list, 0, 64, False, XA_ATOM,
+                                &type, &format, &count, &after, &data);
+  });
+  bool found = false;
+  if (clean && status == Success && data != nullptr && format == 32) {
+    const unsigned long* atoms = reinterpret_cast<unsigned long*>(data);
+    for (unsigned long i = 0; i < count; ++i) {
+      if (atoms[i] == wanted) found = true;
+    }
+  }
+  if (data != nullptr) XFree(data);
+  return found;
+}
+
+}  // namespace
+
+bool X11WindowIsFullscreen(GdkDisplay* display, Window window) {
+  if (window == 0) return false;
+  if (X11WindowListsAtom(display, window, "_NET_WM_STATE",
+                         "_NET_WM_STATE_FULLSCREEN")) {
+    return true;
+  }
+  // The desktop (icons/wallpaper window) fills the monitor too, but is no
+  // fullscreen app.
+  if (X11WindowListsAtom(display, window, "_NET_WM_WINDOW_TYPE",
+                         "_NET_WM_WINDOW_TYPE_DESKTOP")) {
+    return false;
+  }
+
+  // Frame in root coordinates (physical px).
+  Display* xdisplay = gdk_x11_display_get_xdisplay(display);
+  XWindowAttributes attributes = {};
+  Status got = 0;
+  int root_x = 0;
+  int root_y = 0;
+  Window child = 0;
+  const bool clean = WithX11ErrorTrap(display, [&] {
+    got = XGetWindowAttributes(xdisplay, window, &attributes);
+    if (got != 0) {
+      XTranslateCoordinates(xdisplay, window, attributes.root, 0, 0, &root_x,
+                            &root_y, &child);
+    }
+  });
+  if (!clean || got == 0) return false;
+  const side_panel_edge::Rect frame{root_x, root_y, root_x + attributes.width,
+                                    root_y + attributes.height};
+  const int n = gdk_display_get_n_monitors(display);
+  for (int i = 0; i < n; ++i) {
+    GdkMonitor* monitor = gdk_display_get_monitor(display, i);
+    if (monitor == nullptr) continue;
+    GdkRectangle g;
+    gdk_monitor_get_geometry(monitor, &g);
+    // GDK reports application (scaled) px; X11 frames are physical px.
+    const int scale = gdk_monitor_get_scale_factor(monitor);
+    const side_panel_edge::Rect rect{g.x * scale, g.y * scale,
+                                     (g.x + g.width) * scale,
+                                     (g.y + g.height) * scale};
+    if (side_panel_edge::CoversMonitor(frame, rect)) return true;
+  }
+  return false;
 }

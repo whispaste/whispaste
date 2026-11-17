@@ -113,8 +113,12 @@ class _FakeAudio extends AudioServiceNotifier {
   /// capture step's budget.
   Completer<void>? stopGate;
 
+  /// The `keepTail` of every stop, in order.
+  final List<bool> keepTails = [];
+
   @override
   Future<String?> stopRecording({bool keepTail = true}) async {
+    keepTails.add(keepTail);
     await stopGate?.future;
     state = AudioStatus(filePath: wavPath);
     return wavPath;
@@ -580,6 +584,14 @@ Future<void> _expectNothingPastedWithHint(
 // Tests
 // ---------------------------------------------------------------------------
 
+/// Ticks without any signal until the dead-mic guard fires with the default
+/// 3 s timeout, for an input that never delivered: timeout plus the start
+/// grace for a waking microphone (#1777), plus a small margin.
+final _deadMicTicks =
+    ((3 + SafetyGuard.firstSignalGraceSeconds) * amplitudeSamplesPerSecond)
+        .round() +
+    5;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -839,7 +851,7 @@ void main() {
         // this point could come from the silent audio.
         // 3 s of zero level at the metering rate; the default dead-mic
         // timeout is 3 s.
-        for (var i = 0; i < 3 * amplitudeSamplesPerSecond + 5; i++) {
+        for (var i = 0; i < _deadMicTicks; i++) {
           levels.add(0);
         }
 
@@ -882,7 +894,7 @@ void main() {
           };
 
           await h.startOnly();
-          for (var i = 0; i < 3 * amplitudeSamplesPerSecond + 5; i++) {
+          for (var i = 0; i < _deadMicTicks; i++) {
             levels.add(0);
           }
           await _until(
@@ -933,6 +945,50 @@ void main() {
         },
       );
     }
+
+    // #1784: the dead-mic stop has no stop tail, and the stop lock goes back
+    // as soon as the error is shown. A press while the device lookup still
+    // runs used to be rejected as "still busy".
+    testWidgets('dead mic: a hotkey press during the device lookup starts '
+        'the next recording', (tester) async {
+      final levels = StreamController<double>.broadcast();
+      addTearDown(levels.close);
+      final h = await _pump(
+        tester,
+        settings: _settings(),
+        wav: _silenceWav(),
+        engine: _FakeWhisperEngine(responseText: _raw),
+        levels: levels,
+        hints: true,
+      );
+      final audio =
+          h.container.read(audioServiceProvider.notifier) as _FakeAudio;
+      final answer = Completer<String?>();
+      var asked = false;
+      audio.suggestion = () {
+        asked = true;
+        return answer.future;
+      };
+
+      await h.startOnly();
+      for (var i = 0; i < _deadMicTicks; i++) {
+        levels.add(0);
+      }
+      await _until(tester, () => asked, what: 'the device suggestion');
+      expect(h.recording.phase, RecordingPhase.error);
+      expect(audio.keepTails, [false], reason: 'no stop tail on a dead mic');
+
+      // The lookup is still open; the next press must start a recording.
+      await h.startOnly();
+
+      answer.complete(null);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump();
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      }
+      expect(h.recording.phase, RecordingPhase.recording);
+      await _teardown(tester);
+    });
 
     for (final phrase in const [
       'Untertitel im Auftrag des ZDF',
@@ -1006,7 +1062,7 @@ void main() {
       await h.startOnly();
       // One sample just above the 0.02 threshold, then 3 s of silence.
       levels.add(0.05);
-      for (var i = 0; i < 3 * amplitudeSamplesPerSecond + 5; i++) {
+      for (var i = 0; i < _deadMicTicks; i++) {
         levels.add(0);
       }
 

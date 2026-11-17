@@ -27,7 +27,7 @@ class SidePanelContentPanel: NSPanel {
       backing: .buffered,
       defer: false
     )
-    // Matches SidePanelSensorPanel's level -- keeps both panels above any
+    // `.popUpMenu` keeps the panel above any
     // known screen-covering utility overlay (e.g. window-snap tools like
     // Magnet, observed at CGWindowLevel 25) rather than `.floating`'s 3.
     // Not itself the cause of the "reagiert nicht mehr"/"kein Feedback"
@@ -52,169 +52,210 @@ class SidePanelContentPanel: NSPanel {
   override var canBecomeMain: Bool { false }
 }
 
-/// Thin, transparent, always-on-top, non-activating `NSPanel` hugging the
-/// docked edge (left by default, `dockRight` for right) of one monitor --
-/// the "edge sensor zone" from PRD.md "Trigger-Mechanismus". One instance per connected `NSScreen`.
-///
-/// Several points wide, not 1px (mouse-motor precision) and deliberately
-/// NOT anchored at the top-left corner (collides with the GNOME Activities
-/// hot corner on Linux -- kept consistent across platforms even though this
-/// file is macOS-only). `ignoresMouseEvents` stays `false` so the tracking
-/// area actually receives enter/exit; per the ticket this only needs
-/// ordinary pointer enter/leave, not global cursor tracking.
-class SidePanelSensorPanel: NSPanel {
-  static let width: CGFloat = 6
+/// Decision logic of the edge trigger (#1782). Mirrors
+/// `linux/runner/side_panel_edge_core.h` rule for rule (checked by
+/// `test/scripts/side_panel_edge_core_test.sh`): the zone is the first
+/// [zoneWidth] points along the docked edge of a screen's visible frame; a
+/// fullscreen app in front counts as "not in the zone"; raw enter/exit fire
+/// at once, the open signal once per visit after [dwellMs] and only while no
+/// mouse button is held. Swift only, no Cocoa, so the test compiles it alone.
+struct SidePanelEdgeCore {
+  static let zoneWidth: Double = 6
+  static let dwellMs: Int64 = 60
+  static let pollMs: Int64 = 40
 
-  private let trackingView: SidePanelSensorView
-
-  init(
-    screenFrame: NSRect,
-    dockRight: Bool,
-    onHoverEntered: @escaping () -> Void,
-    onRawEnter: @escaping () -> Void,
-    onRawExit: @escaping () -> Void
-  ) {
-    // Issue #150: hugs the right edge instead of the left when the user
-    // picked "right edge" in settings -- mirrors the same left/right branch
-    // in SidePanelHost.targetRect(for:shown:).
-    let rect = NSRect(
-      x: dockRight ? screenFrame.maxX - Self.width : screenFrame.minX,
-      y: screenFrame.minY,
-      width: Self.width,
-      height: screenFrame.height
-    )
-    trackingView = SidePanelSensorView(
-      onHoverEntered: onHoverEntered,
-      onRawEnter: onRawEnter,
-      onRawExit: onRawExit
-    )
-    super.init(
-      contentRect: rect,
-      styleMask: [.borderless, .nonactivatingPanel],
-      backing: .buffered,
-      defer: false
-    )
-    // `.popUpMenu`, not `.floating` -- must match SidePanelContentPanel's
-    // level (see its doc comment): the sensor strip is the FIRST thing a
-    // stuck, higher-level drag-snap overlay would swallow input from (it's
-    // the trigger the content panel never gets a chance to fix if hover
-    // never reaches this strip in the first place).
-    level = .popUpMenu
-    // Matches FloatingOverlayPanel's collectionBehavior exactly -- an
-    // empirical spike (see that file's doc comment) found this the only
-    // combination that reliably stays above fullscreen spaces.
-    collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-    isOpaque = false
-    backgroundColor = .clear
-    hasShadow = false
-    ignoresMouseEvents = false
-    trackingView.frame = NSRect(origin: .zero, size: rect.size)
-    contentView = trackingView
+  struct Rect {
+    var left: Double
+    var top: Double
+    var right: Double
+    var bottom: Double
   }
 
-  override var canBecomeKey: Bool { false }
-  override var canBecomeMain: Bool { false }
+  struct Events {
+    var rawEnter = false
+    var rawExit = false
+    var open = false
+  }
 
-  /// Re-syncs the tracking area after the sensor's frame changes (monitor
-  /// geometry change).
-  func updateFrame(screenFrame: NSRect) {
-    let rect = NSRect(
-      x: screenFrame.minX,
-      y: screenFrame.minY,
-      width: Self.width,
-      height: screenFrame.height
-    )
-    setFrame(rect, display: false)
-    trackingView.frame = NSRect(origin: .zero, size: rect.size)
-    trackingView.rebuildTrackingArea()
+  static func inZone(x: Double, y: Double, workArea: Rect, width: Double, dockRight: Bool) -> Bool {
+    if width <= 0 { return false }
+    if y < workArea.top || y >= workArea.bottom { return false }
+    if x < workArea.left || x >= workArea.right { return false }
+    return dockRight ? x >= workArea.right - width : x < workArea.left + width
+  }
+
+  static func coversMonitor(window: Rect, monitor: Rect) -> Bool {
+    if monitor.right <= monitor.left || monitor.bottom <= monitor.top { return false }
+    return window.left <= monitor.left && window.top <= monitor.top
+      && window.right >= monitor.right && window.bottom >= monitor.bottom
+  }
+
+  struct Tracker {
+    let dwellMs: Int64
+    private(set) var inside = false
+    private var opened = false
+    private var enteredMs: Int64 = 0
+
+    init(dwellMs: Int64 = SidePanelEdgeCore.dwellMs) {
+      self.dwellMs = dwellMs
+    }
+
+    mutating func update(inZone: Bool, buttonsDown: Bool, nowMs: Int64) -> Events {
+      var e = Events()
+      if !inZone {
+        if inside {
+          inside = false
+          e.rawExit = true
+        }
+        return e
+      }
+      if !inside {
+        inside = true
+        opened = false
+        enteredMs = nowMs
+        e.rawEnter = true
+      }
+      if buttonsDown {
+        enteredMs = nowMs
+        return e
+      }
+      if !opened && nowMs - enteredMs >= dwellMs {
+        opened = true
+        e.open = true
+      }
+      return e
+    }
+
+    mutating func reset() {
+      inside = false
+      opened = false
+      enteredMs = 0
+    }
   }
 }
 
-/// Plain `NSView` reporting a *dwelled* pointer enter via a tracking area:
-/// [onHoverEntered] only fires after the pointer has stayed for
-/// [dwellDelay], not on the raw enter event, so a pointer merely passing
-/// over the edge (moving the window, reaching for another app) doesn't
-/// pop the panel open. Exit before the dwell elapses cancels it.
+/// Edge trigger of the side panel without a window (#1782).
 ///
-/// [onRawEnter]/[onRawExit] fire immediately, no dwell -- these keep the
-/// *already-open* panel alive while the pointer sits on this strip. The
-/// panel's own content view starts exactly [SidePanelSensorPanel.width]
-/// points to the right of this strip's right edge, so this strip and the
-/// content view do not overlap; without a raw signal from here too, a
-/// pointer that lingers in this strip after the dwell-open (instead of
-/// continuing right onto the panel) sits in a dead zone that neither
-/// tracking area considers "inside", the close grace period elapses, the
-/// panel closes -- and AppKit's window-visibility-driven tracking-area
-/// reconciliation then re-synthesizes a fresh `mouseEntered` right here
-/// (the pointer never actually moved), restarting the dwell and reopening
-/// the panel: a self-sustaining open/close flicker for as long as the
-/// pointer stays on this strip instead of moving onto the panel. Routing
-/// raw enter/exit here into the same close-timer cancel/schedule the
-/// content view uses (see `SidePanelContentHoverTracker` in
-/// `SidePanelHost.swift`) makes the strip and the content view read as one
-/// continuous hover region once the panel is open, closing that gap.
-class SidePanelSensorView: NSView {
-  static let dwellDelay: TimeInterval = 0.06
+/// Used to be a transparent, always-on-top `NSPanel` strip per screen at
+/// `.popUpMenu` level that joined every Space, fullscreen ones included. It
+/// took every mouse event at the screen edge, which broke games that scroll
+/// their camera there, and it existed from app start, even with the panel
+/// switched off. This samples `NSEvent.mouseLocation` instead (no permission
+/// needed, nothing at the edge takes input) and runs only while
+/// `SidePanelHost` has armed it, i.e. while the panel is enabled. The rules
+/// live in [SidePanelEdgeCore].
+final class SidePanelEdgeWatcher {
+  /// Fired once per visit after the dwell, with the visible frame of the
+  /// screen whose edge the pointer rests on.
+  var onHoverEntered: ((NSRect) -> Void)?
+  /// Fired at once on entering/leaving the zone; keeps an open panel alive
+  /// while the pointer sits on the edge instead of on the panel.
+  var onRawEnter: (() -> Void)?
+  var onRawExit: (() -> Void)?
 
-  private let onHoverEntered: () -> Void
-  private let onRawEnter: () -> Void
-  private let onRawExit: () -> Void
-  private var trackingArea: NSTrackingArea?
-  private var dwellTimer: Timer?
-
-  init(
-    onHoverEntered: @escaping () -> Void,
-    onRawEnter: @escaping () -> Void,
-    onRawExit: @escaping () -> Void
-  ) {
-    self.onHoverEntered = onHoverEntered
-    self.onRawEnter = onRawEnter
-    self.onRawExit = onRawExit
-    super.init(frame: .zero)
+  var dockRight = false {
+    didSet { if dockRight != oldValue { tracker.reset() } }
   }
 
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
+  private var tracker = SidePanelEdgeCore.Tracker()
+  private var timer: Timer?
 
-  override func updateTrackingAreas() {
-    super.updateTrackingAreas()
-    rebuildTrackingArea()
-  }
+  /// The fullscreen check reads the window list, so it is cached briefly and
+  /// only made while the pointer is at the edge.
+  private static let fullscreenCacheMs: Int64 = 500
+  private var fullscreenCheckedMs: Int64 = -1_000_000
+  private var fullscreenCached = false
 
-  func rebuildTrackingArea() {
-    if let existing = trackingArea {
-      removeTrackingArea(existing)
+  var isRunning: Bool { timer != nil }
+
+  func start() {
+    guard timer == nil else { return }
+    tracker.reset()
+    let t = Timer(
+      timeInterval: Double(SidePanelEdgeCore.pollMs) / 1000, repeats: true
+    ) { [weak self] _ in
+      self?.poll()
     }
-    let area = NSTrackingArea(
-      rect: bounds,
-      options: [.mouseEnteredAndExited, .activeAlways],
-      owner: self,
-      userInfo: nil
-    )
-    addTrackingArea(area)
-    trackingArea = area
+    t.tolerance = 0.01
+    // `.common`, not `.default`: during pointer tracking AppKit runs the
+    // main loop in `.eventTrackingRunLoopMode`, which would starve the poll.
+    RunLoop.main.add(t, forMode: .common)
+    timer = t
   }
 
-  override func mouseEntered(with event: NSEvent) {
-    onRawEnter()
-    dwellTimer?.invalidate()
-    // `Timer.scheduledTimer` only registers in `.default` run loop mode, but
-    // `mouseEntered` fires while AppKit is in `.eventTrackingRunLoopMode` --
-    // a `.default`-mode timer started here can be starved for as long as
-    // pointer tracking keeps the run loop in that mode, delaying (or, for a
-    // pointer that keeps re-entering, indefinitely deferring) the dwell-open.
-    // `.common` covers both modes, so the dwell still elapses on schedule.
-    let timer = Timer(timeInterval: Self.dwellDelay, repeats: false) { [weak self] _ in
-      self?.onHoverEntered()
+  func stop() {
+    timer?.invalidate()
+    timer = nil
+    tracker.reset()
+  }
+
+  private static func nowMs() -> Int64 {
+    Int64(ProcessInfo.processInfo.systemUptime * 1000)
+  }
+
+  private func poll() {
+    let mouse = NSEvent.mouseLocation
+    let now = Self.nowMs()
+    var inZone = false
+    var visible = NSRect.zero
+    if let screen = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }) {
+      visible = screen.visibleFrame
+      // Cocoa's y grows upwards; the core only compares ranges, so
+      // bottom/top swap is all it takes.
+      let work = SidePanelEdgeCore.Rect(
+        left: Double(visible.minX), top: Double(visible.minY),
+        right: Double(visible.maxX), bottom: Double(visible.maxY))
+      inZone = SidePanelEdgeCore.inZone(
+        x: Double(mouse.x), y: Double(mouse.y), workArea: work,
+        width: SidePanelEdgeCore.zoneWidth, dockRight: dockRight)
+      if inZone && fullscreenAppInFront(on: screen, nowMs: now) {
+        inZone = false
+      }
     }
-    RunLoop.main.add(timer, forMode: .common)
-    dwellTimer = timer
+    let events = tracker.update(
+      inZone: inZone, buttonsDown: NSEvent.pressedMouseButtons != 0, nowMs: now)
+    if events.rawEnter { onRawEnter?() }
+    if events.open { onHoverEntered?(visible) }
+    if events.rawExit { onRawExit?() }
   }
 
-  override func mouseExited(with event: NSEvent) {
-    dwellTimer?.invalidate()
-    dwellTimer = nil
-    onRawExit()
+  private func fullscreenAppInFront(on screen: NSScreen, nowMs: Int64) -> Bool {
+    if nowMs - fullscreenCheckedMs < Self.fullscreenCacheMs {
+      return fullscreenCached
+    }
+    fullscreenCheckedMs = nowMs
+    fullscreenCached = Self.frontAppCovers(screen)
+    return fullscreenCached
+  }
+
+  /// Whether the frontmost app (not WhisPaste) has a normal-level window
+  /// that fills the whole screen: a fullscreen game, video or slideshow, in
+  /// its own Space or borderless. Window bounds and owner PIDs are readable
+  /// without the screen-recording permission (only titles need it).
+  private static func frontAppCovers(_ screen: NSScreen) -> Bool {
+    guard let front = NSWorkspace.shared.frontmostApplication,
+      front.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+      let primary = NSScreen.screens.first,
+      let list = CGWindowListCopyWindowInfo(
+        [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+        as? [[String: Any]]
+    else { return false }
+    // Window-list bounds are top-left based on the primary screen.
+    let f = screen.frame
+    let monitor = SidePanelEdgeCore.Rect(
+      left: Double(f.minX), top: Double(primary.frame.maxY - f.maxY),
+      right: Double(f.maxX), bottom: Double(primary.frame.maxY - f.minY))
+    for info in list {
+      guard (info[kCGWindowOwnerPID as String] as? pid_t) == front.processIdentifier,
+        (info[kCGWindowLayer as String] as? Int) == 0,
+        let dict = info[kCGWindowBounds as String] as? NSDictionary,
+        let b = CGRect(dictionaryRepresentation: dict as CFDictionary)
+      else { continue }
+      let window = SidePanelEdgeCore.Rect(
+        left: Double(b.minX), top: Double(b.minY),
+        right: Double(b.maxX), bottom: Double(b.maxY))
+      if SidePanelEdgeCore.coversMonitor(window: window, monitor: monitor) { return true }
+    }
+    return false
   }
 }

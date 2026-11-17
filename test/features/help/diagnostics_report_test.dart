@@ -165,4 +165,67 @@ void main() {
       expect(tail.join('\n'), isNot(contains('sk-secret-value-123')));
     });
   });
+
+  // #1784: a dead-mic stop early in the session must reach the report even
+  // when it has long left the last 40 lines.
+  group('recording warnings of the running session', () {
+    const oldSession = '[WARNING] RecordingOrchestrator: Dead-mic stop: old';
+    const deadMic =
+        '2026-11-17T10:00:01 [WARNING] RecordingOrchestrator: '
+        'Dead-mic stop: reason: no data from the device';
+    const stalled =
+        '2026-11-17T10:00:02 [WARNING] AudioService: Mic stalled: '
+        'no PCM chunk for 2 s';
+    const reopened =
+        '2026-11-17T10:00:02 [WARNING] AudioService: Mic reopened: '
+        'recorder running: true';
+    final lines = [
+      oldSession,
+      '--- Log session started (2026-11-17T10:00:00) ---',
+      deadMic,
+      '2026-11-17T10:00:01 [INFO] RecordingOrchestrator: Pasted 120 chars',
+      '2026-11-17T10:00:01 [INFO] RecordingOrchestrator: '
+          'guard-fire: dead-mic (no audio detected before timeout)',
+      stalled,
+      reopened,
+      for (var i = 0; i < 40; i++) '2026-11-17T10:01:00 [INFO] X: line $i',
+    ];
+
+    test('keeps the warnings since the session start, before the tail', () {
+      expect(recordingWarningLines(lines, skipLast: 40), [
+        deadMic,
+        stalled,
+        reopened,
+      ]);
+    });
+
+    test('leaves out what the tail already shows', () {
+      expect(recordingWarningLines(lines, skipLast: 44), [deadMic]);
+    });
+
+    test('keeps only the newest when there are many', () {
+      expect(recordingWarningLines(lines, skipLast: 40, max: 1), [reopened]);
+    });
+
+    test('the report shows them in their own section', () {
+      final report = formatDiagnosticsReport(
+        version: '1.5.2',
+        variant: 'windows',
+        osVersion: 'windows 11',
+        dartVersion: 'Dart 3.11.0',
+        locale: 'en-US',
+        executablePath: r'C:\WhisPaste\whispaste.exe',
+        serverPath: r'C:\WhisPaste\whisper-server.exe',
+        serverExists: false,
+        sttFiles: const [],
+        logTail: const ['tail line'],
+        recordingWarnings: const [deadMic],
+      );
+      expect(report, contains('--- letzte Aufnahme-Warnungen (1) ---'));
+      expect(
+        report.indexOf(deadMic),
+        lessThan(report.indexOf('--- letzte 1 Logzeilen ---')),
+      );
+    });
+  });
 }

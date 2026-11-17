@@ -5,7 +5,7 @@
   "a11ySidePanel": "Schnelleinfüge-Panel",
   "aboutBuiltWith": "Gebaut mit",
   "aboutCopyDebugInfo": "Debug-Info kopieren",
-  "aboutDiagnosticsContentsDesc": "App-Version, Betriebssystem, Programmpfad ohne Benutzernamen, Sprachmodell (Variante, Modell, Status, letzter Fehler), GPU, Modelldateien und die letzten 40 Logzeilen. Schlüssel und Tokens sind in den Logzeilen geschwärzt.",
+  "aboutDiagnosticsContentsDesc": "App-Version, Betriebssystem, Programmpfad ohne Benutzernamen, Sprachmodell (Variante, Modell, Status, letzter Fehler), GPU, Modelldateien, die Mikrofon-Warnungen der laufenden Sitzung und die letzten 40 Logzeilen. Schlüssel und Tokens sind in den Logzeilen geschwärzt.",
   "aboutDiagnosticsContentsTitle": "Was der Bericht enthält",
   "aboutDiagnosticsIncomplete": "Diagnose unvollständig: {error}",
   "@aboutDiagnosticsIncomplete": {
@@ -3071,6 +3071,7 @@
   "recommendationReasonVulkan": "Empfohlen für deine Grafikkarte {name} (Vulkan).",
   "recordingAutoStopped": "Aufnahme gestoppt: Stille erkannt.",
   "recordingGuardFailed": "Kein Audio erkannt. Bitte versuche es erneut. Manchmal braucht das Mikrofon einen Moment.",
+  "recoveryCrashSkipped": "Eine unterbrochene Aufnahme konnte nicht automatisch verarbeitet werden, weil WhisPaste dabei abgestürzt ist. Das Audio bleibt erhalten, du kannst es von Hand wiederherstellen.",
   "recoveryCudaDisabledToast": "Die CUDA-Beschleunigung wurde ausgeschaltet, weil es beim letzten Start ein Problem gab. WhisPaste nutzt jetzt Vulkan, Aufnehmen funktioniert unverändert.",
   "recoveryDiscard": "Verwerfen",
   "recoveryDiscardConfirm": "Diese Aufnahme verwerfen?",

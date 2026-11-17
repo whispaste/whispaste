@@ -565,6 +565,38 @@ class WhisperFfiEngine
     return _readCpuFeatures(dylib, _registryFor(libraryPath));
   }
 
+  /// Registers only ggml's CPU backend module from [libraryPath]'s folder,
+  /// for a caller that never uses the GPU: the Parakeet speech gate (#1780).
+  /// [ggml] is the library that exports `ggml_backend_load`.
+  ///
+  /// Unlike [_ensureBackendsLoaded] there is no fallback to loading every
+  /// module. `ggml_backend_load_all_from_path` registers Vulkan before the
+  /// CPU, and creating the Vulkan instance can crash a broken driver natively
+  /// (Sentry FLUTTER_WHISPASTE-SH: jump to address 0 in `vulkan-1.dll`). A
+  /// CPU-only caller must never run that code.
+  ///
+  /// Returns `false` when no CPU module could be registered; then nothing is
+  /// loaded, and the caller skips its native work.
+  static bool loadCpuBackendOnly(ffi.DynamicLibrary ggml, String libraryPath) {
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    if (guard == null) return false;
+    try {
+      final loaded = _loadBestCpuModule(
+        GgmlBackendRegistry(guard),
+        ggml,
+        p.dirname(libraryPath),
+      );
+      if (loaded && _readBackendsState(guard) == _backendsNone) {
+        // A later GPU engine still loads every module: only "all" skips it.
+        _writeBackendsState(guard, _backendsCpuOnly);
+      }
+      return loaded;
+    } on NativeCallException catch (e) {
+      _log.warning('ggml CPU module load threw natively: ${e.message}');
+      return false;
+    }
+  }
+
   /// Reads which CPU backend variant ggml loaded (see
   /// [cpuBackendFeaturesFromSystemInfo]) and logs it once per load, so
   /// both the app log and the In-App-Diagnostik show it. Never throws —

@@ -18,8 +18,7 @@
 // Unlike the Swift host (0.3s NSPasteboard.changeCount poll -- macOS has no
 // native clipboard-change notification API), this is event-driven:
 // AddClipboardFormatListener(owner) + WM_CLIPBOARDUPDATE, routed in from
-// FlutterWindow::MessageHandler (mirrors the existing WM_DISPLAYCHANGE ->
-// SidePanelHost::RebuildSensors wiring). This is also what ticket 05
+// FlutterWindow::MessageHandler. This is also what ticket 05
 // specifies, not a polling fallback.
 //
 // Privacy exclusion: macOS reports three org.nspasteboard.* flags

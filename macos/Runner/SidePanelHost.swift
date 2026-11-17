@@ -16,8 +16,8 @@ import os.log
 ///   (entrypoint `sidePanelMain`) over the private
 ///   `com.whispaste.side_panel_render` channel, and translates that
 ///   engine's `rowClicked` / `hoverLeft` back into the public contract.
-/// - A thin `SidePanelSensorPanel` per connected `NSScreen` reports pointer
-///   entry as `hoverEntered`; the main engine's `SidePanelService` reacts by
+/// - `SidePanelEdgeWatcher` samples the pointer (no window at the edge,
+///   #1782) and reports a dwell at the docked screen edge as `hoverEntered`; the main engine's `SidePanelService` reacts by
 ///   priming the paste target and pushing the first `updateSnapshot`, which
 ///   is what actually lazy-creates and shows the content panel here.
 /// Tracks the pointer over the content panel's own view so the panel can
@@ -31,8 +31,8 @@ import os.log
 /// not guaranteed one has been delivered by the time the user moves the
 /// mouse back out (e.g. a dwell-then-immediate-leave with no click in
 /// between). A genuine AppKit `NSTrackingArea` with `.activeAlways` +
-/// `.inVisibleRect` -- the same combination `SidePanelSensorView` already
-/// uses successfully for hover-*open* -- reconciles correctly against real
+/// `.inVisibleRect` -- the combination the former edge sensor view used
+/// successfully for hover-*open* -- reconciles correctly against real
 /// pointer motion regardless of what Flutter's own tracking believes, so
 /// mirroring it here for hover-*close* gives the panel a reliable trigger
 /// that doesn't depend on the render engine at all. Kept alongside (not
@@ -100,8 +100,9 @@ class SidePanelHost: NSObject, NSWindowDelegate {
 
   private var channel: FlutterMethodChannel
   private var contentPanel: SidePanelContentPanel?
-  private var sensors: [SidePanelSensorPanel] = []
-  private var screenObserver: NSObjectProtocol?
+  /// Edge trigger (#1782): runs only between the first `updateSnapshot`
+  /// (panel enabled) and `destroy` (panel off). Never at startup.
+  private let edgeWatcher = SidePanelEdgeWatcher()
 
   /// Whether the panel is currently slid into view. Distinguishes a genuine
   /// open/close transition (animate) from a content-only `updateSnapshot`
@@ -112,11 +113,11 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// read by the slide animation so it knows which edge to slide from/to.
   private var currentScreenFrame: NSRect?
 
-  /// Which screen edge the sensor strip/panel docks to (issue #150). Set
+  /// Which screen edge the edge trigger/panel docks to (issue #150). Set
   /// from every `updateSnapshot` call's `"edge"` field (Dart owns the
   /// setting; `"left"`/`"right"`, defaults to `"left"` so a cold start
   /// before the first snapshot matches the pre-#150 behavior). Read by
-  /// `rebuildSensors()` and `targetRect(for:shown:)`.
+  /// `armEdgeWatcher()` and `targetRect(for:shown:)`.
   private var dockRight = false
 
   /// The app that was frontmost right before [slideIn] activated WhisPaste
@@ -137,14 +138,15 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   private var nativeCloseTimer: Timer?
   private let dragSource = SidePanelDragSource()
 
-  /// Window during which the edge sensor strips ignore hover events --
+  /// Window during which the edge trigger ignores hover events --
   /// armed by [beginActivationSettleWindow] right before every app-
   /// activation change ([activateForKeyboard] / [restorePreviousFrontApp]).
   ///
-  /// Activating a different app is a system-wide event that makes AppKit
-  /// re-synthesize `mouseEntered` on the sensor strip even though the
-  /// pointer never moved (see `SidePanelSensorView`'s doc comment on the
-  /// self-sustaining flicker this causes). Both `slideIn` and `slideOut`
+  /// Activating a different app is a system-wide event that made AppKit
+  /// re-synthesize `mouseEntered` on the former sensor strip even though
+  /// the pointer never moved (a self-sustaining open/close flicker). The
+  /// pointer-sampling trigger (#1782) has no such re-synthesis, the guard
+  /// stays as a cheap precaution. Both `slideIn` and `slideOut`
   /// trigger exactly one activation change each, so without this guard the
   /// spurious re-entry reopens (or reschedules closing) the panel, which
   /// itself calls `slideIn`/`slideOut` again, which activates again --
@@ -173,7 +175,7 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// run loop in `.eventTrackingRunLoopMode`, which starves `.default`-mode
   /// timers entirely. A starved [activationSettleTimer] left
   /// `suppressSensorEvents` stuck `true` forever, which permanently disabled
-  /// `onHoverEntered` (see `rebuildSensors`) -- the panel would stop
+  /// `onHoverEntered` (see `armEdgeWatcher`) -- the panel would stop
   /// responding to hover with no further feedback, exactly the "es reagiert
   /// nicht mehr" report this fixes. Scheduling into `.common` modes instead
   /// makes the timer fire during tracking too.
@@ -189,29 +191,29 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     channel = FlutterMethodChannel(name: "com.whispaste.side_panel", binaryMessenger: messenger)
     super.init()
     channel.setMethodCallHandler(handle)
-    rebuildSensors()
-    observeScreenChanges()
-  }
-
-  /// (Re-)subscribes to screen-parameter changes so `rebuildSensors()` keeps
-  /// tracking monitor layout. Called from `init` and again by `handle` when
-  /// re-arming after a toggle-off -- `teardown()` removes this observer
-  /// along with everything else, and nothing else re-adds it.
-  private func observeScreenChanges() {
-    guard screenObserver == nil else { return }
-    screenObserver = NotificationCenter.default.addObserver(
-      forName: NSApplication.didChangeScreenParametersNotification,
-      object: nil,
-      queue: .main
-    ) { [weak self] _ in
-      self?.rebuildSensors()
+    // No edge trigger yet (#1782, same as Linux since #967): Dart only talks
+    // to this host while the panel is enabled and onboarding is done, so the
+    // first `updateSnapshot` arms it and `destroy` (setting off) stops it.
+    // Before, sensor panels were ordered front here for every user, also
+    // with the panel switched off, and took the mouse at the screen edge.
+    edgeWatcher.onHoverEntered = { [weak self] visibleFrame in
+      guard let self, !self.suppressSensorEvents else { return }
+      self.handleHoverEntered(screenFrame: visibleFrame)
+    }
+    edgeWatcher.onRawEnter = { [weak self] in
+      guard let self, !self.suppressSensorEvents else { return }
+      self.nativeCloseTimer?.invalidate()
+    }
+    edgeWatcher.onRawExit = { [weak self] in
+      guard let self, !self.suppressSensorEvents else { return }
+      self.scheduleNativeClose()
     }
   }
 
   // MARK: - NSWindowDelegate
 
   /// Focus leaving the panel via click/keyboard (not mouse motion) is not
-  /// caught by [SidePanelContentHoverTracker]/[SidePanelSensorView] at all --
+  /// caught by [SidePanelContentHoverTracker]/[SidePanelEdgeWatcher] at all --
   /// those only see the pointer crossing a tracking area, which never fires
   /// if the user switches away (e.g. Cmd+Tab, or clicking another app's
   /// window with the pointer already resting on the panel from a prior
@@ -252,19 +254,12 @@ class SidePanelHost: NSObject, NSWindowDelegate {
       return
     }
 
-    // A toggle-off (above) clears `sensors` along with everything else. A
-    // re-enable's Dart-side controller sends no explicit "create"/"init"
-    // call -- its first real call is what signals the feature is wanted
-    // again, so re-arm the edge sensors here instead of leaving them
-    // permanently gone. A no-op on the common path (sensors is already
-    // populated from init or a previous rebuild).
-    if sensors.isEmpty {
-      rebuildSensors()
-      observeScreenChanges()
-    }
-
     switch call.method {
     case "updateSnapshot":
+      // The first snapshot (SidePanelService.onControllerReady sends one
+      // right away) says the panel is wanted: arm the edge trigger. Also
+      // re-arms after a toggle-off + toggle-on. A no-op while running.
+      armEdgeWatcher()
       guard let args = call.arguments as? [String: Any] else {
         result(nil)
         return
@@ -280,13 +275,13 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   private func handleUpdateSnapshot(_ args: [String: Any]) {
     let visible = args["visible"] as? Bool ?? false
 
-    // Issue #150: relocate the sensor strips immediately if the user's
-    // chosen edge changed since the last snapshot.
+    // Issue #150: follow the user's chosen edge; the next pointer sample
+    // already uses it.
     if let edge = args["edge"] as? String, edge == "left" || edge == "right" {
       let newDockRight = edge == "right"
       if newDockRight != dockRight {
         dockRight = newDockRight
-        rebuildSensors()
+        edgeWatcher.dockRight = newDockRight
       }
     }
 
@@ -311,7 +306,7 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   // MARK: - Slide animation
 
   /// Slides the (already-`orderFront`-able) panel from just off the
-  /// monitor's edge to its resting position next to the sensor strip, then
+  /// monitor's edge to its resting position at the edge, then
   /// claims keyboard focus for the search field (issue 09).
   private func slideIn() {
     guard let panel = contentPanel, let screenFrame = currentScreenFrame else { return }
@@ -482,9 +477,9 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     } completionHandler: { [weak self, weak panel] in
       // Only finish the close if the panel is still meant to be closed.
       // This handler fires [slideDuration] after the close started, while
-      // `beginActivationSettleWindow` only suppresses sensor events for
+      // `beginActivationSettleWindow` only suppresses edge events for
       // [activationSettleDelay] -- a shorter window. A pointer returning to
-      // the sensor strip in that gap re-opens the panel (dwell + `slideIn`)
+      // the screen edge in that gap re-opens the panel (dwell + `slideIn`)
       // *before* this handler runs, and an unguarded handler would then
       // `orderOut` a panel the user just reopened and, worse, put its engine
       // back into `hidden` right after [slideIn] resumed it -- reproducing
@@ -521,11 +516,10 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// The panel's resting frame ([shown]) or its just-off-the-edge staging
   /// frame ([!shown]) for the given monitor.
   ///
-  /// Resting `x` is flush with the screen edge, not offset by
-  /// [SidePanelSensorPanel.width]: the sensor strip only needs to be
-  /// topmost while the content panel is off-screen, to catch the initial
-  /// dwell-hover that opens it. Once shown, the content panel itself is
-  /// ordered front (`slideIn`) and covers that same strip, so its own
+  /// Resting `x` is flush with the screen edge, not offset by the edge
+  /// zone width: the zone has no window (#1782) and only needs to catch the
+  /// initial dwell-hover that opens the panel. Once shown, the content panel
+  /// is ordered front (`slideIn`) and covers that same zone, so its own
   /// `SidePanelContentHoverTracker` takes over keeping the panel open for
   /// that whole area -- an offset here would leave a visible sliver of
   /// desktop between the panel and the screen edge for no remaining
@@ -562,29 +556,11 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     return NSRect(x: x, y: y, width: Self.contentWidth, height: height)
   }
 
-  // MARK: - Sensor strips (one per NSScreen)
+  // MARK: - Edge trigger (pointer sampling, #1782)
 
-  private func rebuildSensors() {
-    sensors.forEach { $0.orderOut(nil) }
-    sensors = NSScreen.screens.map { screen in
-      SidePanelSensorPanel(
-        screenFrame: screen.visibleFrame,
-        dockRight: dockRight,
-        onHoverEntered: { [weak self] in
-          guard let self, !self.suppressSensorEvents else { return }
-          self.handleHoverEntered(screenFrame: screen.visibleFrame)
-        },
-        onRawEnter: { [weak self] in
-          guard let self, !self.suppressSensorEvents else { return }
-          self.nativeCloseTimer?.invalidate()
-        },
-        onRawExit: { [weak self] in
-          guard let self, !self.suppressSensorEvents else { return }
-          self.scheduleNativeClose()
-        }
-      )
-    }
-    sensors.forEach { $0.orderFront(nil) }
+  private func armEdgeWatcher() {
+    edgeWatcher.dockRight = dockRight
+    edgeWatcher.start()
   }
 
   private func handleHoverEntered(screenFrame: NSRect) {
@@ -848,18 +824,13 @@ class SidePanelHost: NSObject, NSWindowDelegate {
   /// Tears down everything except `channel`'s own handler -- this must stay
   /// reversible (see `handle`'s doc comment): the public channel keeps
   /// listening so a later toggle-on's first real call can re-arm the
-  /// sensors and screen observer.
+  /// edge trigger.
   private func teardown() {
     // Defensive: normally already nil by the time teardown runs (slideOut
     // already restored it), but this covers the panel being torn down
     // (e.g. the user disables the setting) while still shown/activated.
     restorePreviousFrontApp()
-    if let obs = screenObserver {
-      NotificationCenter.default.removeObserver(obs)
-      screenObserver = nil
-    }
-    sensors.forEach { $0.orderOut(nil) }
-    sensors = []
+    edgeWatcher.stop()
     nativeCloseTimer?.invalidate()
     nativeCloseTimer = nil
     activationSettleTimer?.invalidate()

@@ -5,7 +5,7 @@
   "a11ySidePanel": "סרגל הדבקה מהירה",
   "aboutBuiltWith": "נבנה עם",
   "aboutCopyDebugInfo": "העתק מידע דיבאג",
-  "aboutDiagnosticsContentsDesc": "גרסת האפליקציה, מערכת ההפעלה, נתיב התוכנה ללא שם המשתמש שלך, מודל זיהוי דיבור (וריאנט, מודל, מצב, שגיאה אחרונה), GPU, קבצי מודל ו-40 שורות היומן האחרונות. מפתחות וטוקנים מוסתרים בשורות היומן.",
+  "aboutDiagnosticsContentsDesc": "גרסת האפליקציה, מערכת ההפעלה, נתיב התוכנה ללא שם המשתמש שלך, מודל זיהוי דיבור (וריאנט, מודל, מצב, שגיאה אחרונה), GPU, קבצי מודל, אזהרות המיקרופון של ההפעלה הנוכחית ו-40 שורות היומן האחרונות. מפתחות וטוקנים מוסתרים בשורות היומן.",
   "aboutDiagnosticsContentsTitle": "מה כלול בדוח",
   "aboutDiagnosticsIncomplete": "האבחון לא הושלם: {error}",
   "@aboutDiagnosticsIncomplete": {
@@ -3220,6 +3220,7 @@
   "recommendationReasonVulkan": "מומלץ לכרטיס המסך {name} שלך (Vulkan).",
   "recordingAutoStopped": "ההקלטה נעצרה: זוהה שקט.",
   "recordingGuardFailed": "לא זוהה אודיו. נסה שוב. לפעמים המיקרופון צריך רגע להתחמם.",
+  "recoveryCrashSkipped": "לא ניתן היה לעבד אוטומטית הקלטה שנקטעה, כי WhisPaste קרס בזמן העיבוד. האודיו נשמר, אפשר לשחזר אותו ידנית.",
   "recoveryCudaDisabledToast": "האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההקלטה פועלת כרגיל.",
   "recoveryDiscard": "מחיקה",
   "recoveryDiscardConfirm": "לזרוק את ההקלטה הזו?",

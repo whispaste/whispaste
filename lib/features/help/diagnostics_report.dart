@@ -7,6 +7,7 @@
 library;
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -76,6 +77,7 @@ Future<String> gatherDiagnosticsReport({
   final serverExists = File(serverPath).existsSync();
 
   final sttFiles = hw.listServerDirFiles(sttDirPath);
+  final log = readAppLog();
   final vcPresent = defaultTargetPlatform == TargetPlatform.windows
       ? hw.vcRuntimeDllsPresent(sttDirPath)
       : null;
@@ -99,7 +101,8 @@ Future<String> gatherDiagnosticsReport({
     sttFiles: sttFiles,
     vcRuntimePresent: vcPresent,
     gpu: gpu,
-    logTail: readAppLogTail(logTailLines),
+    logTail: log.sublist(math.max(0, log.length - logTailLines)),
+    recordingWarnings: recordingWarningLines(log, skipLast: logTailLines),
   );
 }
 
@@ -113,15 +116,54 @@ Future<String> gatherDiagnosticsReport({
 /// Uses the live log-file path from [AppLogger] when available, falling back
 /// to the conventional path in AppData.
 List<String> readAppLogTail(int n, {String? pathOverride}) {
+  final lines = readAppLog(pathOverride: pathOverride);
+  if (lines.length <= n) return lines;
+  return lines.sublist(lines.length - n);
+}
+
+/// All lines of the current log file, sanitized like [readAppLogTail];
+/// empty when the file cannot be read.
+List<String> readAppLog({String? pathOverride}) {
   try {
     final path =
         pathOverride ??
         logFilePath ??
         p.join(paths.appDataDir(), 'logs', 'whispaste.log');
-    final lines = core.readFullLog(logFilePath: path, maxRotations: 0).lines;
-    if (lines.length <= n) return lines;
-    return lines.sublist(lines.length - n);
+    return core.readFullLog(logFilePath: path, maxRotations: 0).lines;
   } on Object {
     return const <String>[];
   }
+}
+
+/// Warnings about the microphone that ended or rescued a recording: the
+/// dead-mic guard and the silent reopen of a stalled stream (#1784).
+final _recordingWarning = RegExp(
+  r'\[(WARNING|SEVERE)\].*(dead[- ]mic|mic stalled|mic reopen|'
+  r'recorder stopped unexpectedly)',
+  caseSensitive: false,
+);
+
+/// Recording warnings of the running app session (since the last
+/// `Log session started` line) that lie before the last [skipLast] lines,
+/// which the report shows anyway (#1784). At most the newest [max]. The lines
+/// are already sanitized and hold no dictated text: these log lines carry
+/// only states, timings, levels and device names.
+List<String> recordingWarningLines(
+  List<String> lines, {
+  int skipLast = 0,
+  int max = 30,
+}) {
+  var from = 0;
+  for (var i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].contains('--- Log session started')) {
+      from = i + 1;
+      break;
+    }
+  }
+  final to = math.max(from, lines.length - skipLast);
+  final hits = [
+    for (var i = from; i < to; i++)
+      if (_recordingWarning.hasMatch(lines[i])) lines[i],
+  ];
+  return hits.length <= max ? hits : hits.sublist(hits.length - max);
 }

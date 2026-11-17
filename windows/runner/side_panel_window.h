@@ -4,20 +4,12 @@
 // floating button/overlay). Behavioral precedent: macos/Runner/
 // SidePanelWindow.swift + SidePanelHost.swift.
 //
-// Two window classes, mirroring the macOS pair:
-//   * SidePanelSensorWindow  -- one per monitor, hugs the configured edge
-//     (left by default, right via the `edge` snapshot field -- see
-//     SidePanelWindow.swift's file comment for why left, and why a few
-//     points wide rather than 1px). Non-activating (WS_EX_NOACTIVATE), never
-//     takes focus. Reports a raw enter/exit immediately and a dwelled
-//     "hover entered" after SidePanelHost::kDwellDelayMs -- both via the
-//     standard Win32 TrackMouseEvent(TME_HOVER | TME_LEAVE) idiom rather
-//     than an app-level timer: WM_MOUSEHOVER's dwell is a system-owned
-//     timer that (unlike a naive SetTimer) is not at risk of the
-//     .eventTrackingRunLoopMode starvation macOS's Timer.scheduledTimer hit
-//     (see SidePanelWindow.swift's mouseEntered doc comment) -- Win32's
-//     single message queue has no equivalent mode split, so there is
-//     nothing here to port that fix for.
+// One window class. The edge trigger is no window any more (#1782): an
+// always-on-top strip at the screen edge ate every mouse event there, also in
+// games that scroll their camera at the edge, and stayed after the panel was
+// switched off. SidePanelHost now samples the pointer position
+// (side_panel_edge_core.h) and nothing at the edge takes input.
+//
 //   * SidePanelContentWindow -- the actual panel: a focusable WS_POPUP shell
 //     hosting the render engine's Flutter child, slid in/out along X with a
 //     self-driven WM_TIMER animation (Win32 has no NSAnimationContext
@@ -39,52 +31,6 @@
 
 #include <functional>
 #include <optional>
-
-// ═══════════════════════════════════════════════════════════════════════
-// SidePanelSensorWindow -- one per NSScreen/HMONITOR equivalent
-// ═══════════════════════════════════════════════════════════════════════
-class SidePanelSensorWindow {
- public:
-  SidePanelSensorWindow();
-  ~SidePanelSensorWindow();
-
-  SidePanelSensorWindow(const SidePanelSensorWindow&) = delete;
-  SidePanelSensorWindow& operator=(const SidePanelSensorWindow&) = delete;
-
-  // |px|/|py|/|pwidth|/|pheight| are the strip's rect in PHYSICAL pixels,
-  // already DPI-resolved by the caller (SidePanelHost::RebuildSensors owns
-  // that math, same split as SnippetPickerHost::ComputePanelRect).
-  bool Create(int px, int py, int pwidth, int pheight, int dwell_ms);
-  void Destroy();
-
-  void UpdateRect(int px, int py, int pwidth, int pheight);
-
-  // Fired after the dwell elapses (WM_MOUSEHOVER).
-  std::function<void()> on_hover_entered;
-  // Fired immediately on the raw WM_MOUSEMOVE that starts tracking, and on
-  // WM_MOUSELEAVE respectively -- see the file comment on why these exist
-  // alongside the dwelled signal (keeps an already-open panel alive while
-  // the pointer sits on the strip instead of the panel proper).
-  std::function<void()> on_raw_enter;
-  std::function<void()> on_raw_exit;
-
- private:
-  static bool EnsureClassRegistered();
-  static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-  LRESULT HandleMessage(UINT msg, WPARAM wp, LPARAM lp);
-
-  // |leave_only| arms TME_LEAVE without TME_HOVER -- used to re-arm after a
-  // hover has already fired once, so the strip doesn't keep re-signalling
-  // on_hover_entered while the pointer sits still on it.
-  void ArmTracking(bool leave_only = false);
-
-  static bool class_registered_;
-
-  HWND hwnd_ = nullptr;
-  int dwell_ms_ = 60;
-  bool tracking_ = false;
-  bool shutting_down_ = false;
-};
 
 // ═══════════════════════════════════════════════════════════════════════
 // SidePanelContentWindow -- the actual panel shell

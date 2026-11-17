@@ -15,6 +15,10 @@
 ///   noise floor there is no speech to level. The noise floor itself is never
 ///   lifted above [levelMaxNoiseFloorDbFs], which keeps pauses quiet enough
 ///   for the pause split of long uploads (`pcm16_pause_finder.dart`).
+/// - Digital silence at the very start is the microphone waking up, not the
+///   room (#1777): it is left out of the analysis. Counted, it set the noise
+///   floor to digital zero, so the cap above no longer held and the room
+///   noise of the rest was raised with the speech.
 library;
 
 import 'dart:math' as math;
@@ -149,6 +153,10 @@ class SpeechLevelAnalyzer {
   double _frameSum = 0;
   int _frameFill = 0;
 
+  /// Whether a frame with any sound was seen. Digitally silent frames before
+  /// it are the device start-up and are not analysed (#1777).
+  bool _soundSeen = false;
+
   /// The low byte of a sample split across two [add] calls.
   int? _pendingByte;
   bool _finished = false;
@@ -180,6 +188,11 @@ class SpeechLevelAnalyzer {
     if (m >= 32767) _fullScale++;
     _frameSum += v * v;
     if (++_frameFill == _frameSamples) {
+      if (!_soundSeen && _frameSum == 0) {
+        _frameFill = 0;
+        return;
+      }
+      _soundSeen = true;
       if (_frameCount == _frameMeanSquares.length) {
         _frameMeanSquares = Float64List(_frameCount * 2)
           ..setAll(0, _frameMeanSquares);

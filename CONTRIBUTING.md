@@ -57,7 +57,8 @@ website dependencies first with `npm ci --prefix website`.
 
 ### Prerequisites
 
-[Flutter](https://flutter.dev/docs/get-started/install) 3.x, and Windows 10
+[Flutter](https://flutter.dev/docs/get-started/install) in the version pinned in
+[`.flutter-version`](.flutter-version), and Windows 10
 (64-bit), macOS 13 Ventura or newer (Apple Silicon), or a recent Linux distro
 to build/run the desktop app. [BUILD.md](BUILD.md) lists the full toolchain
 per OS and how to build the bundled native engines (whisper.cpp, llama.cpp);

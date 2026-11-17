@@ -28,7 +28,7 @@
 #      (gate-stamp.sh from-push, #80): never with a warning, a working tree
 #      other than HEAD, a ref other than HEAD, a moved HEAD or a tag
 #  13. labctl is found the same way on every device (#460): LABCTL first,
-#      then ~/.claude/bin/labctl, then PATH; none of them: nothing, and
+#      then ~/.claude/bin/labctl, then PATH, then the lab checkout (#1722); none of them: nothing, and
 #      native-compile-check exits 2 naming the places it looked
 # Run: bash scripts/check.test.sh
 set -uo pipefail
@@ -436,6 +436,12 @@ if [ "$got" = "$WORK/own" ]; then ok "labctl_find: LABCTL wins"; else fail "labc
 rm "$lhome/.claude/bin/labctl"
 got="$(unset LABCTL; HOME="$lhome" PATH="$WORK/pathbin:$PATH" labctl_find)"
 if [ "$got" = "$WORK/pathbin/labctl" ]; then ok "labctl_find: falls back to PATH"; else fail "labctl_find PATH: '$got'"; fi
+mkdir -p "$lhome/Developer/repos/internal-repo/bin"
+printf '#!/bin/sh\n' >"$lhome/Developer/repos/internal-repo/bin/labctl"
+chmod +x "$lhome/Developer/repos/internal-repo/bin/labctl"
+got="$(unset LABCTL; HOME="$lhome" PATH="/usr/bin:/bin" labctl_find)"
+if [ "$got" = "$lhome/Developer/repos/internal-repo/bin/labctl" ]; then ok "labctl_find: the lab checkout is the last fallback (#1722)"; else fail "labctl_find testlab: '$got'"; fi
+rm -r "$lhome/Developer"
 # Keep the host's Git (Git for Windows uses /mingw64/bin), hiding only
 # labctl. Explicitly forward runtime dependencies through executable wrappers;
 # symlinks/copying git.exe lose its DLL lookup paths on Windows.

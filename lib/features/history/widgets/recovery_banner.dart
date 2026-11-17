@@ -258,15 +258,22 @@ class _RecoveryRow extends ConsumerWidget {
     final busy = rowState.busy.contains(recording.id);
     final outcome = rowState.outcomes[recording.id];
     final hasAudio = recording.wavPath != null;
+    // An earlier automatic attempt crashed the app (#1783): the start leaves
+    // it alone, only a manual recovery runs it again.
+    final crashed =
+        outcome == null &&
+        hasAudio &&
+        ref.watch(recoveryCrashedIdsProvider).contains(recording.id);
 
     final message = switch (outcome) {
       RecoveryOutcome.failed => l10n.recoveryFailed,
       RecoveryOutcome.noAudio => l10n.recoveryNoAudioCaptured,
       _ when !hasAudio => l10n.recoveryNoAudioKept,
+      _ when crashed => l10n.recoveryCrashSkipped,
       _ => l10n.recoveryOffer,
     };
     final showRestore = hasAudio && outcome != RecoveryOutcome.noAudio;
-    final tone = outcome == RecoveryOutcome.failed
+    final tone = outcome == RecoveryOutcome.failed || crashed
         ? WpBannerTone.warning
         : WpBannerTone.info;
 

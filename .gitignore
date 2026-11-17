@@ -163,6 +163,8 @@ scripts/*
 !scripts/smoke/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1
+!scripts/release-notes-guard.mjs
+!scripts/release-notes-guard.test.mjs
 !scripts/extract-cumulative-changelog.mjs
 !scripts/security-scan.ps1
 !scripts/setup-gh-secrets.sh
@@ -235,6 +237,7 @@ wack-report.xml
 !scripts/macos-preview.sh
 !scripts/worktree-prepare.sh
 !scripts/worktree-prepare.test.sh
+!scripts/soloud-cache-clean.sh
 !scripts/mac-build-smoke.sh
 !scripts/lsregister-cleanup.sh
 !scripts/fetch-native-deps.sh

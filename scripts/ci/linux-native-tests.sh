@@ -28,6 +28,7 @@ TESTS=(
   clipboard_snapshot
   keybinder_raw
   hang_watchdog_core
+  side_panel_edge_core
   message_clock
   uinput_access
   undo_policy
@@ -49,7 +50,8 @@ if [ "${1:-}" = --inputs ]; then
     test/scripts/video_decoder_download_test.py \
     windows/runner/undo_policy.h \
     windows/runner/undo_policy_test.cc windows/runner/message_clock.h \
-    windows/runner/message_clock_test.cc windows/runner/hang_watchdog_core.h
+    windows/runner/message_clock_test.cc windows/runner/hang_watchdog_core.h \
+    windows/runner/side_panel_edge_core.h macos/Runner/SidePanelWindow.swift
   for t in "${TESTS[@]}"; do printf 'test/scripts/%s_test.sh\n' "$t"; done
   exit 0
 fi

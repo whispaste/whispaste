@@ -24,6 +24,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -36,6 +38,7 @@ import 'package:whispaste/services/path_service.dart' show sttDirOverride;
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/recording/safety_guard.dart';
+import 'package:whispaste/services/telemetry_service.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes (re-defined; test files are not exported)
@@ -259,6 +262,12 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
 // ---------------------------------------------------------------------------
 
 final _scratchDir = Directory('test${Platform.pathSeparator}.scratch_snapshot');
+
+/// Samples without any signal until the dead-mic guard fires with a 1 s
+/// timeout at 25 Hz, when the input never delivered a signal: the timeout
+/// plus the start grace the pipeline grants a waking microphone (#1777).
+final _deadMicSamples1s = ((1.0 + SafetyGuard.firstSignalGraceSeconds) * 25)
+    .round();
 
 File _createFakeWav(String name) {
   final bytes = List<int>.filled(364, 0);
@@ -529,9 +538,9 @@ void main() {
         // Verify recording started.
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // 25 silent samples (level 0.0 < silence threshold) → dead-mic fires.
+        // No signal for the timeout plus the start grace → dead-mic fires.
         await fakeAudio.untilAmplitudeListened();
-        for (var i = 0; i < 25; i++) {
+        for (var i = 0; i < _deadMicSamples1s; i++) {
           fakeAudio.emitLevel(0.0);
         }
         await _untilState(
@@ -544,9 +553,27 @@ void main() {
           c.read(recordingProvider).phase,
           RecordingPhase.error,
           reason:
-              'dead-mic guard must transition to error after 25 silent samples '
-              '(1.0 s at 25 Hz amplitude rate)',
+              'dead-mic guard must transition to error after 1.0 s plus the '
+              'start grace without any signal (25 Hz amplitude rate)',
         );
+
+        // The stop is counted for the usage statistics with a fixed reason
+        // id only (#1777); no capture data here reads as "no data".
+        final bodies = <String>[];
+        final telemetry = TelemetryService(
+          client: MockClient((req) async {
+            bodies.add(Uri.decodeFull(req.url.query + req.body));
+            return http.Response('', 200);
+          }),
+          endpointUrl: 'https://test.matomo.example',
+          siteId: 1,
+          consentGranted: true,
+        );
+        c.read(telemetrySessionAggregatorProvider).drainTo(telemetry);
+        await telemetry.flush();
+        final sent = bodies.join('\n');
+        expect(sent, contains('guard_failed'));
+        expect(sent, contains('no_data'));
       },
     );
 
@@ -592,6 +619,43 @@ void main() {
         );
       },
     );
+
+    test('dead-mic: a first signal after the plain timeout keeps recording '
+        '(waking microphone, #1777)', () async {
+      final c = await buildGuardContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          recordingSafety: RecordingSafetySettings(
+            deadMicTimeout: 1.0,
+            autoStopSilence: 0,
+          ),
+          behavior: BehaviorSettings(maxRecordDuration: 0),
+        ),
+      );
+      addTearDown(c.dispose);
+
+      expect(c.read(recordingProvider).phase, RecordingPhase.recording);
+
+      // The device stays mute past the 1 s timeout (it is still waking up),
+      // then delivers a quiet signal and the user starts speaking.
+      await fakeAudio.untilAmplitudeListened();
+      for (var i = 0; i < _deadMicSamples1s - 1; i++) {
+        fakeAudio.emitLevel(0.0);
+      }
+      fakeAudio.emitLevel(0.05);
+      await _drainSamples();
+
+      expect(
+        fakeAudio.hasAmplitudeListeners,
+        isTrue,
+        reason: 'a late first signal inside the start grace is no dead mic',
+      );
+      expect(c.read(recordingProvider).phase, RecordingPhase.recording);
+    });
 
     test(
       'auto-stop: speech then 25 silent samples → phase leaves recording',
@@ -1294,8 +1358,8 @@ void main() {
         // would pass without exercising the phase guard at all.
         expect(fakeAudio.hasAmplitudeListeners, isTrue);
 
-        // Emit 25 silent samples — enough to trigger the dead-mic guard.
-        for (var i = 0; i < 25; i++) {
+        // Emit enough samples without signal to trigger the dead-mic guard.
+        for (var i = 0; i < _deadMicSamples1s; i++) {
           fakeAudio.emitLevel(0.0);
         }
         await _drainSamples();
@@ -1394,7 +1458,7 @@ void main() {
         // Make the audio-layer stop throw, then let the dead-mic guard fire.
         fakeAudio.throwOnStop = true;
         await fakeAudio.untilAmplitudeListened();
-        for (var i = 0; i < 25; i++) {
+        for (var i = 0; i < _deadMicSamples1s; i++) {
           fakeAudio.emitLevel(0.0);
         }
         await _untilState(

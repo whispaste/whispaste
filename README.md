@@ -1,59 +1,65 @@
-<p align="center">
-  <img src="resources/app-icon%20mit%20bg.png" alt="WhisPaste" width="128">
-</p>
-
-<h1 align="center">WhisPaste</h1>
+<h1 align="center">
+  <img src="resources/app-icon%20mit%20bg.png" alt="" width="96"><br>
+  WhisPaste
+</h1>
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Stop typing — speak, and your words land at the cursor in most apps.<br>
-  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop voice-input tool — offline by default, cloud providers optional, no subscription.<br>
-  Windows · macOS · Linux · MIT-licensed.
+  Press a hotkey, speak, and your words land at the cursor in almost any app.<br>
+  Free and open source. Speech recognition runs on your computer; cloud providers are optional.<br>
+  <sub>Windows · macOS · Linux</sub>
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
-  Also available on the <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0">Microsoft Store</a> (Windows) and the <a href="https://apps.apple.com/app/id6795319409">Mac App Store</a> (macOS).<br>
-  <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
-  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
-  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">&nbsp;
-  <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter">&nbsp;
-  <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT license">
+  <a href="https://github.com/whispaste/whispaste/releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT license"></a>
 </p>
 
-<p align="center">
-  <a href="https://whispaste.de"><b>🌐 Website</b></a>&ensp;·&ensp;
-  <a href="../../releases/latest"><b>📦 Releases</b></a>&ensp;·&ensp;
-  <a href="#development"><b>🏗️ Build</b></a>&ensp;·&ensp;
-  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>💡 Vote on Ideas</b></a>&ensp;·&ensp;
-  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>🗺️ Roadmap</b></a>
-</p>
-<p align="center">
-  <sub>The roadmap reflects rough current direction, not a binding schedule for individual items.</sub>
-</p>
+<h3 align="center">
+  <a href="#install">Download</a>&ensp;·&ensp;<a href="https://whispaste.de/en/">Website</a>&ensp;·&ensp;<a href="https://github.com/whispaste/whispaste/discussions">Community</a>&ensp;·&ensp;<a href="https://app.votepit.com/silvio-und-maik/whispaste">Roadmap</a>
+</h3>
 
 <p align="center">
-  <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — Recordings view, dark theme" width="720">
+  <img src="resources/screenshots/recordings.png" alt="WhisPaste: the Recordings page with the dictation bar at the bottom" width="880">
 </p>
-<p align="center">
-  <img src="resources/screenshots/history-detail-dark.png" alt="WhisPaste — Recordings detail view, dark theme" width="720">
-</p>
-
----
 
 ## How It Works
 
-```
-Hotkey → Speak → Text appears at your cursor
-```
-
-1. **Press your hotkey** — `Ctrl+Shift+D` by default, push-to-talk or toggle mode
-2. **Speak naturally** — a minimal overlay shows a live waveform while the mic is open
-3. **Done** — the transcript is pasted wherever your cursor sits
-
-Works in emails, chat apps, code editors, browsers, terminals — almost anywhere you would otherwise type.
+1. **Press your hotkey.** `Ctrl+Shift+D` by default (`⇧⌘D` on macOS), as push-to-talk or toggle.
+2. **Speak naturally.** A small overlay shows a live waveform while the microphone is open.
+3. **Done.** The text is pasted wherever your cursor sits: email, chat, editor, browser, terminal.
 
 ## Key Features
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>On your computer, by default</h3>
+      Two local engines: <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> (99 languages, GPU-accelerated) and NVIDIA Parakeet (~25 languages, several times faster). No account and no API key. OpenAI or Deepgram only if you choose them.
+      <br><br><img src="resources/screenshots/statistics.png" alt="The Statistics page with words transcribed and speech model usage" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>Every dictation, kept and searchable</h3>
+      Tags, full-text search, pin, merge, edit and export (TXT, MD, CSV, JSON, DOCX). An optional PIN locks your history.
+      <br><br><img src="resources/screenshots/recording-detail.png" alt="A recording opened next to the list" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>Notes and snippets</h3>
+      Dictate into notes with images and version history. Spoken triggers expand into text or fill multi-field templates.
+      <br><br><img src="resources/screenshots/notes.png" alt="The Notes page with a note open" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>Your words, spelled your way</h3>
+      The dictionary fixes names and terms after every dictation. Smart Mode can clean up, shorten or translate on your device.
+      <br><br><img src="resources/screenshots/dictionary.png" alt="The Dictionary page with replacement rules" width="100%">
+    </td>
+  </tr>
+</table>
+
+<details>
+<summary><b>All features</b></summary>
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into most apps (macOS/Windows/Linux; on Linux via a one-time uinput setup or the desktop portal; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
 
@@ -67,11 +73,41 @@ Works in emails, chat apps, code editors, browsers, terminals — almost anywher
 
 **System** — Auto-update with Ed25519-signed releases on macOS and Windows (Sparkle/WinSparkle); Linux checks for new versions and links to the release page; package-manager installs (Homebrew, Scoop) leave updates to the package manager · Dark theme · EN/DE/HE/RU/ES/PT interface · Autostart · System tray
 
-## System Requirements
+</details>
 
-- **macOS:** 13.0 (Ventura) or newer, Apple Silicon only (Intel Macs and macOS 12 stay on 1.4.2)
+## Install
 
-## Command-Line Remote Control
+| Windows 10 or later (x64) | macOS 13 or later (Apple Silicon) | Linux (x86_64) |
+|---|---|---|
+| [Installer](https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-Setup.exe) | [DMG](https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-macos-arm64.dmg) | [AppImage](https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-linux-x64.AppImage) |
+| [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0) | [Mac App Store](https://apps.apple.com/app/id6795319409) | [`.deb`](https://github.com/whispaste/whispaste/releases/latest/download/WhisPaste-linux-x64.deb) (Ubuntu 26.04 or newer) |
+| `winget install SilvioLindstedt.WhisPaste` | `brew install --cask whispaste/tap/whispaste` | `.tar.gz` on the [releases page](https://github.com/whispaste/whispaste/releases/latest) |
+| `scoop bucket add whispaste https://github.com/whispaste/scoop-bucket`<br>`scoop install whispaste` | | |
+
+<details>
+<summary><b>System requirements and notes</b></summary>
+
+- **Memory:** at least 8 GB of RAM recommended. A GPU is optional.
+- **macOS:** 13.0 (Ventura) or newer, Apple Silicon only (Intel Macs and macOS 12 stay on 1.4.2).
+- **Linux:** x86_64, Ubuntu 26.04 or newer with glibc 2.43 (older systems stay on 1.4.2). Only Ubuntu is verified.
+- **Windows:** the files on GitHub are not code-signed, so SmartScreen may warn about a new version (“More info” → “Run anyway”). The Microsoft Store version is signed by Microsoft and avoids the warning.
+- **Disk space** for the app and the speech models you download. The optional local Smart Mode model needs about 3 GB more.
+
+</details>
+
+## Privacy
+
+- **Local mode** (offline speech recognition) — audio never leaves your device
+- **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
+- **No account required** — usage statistics and crash reports are on by default (anonymous, EU-hosted) and can each be switched off, and so can the update check
+- **Open source** — audit every line
+
+Details: [whispaste.de/en/privacy](https://whispaste.de/en/privacy/) and [NETWORK.md](NETWORK.md).
+
+## Command line
+
+<details>
+<summary><b>Remote control, file transcription and diagnostics</b></summary>
 
 Start, stop or cancel a dictation from a shortcut, launcher or script — handy on Wayland, where apps cannot grab global hotkeys themselves:
 
@@ -95,7 +131,7 @@ On GNOME and KDE under Wayland, WhisPaste's hotkey works in other apps only afte
 
 **KDE Plasma 6:** System Settings → Keyboard → Shortcuts → **Add New** → **Command or Script…**, enter `whispaste --toggle` and assign the shortcut. (Plasma 5: System Settings → Shortcuts → Custom Shortcuts → Edit → New → Global Shortcut → Command/URL.)
 
-### Transcribe a file / benchmark
+**Transcribe a file / benchmark**
 
 ```sh
 whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whisper-small] \
@@ -106,9 +142,20 @@ Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model 
 
 `whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing. On Linux it also runs without a display: it then starts a private Xvfb for the check, and exits with 2 if Xvfb is not installed.
 
-## Development
+</details>
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 13 Ventura or newer (Apple Silicon), or a recent Linux distro
+## Help and feedback
+
+- **Questions:** [Discussions › Q&A](https://github.com/whispaste/whispaste/discussions/categories/q-a)
+- **Bugs:** [open an issue](https://github.com/whispaste/whispaste/issues/new/choose) (in the app: Help › Copy debug info)
+- **Ideas:** [vote on the roadmap board](https://app.votepit.com/silvio-und-maik/whispaste) — it shows the rough direction, not a binding schedule
+- **Security issues:** report privately, see [SECURITY.md](SECURITY.md)
+
+## Contributing
+
+Bug reports, translations and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) (translations: [CONTRIBUTING_TRANSLATIONS.md](CONTRIBUTING_TRANSLATIONS.md)) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+To build from source:
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git
@@ -117,56 +164,19 @@ flutter pub get
 flutter run -d windows   # or: flutter run -d macos / flutter run -d linux
 ```
 
-To build the bundled on-device engines and for the full per-OS toolchain, see [BUILD.md](BUILD.md); [ARCHITECTURE.md](ARCHITECTURE.md) explains how the code is organized.
+[BUILD.md](BUILD.md) covers the bundled on-device engines and the full toolchain per OS; [ARCHITECTURE.md](ARCHITECTURE.md) explains how the code is organized.
 
-### Project Structure
+## Support the project
 
-```
-├── lib/                # Dart source code
-│   ├── core/           # Theme, config, l10n, platform
-│   ├── features/       # Feature modules (history, settings, recording, etc.)
-│   ├── services/       # App services (audio, hotkey, tray, clipboard, etc.)
-│   └── widgets/        # Shared widget library
-├── test/               # Widget & unit tests
-├── assets/             # Icons, fonts, sounds
-├── windows/            # Windows platform runner
-├── macos/              # macOS platform runner
-├── linux/              # Linux platform runner
-└── website/            # Astro-based project website
-```
+WhisPaste is free and stays free. If it saves you time, you can support it via
+[GitHub Sponsors](https://github.com/sponsors/silvio-l), [Ko-fi](https://ko-fi.com/silviol),
+[Buy Me a Coffee](https://buymeacoffee.com/silvio.lindstedt) or
+[PayPal](https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY). In the app, Help › Support lists every way to help;
+the Microsoft Store and Mac App Store versions offer an optional one-time tip through the store. External support unlocks nothing.
 
-### Commands
+## License
 
-```bash
-flutter analyze --fatal-infos lib test integration_test tool generators benchmarks  # Lint + static analysis
-flutter test                           # Run all tests
-flutter build windows --release --no-tree-shake-icons
-flutter build macos   --release --no-tree-shake-icons
-```
-
-## Privacy
-
-- **Local mode** (offline speech recognition) — audio never leaves your device
-- **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
-- **No account required** — usage statistics and crash reports are on by default (anonymous, EU-hosted) and can each be switched off, and so can the update check
-- **Open source** — audit every line
-
-## Support
-
-<p align="center">
-  <a href="https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY">PayPal</a> ·
-  <a href="https://ko-fi.com/silviol">Ko-fi</a> ·
-  <a href="https://buymeacoffee.com/silvio.lindstedt">Buy Me a Coffee</a> ·
-  <a href="https://github.com/sponsors/silvio-l">GitHub Sponsors</a>
-</p>
-
-In the app, Help › Support lists every way to help. The Microsoft Store and Mac App Store
-versions offer an optional one-time tip through the store, followed by the providers above.
-External support unlocks nothing.
-
-Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
-[Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).
-
+[MIT](LICENSE). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 The optional CUDA acceleration pack is a separate download that contains NVIDIA redistributables under the NVIDIA CUDA Toolkit EULA, not under this project's licence. Its terms (including no reverse engineering and keeping notices intact) apply to those files.
 
 <p align="center">

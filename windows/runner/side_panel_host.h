@@ -14,10 +14,16 @@
 //                                               beginDrag/reportError from
 //                                               render.
 //
-// One SidePanelSensorWindow per connected monitor (rebuilt on
-// WM_DISPLAYCHANGE, mirrors SidePanelHost.rebuildSensors / NSScreen.screens
-// .map), a single lazily-created SidePanelContentWindow + render engine
-// (mirrors ensurePanel/bootRenderEngine).
+// Edge trigger without a window (#1782): while armed, a timer samples the
+// pointer every side_panel_edge::kPollMs and asks side_panel_edge_core.h
+// whether it rests in the strip along the docked edge of the monitor it is
+// on. Nothing at the edge takes input, so games that scroll their camera at
+// the screen edge keep working, and a fullscreen app in front switches the
+// trigger off. Armed only by the first updateSnapshot (Dart talks to this
+// host only while the panel is enabled and onboarding is done) and disarmed
+// by "destroy" -- never at startup and never by a display change. A single
+// lazily-created SidePanelContentWindow + render engine (mirrors
+// ensurePanel/bootRenderEngine).
 //
 // Unlike SnippetPickerHost, no previousFrontApp save/restore and no
 // activation-settle suppression window: DesktopPasteHost::
@@ -45,6 +51,7 @@
 #include <string>
 #include <vector>
 
+#include "side_panel_edge_core.h"
 #include "side_panel_window.h"
 
 class SidePanelHost {
@@ -58,25 +65,27 @@ class SidePanelHost {
   SidePanelHost(const SidePanelHost&) = delete;
   SidePanelHost& operator=(const SidePanelHost&) = delete;
 
-  // Tear down native resources (sensors + shell + render engine) permanently
+  // Tear down native resources (edge trigger + shell + render engine) for good
   // -- the public channel_ goes with it, so no later call can revive this
   // host. Safe to call multiple times. Must be called before main engine
   // teardown.
   void Destroy();
-
-  // Rebuilds the per-monitor sensor strips -- call on WM_DISPLAYCHANGE
-  // (mirrors SidePanelHost.rebuildSensors's didChangeScreenParameters
-  // observer).
-  void RebuildSensors();
 
  private:
   // Everything Destroy() does except tearing down channel_ and latching
   // destroyed_ -- shared by Destroy() and the Dart-driven "destroy" method
   // call (HandleMethodCall), which must stay reversible: a later re-enable
   // reconnects on the same channel_ and HandleMethodCall re-arms the
-  // sensors. Mirrors SnippetPickerHost's "destroy" case, which keeps its
-  // host/public channel alive the same way.
+  // edge trigger. Mirrors SnippetPickerHost's "destroy" case, which keeps
+  // its host/public channel alive the same way.
   void TeardownActive();
+
+  // Starts/stops the pointer sampling of the edge trigger (#1782).
+  void ArmEdgeTrigger();
+  void DisarmEdgeTrigger();
+  static void CALLBACK EdgePollTimerProc(HWND hwnd, UINT msg, UINT_PTR id,
+                                         DWORD time);
+  void PollEdge();
 
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue>& call,
@@ -92,7 +101,7 @@ class SidePanelHost {
       const flutter::MethodCall<flutter::EncodableValue>& call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
-  // ── Sensor callbacks (one strip per monitor) ──────────────────────────
+  // ── Edge-trigger callbacks ──────────────────────────────────────────────
   void HandleHoverEntered(const RECT& work_area);
   void HandleRawEnter();
   void HandleRawExit();
@@ -147,8 +156,9 @@ class SidePanelHost {
   bool render_ready_ = false;
   std::optional<flutter::EncodableMap> latest_snapshot_args_;
 
-  // ── Sensors (one per monitor) ──────────────────────────────────────────
-  std::vector<std::unique_ptr<SidePanelSensorWindow>> sensors_;
+  // ── Edge trigger (pointer sampling, no window) ─────────────────────────
+  bool armed_ = false;
+  side_panel_edge::Tracker edge_tracker_;
 
   // ── Content shell ───────────────────────────────────────────────────────
   std::unique_ptr<SidePanelContentWindow> content_window_;
@@ -158,10 +168,10 @@ class SidePanelHost {
   // hover-enter, read by SlideIn/SlideOut. Mirrors currentScreenFrame.
   std::optional<RECT> current_work_area_;
 
-  // Which screen edge the sensor strip/panel docks to: "left" or "right"
+  // Which screen edge the edge trigger/panel docks to: "left" or "right"
   // (issue #150). Set from the "edge" field of every updateSnapshot call
-  // (Dart owns the setting, mirrors how `visible` arrives); RebuildSensors()
-  // and ComputeTargetRect() read this. Defaults to "left" so a cold start
+  // (Dart owns the setting, mirrors how `visible` arrives); PollEdge() and
+  // ComputeTargetRect() read this. Defaults to "left" so a cold start
   // before the first updateSnapshot matches the pre-#150 behavior.
   std::string current_edge_ = "left";
 
@@ -171,15 +181,14 @@ class SidePanelHost {
 
   // ── Native close-grace timer ────────────────────────────────────────────
   static constexpr UINT_PTR kCloseTimerId = 2;
+  static constexpr UINT_PTR kEdgePollTimerId = 3;
   static constexpr int kCloseGraceMs = 350;
   bool close_timer_armed_ = false;
 
   // ── Layout constants (logical px, DPI-resolved per monitor) ───────────
-  static constexpr int kSensorWidth = 6;
   static constexpr int kContentWidth = 320;
   static constexpr int kContentHeight = 640;
   static constexpr int kSlideDurationMs = 220;
-  static constexpr int kDwellMs = 60;
 };
 
 #endif  // SIDE_PANEL_HOST_H_

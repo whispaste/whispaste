@@ -135,6 +135,11 @@ String formatDiagnosticsReport({
   ModelLoadProbeResult? modelLoadProbe,
   GpuInfo? gpu,
   required List<String> logTail,
+
+  /// Dead-mic and microphone-reopen warnings of the running app session
+  /// (#1784), also those older than [logTail]. Empty in the standalone CLI,
+  /// which reads the whole log anyway.
+  List<String> recordingWarnings = const [],
   bool fullLogs = false,
   String? deviceId,
   HardwareProbeResult? hardware,
@@ -329,6 +334,15 @@ String formatDiagnosticsReport({
         b.writeln('  • [${s.fingerprint}] ${s.detail}');
       }
     }
+  }
+
+  if (recordingWarnings.isNotEmpty) {
+    b
+      ..writeln(
+        '--- letzte Aufnahme-Warnungen (${recordingWarnings.length}) ---',
+      )
+      ..writeAll(recordingWarnings, '\n')
+      ..writeln();
   }
 
   if (logTail.isNotEmpty) {

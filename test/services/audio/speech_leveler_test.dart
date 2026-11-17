@@ -122,6 +122,24 @@ void main() {
       expect(plan.boostDb, closeTo(20, 0.5));
     });
 
+    test('digital silence at the start does not lift the room noise '
+        '(waking microphone, #1777)', () {
+      // Quiet room noise (about -46 dBFS RMS) between speech at -30 dBFS:
+      // the noise-floor cap limits the boost.
+      final noisy = _speech(speechDbFs: -30, noise: 300);
+      final withoutStart = analyzeSpeechLevel(noisy);
+      expect(withoutStart.boostDb, lessThan(8));
+
+      // The same recording after 0.6 s of digital zeros from a microphone
+      // that was still waking up gets the same boost, not a larger one.
+      final samples = List<int>.filled(9600, 0, growable: true);
+      for (var i = 0; i < noisy.lengthInBytes ~/ 2; i++) {
+        samples.add(noisy.getInt16(i * 2, Endian.little));
+      }
+      final withStart = analyzeSpeechLevel(_pcm(samples));
+      expect(withStart.boostDb, closeTo(withoutStart.boostDb, 0.5));
+    });
+
     test('a recording shorter than 200 ms stays as it is', () {
       final short = _speech(speechDbFs: -40, bursts: 1);
       final pcm = ByteData.sublistView(short, 0, 3000 * 2);
