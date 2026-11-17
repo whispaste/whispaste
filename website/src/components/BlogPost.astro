@@ -259,12 +259,13 @@ const articleSchema = {
   }
 
   /* Wide settings crops stay legible on phones: the figure scrolls sideways
-     instead of shrinking the screenshot text to a few pixels. */
+     instead of shrinking the screenshot text to a few pixels. A whole window
+     or panel (`figure.wp-shot`) is an overview and shrinks to fit instead. */
   @media (max-width: 767px) {
-    .post-body :global(figure) {
+    .post-body :global(figure:not(.wp-shot)) {
       overflow-x: auto;
     }
-    .post-body :global(figure img) {
+    .post-body :global(figure:not(.wp-shot) img) {
       min-width: 40rem;
     }
   }

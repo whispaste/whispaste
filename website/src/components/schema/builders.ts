@@ -107,14 +107,19 @@ export interface SoftwareApplicationOptions {
 /**
  * Default-OS-Liste — `internal-notes` §1 nennt Windows, macOS und Linux als aktiv
  * unterstützte Plattformen. Die konkreten Versions-Hinweise spiegeln den
- * Stand der `download.astro`-Seite (Windows 10/11, macOS 12+) plus Linux als
- * Generic-Entry. PRD §C verlangt explizit Linux-Deklaration.
+ * Stand der `download.astro`-Seite (Windows 10/11, macOS 13+). macOS nennt
+ * seit v1.5.0 Ventura als Untergrenze (nur Apple Silicon, #1740); Intel-Macs
+ * und macOS 12 bleiben bei 1.4.2. Linux nennt
+ * seit v1.5.0 die Untergrenze der Release-Builds: Ubuntu 26.04 mit glibc 2.43
+ * (`scripts/release/linux-stage.sh`, MAX_GLIBC); ältere Systeme bleiben bei
+ * 1.4.2. Keine Kommas im Eintrag, weil die Liste mit ", " verbunden wird.
+ * PRD §C verlangt explizit Linux-Deklaration.
  */
 export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
   "Windows 10",
   "Windows 11",
-  "macOS 12 (Apple Silicon)",
-  "Linux (x86_64)",
+  "macOS 13 (Apple Silicon)",
+  "Linux (x86_64; Ubuntu 26.04 or newer; glibc 2.43)",
 ];
 
 /**

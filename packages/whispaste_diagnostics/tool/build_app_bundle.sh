@@ -77,7 +77,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<'PLIST'
   <key>CFBundleSignature</key>
   <string>????</string>
   <key>LSMinimumSystemVersion</key>
-  <string>12.0</string>
+  <string>13.0</string>
   <key>LSBackgroundOnly</key>
   <false/>
   <key>NSHighResolutionCapable</key>

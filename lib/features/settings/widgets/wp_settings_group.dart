@@ -29,9 +29,21 @@ final Map<String, GlobalKey> _settingsRowKeys = <String, GlobalKey>{};
 GlobalKey settingsRowKey(String rowId) =>
     _settingsRowKeys.putIfAbsent(rowId, GlobalKey.new);
 
+/// The mounted row [rowId]'s context, or null. A lookup only: unlike
+/// [settingsRowKey] it never adds an entry, so probing ids that are not on
+/// screen (jump fallbacks) cannot leave keys behind that no row releases.
+BuildContext? settingsRowContext(String rowId) =>
+    _settingsRowKeys[rowId]?.currentContext;
+
 /// Number of row keys currently held. For lifecycle tests only.
 @visibleForTesting
 int get debugSettingsRowKeyCount => _settingsRowKeys.length;
+
+/// Drops every row key. For lifecycle tests only, before a test mounts any
+/// row: an earlier test in the same isolate (lab bundles, #1492) may have
+/// created a key through [settingsRowKey] without a row to release it.
+@visibleForTesting
+void debugResetSettingsRowKeys() => _settingsRowKeys.clear();
 
 /// Carries the row a search hit or deep link marks; the row fades in a soft
 /// tint behind itself while it is the target (see [_SettingsRowHighlightFill]).

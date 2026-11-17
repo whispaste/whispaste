@@ -2,6 +2,15 @@
 
 All entries are written in English.
 
+## 1.5.1
+
+1.5.1 brings WhisPaste 1.5 to the Mac App Store. Everything that is new in 1.5 is listed under 1.5.0 below.
+
+### Fixes
+
+- **The Mac app states its real requirement:** WhisPaste for Mac now declares macOS 13 Ventura on Apple Silicon as its minimum, as it was built for. The Mac App Store refused 1.5.0 because the app still declared macOS 12, so the 1.5 update reaches App Store users with this version. Intel Macs and Macs on macOS 12 stay on 1.4.2.
+- **"New in this version" after updating to a patch:** the Overview card with the 1.5 highlights now also appears in 1.5.1, so you see it even if you skip 1.5.0. If you already closed it in 1.5.0, it stays closed.
+
 ## 1.5.0
 
 ### Highlights
@@ -481,7 +490,9 @@ All changes are listed below.
 
 - **No downgrade to 1.4.x after updating.** 1.5.0 stores your recordings, notes, dictionary and snippets encrypted with your device's data key. Version 1.4.x cannot read this data and does not warn you, so do not reinstall 1.4.x once 1.5 has started. If 1.5 causes trouble, install the newest 1.5.x update instead and tell us on the Feedback page; fixes come as new 1.5.x versions.
 - **Flatpak: not on Flathub yet, voice-note import unverified.** WhisPaste is not published on Flathub yet. If you build the Flatpak yourself from `packaging/flatpak`, importing Ogg/Opus and M4A files depends on libopusfile and GStreamer in the GNOME runtime, which is not verified yet. Until it is, use the .deb, AppImage or Windows/macOS builds for importing those formats, or convert the file to WAV.
-- **Linux AppImage on Ubuntu 24.04: automatic pasting not yet confirmed on a fresh system.** The AppImage is built for Ubuntu 24.04 and newer; starting, the one-time paste confirmation and pasting were tested on Ubuntu 26.04 only. A full run on a fresh Ubuntu 24.04 desktop (confirmation, dictation, paste, global hotkey, "Copy command") is still open. If something does not work there, please tell us on the Feedback page (#478).
+- **GNOME: the tray icon needs the AppIndicator extension.** Plain GNOME shows no tray icons; Ubuntu ships the extension switched on. Without it, WhisPaste shows a hint, the tray quick switch is missing, and closing the window quits the app instead of hiding it in the tray.
+- **Linux needs Ubuntu 26.04 or newer.** From 1.5.0 the Linux packages (AppImage, .deb, tar.gz) are built for the current Ubuntu LTS, 26.04 (glibc 2.43), and do not start on Ubuntu 24.04 or other systems with an older glibc. There, keep using 1.4.2 until you update the system.
+- **macOS needs 13 Ventura or newer on Apple Silicon.** From 1.5.0 WhisPaste runs only on Macs with Apple Silicon (M1 or newer) and macOS 13 Ventura or newer, in the Mac App Store, as DMG and via Homebrew. Intel Macs and Macs on macOS 12 stay on 1.4.2.
 
 ## 1.4.2
 

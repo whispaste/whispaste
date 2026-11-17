@@ -64,9 +64,13 @@ echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
 bash "$REPO_ROOT/scripts/apply-whisper-patches.sh" "$WHISPER_SRC"
 
 # --- 2. Configure + build shared libs (Metal + CPU) -------------------------
+# macOS floor = the app's MACOSX_DEPLOYMENT_TARGET (macos/Runner.xcodeproj, #1740).
+# Set explicitly: outside Xcode cmake would take the SDK version (e.g. 27.2).
+MACOS_DEPLOYMENT_TARGET="13.0"
 echo "[2/4] cmake configure + build (Metal + CPU, shared) …"
 cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_METAL=ON \
   -DGGML_METAL_EMBED_LIBRARY=ON \
@@ -82,6 +86,7 @@ cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(sysctl -n hw.ncp
 # frames (native/ffi_guard/ffi_guard.h). Built against the same headers.
 cmake -S "$REPO_ROOT/native/ffi_guard" -B "$BUILD_DIR/ffi_guard" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET" \
   -DWHISPER_SOURCE_DIR="$WHISPER_SRC" \
   >/dev/null
 cmake --build "$BUILD_DIR/ffi_guard" --config Release -j "${BUILD_JOBS:-$(sysctl -n hw.ncpu)}" >/dev/null

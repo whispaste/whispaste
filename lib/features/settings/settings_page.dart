@@ -185,7 +185,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   void _scrollTo(String rowId) {
     final shown = settingsRowShownFor(
       rowId,
-      (id) => settingsRowKey(id).currentContext != null,
+      (id) => settingsRowContext(id) != null,
     );
     if (shown == null) {
       _log.warning('Settings jump target "$rowId" is not on screen');
@@ -195,7 +195,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _log.info('Settings jump "$rowId" lands on "$shown" (row not shown)');
     }
     ref.read(settingsHighlightTargetProvider.notifier).set(shown);
-    final targetContext = settingsRowKey(shown).currentContext!;
+    final targetContext = settingsRowContext(shown)!;
     Scrollable.ensureVisible(
       targetContext,
       duration: WpMotion.durationFor(targetContext, WpMotion.smooth),

@@ -72,7 +72,7 @@ class _SmartModePageState extends ConsumerState<SmartModePage> {
     ref.read(settingsHighlightTargetProvider.notifier).set(entry.rowId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final ctx = settingsRowKey(entry.rowId).currentContext;
+      final ctx = settingsRowContext(entry.rowId);
       if (ctx == null) return;
       Scrollable.ensureVisible(
         ctx,

@@ -128,7 +128,11 @@ export const DIAGNOSE_MACOS_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-Diagnose-mac
 /** Direct GitHub download for the Linux AppImage (x86_64, self-contained). */
 export const LINUX_APPIMAGE_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-linux-x64.AppImage`;
 
-/** Direct GitHub download for the Linux .deb package (Debian/Ubuntu, x86_64). */
+/**
+ * Direct GitHub download for the Linux .deb package (Ubuntu 26.04 or newer,
+ * glibc 2.43, x86_64). Only Ubuntu is verified; Debian stable ships an older
+ * glibc, so the site does not promise Debian.
+ */
 export const LINUX_DEB_URL = `${GITHUB_RELEASE_BASE}/WhisPaste-linux-x64.deb`;
 
 /**

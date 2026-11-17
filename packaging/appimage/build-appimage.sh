@@ -151,8 +151,9 @@ fi
 echo "Sound tools guard ok (${AUDIO_TOOLS[*]} bundled, AppRun puts usr/bin first)"
 
 # Guard: nothing in the AppDir may need a newer GLIBC than the supported
-# baseline (Ubuntu 24.04 = 2.39; whispaste#478 / #1418). Build on that base.
-MAX_GLIBC="${MAX_GLIBC:-2.39}"
+# baseline: the current Ubuntu LTS, which is also the build host (26.04 = 2.43;
+# maintainer 2026-11-16: always the newest LTS; earlier whispaste#478 / #1418).
+MAX_GLIBC="${MAX_GLIBC:-2.43}"
 worst=$(find "$APPDIR" -type f \( -name '*.so*' -o -perm -u+x \) -print0 \
   | xargs -0 -r objdump -T 2>/dev/null \
   | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/^GLIBC_//' | sort -uV | tail -n1 || true)

@@ -46,7 +46,7 @@
 
 ## Платформы и требования
 
-- Windows 10 или новее, macOS 12 Monterey или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 или новее, macOS 13 Ventura или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz) в Ubuntu 26.04 или новее с glibc 2.43; на более старых системах Linux остаётся версия 1.4.2.
 - Рекомендуется: не менее 8 ГБ оперативной памяти и 64-битный процессор.
 - Только для настольных систем; версий для iOS и Android нет.
 

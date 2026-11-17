@@ -590,6 +590,61 @@ void main() {
       }
     });
 
+    test('a patch shows the entries of its minor release, and what was '
+        'closed or onboarded there stays done (1.5.1)', () {
+      final registry = {
+        '2.0.0': [item],
+      };
+      final updatedFromOlder = overviewWhatsNewView(
+        currentVersion: '2.0.1',
+        closedVersion: '1.9.0',
+        openedVersion: '1.9.0',
+        onboardedInVersion: '1.9.0',
+        registry: registry,
+      );
+      expect(updatedFromOlder.items, [item]);
+      expect(updatedFromOlder.dot, isTrue);
+
+      for (final (closed, opened, onboarded) in [
+        ('2.0.0', '2.0.0', '1.9.0'), // closed in 2.0.0
+        (null, null, '2.0.0'), // fresh 2.0.0 install
+      ]) {
+        final view = overviewWhatsNewView(
+          currentVersion: '2.0.1',
+          closedVersion: closed,
+          openedVersion: opened,
+          onboardedInVersion: onboarded,
+          registry: registry,
+        );
+        expect(view.items, isEmpty, reason: '$closed/$onboarded');
+        expect(view.dot, isFalse);
+      }
+
+      final opened = overviewWhatsNewView(
+        currentVersion: '2.0.1',
+        closedVersion: null,
+        openedVersion: '2.0.0',
+        registry: registry,
+      );
+      expect(opened.items, [item]);
+      expect(opened.dot, isFalse);
+
+      // Another minor, or a version string that is not x.y.z, gets nothing.
+      for (final v in ['2.1.1', '2.0.1-beta']) {
+        expect(
+          overviewWhatsNewView(
+            currentVersion: v,
+            closedVersion: null,
+            openedVersion: null,
+            registry: registry,
+          ).items,
+          isEmpty,
+          reason: v,
+        );
+      }
+      expect(whatsNewKey('1.5.1', kWhatsNewRegistry), '1.5.0');
+    });
+
     test('1.5.0 has 2 to 4 entries with own ids, real targets and text in '
         'every app language (#1576)', () async {
       final items = kWhatsNewRegistry['1.5.0']!;

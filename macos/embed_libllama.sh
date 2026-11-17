@@ -48,6 +48,11 @@ if [[ -d "$STAGE_DIR" && "$(cat "$STAGE_DIR/LLAMA_PIN" 2>/dev/null)" != "$LLAMA_
   echo "note: libllama stage was built from another llama.cpp pin — rebuilding it."
   rm -rf "$STAGE_DIR"
 fi
+# Same for a stage built for another macOS floor (BUILD_FLAVOR, #1740).
+if [[ -d "$STAGE_DIR" && "$(cat "$STAGE_DIR/BUILD_FLAVOR" 2>/dev/null)" != "native-off macos13.0" ]]; then
+  echo "note: libllama stage was built for another macOS floor — rebuilding it."
+  rm -rf "$STAGE_DIR"
+fi
 
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libllama staging dir not found ($STAGE_DIR) — attempting to build it now."

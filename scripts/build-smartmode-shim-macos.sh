@@ -41,7 +41,7 @@ if [[ -z "$LLAMA_COMMON_DYLIB" ]]; then
 fi
 
 echo "[1/2] compiling smart_mode_shim.cpp"
-clang++ -std=c++17 -dynamiclib -O2 \
+clang++ -std=c++17 -dynamiclib -O2 -mmacosx-version-min=13.0 \
   -I "$LLAMA_SRC/include" -I "$LLAMA_SRC/ggml/include" -I "$LLAMA_SRC/common" -I "$LLAMA_SRC/vendor" \
   -o "$STAGE_DIR/libsmartmode_shim.dylib" \
   "$SHIM_SRC" \

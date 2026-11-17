@@ -68,8 +68,11 @@ if [[ -n "$CACHED_SRC" && "$CACHED_SRC" != "$LLAMA_SRC" ]]; then
 fi
 # GGML_NATIVE=OFF: a native build on an M2+ host emits i8mm (smmla) with no
 # runtime check, which raises SIGILL on M1 the first time the CPU path runs.
+# macOS floor = the app's MACOSX_DEPLOYMENT_TARGET (macos/Runner.xcodeproj, #1740).
+# Set explicitly: outside Xcode cmake would take the SDK version (e.g. 27.2).
 cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_NATIVE=OFF \
   -DGGML_METAL=ON \
@@ -159,8 +162,9 @@ echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib | tr '\n' ' ')"
 # --- 5. SHA-256 manifest -----------------------------------------------------
 echo "[5/5] writing SHA256SUMS"
 ( cd "$STAGE_DIR" && shasum -a 256 *.dylib > SHA256SUMS )
-# Build-flavor stamp: ensure-libllama-macos.sh rebuilds a stage without it.
-echo "native-off" > "$STAGE_DIR/BUILD_FLAVOR"
+# Build-flavor stamp (GGML_NATIVE=OFF, macOS floor): ensure-libllama-macos.sh
+# and macos/embed_libllama.sh rebuild a stage without it.
+echo "native-off macos13.0" > "$STAGE_DIR/BUILD_FLAVOR"
 # Pin stamp: ensure-libllama-macos.sh rebuilds a stage built from another pin.
 echo "$LLAMA_TAG $LLAMA_PINNED_COMMIT" > "$STAGE_DIR/LLAMA_PIN"
 cat "$STAGE_DIR/SHA256SUMS"

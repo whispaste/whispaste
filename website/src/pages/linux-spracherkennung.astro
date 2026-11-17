@@ -32,8 +32,13 @@
  *     `packaging/appimage/README.md` bzw. `path_service.dart`.
  *   - Vulkan-Build unter Linux aus `scripts/build-libwhisper-linux.sh`
  *     (siehe `/gpu-kompatibilitaet/`).
- *   - 8 GB RAM / 64-Bit / Ubuntu aus
+ *   - 8 GB RAM / 64-Bit aus
  *     `explainer.offlineStt.section.resourceProfile.*`.
+ *   - Ubuntu 26.04 oder neuer (glibc 2.43) seit v1.5.0, ältere Systeme bei
+ *     1.4.2: Release-Notes v1.5.0 und `scripts/release/linux-stage.sh`
+ *     (MAX_GLIBC). Debian wird nicht genannt, weil Debian stable eine ältere
+ *     glibc hat. Das AppImage nutzt die statische type2-Runtime: Es braucht
+ *     kein libfuse2 mehr, nur FUSE (fusermount aus fuse3).
  *
  * Schema-Wahl: FAQPage — die Such-Intention besteht aus wörtlichen Ja/Nein-
  * Fragen („gibt es ein AppImage?", „brauche ich Python?"). Die Q&A-Paare

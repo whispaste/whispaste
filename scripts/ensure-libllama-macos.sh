@@ -15,8 +15,9 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE_DIR="$REPO_ROOT/.build/libllama/macos"
 
 # A stage from before GGML_NATIVE=OFF (no BUILD_FLAVOR stamp) carries
-# M2+-only instructions; rebuild it.
-if [[ "$(cat "$STAGE_DIR/BUILD_FLAVOR" 2>/dev/null)" != "native-off" ]]; then
+# M2+-only instructions, one without the macOS 13.0 floor (#1740) may need a
+# newer macOS than the app; rebuild it.
+if [[ "$(cat "$STAGE_DIR/BUILD_FLAVOR" 2>/dev/null)" != "native-off macos13.0" ]]; then
   rm -f "$STAGE_DIR/libllama.dylib"
 fi
 

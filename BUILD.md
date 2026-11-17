@@ -31,7 +31,7 @@ flutter pub get
 
 **Toolchain:** Xcode with its command line tools, CMake. Rust is only needed when Cargokit falls back to a source build: `cargokit_options.yaml` in the repo root sets `use_precompiled_binaries: true`, so `super_native_extensions` takes its signed prebuilt library even when `rustup` is installed (#674). For a source build use Rust stable **1.99.1 or newer** (`rustup update stable`).
 
-With Xcode 27.2 and an older Rust, a fresh source build fails with `error[E0463]: can't find crate for proc_macro_error_attr`. Xcode exports `MACOSX_DEPLOYMENT_TARGET=12.0`, which also applies to host proc-macros, and from 12.0 on its linker writes chained fixups that rustc before 1.99 cannot read. A warm build directory hides the problem, so only a fresh build counts as a check.
+With Xcode 27.2 and an older Rust, a fresh source build fails with `error[E0463]: can't find crate for proc_macro_error_attr`. Xcode exports `MACOSX_DEPLOYMENT_TARGET=13.0`, which also applies to host proc-macros, and from 12.0 on its linker writes chained fixups that rustc before 1.99 cannot read. A warm build directory hides the problem, so only a fresh build counts as a check.
 
 ```bash
 flutter build macos --debug       # or: flutter run -d macos
@@ -45,7 +45,7 @@ bash scripts/build-libllama-macos.sh
 bash scripts/build-smartmode-shim-macos.sh
 ```
 
-Both scripts build with `-DGGML_NATIVE=OFF`, so the libraries never contain instructions the oldest supported Mac (M1) lacks. `libwhisper` additionally uses `-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON`: Metal and one CPU module per Apple Silicon generation (`libggml-cpu-apple_m1.so`, `-apple_m2_m3.so`, `-apple_m4.so`) are staged next to `libwhisper.dylib`, and ggml loads the best CPU module at runtime. `macos/embed_libwhisper.sh` rebuilds automatically when the staged `WHISPER_PIN` no longer matches the pinned whisper.cpp version.
+Both scripts build with `-DGGML_NATIVE=OFF`, so the libraries never contain instructions the oldest supported Mac (M1) lacks. They also pin the macOS floor to 13.0, the app's `MACOSX_DEPLOYMENT_TARGET` (#1740): run outside Xcode, CMake would otherwise take the SDK version and the libraries would not load on older systems. The floor is part of the stage stamps (`WHISPER_PIN` ends in `+macos:13.0`, libllama's `BUILD_FLAVOR` is `native-off macos13.0`), so an older stage is rebuilt. `libwhisper` additionally uses `-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON`: Metal and one CPU module per Apple Silicon generation (`libggml-cpu-apple_m1.so`, `-apple_m2_m3.so`, `-apple_m4.so`) are staged next to `libwhisper.dylib`, and ggml loads the best CPU module at runtime. `macos/embed_libwhisper.sh` rebuilds automatically when the staged `WHISPER_PIN` no longer matches the pinned whisper.cpp version.
 
 `libllama` is stamped the same way: `build-libllama-macos.sh` writes `LLAMA_PIN` (tag and commit) into the stage, and `macos/embed_libllama.sh` and `scripts/ensure-libllama-macos.sh` rebuild a stage whose stamp is missing or differs from `scripts/llama-cpp.pin`. All three libllama build scripts (macOS, Linux, Windows) also discard their CMake build directory when its `CMakeCache.txt` points at another llama.cpp source tree, so a pin change never stops at cmake's "source does not match the source used to generate cache" error.
 

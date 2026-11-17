@@ -21,7 +21,7 @@ A new Flutter plugin project.
   # fetched into Frameworks/ (gitignored); it is never checked in.
   s.vendored_frameworks = 'Frameworks/Sparkle.framework'
 
-  s.platform = :osx, '12.0'
+  s.platform = :osx, '13.0'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 end

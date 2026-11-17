@@ -2236,7 +2236,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                                 const WpNoticeBar(),
                               ],
                             ),
-                            dock: // Recording dock — sits on the frame, full width.
+                            dock: // Recording dock — inside the content panel, under the page.
                                 //
                                 // `backendUtilizationPercent` alone is wrapped in a
                                 // `Consumer`: `backendUtilizationProvider` ticks

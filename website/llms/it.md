@@ -46,7 +46,7 @@
 
 ## Piattaforme e requisiti
 
-- Windows 10 o successivo, macOS 12 Monterey o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 o successivo, macOS 13 Ventura o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz) su Ubuntu 26.04 o successivo con glibc 2.43; sui sistemi Linux più vecchi resta la versione 1.4.2.
 - Consigliati: almeno 8 GB di RAM e un processore a 64 bit.
 - Solo desktop; non esiste una versione per iOS o Android.
 

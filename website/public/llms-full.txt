@@ -48,7 +48,7 @@
 
 ## Platforms and requirements
 
-- Windows 10 or later, macOS 12 Monterey or later on Apple Silicon (Intel Macs are not supported), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 or later, macOS 13 Ventura or later on Apple Silicon (Intel Macs are not supported), Linux x64 (AppImage, .deb, tar.gz) on Ubuntu 26.04 or newer with glibc 2.43; older Linux systems stay on version 1.4.2.
 - Recommended: at least 8 GB of RAM and a 64-bit processor.
 - Desktop only; there is no iOS or Android version.
 
@@ -118,7 +118,7 @@
 
 ## Plattformen und Voraussetzungen
 
-- Windows 10 oder neuer, macOS 12 Monterey oder neuer auf Apple Silicon (Intel-Macs werden nicht unterstützt), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 oder neuer, macOS 13 Ventura oder neuer auf Apple Silicon (Intel-Macs werden nicht unterstützt), Linux x64 (AppImage, .deb, tar.gz) ab Ubuntu 26.04 mit glibc 2.43; auf älteren Linux-Systemen bleibt Version 1.4.2.
 - Empfohlen: mindestens 8 GB Arbeitsspeicher und ein 64-Bit-Prozessor.
 - Nur Desktop; es gibt keine iOS- oder Android-Version.
 
@@ -188,7 +188,7 @@
 
 ## Plataformas y requisitos
 
-- Windows 10 o posterior, macOS 12 Monterey o posterior en Apple Silicon (los Mac con Intel no son compatibles), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 o posterior, macOS 13 Ventura o posterior en Apple Silicon (los Mac con Intel no son compatibles), Linux x64 (AppImage, .deb, tar.gz) en Ubuntu 26.04 o posterior con glibc 2.43; los sistemas Linux más antiguos se quedan en la versión 1.4.2.
 - Recomendado: al menos 8 GB de RAM y un procesador de 64 bits.
 - Solo escritorio; no hay versión para iOS ni Android.
 
@@ -258,7 +258,7 @@
 
 ## Plataformas e requisitos
 
-- Windows 10 ou posterior, macOS 12 Monterey ou posterior no Apple Silicon (Macs com Intel não são compatíveis), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 ou posterior, macOS 13 Ventura ou posterior no Apple Silicon (Macs com Intel não são compatíveis), Linux x64 (AppImage, .deb, tar.gz) no Ubuntu 26.04 ou mais recente com glibc 2.43; sistemas Linux mais antigos ficam na versão 1.4.2.
 - Recomendado: pelo menos 8 GB de RAM e um processador de 64 bits.
 - Somente desktop; não há versão para iOS nem Android.
 
@@ -328,7 +328,7 @@
 
 ## Piattaforme e requisiti
 
-- Windows 10 o successivo, macOS 12 Monterey o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 o successivo, macOS 13 Ventura o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz) su Ubuntu 26.04 o successivo con glibc 2.43; sui sistemi Linux più vecchi resta la versione 1.4.2.
 - Consigliati: almeno 8 GB di RAM e un processore a 64 bit.
 - Solo desktop; non esiste una versione per iOS o Android.
 
@@ -398,7 +398,7 @@
 
 ## Платформы и требования
 
-- Windows 10 или новее, macOS 12 Monterey или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 или новее, macOS 13 Ventura или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz) в Ubuntu 26.04 или новее с glibc 2.43; на более старых системах Linux остаётся версия 1.4.2.
 - Рекомендуется: не менее 8 ГБ оперативной памяти и 64-битный процессор.
 - Только для настольных систем; версий для iOS и Android нет.
 
@@ -468,7 +468,7 @@
 
 ## 平台与配置要求
 
-- Windows 10 或更高版本，Apple Silicon 上的 macOS 12 Monterey 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz）。
+- Windows 10 或更高版本，Apple Silicon 上的 macOS 13 Ventura 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz），需要 Ubuntu 26.04 或更高版本（glibc 2.43）；更旧的 Linux 系统请继续使用 1.4.2 版。
 - 建议：至少 8 GB 内存和 64 位处理器。
 - 仅限桌面；没有 iOS 或 Android 版本。
 
@@ -538,7 +538,7 @@
 
 ## Plateformes et configuration requise
 
-- Windows 10 ou ultérieur, macOS 12 Monterey ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 ou ultérieur, macOS 13 Ventura ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz) sous Ubuntu 26.04 ou ultérieur avec glibc 2.43 ; les systèmes Linux plus anciens restent sur la version 1.4.2.
 - Recommandé : au moins 8 Go de RAM et un processeur 64 bits.
 - Ordinateur uniquement ; il n’existe pas de version iOS ni Android.
 

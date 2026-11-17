@@ -19,16 +19,9 @@ import ServiceManagement
 /// `project.pbxproj` edits without Xcode's own package-resolution UI), this
 /// host answers the exact same `launch_at_startup` channel/method contract
 /// directly with Apple's own `ServiceManagement` framework:
-/// - macOS 13+: `SMAppService.mainApp` — registers/unregisters the app itself
-///   as a login item, no separate helper-bundle target required.
-/// - macOS 10.15–12 (this app's `MACOSX_DEPLOYMENT_TARGET`): not supported.
-///   The legacy `SMLoginItemSetEnabled` API needs a dedicated helper-bundle
-///   target embedded in `Contents/Library/LoginItems/`, which is a real,
-///   separate build-system undertaking — out of scope here. `isEnabled`
-///   reports `false` and `setEnabled(true)` fails with a clear
-///   `FlutterError` instead of the previous opaque `MissingPluginException`,
-///   so `AutostartService.report(Object?)` (Dart side) surfaces an honest
-///   "not supported on this macOS version" failure rather than crashing.
+/// `SMAppService.mainApp` (macOS 13+, the app's `MACOSX_DEPLOYMENT_TARGET`)
+/// registers/unregisters the app itself as a login item, no separate
+/// helper-bundle target required.
 class AutostartHost {
   private var channel: FlutterMethodChannel
 
@@ -60,9 +53,7 @@ class AutostartHost {
       result(requiresApproval())
 
     case "launchAtStartupOpenLoginItems":
-      if #available(macOS 13.0, *) {
-        SMAppService.openSystemSettingsLoginItems()
-      }
+      SMAppService.openSystemSettingsLoginItems()
       result(nil)
 
     default:
@@ -71,28 +62,14 @@ class AutostartHost {
   }
 
   private func isEnabled() -> Bool {
-    if #available(macOS 13.0, *) {
-      return SMAppService.mainApp.status == .enabled
-    }
-    return false
+    SMAppService.mainApp.status == .enabled
   }
 
   private func requiresApproval() -> Bool {
-    if #available(macOS 13.0, *) {
-      return SMAppService.mainApp.status == .requiresApproval
-    }
-    return false
+    SMAppService.mainApp.status == .requiresApproval
   }
 
   private func setEnabled(_ enabled: Bool, result: @escaping FlutterResult) {
-    guard #available(macOS 13.0, *) else {
-      result(FlutterError(
-        code: "UNSUPPORTED_OS_VERSION",
-        message: "Launch at login requires macOS 13 or later.",
-        details: nil
-      ))
-      return
-    }
     do {
       if enabled {
         try SMAppService.mainApp.register()

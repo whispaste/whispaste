@@ -116,7 +116,7 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/window_manager/macos
 
 SPEC CHECKSUMS:
-  auto_updater_macos: dfc7d39a2867d46090698cefee5560888e43f99d
+  auto_updater_macos: 58a09230b3732a0165d6f0f41a2824f88c448da8
   desktop_drop: 10a3e6a7fa9dbe350541f2574092fecfa345a07b
   device_info_plus: 4fb280989f669696856f8b129e4a5e3cd6c48f76
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
@@ -139,6 +139,6 @@ SPEC CHECKSUMS:
   url_launcher_macos: f87a979182d112f911de6820aefddaf56ee9fbfd
   window_manager: b729e31d38fb04905235df9ea896128991cad99e
 
-PODFILE CHECKSUM: 65dce9ebcf4e7f00db6b529767428b21abe81d0d
+PODFILE CHECKSUM: 5cceb4e9767bf053112bfb372406299ee6d2bc88
 
 COCOAPODS: 1.17.0

@@ -12,7 +12,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/.build/opus-macos"
 SRC="$ROOT/.build/opus-src"
-MIN="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
+MIN="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
 ARCHS=(arm64 x86_64)
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 

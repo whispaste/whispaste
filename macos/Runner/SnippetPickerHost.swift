@@ -481,7 +481,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   ///
   /// `.activateIgnoringOtherApps` is deprecated as of macOS 14 in favour of
   /// the cooperative `activate(options:)`, but is kept here on purpose (and
-  /// emits no warning at this target's 10.15 deployment floor): the
+  /// emits no warning at the app's macOS 13 deployment floor): the
   /// cooperative form may be *declined* for an app that isn't already
   /// active, and a declined activation degrades straight back to the
   /// keyboard-dead picker this whole method exists to prevent. The

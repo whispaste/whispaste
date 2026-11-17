@@ -69,7 +69,7 @@ Works in emails, chat apps, code editors, browsers, terminals — almost anywher
 
 ## System Requirements
 
-- **macOS:** 12.0 (Monterey) or newer, Apple Silicon
+- **macOS:** 13.0 (Ventura) or newer, Apple Silicon only (Intel Macs and macOS 12 stay on 1.4.2)
 
 ## Command-Line Remote Control
 
@@ -108,7 +108,7 @@ Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model 
 
 ## Development
 
-**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 12 Monterey or newer (Apple Silicon), or a recent Linux distro
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 13 Ventura or newer (Apple Silicon), or a recent Linux distro
 
 ```bash
 git clone https://github.com/whispaste/whispaste.git

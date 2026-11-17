@@ -307,7 +307,10 @@ bool overviewTipsEligible({
 /// add entries for the new version, or add none. Either way, set this to the
 /// new version.
 /// 1.5.0: four entries, picked from the CHANGELOG in #1576.
-const kWhatsNewReviewedVersion = '1.5.0';
+/// 1.5.1: no own entries; a patch shows its minor's entries (see
+/// [whatsNewKey]), so a 1.4 user who updates straight to 1.5.1 (the first 1.5
+/// in the Mac App Store) still meets the 1.5 highlights.
+const kWhatsNewReviewedVersion = '1.5.1';
 
 /// One highlight of a version: a title, one sentence, and the place its
 /// "Try it" action leads to (a nav page id, `settings:<row>` or
@@ -393,13 +396,29 @@ WhatsNewView overviewWhatsNewView({
   String onboardedInVersion = '',
   Map<String, List<WhatsNewItem>>? registry,
 }) {
-  final items = (registry ?? kWhatsNewRegistry)[currentVersion] ?? const [];
-  if (items.isEmpty ||
-      closedVersion == currentVersion ||
-      onboardedInVersion == currentVersion) {
+  final reg = registry ?? kWhatsNewRegistry;
+  final key = whatsNewKey(currentVersion, reg);
+  final items = reg[key] ?? const [];
+  // Stored versions count for the same entries: closing the card in 1.5.0
+  // keeps it closed in 1.5.1, and a fresh 1.5.0 install has nothing to catch
+  // up on in 1.5.1 either.
+  bool same(String? v) => v != null && whatsNewKey(v, reg) == key;
+  if (items.isEmpty || same(closedVersion) || same(onboardedInVersion)) {
     return const WhatsNewView(items: [], dot: false);
   }
-  return WhatsNewView(items: items, dot: openedVersion != currentVersion);
+  return WhatsNewView(items: items, dot: !same(openedVersion));
+}
+
+/// The registry key whose entries [version] shows: its own entries when it
+/// has any, else those of its minor release (`1.5.1` → `1.5.0`), so a patch
+/// does not hide the highlights of the version it fixes. Any other version
+/// keeps its own key (and shows nothing without entries).
+String whatsNewKey(String version, Map<String, List<WhatsNewItem>> registry) {
+  if (registry.containsKey(version)) return version;
+  final m = RegExp(r'^(\d+)\.(\d+)\.\d+$').firstMatch(version);
+  if (m == null) return version;
+  final minor = '${m.group(1)}.${m.group(2)}.0';
+  return registry.containsKey(minor) ? minor : version;
 }
 
 /// The local calendar day as yyyy-mm-dd, the key of "one tip change per day".

@@ -46,7 +46,7 @@
 
 ## Plateformes et configuration requise
 
-- Windows 10 ou ultérieur, macOS 12 Monterey ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz).
+- Windows 10 ou ultérieur, macOS 13 Ventura ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz) sous Ubuntu 26.04 ou ultérieur avec glibc 2.43 ; les systèmes Linux plus anciens restent sur la version 1.4.2.
 - Recommandé : au moins 8 Go de RAM et un processeur 64 bits.
 - Ordinateur uniquement ; il n’existe pas de version iOS ni Android.
 

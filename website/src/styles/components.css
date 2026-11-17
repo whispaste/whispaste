@@ -434,6 +434,17 @@
 .wp-prose :where(figure img) {
   margin: 0;
 }
+/* Cut-out product shot (window, tray panel) rendered from the app code by
+   `generators/blog/`: the PNG carries its own rounded corners, transparent
+   surround and soft shadow. So no fill behind it and no extra rounding, which
+   would clip the window's title bar; the image sits centred at the width its
+   `width` attribute gives (a narrow panel stays narrow).
+   Markup: <figure class="wp-shot"><img … width height /><figcaption>… */
+.wp-prose :where(figure.wp-shot img) {
+  margin-inline: auto;
+  border-radius: 0;
+  background: none;
+}
 .wp-prose :where(figcaption) {
   margin-top: var(--wp-space-2);
   color: var(--wp-photo-caption);

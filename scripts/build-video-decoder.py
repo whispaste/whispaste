@@ -125,7 +125,7 @@ def main():
     if args.platform == "macos":
         if platform.machine() != "arm64":
             raise SystemExit("video-decoder: build macOS on Apple Silicon")
-        flags += ["--arch=aarch64", "--extra-cflags=-mmacosx-version-min=12.0", "--extra-ldflags=-mmacosx-version-min=12.0"]
+        flags += ["--arch=aarch64", "--extra-cflags=-mmacosx-version-min=13.0", "--extra-ldflags=-mmacosx-version-min=13.0"]
     if args.platform == "windows":
         flags += ["--toolchain=msvc", "--arch=x86_64", "--target-os=win64"]
     # Serial configuration followed by a bounded compile. Keep verbose build

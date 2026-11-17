@@ -59,9 +59,8 @@ bash packaging/appimage/build-appimage.sh build/linux/x64/release/bundle <versio
 
 Ergebnis: `release-artifacts/WhisPaste-<version>-linux-x64.AppImage`.
 
-Auf dem Build-Host müssen `linuxdeploy` und `pulseaudio-utils` liegen. Ein
-Probebau im Testlabor (`ubu`, Ubuntu 26.04, GLIBC 2.43) braucht
-`MAX_GLIBC=2.43`; das Ergebnis ist nur zum Prüfen da, kein Release-Artefakt.
+Auf dem Build-Host müssen `linuxdeploy` und `pulseaudio-utils` liegen. Der
+Release baut im Testlabor auf `ubu` (Ubuntu 26.04, GLIBC 2.43).
 
 `linuxdeploy` bündelt die Shared-Library-Abhängigkeiten der Executable plus die
 Plugin-`.so`-Dateien aus dem Flutter-`lib/`-Verzeichnis (`--library-path`) in den
@@ -96,9 +95,11 @@ geschrieben — korrekt, alles Veränderliche liegt im User-Config-Dir.
 
 ## Mindestbasis (GLIBC)
 
-Das AppImage läuft ab **Ubuntu 24.04 (GLIBC 2.39)**. Der Release-Job baut deshalb
-auf `ubuntu-24.04`, und `build-appimage.sh` bricht ab, wenn eine Datei im AppDir
-eine höhere GLIBC-Version verlangt (`MAX_GLIBC`, Standard `2.39`).
+Linux-Builds zielen immer auf die **aktuelle Ubuntu-LTS** (Maintainer 2026-11-16), derzeit
+**Ubuntu 26.04 (GLIBC 2.43)**, ab v1.5.0. Gebaut wird auf genau dieser Version (`ubu`), und
+`build-appimage.sh` bricht ab, wenn eine Datei im AppDir eine höhere GLIBC-Version verlangt
+(`MAX_GLIBC`, Standard `2.43`; `linux-stage.sh` setzt den Wert ausdrücklich). Mit der nächsten
+LTS steigen Build-Host und `MAX_GLIBC` gemeinsam. Bis v1.4.2 war die Basis Ubuntu 24.04 (2.39).
 
 ## Lokale Ausführung / Validierung
 

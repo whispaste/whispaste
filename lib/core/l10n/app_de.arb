@@ -1227,7 +1227,7 @@
     }
   },
   "keychainMigrationAllow": "Übernehmen",
-  "keychainMigrationBody": "WhisPaste legt seine Schlüssel jetzt an einem neuen Ort im Schlüsselbund ab, der nicht mehr nachfragt, auch nicht nach einem Update. Dafür holt es deine bisherigen Einträge (zum Beispiel API-Schlüssel) einmal ab. Dein System fragt dazu einmal für alle Einträge zusammen um Erlaubnis. Danach werden die alten Einträge entfernt.",
+  "keychainMigrationBody": "WhisPaste bringt deine gespeicherten Schlüssel, zum Beispiel API-Schlüssel, an einen eigenen, besser geschützten Ort auf diesem Mac. Dabei öffnet macOS ein Fenster und fragt nach einem Passwort. Gib dort das Passwort ein, mit dem du dich am Mac anmeldest, und klicke auf „Immer erlauben“. Hast du mehrere Schlüssel gespeichert, kann das Fenster für jeden einmal erscheinen. Das passiert nur bei diesem einen Umzug, danach fragt macOS nicht mehr. Passwort und Schlüssel bleiben auf deinem Mac, nichts wird verschickt.",
   "keychainMigrationDeclined": "Die gespeicherten Schlüssel wurden nicht übernommen. Bis dahin fehlen sie in WhisPaste, zum Beispiel API-Schlüssel für die Transkription. Es wurde nichts gelöscht. Du kannst die Übernahme jederzeit erneut starten.",
   "keychainMigrationTitle": "Gespeicherte Schlüssel übernehmen",
   "languageCycleNoFavoritesToast": "Noch keine Favoriten-Sprachen. Füge unter Einstellungen → Spracherkennung bis zu fünf Sprachen als Favoriten hinzu, damit das Kürzel funktioniert.",
@@ -1284,7 +1284,7 @@
   "manualC01S1Heading": "Einrichtung beim ersten Start",
   "manualC01S2B1": "WhisPaste empfiehlt ein Gerät mit mindestens {ram} Arbeitsspeicher (RAM). Auf Geräten mit weniger startet WhisPaste trotzdem und empfiehlt ein kompaktes Sprachmodell. Ist für ein größeres Modell gerade zu wenig Speicher frei, fragt WhisPaste vor dem Laden nach.",
   "manualC01S2B2": "Zum Aufnehmen brauchst du ein Mikrofon. Im Onboarding kannst du ohne Mikrofon weitermachen, aufnehmen kannst du dann aber erst, wenn ein Mikrofon angeschlossen ist.",
-  "manualC01S2B3": "Auf dem Mac läuft WhisPaste nur auf Apple Silicon (M1 oder neuer); Intel-Macs werden nicht unterstützt.",
+  "manualC01S2B3": "Auf dem Mac läuft WhisPaste nur auf Apple Silicon (M1 oder neuer) mit macOS 13 Ventura oder neuer; Intel-Macs werden nicht unterstützt.",
   "manualC01S2Heading": "Systemvoraussetzungen",
   "manualC01S3B1": "WhisPaste wandelt deine Sprache in Text um, auf deinem Gerät oder über einen Cloud-Anbieter mit eigenem Schlüssel. Für das Gerät brauchst du ein Modell. Den Download startest du selbst, er beginnt nicht automatisch.",
   "manualC01S3B2I1": "Parakeet: schnell, für europäische Sprachen, ca. {k1}.",

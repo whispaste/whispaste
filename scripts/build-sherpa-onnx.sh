@@ -31,7 +31,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 . "$REPO_ROOT/scripts/sherpa-onnx.pin"
 
 # macOS deployment target = the app's MACOSX_DEPLOYMENT_TARGET (macos/Runner.xcodeproj).
-MACOS_DEPLOYMENT_TARGET="12.0"
+MACOS_DEPLOYMENT_TARGET="13.0"
 
 usage() {
   echo "usage: $0 macos|linux [--toolchain <file>] [--stage-name <name>]" >&2

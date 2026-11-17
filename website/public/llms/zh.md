@@ -46,7 +46,7 @@
 
 ## 平台与配置要求
 
-- Windows 10 或更高版本，Apple Silicon 上的 macOS 12 Monterey 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz）。
+- Windows 10 或更高版本，Apple Silicon 上的 macOS 13 Ventura 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz），需要 Ubuntu 26.04 或更高版本（glibc 2.43）；更旧的 Linux 系统请继续使用 1.4.2 版。
 - 建议：至少 8 GB 内存和 64 位处理器。
 - 仅限桌面；没有 iOS 或 Android 版本。
 

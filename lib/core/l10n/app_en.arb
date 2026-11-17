@@ -1785,7 +1785,7 @@
     }
   },
   "keychainMigrationAllow": "Move keys",
-  "keychainMigrationBody": "WhisPaste now stores its keys in a new place in the keychain that no longer asks, not even after an update. To do so it picks up your existing entries (for example API keys) once. Your system asks one time for all entries together. Afterwards the old entries are removed.",
+  "keychainMigrationBody": "WhisPaste is moving your saved keys, such as API keys, to its own, better protected place on this Mac. While it does, macOS opens a window asking for a password. Enter the password you use to log in to your Mac and click “Always Allow”. If you saved several keys, the window may appear once for each. This happens only for this one move; afterwards macOS stops asking. Your password and keys stay on your Mac, nothing is sent anywhere.",
   "keychainMigrationDeclined": "The saved keys were not moved. Until then they are missing in WhisPaste, for example API keys for transcription. Nothing was deleted. You can start the move again at any time.",
   "keychainMigrationTitle": "Move saved keys",
   "languageCycleNoFavoritesToast": "No favorite languages yet. Add up to five favorites in Settings → Speech recognition to use this shortcut.",
@@ -1863,7 +1863,7 @@
     }
   },
   "manualC01S2B2": "You need a microphone to record. In onboarding you can continue without one, but you can only record once a microphone is connected.",
-  "manualC01S2B3": "On the Mac, WhisPaste runs only on Apple Silicon (M1 or newer); Intel Macs are not supported.",
+  "manualC01S2B3": "On the Mac, WhisPaste runs only on Apple Silicon (M1 or newer) with macOS 13 Ventura or later; Intel Macs are not supported.",
   "manualC01S2Heading": "System requirements",
   "manualC01S3B1": "WhisPaste turns your speech into text, either on your device or through a cloud provider with your own key. On your device it needs a model. You start the download yourself; it does not start automatically.",
   "manualC01S3B2I1": "Parakeet: fast, for European languages, about {k1}.",

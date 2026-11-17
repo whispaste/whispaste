@@ -9,6 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 
 void main() {
+  // The map is static: in a lab bundle (#1492) other files' tests run first in
+  // this isolate and may leave keys behind (settingsRowKey in a finder for a
+  // row that never mounts). Counts below are absolute, so start empty.
+  setUp(debugResetSettingsRowKeys);
+
   testWidgets('a removed row releases its key, a kept row keeps it', (
     tester,
   ) async {

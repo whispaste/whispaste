@@ -19,10 +19,7 @@ private let isMasBuild = false
 /// Sponsoring never unlocks a feature.
 /// The verified-purchase flag below is a cosmetic supporter badge only.
 ///
-/// Deployment target is macOS 12; `AppTransaction` needs macOS 13 and is
-/// guarded with `#available`, so app-purchase verification reports false on
-/// macOS 12.
-@available(macOS 12.0, *)
+/// `AppTransaction` needs macOS 13, which is the app's deployment target.
 final class SupportStoreHost {
   /// Consumable ids shared with the Microsoft Store add-ons; see
   /// `lib/services/support/support_store_bridge.dart`.
@@ -179,7 +176,6 @@ final class SupportStoreHost {
 
   private func hasVerifiedAppPurchase() async -> Bool {
     guard isMasBuild else { return false }
-    guard #available(macOS 13.0, *) else { return false }
     do {
       switch try await AppTransaction.shared {
       case .verified:
