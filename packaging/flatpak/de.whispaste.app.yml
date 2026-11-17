@@ -242,8 +242,8 @@ modules:
       # Per-release: bump `url` to the tag's asset and `sha256` to its digest
       # (runbook step in README.md).
       - type: archive
-        url: https://github.com/whispaste/whispaste/releases/download/v1.2.65/WhisPaste-1.2.65-linux-x64.tar.gz
-        sha256: 209f13fe0d4ff74e2fca0ba7cadaf4dbcd6ed9d95d7f2915531a3916b64c7454
+        url: https://github.com/whispaste/whispaste/releases/download/v1.5.1/WhisPaste-1.5.1-linux-x64.tar.gz
+        sha256: 581dda93bc58206d18fed23521eebfb4b9a60a85b580f0aaf475090d07104679
         # The tarball root IS the Flutter bundle (no leading bundle/ dir).
         strip-components: 0
       - type: file

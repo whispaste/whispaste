@@ -41,10 +41,14 @@ without viewport scaling use `$value`.
   at about 4.1:1), so the wave stays cyan; the done check goes straight to ink.
 - **Violet** (`navy.500`): only as the last stop of the stage wash.
 - **Coffee yellow** (`coffee.*`, Kaffee-Gelb `#FFDD00`): only the "buy me a
-  coffee" support buttons (Ko-fi and Buy Me a Coffee at equal rank), in the app
-  (`WpCoffeeTokens`) and on the website (`coffee-button`). Ink is `navy.900`
-  (about 15:1). Never used for other accents, so these buttons stay the only
-  yellow things on a screen.
+  coffee" support buttons, in the app (`WpCoffeeTokens`) and on the website as
+  the Buy Me a Coffee provider tile (`support-tile`). Ink is `navy.900` (about
+  15:1). Never used for other accents, so these buttons stay the only yellow
+  things on a screen.
+- **Provider colours** (`color.brand.*`): PayPal blue, Ko-fi orange and GitHub
+  Sponsors pink, only on the support provider tiles (app `WpBrandTokens`,
+  website `support-tile`, #398). Ink per tile: white on PayPal, `navy.900` on
+  the others.
 - **Status**: success/warning/error match the app; each has an on-light variant.
 
 ## App overlay presets

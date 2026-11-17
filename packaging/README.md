@@ -13,15 +13,15 @@ GNOME-Runtime geprüft (beim ersten Flatpak-Build prüfen).
 | Kanal | Datei | Plattform | Status |
 |---|---|---|---|
 | Scoop | `scoop/whispaste.json` | Windows x64 | ✅ sofort nutzbar |
-| winget | `winget/SilvioLindstedt.WhisPaste.*.yaml` | Windows x64 | ⚠️ PR an `microsoft/winget-pkgs` nötig |
+| winget | `winget/SilvioLindstedt.WhisPaste.*.yaml` | Windows x64 | ✅ veröffentlicht seit 1.2.72 (`winget install SilvioLindstedt.WhisPaste`); je Version ein PR an `microsoft/winget-pkgs` (1.5.1: PR 482102) |
 | Homebrew Cask | `homebrew/whispaste.rb` | macOS arm64 | ✅ veröffentlicht (Developer-ID-Notarization live seit v1.2.75) — `whispaste/homebrew-tap` |
-| Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
-
-> **Flatpak caveat:** libFLAC ships inside the bundle (#84); whether the GNOME 50 runtime ships libopusfile is not verified. Until it is, voice-note import (Ogg/Opus, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
+| Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⛔ in dieser Form nicht einreichbar (App-ID, Build aus Quellcode, KI-Richtlinie von Flathub) — Befunde: `flatpak/README.md` |
 | AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
 | `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
-| Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ `snapcraft upload` an den Snap Store nötig — Runbook: `snap/README.md` |
+| Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ Manifest auf 1.5.1, Name `whispaste` nicht registriert, noch kein Build (test-lab `ubu` ist ein LXC-Container ohne snapd) — Runbook: `snap/README.md` |
 | GNOME-Shell-Fokus-Erweiterung (optional) | `packaging/linux/gnome-shell-extension/` + `packaging/linux/install-gnome-extension.sh` | Linux, GNOME 45–50 | ✅ im `.deb` (deaktiviert) und im Linux-Tarball; EGO-Zip: `packaging/linux/make-gnome-extension-zip.sh` (vorbereitet, **nicht eingereicht**). AppImage und Snap: kein Installationsweg dokumentiert, die Erweiterung ist dort nicht geprüft (Laufzeitcheck offen) |
+
+> **Flatpak caveat:** libFLAC ships inside the bundle (#84); whether the GNOME 50 runtime ships libopusfile is not verified. Until it is, voice-note import (Ogg/Opus, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).
@@ -40,15 +40,43 @@ scoop install https://raw.githubusercontent.com/whispaste/whispaste/main/packagi
 ```
 
 **B) Eigener Bucket (empfohlen für `scoop install whispaste`):**
-1. Repo `whispaste/scoop-bucket` anlegen, `whispaste.json` ins Verzeichnis `bucket/` legen (dorthin schreibt die Stufe `buckets`).
+1. Repo `whispaste/scoop-bucket`, Manifest unter `bucket/whispaste.json`; aktuell hält es der
+   Workflow aus „Bucket- und Tap-Workflow" (unten).
 2. Nutzer:
    ```powershell
    scoop bucket add whispaste https://github.com/whispaste/scoop-bucket
    scoop install whispaste
    ```
 `checkver: github` + `autoupdate` ziehen neue Versionen automatisch; Hash wird
-beim `scoop update` neu berechnet. Manifest-Pflege per Bucket-eigener
-`bin/checkver.ps1`/`auto-pr` möglich.
+beim `scoop update` neu berechnet.
+
+---
+
+## Bucket- und Tap-Workflow (`buckets/`)
+
+`whispaste/scoop-bucket` und `whispaste/homebrew-tap` aktualisieren sich selbst: Beide tragen
+denselben Workflow `buckets/update-manifest.yml` (dort `.github/workflows/update-manifest.yml`)
+und eine Kopie von `buckets/render_manifest.py` (dort `.github/scripts/render_manifest.py`).
+Der Workflow startet nur per `workflow_dispatch` (Release-Ablauf mit dem Tag, oder von Hand
+über „Run workflow", leerer Tag = neuester stabiler Release). Er liest ausschließlich den
+veröffentlichten Release von `whispaste/whispaste`: Version aus dem Tag, Hash aus `SHA256SUMS`
+(gegen das geladene ZIP geprüft), Vorlage `scoop/whispaste.json` bzw. `homebrew/whispaste.rb`
+am Tag. Nur Version, URL und Hash ändern sich; er committet mit dem eigenen `GITHUB_TOKEN`,
+idempotent und ohne je auf eine ältere Version zurückzugehen. Derselbe Renderer erzeugt die
+Manifeste im Release-Ablauf, damit beide Seiten Byte für Byte gleich rechnen.
+
+Einrichtung (einmalig, je Repo):
+1. `buckets/update-manifest.yml` als `.github/workflows/update-manifest.yml` und
+   `buckets/render_manifest.py` als `.github/scripts/render_manifest.py` committen.
+2. Settings → Actions → General: Actions erlaubt; unter „Workflow permissions" reicht die
+   Voreinstellung, der Workflow fordert `contents: write` selbst an. Schützt eine Regel `main`,
+   braucht GitHub Actions dort eine Ausnahme.
+3. Ändert sich `buckets/render_manifest.py`, die Kopie erneuern (der Workflow warnt bei
+   Abweichung von der Fassung am Release-Tag).
+
+Tests: `python3 packaging/buckets/test_render_manifest.py`,
+`bash packaging/buckets/update-manifest.test.sh` (führt den Workflow-Schritt lokal gegen ein
+gefälschtes `gh` und ein lokales Repo aus).
 
 ---
 
@@ -87,14 +115,14 @@ winget-Manifeste leben zentral in `microsoft/winget-pkgs`. Ablauf:
 notarisiert (Sign-, Notarize- und Staple-Schritt der Release-Pipeline); Homebrew
 kann das Bundle ohne Gatekeeper-Quarantäne-Blockade installieren.
 
-Tap-Repo: `whispaste/homebrew-tap`, Datei `Casks/whispaste.rb`. Die Release-Pipeline bumpt `packaging/homebrew/whispaste.rb` in diesem Repo pro Release; die Stufe `buckets` (`scripts/release.sh`, freigabepflichtig, nach dem Publish) committet das erzeugte Manifest idempotent nach `Casks/whispaste.rb` im Tap-Repo. Scoop geht genauso nach `bucket/whispaste.json` im Bucket-Repo.
+Tap-Repo: `whispaste/homebrew-tap`, Datei `Casks/whispaste.rb`. Die Release-Pipeline bumpt `packaging/homebrew/whispaste.rb` in diesem Repo pro Release; nach dem Publish startet sie im Tap-Repo den Workflow `update-manifest.yml` (siehe „Bucket- und Tap-Workflow"), der `Casks/whispaste.rb` selbst committet und den sie danach gegen ihr eigenes Manifest prüft. Scoop geht genauso nach `bucket/whispaste.json` im Bucket-Repo.
 
 Nutzer:
 ```bash
 brew install --cask whispaste/tap/whispaste
 ```
-`livecheck` (strategy `github_latest`) meldet neue Versionen; `sha256` muss pro
-Release aktualisiert werden (oder via `brew bump-cask-pr` automatisiert).
+`livecheck` (strategy `github_latest`) meldet neue Versionen; `sha256` setzt der
+Workflow pro Release.
 
 Cask nutzt das versionierte ZIP (`WhisPaste-<version>-macos-arm64.zip`), nicht die
 unversionierte DMG — saubere URL fürs Versionstracking.

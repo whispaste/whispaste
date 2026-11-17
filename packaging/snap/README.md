@@ -142,7 +142,13 @@ prüfen: `xvfb-run -a snap run whispaste --diagnose`.
 2. **Version bumpen**: `version:` in `snapcraft.yaml` + `source:`-URL des Parts
    `whispaste-bundle` auf das neue Release-Tag-Asset
    (`…/releases/download/v<version>/WhisPaste-<version>-linux-x64.tar.gz`) setzen.
-3. **Bauen** (CI/NAS-x86-VM): `snapcraft pack`.
+3. **Bauen**: `snapcraft pack` auf einem Ubuntu-x86_64-System mit snapd und
+   LXD, oder ohne eigenes System über Launchpad: `snapcraft remote-build`
+   (kostenlos, verlangt einmal die Freigabe des Launchpad-Kontos im Browser).
+   test-lab `ubu` geht nicht: Es ist ein unprivilegierter LXC-Container ohne
+   Loop-Geräte, snapd startet dort nicht (geprüft 2026-11-17). Auch das
+   Container-Image `ghcr.io/canonical/snapcraft:8_core24` baut nicht, weil die
+   `gnome`-Extension ihr SDK als Build-Snap über snapd holt.
 4. **Hochladen + Channel** (`edge` → `beta` → `candidate` → `stable`):
    ```bash
    snapcraft upload ./whispaste_<version>_amd64.snap --release=edge
@@ -165,6 +171,8 @@ Bei jeder neuen Version anzupassen:
 
 - `version:` in `snapcraft.yaml`,
 - `source:`-URL des Parts `whispaste-bundle` (Tag-Asset),
+- `source-checksum:` desselben Parts (`sha256/<Digest>` aus `SHA256SUMS` des Releases),
+- `<release>`-Eintrag in `de.whispaste.app.metainfo.xml` (Kopie der Flatpak-Datei, beide gleich halten),
 
 danach `snapcraft pack` + `snapcraft upload`. Das Bundle, die `Depends`-äquivalenten
 `stage-packages` und die gemeinsame Desktop-/Metainfo-/Icon-Quelle bleiben stabil.

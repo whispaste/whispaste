@@ -154,13 +154,15 @@ flutter build macos   --release --no-tree-shake-icons
 ## Support
 
 <p align="center">
-  <a href="https://github.com/sponsors/silvio-l"><img src="https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor"></a>&ensp;
-  <a href="https://ko-fi.com/silviol"><img src="https://img.shields.io/badge/Ko--fi-☕-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
+  <a href="https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY">PayPal</a> ·
+  <a href="https://ko-fi.com/silviol">Ko-fi</a> ·
+  <a href="https://buymeacoffee.com/silvio.lindstedt">Buy Me a Coffee</a> ·
+  <a href="https://github.com/sponsors/silvio-l">GitHub Sponsors</a>
 </p>
 
 In the app, Help › Support lists every way to help. The Microsoft Store and Mac App Store
-versions offer an optional one-time tip through the store, followed by GitHub Sponsors,
-Ko-fi, Buy Me a Coffee and PayPal. External support unlocks nothing.
+versions offer an optional one-time tip through the store, followed by the providers above.
+External support unlocks nothing.
 
 Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).

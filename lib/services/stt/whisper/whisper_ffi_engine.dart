@@ -240,6 +240,11 @@ class WhisperSegment {
   /// call regardless of `includeTimestamps` — it isn't gated behind
   /// `no_timestamps` in whisper.cpp. `null` only if the bundled `libwhisper`
   /// predates the symbol.
+  ///
+  /// In practice ~0 for every segment (#1742): whisper.cpp v1.9.5 takes the
+  /// `<|nospeech|>` probability after the whole prompt instead of at
+  /// `<|startoftranscript|>`, so even pure silence or noise reads 0.000.
+  /// Not a usable speech signal; see `internal-notes`.
   final double? noSpeechProb;
 
   /// Probabilities of this segment's text tokens (special and timestamp

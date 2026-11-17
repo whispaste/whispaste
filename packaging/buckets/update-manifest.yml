@@ -1,0 +1,80 @@
+# update-manifest — WhisPaste manifest of this repo from a published WhisPaste release.
+#
+# Lives as .github/workflows/update-manifest.yml in whispaste/scoop-bucket and
+# whispaste/homebrew-tap (same file in both; the repo name picks the manifest), next to
+# .github/scripts/render_manifest.py. Source of both files: packaging/buckets/ in the
+# WhisPaste repo. The release machine does not push to GitHub, so this workflow writes the
+# manifest with its own GITHUB_TOKEN instead.
+#
+# Started by the release (scripts/release.sh, stage buckets: gh workflow run with the tag)
+# or by hand ("Run workflow", tag empty = latest stable release). No schedule (rule 2026-10-25).
+# Inputs: the published release only. Version from the tag, hash from its SHA256SUMS,
+# cross-checked against the downloaded asset, template from packaging/ at that tag.
+# Idempotent: no commit when the manifest already has this content; never downgrades.
+name: update-manifest
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag vX.Y.Z (empty: latest stable release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-manifest
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Render the manifest and commit it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_INPUT: ${{ inputs.tag }}
+          SRC: whispaste/whispaste
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REPOSITORY#*/}" in
+            scoop-bucket) kind=scoop; dest=bucket/whispaste.json; tpl=packaging/scoop/whispaste.json ;;
+            homebrew-tap) kind=homebrew; dest=Casks/whispaste.rb; tpl=packaging/homebrew/whispaste.rb ;;
+            *) echo "::error::no manifest known for $GITHUB_REPOSITORY"; exit 1 ;;
+          esac
+          tag="$TAG_INPUT"
+          if [[ -z "$tag" ]]; then tag="$(gh release view --repo "$SRC" --json tagName --jq .tagName)"; fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::$tag is no stable release tag"; exit 1; }
+          state="$(gh release view "$tag" --repo "$SRC" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          [[ "$state" == "false false" ]] || { echo "::error::$tag is not a published stable release ($state)"; exit 1; }
+          version="${tag#v}"
+          render=.github/scripts/render_manifest.py
+          w="$RUNNER_TEMP/wp"
+          mkdir -p "$w" "$(dirname "$dest")"
+          asset="$(python3 -I "$render" asset "$kind" "$version")"
+          gh release download "$tag" --repo "$SRC" -p SHA256SUMS -p "$asset" -D "$w"
+          gh api "repos/$SRC/contents/$tpl?ref=$tag" -H 'Accept: application/vnd.github.raw' > "$w/template"
+          # Drift hint: this repo runs a copy of the renderer; newer releases carry the original.
+          if gh api "repos/$SRC/contents/packaging/buckets/render_manifest.py?ref=$tag" \
+              -H 'Accept: application/vnd.github.raw' > "$w/upstream.py" 2>/dev/null \
+            && ! cmp -s "$w/upstream.py" "$render"; then
+            echo "::warning::$render differs from packaging/buckets/render_manifest.py at $tag: copy it again"
+          fi
+          python3 -I "$render" render "$kind" --template "$w/template" --version "$version" \
+            --sums "$w/SHA256SUMS" --asset-file "$w/$asset" --current "$dest" --out "$dest"
+          git add -N -- "$dest"
+          if git diff --quiet -- "$dest"; then
+            echo "$dest already up to date for $version"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          git commit -q -m "chore: bump whispaste to $version"
+          git push -q origin HEAD
+          echo "$dest bumped to $version" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -99,47 +99,119 @@
   pointer-events: none;
 }
 
-/* ---- Coffee support button (coffee yellow, navy ink; design-tokens coffee-button) ---- */
-.wp-coffee-button {
-  display: inline-flex;
+/* ---- Support provider tile (brand colour + official logo; design-tokens support-tile, #398) ---- */
+.wp-support-tile {
+  --tile-fill: var(--wp-support-tile-paypal-fill);
+  --tile-fill-hover: var(--wp-support-tile-paypal-fill-hover);
+  --tile-text: var(--wp-support-tile-paypal-text);
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--wp-coffee-button-gap);
-  max-width: 100%;
-  min-height: var(--wp-coffee-button-height);
-  padding: var(--wp-space-3) var(--wp-coffee-button-pad-x);
-  border-radius: var(--wp-coffee-button-radius);
-  background: var(--wp-coffee-button-fill);
-  color: var(--wp-coffee-button-text);
-  font-size: var(--wp-font-size-md);
-  font-weight: var(--wp-coffee-button-weight);
-  line-height: 1.2;
-  text-align: center;
+  gap: var(--wp-support-tile-gap);
+  min-height: var(--wp-support-tile-min-height);
+  padding: var(--wp-space-3) var(--wp-space-5);
+  border-radius: var(--wp-support-tile-radius);
+  background: var(--tile-fill);
+  color: var(--tile-text);
   text-decoration: none;
   box-shadow: var(--wp-card-shadow);
   transition: transform var(--wp-duration-base) var(--wp-easing-flow),
     background-color var(--wp-duration-base) var(--wp-easing-flow);
 }
-.wp-coffee-button svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex-shrink: 0;
+.wp-support-tile--kofi {
+  --tile-fill: var(--wp-support-tile-kofi-fill);
+  --tile-fill-hover: var(--wp-support-tile-kofi-fill-hover);
+  --tile-text: var(--wp-support-tile-kofi-text);
 }
-.wp-coffee-button:hover {
-  background: var(--wp-coffee-button-fill-hover);
+.wp-support-tile--buymeacoffee {
+  --tile-fill: var(--wp-support-tile-buymeacoffee-fill);
+  --tile-fill-hover: var(--wp-support-tile-buymeacoffee-fill-hover);
+  --tile-text: var(--wp-support-tile-buymeacoffee-text);
+}
+.wp-support-tile--github {
+  --tile-fill: var(--wp-support-tile-github-fill);
+  --tile-fill-hover: var(--wp-support-tile-github-fill-hover);
+  --tile-text: var(--wp-support-tile-github-text);
+}
+.wp-support-tile:hover {
+  background: var(--tile-fill-hover);
   transform: translateY(-2px);
 }
-.wp-coffee-button:active {
+.wp-support-tile:active {
   transform: scale(0.98);
 }
-.wp-coffee-button:focus-visible {
+.wp-support-tile:focus-visible {
   outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
   outline-offset: var(--wp-focus-ring-offset);
 }
+.wp-support-tile__logo {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--wp-support-tile-logo-size);
+  height: var(--wp-support-tile-logo-size);
+}
+.wp-support-tile__logo svg {
+  width: 100%;
+  height: 100%;
+}
+.wp-support-tile__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wp-support-tile__name {
+  font-size: var(--wp-font-size-md);
+  font-weight: var(--wp-font-weight-bold);
+  line-height: 1.25;
+}
+.wp-support-tile__sub {
+  font-size: var(--wp-font-size-sm);
+  line-height: 1.35;
+}
+/* Sponsor page card: logo on top, then name, short line, text, call to action. */
+.wp-support-tile--detail {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--wp-space-2);
+  min-height: 100%;
+  padding: clamp(var(--wp-space-6), var(--wp-space-4) + 1.5vw, var(--wp-space-10));
+  border-radius: var(--wp-radius-panel);
+}
+.wp-support-tile--detail .wp-support-tile__logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: var(--wp-space-3);
+}
+.wp-support-tile--detail .wp-support-tile__name {
+  font-family: var(--wp-font-family-display);
+  font-size: var(--wp-font-size-h3);
+  letter-spacing: -0.02em;
+}
+.wp-support-tile__desc {
+  flex: 1;
+  margin-top: var(--wp-space-2);
+  line-height: 1.65;
+}
+.wp-support-tile__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wp-space-2);
+  margin-top: var(--wp-space-4);
+  font-weight: var(--wp-font-weight-bold);
+}
+.wp-support-tile__cta svg {
+  width: 1rem;
+  height: 1rem;
+  transition: transform var(--wp-duration-base) var(--wp-easing-flow);
+}
+.wp-support-tile:hover .wp-support-tile__cta svg {
+  transform: translateX(4px);
+}
 @media (prefers-reduced-motion: reduce) {
-  .wp-coffee-button,
-  .wp-coffee-button:hover,
-  .wp-coffee-button:active {
+  .wp-support-tile,
+  .wp-support-tile:hover,
+  .wp-support-tile:active,
+  .wp-support-tile__cta svg,
+  .wp-support-tile:hover .wp-support-tile__cta svg {
     transition: none;
     transform: none;
   }

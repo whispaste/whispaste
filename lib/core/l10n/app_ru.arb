@@ -1776,6 +1776,7 @@
   "menuBarMenuEdit": "Правка",
   "menuBarMenuRecording": "Запись",
   "menuBarMenuWindow": "Окно",
+  "menuBarWindowClose": "Закрыть",
   "menuBarWindowMinimize": "Свернуть",
   "menuBarWindowZoom": "Масштаб",
   "micFallbackNotice": "Встроенный микрофон не давал сигнала. Используется {mic}.",

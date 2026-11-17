@@ -1,6 +1,7 @@
 ---
 import LegalPage from "../components/pages/LegalPage.astro";
 import { t, localePath } from "../scripts/i18n.ts";
+import { PROVIDER_NAME } from "../legal/entity.ts";
 
 const lang = 'de' as const;
 const breadcrumbItems = [
@@ -34,7 +35,7 @@ const breadcrumbItems = [
       <section>
         <h2>2. Verantwortlicher</h2>
         <p>
-          org Gräfendorf, GbR<br>
+          {PROVIDER_NAME}<br>
           Pappelweg 27<br>
           39576 Stendal<br>
           E-Mail: kontakt@whispaste.de

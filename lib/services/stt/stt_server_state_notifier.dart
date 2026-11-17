@@ -961,7 +961,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       knownPhrase: isNonSpeechTranscript(text),
     );
     if (record == null) return;
-    appendTailConfidenceRecord(appDataDir(), record);
+    appendTailConfidenceRecord(
+      appDataDir(),
+      record,
+      onError: (e) =>
+          _log.debug('tail protocol write failed: ${e.runtimeType}'),
+    );
   }
 
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) =>

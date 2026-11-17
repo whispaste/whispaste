@@ -11,25 +11,51 @@
 
   <description>
     <p>
-      WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
-      transcribed text is pasted at the cursor position of whatever application
-      you are currently typing in — system-wide, not bound to a single app.
+      WhisPaste turns speech into text wherever you type. Press a hotkey,
+      speak, and the text appears at the cursor in the app you are already
+      using: email, chat, editor, terminal or search field. You never leave
+      the window.
     </p>
     <p>
-      Transcription runs locally on your device via whisper.cpp (no network
-      traffic) or, optionally, through a cloud provider you choose. The local
-      Sprachdienst is downloaded automatically on first use; audio never leaves
-      your device in local mode.
+      Transcription runs locally on your computer by default (whisper.cpp), so
+      audio and text stay on your device and it works offline. A cloud provider
+      is optional and only used if you choose one. No account or subscription
+      needed.
     </p>
-    <p>WhisPaste is explicitly not an always-listening assistant, not a
-      recording or file-transcription tool, and not a voice-command system —
-      its output is text that flows into the active application.</p>
+    <ul>
+      <li>Global hotkey, push-to-talk or toggle</li>
+      <li>Small recording overlay with a live waveform</li>
+      <li>Searchable history, export as TXT, Markdown, CSV, JSON or DOCX</li>
+      <li>Text replacements for names and terms you use often</li>
+      <li>Import audio files; speakers in a conversation are separated locally</li>
+    </ul>
+    <p>
+      The speech model is downloaded on first use. Automatic pasting needs
+      one-time permission for a virtual keyboard; without it, WhisPaste copies
+      the text to the clipboard and you paste it yourself.
+    </p>
   </description>
 
   <launchable type="desktop-id">de.whispaste.app.desktop</launchable>
 
+  <screenshots>
+    <screenshot type="default">
+      <caption>Every dictation in a searchable history</caption>
+      <image>https://whispaste.de/screenshots/en/dark/01_workspace_overview.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Smart Mode translates or rewrites text with a local text model</caption>
+      <image>https://whispaste.de/screenshots/en/dark/06_smart_mode.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Notes with formatting, tags and favorites</caption>
+      <image>https://whispaste.de/screenshots/en/dark/10_notes.png</image>
+    </screenshot>
+  </screenshots>
+
   <url type="homepage">https://whispaste.de/</url>
   <url type="bugtracker">https://github.com/whispaste/whispaste/issues</url>
+  <url type="vcs-browser">https://github.com/whispaste/whispaste</url>
 
   <developer id="de.whispaste">
     <name>Silvio Lindstedt</name>
@@ -39,7 +65,12 @@
     <binary>whispaste</binary>
   </provides>
 
-  <content_rating type="oars-1.1" />
+  <!-- Usage statistics (Matomo) and crash reports (Sentry, incl. native
+       minidumps) are on by default and can be switched off. OARS counts
+       crash dumps as "intense" social-info. -->
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-info">intense</content_attribute>
+  </content_rating>
 
   <categories>
     <category>Utility</category>
@@ -58,14 +89,10 @@
   <!-- Per-release: prepend a <release> entry with the tag version + date.
        See packaging/flatpak/README.md (runbook). -->
   <releases>
-    <release version="1.2.67" date="2026-08-20">
+    <release version="1.5.1" date="2026-11-17">
+      <url type="details">https://github.com/whispaste/whispaste/releases/tag/v1.5.1</url>
       <description>
-        <p>See the full changelog on the WhisPaste website.</p>
-      </description>
-    </release>
-    <release version="1.2.65" date="2026-07-30">
-      <description>
-        <p>See the full changelog on the WhisPaste website.</p>
+        <p>WhisPaste 1.5: history, notes and settings are stored encrypted, a new Overview start page, quiet speech is evened out in volume automatically, and recordings, notes and snippets share one editor.</p>
       </description>
     </release>
   </releases>

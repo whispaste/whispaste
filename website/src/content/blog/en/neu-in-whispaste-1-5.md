@@ -2,6 +2,10 @@
 title: "New in WhisPaste 1.5: our biggest update so far"
 description: "A tidier interface, a new tray panel, clearer settings, an overlay to your taste, Apple speech recognition on the Mac, file transcription and built-in help: what WhisPaste 1.5 brings."
 date: 2026-11-16
+cover:
+  src: "/blog/neu-in-whispaste-1-5/cover-en.webp"
+  alt: "WhisPaste main window with the sidebar on the left, the Smart Mode page with a custom preset in the middle and the dock with the Dictate button at the bottom"
+  og: "/blog/neu-in-whispaste-1-5/og-en.png"
 ---
 
 WhisPaste 1.5 is out, and it looks different. The interface has been rebuilt: calmer, and consistent from page to page. Much of what you use often is now one click away, from the tray, from the dock or through the search in the settings. The core hasn't changed: press the hotkey, speak, and the text is in the field.

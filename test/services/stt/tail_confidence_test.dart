@@ -8,6 +8,7 @@ import 'package:whispaste/services/stt/tail_confidence.dart';
 TailConfidenceRecord _rec(
   double minP, {
   double? nsp,
+  double lastP = 0.9,
   bool known = false,
   int sec = 0,
 }) => TailConfidenceRecord(
@@ -19,7 +20,7 @@ TailConfidenceRecord _rec(
   tailSegmentTokens: 9,
   tailMinP: minP,
   tailMeanP: 0.8,
-  lastTokenP: 0.9,
+  lastTokenP: lastP,
   noSpeechP: nsp,
   knownPhrase: known,
 );
@@ -68,16 +69,31 @@ void main() {
 
   test('rules flag weak tails; unconfirmed hits are false positives', () {
     final records = [
-      _rec(0.02, nsp: 0.6, sec: 1),
-      _rec(0.02, nsp: 0.6, sec: 2),
-      _rec(0.9, nsp: 0.6, sec: 3),
-      _rec(0.02, nsp: 0.6, known: true, sec: 4),
+      _rec(0.02, lastP: 0.1, sec: 1),
+      _rec(0.02, lastP: 0.1, sec: 2),
+      _rec(0.9, lastP: 0.1, sec: 3),
+      _rec(0.35, sec: 4),
+      _rec(0.02, lastP: 0.1, known: true, sec: 5),
     ];
-    final strict = evaluateTailRules(records, {
+    final results = evaluateTailRules(records, {
       DateTime.utc(2026, 11, 11, 10, 0, 1),
-    }).last;
+    });
+    final strict = results.last;
     expect(strict.flagged.length, 2);
     expect(strict.falsePositives, [DateTime.utc(2026, 11, 11, 10, 0, 2)]);
+    // tailMinP<0.4 alone also takes the record with a strong last token.
+    expect(results.first.flagged.length, 3);
+  });
+
+  test('no rule depends on noSpeechP, which whisper.cpp leaves at 0', () {
+    final weak = [_rec(0.02, lastP: 0.1, nsp: 0.0)];
+    for (final r in evaluateTailRules(weak, const {})) {
+      expect(r.flagged, hasLength(1), reason: r.rule.label);
+    }
+    expect(
+      kTailRules.map((r) => r.label),
+      everyElement(isNot(contains('noSpeech'))),
+    );
   });
 
   test('append rotates at the size limit and never throws', () {
@@ -90,6 +106,34 @@ void main() {
     appendTailConfidenceRecord(dir.path, _rec(0.4));
     expect(File('${file.path}.1').existsSync(), isTrue);
     expect((jsonDecode(file.readAsLinesSync().single) as Map)['tailMinP'], 0.4);
-    appendTailConfidenceRecord('/nonexistent/dir', _rec(0.4));
+    Object? reported;
+    appendTailConfidenceRecord(
+      '/nonexistent/dir',
+      _rec(0.4),
+      onError: (e) => reported = e,
+    );
+    expect(reported, isNotNull);
+  });
+
+  // The report tool must run with plain `dart run` (#1754): neither it nor
+  // the protocol library may pull Flutter (directly or via app code) in.
+  test('report tool and protocol library stay Flutter-free', () {
+    final allowed = RegExp(
+      r"^import '(dart:\w+|package:path/path\.dart|"
+      r'package:whispaste/services/stt/tail_confidence\.dart|'
+      r"package:whispaste_diagnostics/whispaste_diagnostics\.dart)'",
+    );
+    for (final path in const [
+      'tool/tail_confidence_report.dart',
+      'lib/services/stt/tail_confidence.dart',
+    ]) {
+      final imports = File(
+        path,
+      ).readAsLinesSync().where((l) => l.startsWith('import ')).toList();
+      expect(imports, isNotEmpty, reason: path);
+      for (final line in imports) {
+        expect(allowed.hasMatch(line), isTrue, reason: '$path: $line');
+      }
+    }
   });
 }

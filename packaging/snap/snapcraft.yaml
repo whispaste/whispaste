@@ -26,7 +26,7 @@
 name: whispaste
 title: WhisPaste
 base: core24
-version: '1.2.65'
+version: '1.5.1'
 license: MIT
 website: https://whispaste.de/
 contact: https://github.com/whispaste/whispaste/issues
@@ -36,18 +36,24 @@ source-code: https://github.com/whispaste/whispaste
 icon: de.whispaste.app.png
 summary: 'Voice-input tool: hotkey, speak, paste anywhere'
 description: |
-  WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
-  transcribed text is pasted at the cursor position of whatever application you
-  are currently typing in — system-wide, not bound to a single app.
+  WhisPaste turns speech into text wherever you type. Press a hotkey, speak,
+  and the text appears at the cursor in the app you are already using: email,
+  chat, editor, terminal or search field. You never leave the window.
 
-  Transcription runs locally on your device via whisper.cpp (no network
-  traffic) or, optionally, through a cloud provider you choose. The local
-  Sprachdienst is downloaded automatically on first use; audio never leaves
-  your device in local mode.
+  Transcription runs locally on your computer by default (whisper.cpp), so
+  audio and text stay on your device and it works offline. A cloud provider is
+  optional and only used if you choose one. No account or subscription needed.
 
-  WhisPaste is explicitly not an always-listening assistant, not a recording or
-  file-transcription tool, and not a voice-command system — its output is text
-  that flows into the active application.
+  - Global hotkey, push-to-talk or toggle
+  - Small recording overlay with a live waveform
+  - Searchable history, export as TXT, Markdown, CSV, JSON or DOCX
+  - Text replacements for names and terms you use often
+  - Import audio files; speakers in a conversation are separated locally
+
+  The speech model is downloaded on first use. For automatic pasting,
+  connect the uinput interface once:
+  `sudo snap connect whispaste:uinput`. Without it, WhisPaste copies the text
+  to the clipboard and you paste it yourself.
 
 # Stable, store-submittable build (not a devel grade).
 grade: stable
@@ -142,8 +148,9 @@ parts:
   # $SNAP/whispaste. Per-release: bump `source` to the tag's tarball asset.
   whispaste-bundle:
     plugin: dump
-    source: https://github.com/whispaste/whispaste/releases/download/v1.2.65/WhisPaste-1.2.65-linux-x64.tar.gz
+    source: https://github.com/whispaste/whispaste/releases/download/v1.5.1/WhisPaste-1.5.1-linux-x64.tar.gz
     source-type: tar
+    source-checksum: sha256/581dda93bc58206d18fed23521eebfb4b9a60a85b580f0aaf475090d07104679
     # The tarball root contains a file named `whispaste` alongside lib/ and
     # data/, so `organize: '*': whispaste/` collides with that file
     # (FileExistsError). Copy the pulled bundle into whispaste/ explicitly.

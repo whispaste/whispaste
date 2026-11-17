@@ -87,6 +87,23 @@ void main() {
     expect(activated, ['quit']);
   });
 
+  test('Window › Close goes through the activate callback and binds Cmd+W', () {
+    // #1498 F-mac-window-menu: the macOS convention to close the window
+    // with Cmd+W; the command runs the same path as the title bar's X.
+    final activated = <String>[];
+    final menus = buildAppMenus(
+      l10n: en,
+      recordingNodes: const [],
+      activate: activated.add,
+    );
+    final close = _item(menus, en.menuBarWindowClose);
+    final shortcut = close.shortcut! as SingleActivator;
+    expect(shortcut.trigger, LogicalKeyboardKey.keyW);
+    expect(shortcut.meta, isTrue);
+    close.onSelected!();
+    expect(activated, [WpMenuBarCommandIds.close]);
+  });
+
   test('recording entries follow the enabled flag', () {
     final activated = <String>[];
     final menus = buildAppMenus(

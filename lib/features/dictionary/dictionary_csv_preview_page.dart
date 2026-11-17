@@ -12,8 +12,10 @@ import '../../core/theme/tokens.dart';
 import '../../services/dictionary/replacement_csv.dart';
 import '../../services/dictionary/replacement_import_plan.dart';
 import '../../services/replacements/text_replacement_matcher.dart';
+import '../../widgets/page_shell.dart';
 import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_page_header.dart';
 import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_segmented_selector.dart';
 
@@ -71,134 +73,155 @@ class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
         .where((r) => r.triggers.any(exactTriggerNeverFires))
         .length;
 
+    // The shared page frame (#1498 U-page-csv-preview-ui-05): same title,
+    // inset and close button as the term import page beside it, instead of a
+    // Material app bar with a back arrow that no other page has. The rows
+    // stay in a lazy list, a file may hold thousands of them.
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.dictionaryCsvPreviewTitle)),
-      body: ListView(
-        padding: const EdgeInsets.all(WpSpacing.lg),
-        children: [
-          Text(
-            key: const ValueKey('dictionary-csv-preview-header'),
-            _packageHeader(context, l10n),
-            style: theme.textTheme.titleSmall,
+      body: WpPageShell(
+        scrollable: false,
+        bodyPadding: EdgeInsets.zero,
+        header: WpPageHeader(
+          title: l10n.dictionaryCsvPreviewTitle,
+          trailing: WpButton(
+            testId: 'dictionary-csv-preview-close',
+            label: l10n.actionClose,
+            variant: WpButtonVariant.ghost,
+            onPressed: () => Navigator.of(context).pop(),
           ),
-          const SizedBox(height: WpSpacing.sm),
-          Text(
-            l10n.dictionaryCsvPreviewIntro,
-            style: theme.textTheme.bodyMedium,
+        ),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            WpPageFrame.inset,
+            WpPageFrame.titleToContent,
+            WpPageFrame.inset,
+            WpPageFrame.bottom,
           ),
-          const SizedBox(height: WpSpacing.md),
-          Text(
-            key: const ValueKey('dictionary-csv-preview-summary'),
-            l10n.dictionaryCsvSummaryLine(
-              plan.count(ReplacementImportStatus.added),
-              plan.count(ReplacementImportStatus.duplicate),
-              plan.conflictCount,
-              plan.count(ReplacementImportStatus.circular),
-              widget.result.errors.length,
+          children: [
+            Text(
+              key: const ValueKey('dictionary-csv-preview-header'),
+              _packageHeader(context, l10n),
+              style: theme.textTheme.titleSmall,
             ),
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: WpSpacing.md),
-          if (neverFiresCount > 0) ...[
-            WpBanner(
-              key: const ValueKey('dictionary-csv-preview-never-fires'),
-              tone: WpBannerTone.warning,
-              message: l10n.dictionaryCsvNeverFiresCount(neverFiresCount),
+            const SizedBox(height: WpSpacing.sm),
+            Text(
+              l10n.dictionaryCsvPreviewIntro,
+              style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: WpSpacing.md),
-          ],
-          if (plan.count(ReplacementImportStatus.duplicate) ==
-                  widget.result.rows.length &&
-              widget.result.rows.isNotEmpty) ...[
-            WpBanner(
-              key: const ValueKey('dictionary-csv-preview-all-present'),
-              tone: WpBannerTone.info,
-              message: l10n.dictionaryCsvAllPresent,
-            ),
-            const SizedBox(height: WpSpacing.md),
-          ],
-          if (widget.result.truncated) ...[
-            WpBanner(
-              tone: WpBannerTone.info,
-              message: l10n.dictionaryCsvTruncated(replacementCsvMaxRows),
-            ),
-            const SizedBox(height: WpSpacing.md),
-          ],
-          Text(
-            l10n.dictionaryCsvStrategyLabel,
-            style: theme.textTheme.labelLarge,
-          ),
-          const SizedBox(height: WpSpacing.xs),
-          WpSegmentedSelector(
-            key: const ValueKey('dictionary-csv-preview-strategy'),
-            borderColor: WpColors.borderSubtle,
-            surfaceColor: WpColors.cardFill,
-            textSecondary: WpColors.textMuted,
-            items: [
-              for (final option in ReplacementImportStrategy.values)
-                WpSegmentItem(
-                  label: _strategyLabel(l10n, option),
-                  isActive: _strategy == option,
-                  onTap: () => setState(() => _strategy = option),
-                ),
-            ],
-          ),
-          const SizedBox(height: WpSpacing.xs),
-          Text(
-            key: const ValueKey('dictionary-csv-preview-strategy-hint'),
-            _strategyHint(l10n, plan),
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: WpSpacing.md),
-          if (widget.result.errors.isNotEmpty) ...[
-            WpBanner(
-              key: const ValueKey('dictionary-csv-preview-errors'),
-              tone: WpBannerTone.warning,
-              message: l10n.dictionaryCsvErrorSummary(
+            Text(
+              key: const ValueKey('dictionary-csv-preview-summary'),
+              l10n.dictionaryCsvSummaryLine(
+                plan.count(ReplacementImportStatus.added),
+                plan.count(ReplacementImportStatus.duplicate),
+                plan.conflictCount,
+                plan.count(ReplacementImportStatus.circular),
                 widget.result.errors.length,
               ),
+              style: theme.textTheme.bodySmall,
             ),
-            for (final error in widget.result.errors)
-              Padding(
-                key: ValueKey('dictionary-csv-preview-error-${error.line}'),
-                padding: const EdgeInsets.only(top: WpSpacing.xs),
-                child: Text(
-                  l10n.dictionaryCsvLineError(
-                    error.line,
-                    _reasonText(l10n, error.reason),
+            const SizedBox(height: WpSpacing.md),
+            if (neverFiresCount > 0) ...[
+              WpBanner(
+                key: const ValueKey('dictionary-csv-preview-never-fires'),
+                tone: WpBannerTone.warning,
+                message: l10n.dictionaryCsvNeverFiresCount(neverFiresCount),
+              ),
+              const SizedBox(height: WpSpacing.md),
+            ],
+            if (plan.count(ReplacementImportStatus.duplicate) ==
+                    widget.result.rows.length &&
+                widget.result.rows.isNotEmpty) ...[
+              WpBanner(
+                key: const ValueKey('dictionary-csv-preview-all-present'),
+                tone: WpBannerTone.info,
+                message: l10n.dictionaryCsvAllPresent,
+              ),
+              const SizedBox(height: WpSpacing.md),
+            ],
+            if (widget.result.truncated) ...[
+              WpBanner(
+                tone: WpBannerTone.info,
+                message: l10n.dictionaryCsvTruncated(replacementCsvMaxRows),
+              ),
+              const SizedBox(height: WpSpacing.md),
+            ],
+            Text(
+              l10n.dictionaryCsvStrategyLabel,
+              style: theme.textTheme.labelLarge,
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            WpSegmentedSelector(
+              key: const ValueKey('dictionary-csv-preview-strategy'),
+              borderColor: WpColors.borderSubtle,
+              surfaceColor: WpColors.cardFill,
+              textSecondary: WpColors.textMuted,
+              items: [
+                for (final option in ReplacementImportStrategy.values)
+                  WpSegmentItem(
+                    label: _strategyLabel(l10n, option),
+                    isActive: _strategy == option,
+                    onTap: () => setState(() => _strategy = option),
                   ),
+              ],
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              key: const ValueKey('dictionary-csv-preview-strategy-hint'),
+              _strategyHint(l10n, plan),
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: WpSpacing.md),
+            if (widget.result.errors.isNotEmpty) ...[
+              WpBanner(
+                key: const ValueKey('dictionary-csv-preview-errors'),
+                tone: WpBannerTone.warning,
+                message: l10n.dictionaryCsvErrorSummary(
+                  widget.result.errors.length,
                 ),
               ),
-            const SizedBox(height: WpSpacing.md),
-          ],
-          for (var i = 0; i < widget.result.rows.length; i++) ...[
-            _PreviewRow(
-              key: ValueKey('dictionary-csv-preview-row-$i'),
-              statusKey: ValueKey('dictionary-csv-preview-row-status-$i'),
-              checkboxKey: ValueKey('dictionary-csv-preview-select-$i'),
-              row: widget.result.rows[i],
-              ticked: !_unticked.contains(i),
-              onToggle: all.statuses[i] == ReplacementImportStatus.added
-                  ? () => setState(() {
-                      if (!_unticked.remove(i)) _unticked.add(i);
-                    })
-                  : null,
-              statusText: statusByRow.containsKey(i)
-                  ? _statusText(l10n, statusByRow[i]!)
-                  : l10n.dictionaryCsvRowWillAdd,
+              for (final error in widget.result.errors)
+                Padding(
+                  key: ValueKey('dictionary-csv-preview-error-${error.line}'),
+                  padding: const EdgeInsets.only(top: WpSpacing.xs),
+                  child: Text(
+                    l10n.dictionaryCsvLineError(
+                      error.line,
+                      _reasonText(l10n, error.reason),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: WpSpacing.md),
+            ],
+            for (var i = 0; i < widget.result.rows.length; i++) ...[
+              _PreviewRow(
+                key: ValueKey('dictionary-csv-preview-row-$i'),
+                statusKey: ValueKey('dictionary-csv-preview-row-status-$i'),
+                checkboxKey: ValueKey('dictionary-csv-preview-select-$i'),
+                row: widget.result.rows[i],
+                ticked: !_unticked.contains(i),
+                onToggle: all.statuses[i] == ReplacementImportStatus.added
+                    ? () => setState(() {
+                        if (!_unticked.remove(i)) _unticked.add(i);
+                      })
+                    : null,
+                statusText: statusByRow.containsKey(i)
+                    ? _statusText(l10n, statusByRow[i]!)
+                    : l10n.dictionaryCsvRowWillAdd,
+              ),
+              if (i < widget.result.rows.length - 1) const Divider(height: 1),
+            ],
+            const SizedBox(height: WpSpacing.lg),
+            WpButton(
+              key: const ValueKey('dictionary-csv-preview-import'),
+              label: l10n.dictionaryCsvPreviewAddCount(plan.writeCount),
+              variant: WpButtonVariant.primary,
+              onPressed: plan.writeCount == 0
+                  ? null
+                  : () => Navigator.of(context).pop(plan),
             ),
-            if (i < widget.result.rows.length - 1) const Divider(height: 1),
           ],
-          const SizedBox(height: WpSpacing.lg),
-          WpButton(
-            key: const ValueKey('dictionary-csv-preview-import'),
-            label: l10n.dictionaryCsvPreviewAddCount(plan.writeCount),
-            variant: WpButtonVariant.primary,
-            onPressed: plan.writeCount == 0
-                ? null
-                : () => Navigator.of(context).pop(plan),
-          ),
-        ],
+        ),
       ),
     );
   }

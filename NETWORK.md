@@ -2,8 +2,8 @@
 
 WhisPaste is a local-first desktop dictation app. This page lists every host
 the app can contact on its own, what it sends, whether it is on by default and
-how to switch it off. Everything else you might click (GitHub, Ko-fi, X,
-Votepit, …) is a regular link opened in your browser, not a call the app makes
+how to switch it off. Everything else you might click (GitHub, Ko-fi, PayPal,
+X, Votepit, …) is a regular link opened in your browser, not a call the app makes
 for you.
 
 Several connections are **on by default** (opt-out): anonymous usage
@@ -71,7 +71,7 @@ requests. WhisPaste does not disable Windows certificate validation.
 
 ## Not app-initiated (opened in your default browser instead)
 
-`github.com`, `github.com/sponsors/...`, `ko-fi.com`, `buymeacoffee.com`, `x.com`, `app.votepit.com`,
+`github.com`, `github.com/sponsors/...`, `ko-fi.com`, `buymeacoffee.com`, `www.paypal.com/donate/...`, `x.com`, `app.votepit.com`,
 and the WhisPaste website (`whispaste.de`) are only ever opened as external
 links from About/Settings/feedback screens — the app never contacts them in
 the background.

@@ -1,6 +1,6 @@
-/// Where the recording dock sits in the window (ticket, chat-08): inside the
-/// content panel, right of the sidebar, on the panel's bottom edge, at every
-/// window size and in focus mode. Measured from the laid-out boxes.
+/// Where the recording dock sits in the window: inside the content panel,
+/// right of the sidebar, on the panel's bottom edge, at every window size
+/// and in focus mode. Measured from the laid-out boxes.
 ///
 /// The store/website screenshot shell once carried its own copy of this
 /// layout and drew the dock across the whole window below the sidebar; the

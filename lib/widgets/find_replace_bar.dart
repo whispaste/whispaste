@@ -21,109 +21,8 @@ import '../core/theme/tokens.dart';
 import '../core/text/text_undo.dart';
 import 'find_replace.dart';
 import 'find_throttle.dart';
+import 'wp_icon_button.dart';
 import 'wp_text_field.dart';
-import 'wp_focus_ring.dart';
-import 'wp_touch_target.dart';
-
-/// Height-capped icon button used for the bar's five compact actions.
-///
-/// Kept visually identical to the markdown toolbar's own buttons (14 dp glyph,
-/// accent hover tint) so the two rows read as one control, and given a real
-/// [Semantics] label rather than only a tooltip — a tooltip publishes a *hint*
-/// and leaves the button nameless to a screen reader (the lesson
-/// `WpSearchField` documents at length). The tooltip stays out of the
-/// semantics tree so the name is read once, and the compact visual sits in a
-/// 48 dp [WpTouchTarget] so a shaky hand still hits it (#652).
-class _BarIconButton extends StatefulWidget {
-  const _BarIconButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.testId,
-  });
-
-  final IconData icon;
-  final String label;
-
-  /// Accessibility identifier, `<screen>-find-<action>`.
-  final String testId;
-
-  /// `null` disables the button — the glyph dims and the tap does nothing,
-  /// which is what "replace" looks like while there is no match to replace.
-  final VoidCallback? onTap;
-
-  @override
-  State<_BarIconButton> createState() => _BarIconButtonState();
-}
-
-class _BarIconButtonState extends State<_BarIconButton> {
-  bool _hovered = false;
-  final _focusNode = FocusNode();
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
-    final color = !enabled
-        ? WpColors.textMuted.withValues(alpha: 0.4)
-        : _hovered
-        ? WpColors.accent
-        : WpColors.textMuted;
-
-    return MergeSemantics(
-      child: Semantics(
-        label: widget.label,
-        button: true,
-        enabled: enabled,
-        identifier: widget.testId,
-        child: Tooltip(
-          message: widget.label,
-          waitDuration: WpMotion.tooltipWait,
-          excludeFromSemantics: true,
-          child: MouseRegion(
-            cursor: enabled
-                ? SystemMouseCursors.click
-                : SystemMouseCursors.basic,
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: WpTouchTarget(
-              onTap: widget.onTap,
-              child: WpFocusRing(
-                focusNode: _focusNode,
-                radius: WpRadius.sm,
-                child: InkWell(
-                  onTap: widget.onTap,
-                  focusNode: _focusNode,
-                  borderRadius: WpRadius.borderSm,
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  child: AnimatedContainer(
-                    duration: WpMotion.durationFor(context, WpMotion.hoverOut),
-                    padding: const EdgeInsets.all(WpSpacing.xs),
-                    decoration: BoxDecoration(
-                      color: _hovered && enabled
-                          ? WpColors.accent.withValues(alpha: 0.12)
-                          : null,
-                      borderRadius: WpRadius.borderSm,
-                    ),
-                    child: Icon(widget.icon, size: WpIconSize.xs, color: color),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Find and replace within a single text field.
 ///
@@ -398,22 +297,25 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
                 hasQuery: hasQuery,
                 testId: '$id-count',
               ),
-              _BarIconButton(
+              WpIconButton.ghost(
+                compact: true,
                 icon: LucideIcons.chevronUp,
-                label: l10n.findReplacePrevious,
-                onTap: hasMatches ? _previous : null,
+                tooltip: l10n.findReplacePrevious,
+                onPressed: hasMatches ? _previous : null,
                 testId: '$id-previous',
               ),
-              _BarIconButton(
+              WpIconButton.ghost(
+                compact: true,
                 icon: LucideIcons.chevronDown,
-                label: l10n.findReplaceNext,
-                onTap: hasMatches ? _next : null,
+                tooltip: l10n.findReplaceNext,
+                onPressed: hasMatches ? _next : null,
                 testId: '$id-next',
               ),
-              _BarIconButton(
+              WpIconButton.ghost(
+                compact: true,
                 icon: LucideIcons.x,
-                label: l10n.findReplaceClose,
-                onTap: widget.onClose,
+                tooltip: l10n.findReplaceClose,
+                onPressed: widget.onClose,
                 testId: '$id-close',
               ),
             ],
@@ -437,16 +339,18 @@ class _WpFindReplaceBarState extends State<WpFindReplaceBar> {
                 ),
               ),
               const SizedBox(width: WpSpacing.xs),
-              _BarIconButton(
+              WpIconButton.ghost(
+                compact: true,
                 icon: LucideIcons.replace,
-                label: l10n.findReplaceReplaceAction,
-                onTap: hasMatches ? _replaceCurrent : null,
+                tooltip: l10n.findReplaceReplaceAction,
+                onPressed: hasMatches ? _replaceCurrent : null,
                 testId: '${widget.testIdPrefix}-replace-one',
               ),
-              _BarIconButton(
+              WpIconButton.ghost(
+                compact: true,
                 icon: LucideIcons.replaceAll,
-                label: l10n.findReplaceReplaceAllAction,
-                onTap: hasMatches ? _replaceAll : null,
+                tooltip: l10n.findReplaceReplaceAllAction,
+                onPressed: hasMatches ? _replaceAll : null,
                 testId: '${widget.testIdPrefix}-replace-all',
               ),
             ],
@@ -494,7 +398,10 @@ class _MatchCounter extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 12, color: WpColors.textMuted),
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: WpColors.textMuted,
+            ),
           ),
         ),
       ),

@@ -64,15 +64,24 @@
     "ring-width": { "$type": "dimension", "$value": "2px" },
     "ring-offset": { "$type": "dimension", "$value": "2px" }
   },
-  "coffee-button": {
-    "height": { "$type": "dimension", "$value": "{layout.touch-target}" },
-    "radius": { "$type": "dimension", "$value": "{radius.pill}" },
-    "pad-x": { "$type": "dimension", "$value": "{space.6}" },
-    "gap": { "$type": "dimension", "$value": "{space.2}" },
-    "weight": { "$type": "fontWeight", "$value": "{font.weight.bold}" },
-    "fill": { "$type": "color", "$value": "{coffee.fill}" },
-    "fill-hover": { "$type": "color", "$value": "{coffee.fill-hover}" },
-    "text": { "$type": "color", "$value": "{coffee.on-fill}" }
+  "support-tile": {
+    "$description": "Support provider tiles on the website (home support section, /sponsor/): one tile per provider in its brand colour with its logo (#398). Same colours as the app's WpBrandTokens (app.tokens.json brand.*). Ink reaches AA on fill and hover fill (see primitives color.brand.* descriptions).",
+    "min-height": { "$type": "dimension", "$value": "{layout.touch-target}" },
+    "radius": { "$type": "dimension", "$value": "{radius.card}" },
+    "gap": { "$type": "dimension", "$value": "{space.3}" },
+    "logo-size": { "$type": "dimension", "$value": "24px" },
+    "paypal-fill": { "$type": "color", "$value": "{color.brand.paypal}" },
+    "paypal-fill-hover": { "$type": "color", "$value": "{color.brand.paypal-hover}" },
+    "paypal-text": { "$type": "color", "$value": "{color.white}" },
+    "kofi-fill": { "$type": "color", "$value": "{color.brand.kofi}" },
+    "kofi-fill-hover": { "$type": "color", "$value": "{color.brand.kofi-hover}" },
+    "kofi-text": { "$type": "color", "$value": "{color.navy.900}" },
+    "buymeacoffee-fill": { "$type": "color", "$value": "{coffee.fill}" },
+    "buymeacoffee-fill-hover": { "$type": "color", "$value": "{coffee.fill-hover}" },
+    "buymeacoffee-text": { "$type": "color", "$value": "{coffee.on-fill}", "$description": "Dark ink on coffee yellow (about 15:1); never white." },
+    "github-fill": { "$type": "color", "$value": "{color.brand.sponsors}" },
+    "github-fill-hover": { "$type": "color", "$value": "{color.brand.sponsors-hover}" },
+    "github-text": { "$type": "color", "$value": "{color.navy.900}" }
   },
   "button": {
     "height": { "$type": "dimension", "$value": "{layout.touch-target}" },

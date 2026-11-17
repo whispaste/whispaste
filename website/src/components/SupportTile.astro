@@ -1,0 +1,65 @@
+---
+/**
+ * One support provider as a tile in its brand colour with its official logo
+ * (#398, sponsoring guide §4): logo, brand name and a short line on what the
+ * way is for ("One-time, any amount", "Monthly or one-time"). `detail` adds
+ * the longer description and the call to action (sponsor page).
+ *
+ * Plain external link, one click to the provider's own form, opens in a new
+ * tab. The accessible name is the call to action ("Support via PayPal"),
+ * which contains the visible brand name; the short line is its description.
+ * Logos are local SVGs (src/assets/support/README.md), never hotlinked.
+ */
+import { t, type Locale } from '../scripts/i18n.ts';
+import type { SupportProvider } from '../data/support-links';
+import paypalLogo from '../assets/support/paypal.svg?raw';
+import kofiLogo from '../assets/support/kofi.svg?raw';
+import buymeacoffeeLogo from '../assets/support/buymeacoffee.svg?raw';
+import githubsponsorsLogo from '../assets/support/githubsponsors.svg?raw';
+
+interface Props {
+  readonly provider: SupportProvider;
+  readonly lang: Locale;
+  readonly testid: string;
+  /** Sponsor page card: adds description, call to action and a heading. */
+  readonly detail?: boolean;
+}
+
+const LOGOS: Record<string, string> = {
+  paypal: paypalLogo,
+  kofi: kofiLogo,
+  buymeacoffee: buymeacoffeeLogo,
+  githubsponsors: githubsponsorsLogo,
+};
+
+const { provider, lang, testid, detail = false } = Astro.props;
+const key = `sponsor.${provider.id}`;
+const subId = `${testid}-sub`;
+const Name = detail ? 'h2' : 'span';
+---
+
+<a
+  class:list={['wp-support-tile', `wp-support-tile--${provider.id}`, { 'wp-support-tile--detail': detail }]}
+  href={provider.href}
+  target="_blank"
+  rel="noopener"
+  data-testid={testid}
+  aria-label={t(lang, `${key}.cta`)}
+  data-i18n-aria={`${key}.cta`}
+  aria-describedby={subId}
+>
+  <span class="wp-support-tile__logo" aria-hidden="true" set:html={LOGOS[provider.logo]} />
+  <span class="wp-support-tile__text">
+    <Name class="wp-support-tile__name">{provider.name}</Name>
+    <span class="wp-support-tile__sub" id={subId} data-i18n={`${key}.subtitle`}>{t(lang, `${key}.subtitle`)}</span>
+  </span>
+  {detail && (
+    <>
+      <p class="wp-support-tile__desc" data-i18n={`${key}.desc`}>{t(lang, `${key}.desc`)}</p>
+      <span class="wp-support-tile__cta" aria-hidden="true">
+        <span data-i18n={`${key}.cta`}>{t(lang, `${key}.cta`)}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </span>
+    </>
+  )}
+</a>

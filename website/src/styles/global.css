@@ -1444,12 +1444,10 @@
 
 /* ---- Press feedback on primary actions ---- */
 .nav-download-btn,
-.support-sponsor,
 [data-testid="hero-primary-cta"] {
   transition: transform var(--dur-fast) var(--ease-flow);
 }
 .nav-download-btn:active,
-.support-sponsor:active,
 [data-testid="hero-primary-cta"]:active {
   transform: scale(0.97);
 }

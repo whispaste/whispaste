@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test';
 // DOM (collapsed ones too) and has a separate, always-visible legal line.
 test('support zone and balanced footer keep all links', async ({ page }) => {
   await page.goto('/en/');
-  await expect(page.getByTestId('support-sponsor')).toHaveAttribute('href', /github\.com\/sponsors/);
-  await expect(page.getByTestId('support-coffee')).toBeVisible();
+  await expect(page.getByTestId('support-github')).toHaveAttribute('href', /github\.com\/sponsors/);
+  await expect(page.getByTestId('support-kofi')).toBeVisible();
   await expect(page.getByTestId('support-roadmap')).toBeVisible();
   await expect(page.getByTestId('support-paypal')).toHaveAttribute('href', /paypal\.com\/donate/);
 

@@ -19,6 +19,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/version_compare_dialog.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../data/history_detail_provider.dart';
 
 final _log = AppLogger('TranscriptVersions');
@@ -175,27 +176,19 @@ class _VersionRow extends ConsumerWidget {
                 ],
               ),
             ),
-            Semantics(
-              label: l10n.versionCompare,
-              button: true,
-              identifier: 'history-version-compare-${version.id}',
-              child: IconButton(
-                key: ValueKey('history-version-compare-${version.id}'),
-                tooltip: l10n.versionCompare,
-                icon: const Icon(LucideIcons.gitCompare, size: WpIconSize.md),
-                onPressed: () => _compare(context, ref, text),
-              ),
+            WpIconButton.ghost(
+              key: ValueKey('history-version-compare-${version.id}'),
+              icon: LucideIcons.gitCompare,
+              tooltip: l10n.versionCompare,
+              testId: 'history-version-compare-${version.id}',
+              onPressed: () => _compare(context, ref, text),
             ),
-            Semantics(
-              label: l10n.notesRestore,
-              button: true,
-              identifier: 'history-version-restore-${version.id}',
-              child: IconButton(
-                key: ValueKey('history-version-restore-${version.id}'),
-                tooltip: l10n.notesRestore,
-                icon: const Icon(LucideIcons.undo2, size: WpIconSize.md),
-                onPressed: () => _restore(context, ref, l10n),
-              ),
+            WpIconButton.ghost(
+              key: ValueKey('history-version-restore-${version.id}'),
+              icon: LucideIcons.undo2,
+              tooltip: l10n.notesRestore,
+              testId: 'history-version-restore-${version.id}',
+              onPressed: () => _restore(context, ref, l10n),
             ),
           ],
         ),

@@ -54,6 +54,7 @@ abstract final class WpMenuBarCommandIds {
   static const helpFeedback = 'help.feedback';
   static const helpIdea = 'help.idea';
   static const quit = 'quit';
+  static const close = 'window.close';
   static const minimize = 'window.minimize';
   static const zoom = 'window.zoom';
 }
@@ -145,6 +146,11 @@ Future<void> runMenuBarCommand(WidgetRef ref, String id) async {
       // ideas board link itself.
       ref.read(feedbackPresetTypeProvider.notifier).set(FeedbackType.idea);
       await _showPage(ref, 'feedback');
+    // The same path as the title bar's X (#1498 F-mac-window-menu):
+    // window_manager routes close() through the app's onWindowClose, which
+    // hides to the menu bar, asks during the first run, or quits.
+    case WpMenuBarCommandIds.close:
+      await windowManager.close();
     case WpMenuBarCommandIds.minimize:
       await windowManager.minimize();
     case WpMenuBarCommandIds.zoom:
@@ -283,6 +289,11 @@ List<PlatformMenu> buildAppMenus({
   PlatformMenu(
     label: l10n.menuBarMenuWindow,
     menus: [
+      PlatformMenuItem(
+        label: l10n.menuBarWindowClose,
+        shortcut: _key(LogicalKeyboardKey.keyW),
+        onSelected: () => activate(WpMenuBarCommandIds.close),
+      ),
       PlatformMenuItem(
         label: l10n.menuBarWindowMinimize,
         shortcut: _key(LogicalKeyboardKey.keyM),

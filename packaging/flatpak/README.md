@@ -138,30 +138,50 @@ Vor jeder Einreichung / jedem Release:
    (`<release version="<version>" date="<YYYY-MM-DD">`).
 3. Lokal/CI validieren (siehe oben).
 
-**Bekannte Abweichung (Stand 2026-10-19):** Das Manifest bezieht noch das Archiv
-von v1.2.65, die Metainfo nennt als neuesten Eintrag aber 1.2.67. `flatpak info`
-meldet deshalb 1.2.67 für einen Build, der den Code von 1.2.65 enthält. Beim
-nächsten Release Schritt 1 und 2 auf denselben Tag ziehen.
+Stand 2026-11-17: Archiv und neuester Metainfo-Eintrag stehen beide auf 1.5.1
+(SHA-256 gegen das Release-Asset und `SHA256SUMS` geprüft).
 
 ---
 
-## Flathub-Einreichung (Folgearbeit — out of scope für diesen Slice, PRD §7)
+## Flathub-Einreichung: in dieser Form nicht möglich (Stand 2026-11-17)
 
-> Konto-Setup und der **tatsächliche** Flathub-Review-Ausgang liegen außerhalb
-> dieses Slices. Dieser Slice stellt **Konformität + Einreichbarkeit** her.
+Geprüft gegen docs.flathub.org (Requirements, Submission, Linter). Vier Punkte
+stehen einer Einreichung entgegen; die ersten drei sind harte Regeln:
 
-Ablauf, sobald ein Linux-Release-Tag + veröffentlichtes Linux-`whisper-server`
-(WS-A) existieren:
+1. **KI-Richtlinie:** „AI tools or agents must not open or automate Flathub
+   submission pull requests“ und „Flathub manifests must not contain
+   AI-generated or AI-assisted content“. Den PR muss der Maintainer selbst
+   öffnen, und das eingereichte Manifest muss von Hand geschrieben sein.
+   Wiederholte Verstöße können zum dauerhaften Ausschluss führen.
+2. **App-ID:** IDs dürfen nicht auf generische Begriffe wie `.app` enden.
+   `de.whispaste.app` ist dort nicht zulässig; nötig wäre z. B.
+   `de.whispaste.WhisPaste`. Das ist eine Produktentscheidung (die ID steckt
+   auch in `.deb`, AppImage, Snap-`common-id`, Desktop-Datei und Metainfo).
+3. **Build aus Quellcode:** Quelloffene Apps müssen auf Flathub vollständig aus
+   dem Quellcode gebaut werden, ohne Netz im Build; vorgebaute Binärdateien
+   sind nicht erlaubt. Das Manifest packt das fertige Release-Tarball aus. Für
+   Flutter braucht es einen Offline-Build (Flutter-SDK, Pub-Pakete und native
+   Bibliotheken wie whisper.cpp, sherpa-onnx, ffmpeg als Quellen).
+4. **Berechtigungen:** `--device=all`, `--talk-name=org.freedesktop.secrets`,
+   `--system-talk-name=org.freedesktop.login1` und
+   `--filesystem=xdg-data/whispaste:create` muss der PR einzeln begründen. Die
+   letzte gibt den Host-Ordner `~/.local/share/whispaste` frei, nicht den
+   Sandbox-Datenordner; die App schreibt nach `$XDG_CONFIG_HOME` (in der
+   Sandbox `~/.var/app/de.whispaste.app/config`), die Freigabe ist also
+   vermutlich unnötig.
 
-1. Fork `github.com/flathub/flathub`, neuer Branch `de.whispaste.app`.
-2. Manifest + `.desktop` + `.metainfo.xml` ins Flathub-Repo-Layout legen
-   (App-ID als Verzeichnis-/Dateiname).
-3. PR an `flathub/flathub` öffnen (das ist der **einzige** erlaubte externe PR —
-   die Solo-Dev-„keine-PRs"-Regel betrifft das eigene Repo, nicht Flathub).
-   Flathub-Bot baut + linted automatisch (`flatpak-builder` + `appstreamcli
-   validate` + `flatpak-builder-lint`).
-4. Nach Review-Freigabe wird die App in GNOME Software / KDE Discover sichtbar;
-   Updates per neuem Tag → Manifest-Bump (Schritt „Pro-Release" oben).
+Metainfo (Beschreibung, Screenshots, Release 1.5.1, OARS) und Desktop-Datei
+bestehen `appstreamcli validate --pedantic` (AppStream 1.1.2, mit
+Netzprüfung der Screenshot-URLs) und `desktop-file-validate`.
+
+Ablauf, sobald 1–3 gelöst sind (Stand docs.flathub.org):
+
+1. `flathub/flathub` forken, „Copy the master branch only“ abwählen.
+2. Branch von `new-pr` anlegen, Manifest + Patches ins Repo legen.
+3. PR gegen `new-pr` (nicht `master`), Titel `Add <app-id>`, Vorlage
+   ausfüllen, KI-Anteile offenlegen, Berechtigungen begründen.
+4. Nach Review `bot, build`; nach Freigabe die Einladung ins neue Repo binnen
+   einer Woche annehmen (2FA auf GitHub nötig).
 
 ---
 

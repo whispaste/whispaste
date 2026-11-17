@@ -3,7 +3,12 @@
 //
 //   dart run tool/tail_confidence_report.dart [protocol.jsonl] [--confirmed file]
 //
-// Default protocol: `tail-confidence.jsonl` in the app data directory.
+// Default protocol: `tail-confidence.jsonl` in the app data directory of the
+// installed release (`WhisPaste`, not the `WhisPaste Dev` folder that a
+// `dart run` process would otherwise resolve to). Pass a path for any other
+// protocol, e.g. one from a local build.
+// Plain `dart run` works (no Flutter in the import graph, #1754); keep this
+// tool's imports Flutter-free.
 // `--confirmed` names a text file with one UTC timestamp (as printed by this
 // report) per line for each flagged dictation the maintainer checked in the
 // history and confirmed as a real hallucination. Everything flagged but not
@@ -12,8 +17,9 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:whispaste/services/path_service.dart' show appDataDir;
 import 'package:whispaste/services/stt/tail_confidence.dart';
+import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
+    show appDataDir, appDataFolderName;
 
 void main(List<String> args) {
   String? path;
@@ -25,7 +31,7 @@ void main(List<String> args) {
       path = args[i];
     }
   }
-  path ??= p.join(appDataDir(), kTailConfidenceFileName);
+  path ??= p.join(_releaseAppDataDir(), kTailConfidenceFileName);
   final file = File(path);
   if (!file.existsSync()) {
     stderr.writeln('No protocol at $path');
@@ -66,3 +72,13 @@ void main(List<String> args) {
       : 'no rule is clean: do not activate';
   stdout.writeln('\nVerdict: $verdict');
 }
+
+/// App data directory of the installed release. `dart run` is a non-product
+/// VM, so [appDataDir] alone would point at the local-build folder.
+String _releaseAppDataDir() => p.join(
+  p.dirname(appDataDir()),
+  appDataFolderName(
+    linux: !Platform.isWindows && !Platform.isMacOS,
+    localBuild: false,
+  ),
+);

@@ -8,6 +8,7 @@
     {"path": "linux/runner", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
     {"path": "windows/runner", "run": "lab C++ native tests", "file": ".internal forge/workflows/lab.yml", "needle": "linux-native-tests.sh"},
     {"path": "scripts", "run": "lab shell helper tests", "file": ".internal forge/workflows/lab.yml", "needle": ".githooks/push-scope.test.sh"},
+    {"path": "packaging/buckets", "run": "lab shell helper tests", "file": ".internal forge/workflows/lab.yml", "needle": "packaging/buckets/update-manifest.test.sh"},
     {"path": ".githooks", "run": "lab shell helper tests", "file": ".internal forge/workflows/lab.yml", "needle": ".githooks/push-scope.test.sh"},
     {"path": "website/tests", "run": "lab-full website Playwright", "file": ".internal forge/workflows/lab-full.yml", "needle": "npm run test:ci"},
     {"path": "website", "run": "lab website vitest", "file": ".internal forge/workflows/lab.yml", "needle": "npx vitest run"},

@@ -1,6 +1,7 @@
 ---
 import LegalPage from "../../components/pages/LegalPage.astro";
 import { currentLocale, localePath, prefixedLocalePaths, t } from "../../scripts/i18n.ts";
+import { PROVIDER_NAME, PROVIDER_NAME_PLACEHOLDER } from "../../legal/entity.ts";
 
 export function getStaticPaths() {
   // en has its own static page (en/privacy.astro); this route serves the other locales.
@@ -12,13 +13,17 @@ const lang = currentLocale(Astro.params.lang);
 /**
  * Translations of the German binding text (src/pages/datenschutz.astro).
  * Each fragment starts with the note that the German version is binding.
+ * The provider name comes from src/legal/entity.ts (placeholder, #1774).
  */
 const bodies = import.meta.glob<string>("../../legal/privacy/*.html", {
   query: "?raw",
   import: "default",
   eager: true,
 });
-const body = bodies[`../../legal/privacy/${lang}.html`];
+const body = bodies[`../../legal/privacy/${lang}.html`].replaceAll(
+  PROVIDER_NAME_PLACEHOLDER,
+  PROVIDER_NAME,
+);
 
 /** Heading of the table of contents, in the page language. */
 const tocLabels: Record<string, string> = {

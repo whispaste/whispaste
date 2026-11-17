@@ -113,6 +113,10 @@ const String kMacAppStoreListingUrl = 'https://apps.apple.com/app/id6795319409';
 /// consent withdrawals by e-mail.
 const String kContactEmail = 'kontakt@whispaste.de';
 
+// Support provider URLs (the four below): the website keeps the same values in
+// website/src/data/support-links.ts and .github/FUNDING.yml lists them too;
+// website/src/data/__tests__/support-links.test.ts fails on any drift (#398).
+
 /// GitHub Sponsors page for the maintainer. Used by the About page's support
 /// section.
 const String kGitHubSponsorsUrl = 'https://github.com/sponsors/silvio-l';

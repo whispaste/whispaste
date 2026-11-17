@@ -10,16 +10,15 @@
 /// Privacy: the protocol is a local JSONL file and carries numbers only —
 /// no transcript text, no audio, no hash of either. Dictations are matched to
 /// history entries by timestamp, locally.
+///
+/// Pure Dart on purpose (#1754): no Flutter or app-logger import, so the
+/// report tool runs with plain `dart run`. Callers log write failures.
 library;
 
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-
-import '../../core/logging/app_logger.dart';
-
-final _log = AppLogger('TailConfidence');
 
 /// Dictations needed before the shadow result counts (issue #573).
 const int kTailConfidenceMinDictations = 500;
@@ -182,8 +181,12 @@ class TailConfidenceRecord {
 }
 
 /// Appends [record] to the protocol in [dir]. Never throws: the shadow mode
-/// must not be able to fail a dictation.
-void appendTailConfidenceRecord(String dir, TailConfidenceRecord record) {
+/// must not be able to fail a dictation. Write failures go to [onError].
+void appendTailConfidenceRecord(
+  String dir,
+  TailConfidenceRecord record, {
+  void Function(Object error)? onError,
+}) {
   try {
     final file = File(p.join(dir, kTailConfidenceFileName));
     if (file.existsSync() && file.lengthSync() >= kTailConfidenceMaxBytes) {
@@ -191,31 +194,52 @@ void appendTailConfidenceRecord(String dir, TailConfidenceRecord record) {
     }
     file.writeAsStringSync('${record.toLine()}\n', mode: FileMode.append);
   } on Object catch (e) {
-    // Best effort by design: log and carry on.
-    _log.debug('tail protocol write failed: ${e.runtimeType}');
+    // Best effort by design: report and carry on.
+    onError?.call(e);
   }
 }
 
 /// A candidate rule for the later filter: the last segment's tail is
-/// suspicious when its weakest tail token is below [minP] **and** whisper
-/// itself rates the segment as probably no speech above [noSpeech].
+/// suspicious when its weakest tail token is below [minP] and/or the very
+/// last text token is below [lastP]. A `null` bound is not checked; every set
+/// bound must hold.
+///
+/// whisper.cpp's `noSpeechP` is deliberately not part of any rule (#1742):
+/// v1.9.5 reads the `<|nospeech|>` probability after the whole prompt
+/// (language, task, `<|notimestamps|>`), not at `<|startoftranscript|>` as
+/// the reference implementation does, so it is ~0 even for pure silence and
+/// noise (measured with the production engine: 0.000 every time, and 0.0 in
+/// all 444 rows of the 1.5.0 protocol). It stays in the protocol as data.
 class TailRule {
-  const TailRule(this.minP, this.noSpeech);
-  final double minP;
-  final double noSpeech;
+  const TailRule({this.minP, this.lastP})
+    : assert(minP != null || lastP != null, 'a rule needs a bound');
+
+  /// Upper bound (exclusive) for [TailConfidenceRecord.tailMinP].
+  final double? minP;
+
+  /// Upper bound (exclusive) for [TailConfidenceRecord.lastTokenP].
+  final double? lastP;
 
   bool flags(TailConfidenceRecord r) =>
-      !r.knownPhrase && r.tailMinP < minP && (r.noSpeechP ?? 0) >= noSpeech;
+      !r.knownPhrase &&
+      (minP == null || r.tailMinP < minP!) &&
+      (lastP == null || r.lastTokenP < lastP!);
 
-  String get label => 'tailMinP<$minP & noSpeechP>=$noSpeech';
+  String get label => [
+    if (minP != null) 'tailMinP<$minP',
+    if (lastP != null) 'lastP<$lastP',
+  ].join(' & ');
 }
 
-/// Candidate rules the report evaluates, from lenient to strict.
+/// Candidate rules the report evaluates, from lenient to strict. Chosen so
+/// each one fires at all on real dictations (1.5.0 protocol, 444 rows:
+/// 15, 11, 5 and 2 hits); whether the hits are hallucinations is what the
+/// 500-dictation review decides.
 const List<TailRule> kTailRules = [
-  TailRule(0.30, 0.10),
-  TailRule(0.20, 0.20),
-  TailRule(0.10, 0.30),
-  TailRule(0.05, 0.40),
+  TailRule(minP: 0.40),
+  TailRule(lastP: 0.50),
+  TailRule(minP: 0.30),
+  TailRule(minP: 0.40, lastP: 0.60),
 ];
 
 /// Outcome of one [TailRule] over a protocol.

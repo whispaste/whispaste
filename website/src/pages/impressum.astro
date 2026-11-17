@@ -1,6 +1,7 @@
 ---
 import LegalPage from "../components/pages/LegalPage.astro";
 import { t, localePath } from "../scripts/i18n.ts";
+import { PROVIDER_NAME } from "../legal/entity.ts";
 
 const lang = 'de' as const;
 const breadcrumbItems = [
@@ -22,7 +23,7 @@ const breadcrumbItems = [
       <section>
         <h2>Angaben gemäß § 5 DDG</h2>
         <p>
-          <strong>org Gräfendorf, GbR</strong><br>
+          <strong>{PROVIDER_NAME}</strong><br>
           Pappelweg 27<br>
           39576 Stendal<br>
           Deutschland

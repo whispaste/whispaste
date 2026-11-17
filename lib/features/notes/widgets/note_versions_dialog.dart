@@ -19,6 +19,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/version_compare_dialog.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../data/note_line_diff.dart';
 import '../data/notes_actions.dart';
 
@@ -196,42 +197,26 @@ class _VersionRow extends ConsumerWidget {
                 ],
               ),
             ),
-            Semantics(
-              label: l10n.versionCompare,
-              button: true,
-              identifier: 'notes-version-compare-${version.id}',
-              child: IconButton(
-                key: ValueKey('notes-version-compare-${version.id}'),
-                tooltip: l10n.versionCompare,
-                icon: const Icon(LucideIcons.gitCompare, size: WpIconSize.md),
-                onPressed: () => _compare(context, ref),
-              ),
+            WpIconButton.ghost(
+              key: ValueKey('notes-version-compare-${version.id}'),
+              icon: LucideIcons.gitCompare,
+              tooltip: l10n.versionCompare,
+              testId: 'notes-version-compare-${version.id}',
+              onPressed: () => _compare(context, ref),
             ),
-            Semantics(
-              label: l10n.notesRestore,
-              button: true,
-              identifier: 'notes-version-restore-${version.id}',
-              child: IconButton(
-                key: ValueKey('notes-version-restore-${version.id}'),
-                tooltip: l10n.notesRestore,
-                icon: const Icon(LucideIcons.undo2, size: WpIconSize.md),
-                onPressed: () => _restore(context, ref, l10n),
-              ),
+            WpIconButton.ghost(
+              key: ValueKey('notes-version-restore-${version.id}'),
+              icon: LucideIcons.undo2,
+              tooltip: l10n.notesRestore,
+              testId: 'notes-version-restore-${version.id}',
+              onPressed: () => _restore(context, ref, l10n),
             ),
-            Semantics(
-              label: l10n.notesVersionDelete,
-              button: true,
-              identifier: 'notes-version-delete-${version.id}',
-              child: IconButton(
-                key: ValueKey('notes-version-delete-${version.id}'),
-                tooltip: l10n.notesVersionDelete,
-                icon: Icon(
-                  LucideIcons.trash2,
-                  size: WpIconSize.md,
-                  color: WpColors.textMuted,
-                ),
-                onPressed: () => _delete(context, ref, l10n),
-              ),
+            WpIconButton.ghost(
+              key: ValueKey('notes-version-delete-${version.id}'),
+              icon: LucideIcons.trash2,
+              tooltip: l10n.notesVersionDelete,
+              testId: 'notes-version-delete-${version.id}',
+              onPressed: () => _delete(context, ref, l10n),
             ),
           ],
         ),
