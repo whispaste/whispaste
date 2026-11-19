@@ -3,9 +3,10 @@
  * `/vergleich/diktiersoftware-alternativen/` — Vergleichs-Page mit
  * kontrastiver Anti-Vokabular-Verwendung (Issue 13).
  *
- * Beantwortet den Such-Intent „Alternative zu klassischer Diktiersoftware"
- * ohne WhisPaste selbst als Diktiersoftware zu beschreiben — die Page steht
- * bewusst in der KONTRASTIVEN Rolle. Die Section- und FAQ-Inhalte enthalten
+ * Beantwortet den Such-Intent „Alternative zu klassischer Diktiersoftware".
+ * Seit #1937 nennt die Copy WhisPaste selbst Diktiersoftware (Nordstern §6,
+ * internal-notes §7: Begriffsbann aufgehoben) und grenzt es nur gegen klassische
+ * Diktier-Suiten mit eigenem Editor ab. Die Section- und FAQ-Inhalte enthalten
  * Anti-Vokabular (`Diktat`, `Diktiersoftware`, `dictation`), das normalerweise
  * den Brand-Vocabulary-Gate (`website/scripts/check-brand-vocabulary.mjs`)
  * auslösen würde — hier werden die Treffer durch den
@@ -21,7 +22,7 @@
  * nur in der gegenüberstellenden Section- und FAQ-Copy auf.
  *
  * Schema-Wahl: FAQPage. Der FAQ-Inhalt frisst die häufigsten kontrastiven
- * Fragen („Ist WhisPaste eine Diktiersoftware?" → klare Nein-Antwort) und
+ * Fragen („Ist WhisPaste eine Diktiersoftware?" → ja, ohne eigenen Editor) und
  * spiegelt visuell, was die FAQ-JSON-LD enthält (Google-Rich-Results-
  * Anforderung). Beide stehen INNERHALB des Markers.
  */
@@ -49,10 +50,6 @@ const hero = {
   lead: t(lang, "comparison.dictationAlternatives.heroLead"),
 };
 
-const cta = {
-  label: t(lang, "comparison.dictationAlternatives.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 const faqQuestions = [
   {
@@ -87,7 +84,6 @@ const relatedPages = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
   relatedPages={relatedPages}
 >
   {/*

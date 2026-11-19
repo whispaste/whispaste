@@ -36,6 +36,19 @@ export const FAQ_INTENTS: readonly FaqIntent[] = [
     },
   },
   {
+    key: 'whyPay',
+    variants: {
+      de: ['Was bringt mir der Kauf im Store?', 'Vorteil Store-Version lohnt sich Unterschied GitHub-Version'],
+      en: ['What do I get from the store version?', 'store version benefit worth it difference GitHub version'],
+      es: ['¿Qué gano con la versión de la tienda?', 'versión tienda ventaja merece la pena diferencia versión GitHub'],
+      pt: ['O que ganho com a versão da loja?', 'versão loja vantagem vale a pena diferença versão GitHub'],
+      it: ['Cosa ottengo con la versione dello store?', 'versione store vantaggio conviene differenza versione GitHub'],
+      ru: ['Что даёт версия из магазина?', 'версия магазин преимущество стоит ли разница версия GitHub'],
+      zh: ['商店版有什么好处？', '商店版 好处 值得 区别 GitHub 版'],
+      fr: ['Qu’apporte la version du Store ?', 'version Store avantage vaut le coup différence version GitHub'],
+    },
+  },
+  {
     key: 'offline',
     variants: {
       de: ['Geht das ohne Internetverbindung?', 'offline lokal ohne Netz Flugmodus Verbindung'],
@@ -160,7 +173,7 @@ export const FAQ_INTENTS: readonly FaqIntent[] = [
       es: ['Windows bloquea el instalador', 'SmartScreen virus aviso Defender inseguro instalador firmado'],
       pt: ['O Windows bloqueia o instalador', 'SmartScreen vírus aviso Defender inseguro instalador assinado'],
       it: ['Windows blocca l’installazione', 'SmartScreen virus avviso Defender non sicuro installer firmato'],
-      ru: ['Windows блокирует установщик', 'SmartScreen вирус предупреждение Defender небезопасно установщик подписан'],
+      ru: ['Windows блокирует установщик', 'SmartScreen вирус предупреждение Defender небезопасно опасен опасный установщик подписан'],
       zh: ['Windows 阻止安装', 'SmartScreen 病毒 警告 Defender 不安全 安装程序 签名'],
       fr: ['Windows bloque l’installation', 'SmartScreen virus alerte Defender dangereux installateur signé'],
     },

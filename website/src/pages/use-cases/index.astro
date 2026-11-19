@@ -28,10 +28,6 @@ const hero = {
   lead: t(lang, "useCaseHub.heroLead"),
 };
 
-const cta = {
-  label: t(lang, "useCase.students.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 const cards = [
   { key: "developer", href: localePath(lang, "use-cases/programmierer") },
@@ -45,7 +41,6 @@ const cards = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
 >
   <section>
     <h2>{t(lang, "useCaseHub.section.common.heading")}</h2>

@@ -13,6 +13,7 @@ import {
 import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
 import WebVitals from "../components/WebVitals.astro";
 import ContactWidget from "../components/ContactWidget.astro";
+import { EXTRA_DOWNLOAD_EXTENSIONS } from "../scripts/download-tracking.ts";
 
 interface Props {
   title?: string;
@@ -200,6 +201,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
   _paq.push(["disableCookies"]);
   _paq.push(["enableHeartBeatTimer"]);
   _paq.push(["trackPageView"]);
+  _paq.push(["addDownloadExtensions", "${EXTRA_DOWNLOAD_EXTENSIONS.join("|")}"]);
   _paq.push(["enableLinkTracking"]);
   (function () {
     _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
@@ -213,7 +215,10 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
     )}
     {/* Engagement-Event „Download gestartet" → Matomo. Hört auf das bestehende
         download:triggered-CustomEvent (Store-/Apple-Button); Name = erkanntes OS
-        (data-os aus dem OS-Detektor oben). Cookieless, prod-only, _paq-Muster. */}
+        (data-os aus dem OS-Detektor oben). Cookieless, prod-only, _paq-Muster.
+        Bleibt neben dem Ereignis „Download / <Kanal> / <Platzierung>“
+        (scripts/download-tracking.ts, #1938) bestehen, weil Matomo-Ziel 3 darauf
+        zählt; Schema in internal-notes. */}
     {analytics && (
       <script is:inline set:html={`document.addEventListener("download:triggered", function () {
   var os = document.documentElement.dataset.os || "unbekannt";
@@ -232,7 +237,14 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
       <script>
       import { startMotionBudget } from '../scripts/motion-budget.ts';
       import { downloadAnchor, type Os } from '../data/platforms.ts';
+      import { installDownloadTracking } from '../scripts/download-tracking.ts';
+      import { installFaqTracking } from '../scripts/faq-tracking.ts';
       startMotionBudget();
+      // Matomo event "Download / <channel> / <placement>" for every store or
+      // release link, plus store campaign parameters (#1938).
+      installDownloadTracking();
+      // Matomo event "FAQ / <question key> / <page>" when an answer opens.
+      installFaqTracking();
       // Download buttons carry data-download-trigger instead of an inline
       // onclick: the Content-Security-Policy (#1629, astro.config.mjs) only
       // allows hashed inline <script> blocks, never inline event handlers.

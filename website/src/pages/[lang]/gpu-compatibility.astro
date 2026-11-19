@@ -29,10 +29,6 @@ const hero = {
   lead: t(lang, "gpuCheck.heroLead"),
 };
 
-const cta = {
-  label: t(lang, "gpuCheck.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 const osOptions = [
   { value: "windows", label: t(lang, "gpuCheck.os.windows") },
@@ -109,7 +105,6 @@ const relatedPages = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "gpuCheck.tldr")}</p>

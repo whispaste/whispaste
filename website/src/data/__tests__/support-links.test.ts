@@ -53,8 +53,9 @@ describe('support links', () => {
     expect(start, 'README.md has no "## Support" section').toBeGreaterThanOrEqual(0);
     const next = readme.indexOf('\n## ', start + 1);
     const section = readme.slice(start, next === -1 ? undefined : next);
-    const links = [...section.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)]
-      .map(([, href, name]) => ({ href, name }))
+    // Markdown links since the calmer README (#1799); HTML anchors still count.
+    const links = [...section.matchAll(/<a href="([^"]+)">([^<]+)<\/a>|\[([^\]]+)\]\((https:[^)\s]+)\)/g)]
+      .map(([, aHref, aName, mdName, mdHref]) => ({ href: aHref ?? mdHref, name: aName ?? mdName }))
       .filter(({ href }) => SUPPORT_PROVIDERS.some((p) => p.href === href));
     expect(links).toEqual(SUPPORT_PROVIDERS.map((p) => ({ href: p.href, name: p.name })));
     expect(section).not.toMatch(/<img[^>]+src="https?:\/\//);

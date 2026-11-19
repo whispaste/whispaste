@@ -1,11 +1,12 @@
 ---
 /**
- * Screenshot gallery for every locale: PageHero (with the download CTA in
- * the actions row) above the full-width gallery.
+ * Screenshot gallery for every locale: PageHero (with the store-first
+ * purchase block in the actions row, D-005) above the full-width gallery.
  */
 import SubpageLayout from '../../layouts/SubpageLayout.astro';
 import PageHero from '../PageHero.astro';
 import ScreenshotGallery from '../ScreenshotGallery.astro';
+import BuyBlock from '../BuyBlock.astro';
 import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
 import { t, localePath, type Locale } from '../../scripts/i18n.ts';
 
@@ -14,7 +15,6 @@ interface Props {
 }
 
 const { lang } = Astro.props;
-const downloadHref = localePath(lang, 'download');
 const breadcrumbItems = [
   { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
   { name: t(lang, 'breadcrumb.screenshots'), item: localePath(lang, 'screenshots') },
@@ -32,10 +32,7 @@ import PageSheet from "../PageSheet.astro";
     crumbs={breadcrumbItems}
     testid="screenshots-hero"
   >
-    <a slot="actions" href={downloadHref} class="wp-cta" data-testid="screenshots-download">
-      <span data-i18n="gallery.cta">{t(lang, 'gallery.cta')}</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-    </a>
+    <BuyBlock slot="actions" placement="hero-screenshots" testid="screenshots-buy" moreTestid="screenshots-download" size="lg" />
   </PageHero>
 
   <PageSheet>

@@ -7,6 +7,13 @@ import { expect, test } from '@playwright/test';
  * never as absolute facts (no "always", "every version", "not even through
  * Run anyway"). Per language, the spec asserts a hedge marker is present and
  * the absolute phrases are absent.
+ *
+ * The store cards themselves name only the comfort the purchase brings
+ * ("installs without the SmartScreen warning", updates through the store),
+ * never signing or Smart App Control as a store advantage: the macOS DMG on
+ * GitHub is signed and notarized too, and Smart App Control is untested for
+ * the store build. Smart App Control stays a hedged troubleshooting note in
+ * the GitHub card.
  */
 
 const PAGES = [
@@ -53,16 +60,16 @@ const WORDING: Record<string, { hedge: RegExp; forbidden: string[] }> = {
 };
 
 for (const { lang, path } of PAGES) {
-  test(`${lang}: Store card, GitHub card and SmartScreen box explain Smart App Control`, async ({
+  test(`${lang}: store cards claim no signing advantage, the SmartScreen box explains Smart App Control`, async ({
     page,
   }) => {
     await page.goto(path);
 
-    const storeCard = page.locator('[data-i18n="download.store.desc"]');
-    await expect(storeCard).toContainText('Smart App Control');
-    await expect(page.locator('[data-i18n="download.store.benefit2"]')).toContainText(
-      lang === 'zh' ? '智能应用控制' : 'Smart App Control',
-    );
+    for (const card of ['[data-platform-card="windows"]', '[data-platform-card="macos"]']) {
+      const text = (await page.locator(card).textContent()) ?? '';
+      expect(text, card).not.toMatch(/Smart App Control|智能应用控制/);
+    }
+    await expect(page.locator('[data-i18n="download.store.desc"]')).toContainText('SmartScreen');
 
     await expect(page.getByTestId('download-github-unsigned')).toBeVisible();
 
@@ -83,7 +90,6 @@ for (const { lang, path } of PAGES) {
 
     const texts = [
       (await page.getByTestId('download-sac-note').textContent()) ?? '',
-      (await page.locator('[data-i18n="download.store.desc"]').textContent()) ?? '',
       (await page.locator('[data-i18n="download.trust.desc"]').textContent()) ?? '',
     ];
     for (const text of texts) {
@@ -109,4 +115,17 @@ test('the trust text and the FAQ never claim the direct download is signed', asy
   const trust = page.locator('[data-i18n="download.trust.desc"]');
   await expect(trust).toContainText('not signed');
   await expect(trust).toContainText('Microsoft Store');
+});
+
+// #1937: the purchase questions sit next to the decision, visibly and in the
+// FAQPage JSON-LD, and the answer says what stays free.
+test('download page answers why to pay, visibly and in the FAQ schema', async ({ page }) => {
+  await page.goto('/en/download/');
+  const row = page.getByTestId('download-faq-whyPay');
+  await expect(row).toBeVisible();
+  await row.locator('summary').click();
+  await expect(row).toContainText('Buying unlocks nothing');
+  const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
+  const faq = blocks.map((b) => JSON.parse(b)).find((j) => j['@type'] === 'FAQPage');
+  expect(faq.mainEntity.map((q: { name: string }) => q.name)).toContain('Why buy it in the Store when it\'s free on GitHub?');
 });

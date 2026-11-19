@@ -1,0 +1,45 @@
+---
+// StoreNote.astro — the one line that sits under a paid-store button and says
+// what the click leads to (#1937): concrete comfort first, then "one-time
+// purchase, no subscription", the price hint and what the money pays for
+// (editorial order of the purchase copy). The visible variant follows the
+// visitor's OS (data-os, set before first paint by Layout.astro): Windows and
+// macOS get their store's own line, an unknown OS (all three platform buttons
+// visible) gets the line that names both stores, Linux gets none because its
+// button is the free download. `variants` limits the lines, e.g. where the
+// store perks already explain Windows and macOS in detail.
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+type Variant = 'windows' | 'macos' | 'generic';
+
+interface Props {
+  testid: string;
+  class?: string;
+  variants?: readonly Variant[];
+}
+
+const { testid, class: className = '', variants = ['windows', 'macos', 'generic'] } = Astro.props;
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<div class:list={['store-note', className]} data-testid={testid}>
+  {variants.map((v) => (
+    <p class:list={['store-note__v', `store-note__v--${v}`]} data-testid={`${testid}-${v}`} data-i18n={`store.note.${v}`}>{t(lang, `store.note.${v}`)}</p>
+  ))}
+</div>
+
+<style>
+  .store-note__v {
+    display: none;
+    margin: 0;
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.5;
+    color: var(--color-ink-muted);
+    text-wrap: pretty;
+  }
+  :global(html:not([data-os])) .store-note__v--generic,
+  :global(html[data-os="windows"]) .store-note__v--windows,
+  :global(html[data-os="macos"]) .store-note__v--macos {
+    display: block;
+  }
+</style>

@@ -337,7 +337,8 @@ test('mobile nav download button adapts label + icon to detected OS (EN)', async
 
 // Smart Mode can rewrite transcripts on request, so the hero demo no longer
 // promises "transcribed, not rewritten"; and "free" always names its channel
-// (GitHub), because the Store versions are paid.
+// (GitHub), because the Store versions are paid. Since #1949 (D-005) the
+// free route sits in the price block, not next to the hero's store buttons.
 for (const { path, freeOnGitHub } of [
   { path: '/', freeOnGitHub: 'kostenlos auf GitHub' },
   { path: '/en/', freeOnGitHub: 'free on GitHub' },
@@ -346,6 +347,27 @@ for (const { path, freeOnGitHub } of [
     await page.goto(path);
     await expect(page.locator('[data-i18n="appdemo.noAiEdit"]')).toHaveCount(0);
     await expect(page).toHaveTitle(new RegExp(freeOnGitHub, 'i'));
-    await expect(page.getByTestId('hero-secondary-cta')).toContainText(new RegExp(freeOnGitHub, 'i'));
+    await expect(page.getByTestId('pricing-free')).toContainText(new RegExp(freeOnGitHub, 'i'));
+    await expect(page.getByTestId('hero-secondary-cta')).not.toContainText(/github|kostenlos|free/i);
+  });
+}
+
+// #1949: the compact differences block follows the feature highlights (the
+// original order above it stays), has no buy button of its own and links to
+// the full block (maintainer 2026-11-19).
+for (const { path, more } of [
+  { path: '/', more: '/whisper-desktop/#differences' },
+  { path: '/en/', more: '/en/whisper-desktop/#differences' },
+]) {
+  test(`${path}: compact differences block after the feature highlights`, async ({ page }) => {
+    await page.goto(path);
+    const prev = await page.getByTestId('home-differences').evaluate((el) => el.previousElementSibling?.id);
+    expect(prev).toBe('features');
+    const block = page.getByTestId('differences');
+    await expect(block.getByTestId('store-button')).toHaveCount(0);
+    await expect(block.locator('li')).toHaveCount(2);
+    await expect(block.locator('img')).toHaveCount(0);
+    await expect(block.getByTestId('differences-more')).toHaveAttribute('href', more);
+    await expect(block.locator('a[href*="github.com"]:visible')).toHaveCount(0);
   });
 }

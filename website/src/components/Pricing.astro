@@ -4,6 +4,7 @@ import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import StorePerks from './StorePerks.astro';
+import StoreNote from './StoreNote.astro';
 import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
@@ -17,7 +18,7 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
      card, then what is included). The OS store button stays the primary
      action (maintainer decision), the free GitHub route is the second card;
      the feature list below applies to both. No extra CTA band. -->
-<section id="pricing" class="band band-raised relative wp-section scroll-mt-20" data-testid="pricing">
+<section id="pricing" class="band band-raised relative wp-section scroll-mt-20" data-testid="pricing" data-download-placement="pricing">
   <div class="relative wp-container">
     <div class="wp-section-head">
       <SectionEyebrow key="pricing.label" />
@@ -35,6 +36,9 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
           <div data-platform-btn="macos" data-testid="pricing-mac-store"><MacStoreButton /></div>
           <div data-platform-btn="linux"><LinuxButton /></div>
         </div>
+        <!-- Unknown OS: all three buttons, no perks block below (that one is
+             gated to Windows/macOS), so one line names both stores' terms. -->
+        <StoreNote testid="pricing-store-note" variants={['generic']} />
         <div data-requires-os="windows macos" class="price-get__perks">
           <StorePerks testid="pricing-store-hint" />
         </div>

@@ -62,7 +62,7 @@ export const MAX_QUESTION_LENGTH = 500;
  */
 export const FAQ_MATCH_THRESHOLDS: MatchThresholds = {
   minScore: 0.21,
-  minGap: 0.13,
+  minGap: 0.14,
   suggestScore: 0.21,
 };
 

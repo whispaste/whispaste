@@ -102,3 +102,136 @@ test.describe('download page — download:triggered dispatch', () => {
     });
   }
 });
+
+/**
+ * #1938: one Matomo event "Download / <channel> / <placement>" per store or
+ * release link, and the placement as store campaign parameter. A stub
+ * `_paq` records what would be sent; Matomo itself never loads on
+ * 127.0.0.1 (hostname guard in Layout.astro) and is blocked anyway.
+ */
+async function recordPaq(page: Page) {
+  await page.addInitScript(() => {
+    const calls: unknown[][] = [];
+    (window as unknown as { __paqCalls: unknown[][] }).__paqCalls = calls;
+    (window as unknown as { _paq: { push: (args: unknown[]) => void } })._paq = {
+      push: (args) => {
+        calls.push(args);
+      },
+    };
+  });
+}
+
+function downloadEvents(page: Page) {
+  return page.evaluate(() =>
+    (window as unknown as { __paqCalls: unknown[][] }).__paqCalls.filter(
+      (call) => call[0] === 'trackEvent' && call[1] === 'Download',
+    ),
+  );
+}
+
+test.describe('download event with channel and placement (#1938)', () => {
+  test.beforeEach(async ({ page }) => {
+    await blockRealMatomoScript(page);
+    await recordPaq(page);
+    await preventDownloadNavigation(page, ['store-button', 'github-windows-button']);
+  });
+
+  test('download page: Microsoft Store and GitHub installer', async ({ page }) => {
+    await page.goto('/en/download/');
+    const store = page.getByTestId('store-button').first();
+    await expect(store).toHaveAttribute('href', 'https://apps.microsoft.com/detail/9p22jvkrq2v0?cid=web-download-page');
+    await store.click();
+    await page.getByTestId('github-windows-button').click();
+    await expect
+      .poll(() => downloadEvents(page))
+      .toEqual([
+        ['trackEvent', 'Download', 'store-ms', 'download-page'],
+        ['trackEvent', 'Download', 'github-exe', 'download-page'],
+      ]);
+  });
+
+  test('home hero: store link carries the hero-home placement', async ({ page }) => {
+    await page.goto('/en/');
+    const store = page.locator('[data-download-placement="hero-home"]').getByTestId('store-button');
+    await expect(store).toHaveAttribute('href', /[?&]cid=web-hero-home$/);
+    await store.click();
+    await expect.poll(() => downloadEvents(page)).toEqual([['trackEvent', 'Download', 'store-ms', 'hero-home']]);
+  });
+
+  // #1949: every new store button surface has its own placement.
+  for (const { path, placement } of [
+    { path: '/en/whisper-desktop/', placement: 'hero-whisper-desktop' },
+    { path: '/en/whisper-desktop/', placement: 'get-whisper-desktop' },
+    { path: '/en/whisper-desktop/', placement: 'rail-whisper-desktop' },
+    { path: '/en/whisper-desktop/', placement: 'end-whisper-desktop' },
+    // Long-tail explainer pages: hero, rail and closing panel each sell.
+    { path: '/en/gpu-compatibility/', placement: 'hero-gpu-compatibility' },
+    { path: '/gpu-kompatibilitaet/', placement: 'rail-gpu-compatibility' },
+    { path: '/fr/gpu-compatibility/', placement: 'end-gpu-compatibility' },
+    { path: '/blog/lokal-diktieren-ohne-nvidia-pflicht/', placement: 'rail-blog' },
+    { path: '/en/screenshots/', placement: 'hero-screenshots' },
+  ]) {
+    test(`${path}: store link carries the ${placement} placement`, async ({ page }) => {
+      // The rail only shows from 1280px on.
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(path);
+      const store = page.locator(`[data-download-placement="${placement}"]`).getByTestId('store-button');
+      await expect(store).toHaveAttribute('href', new RegExp(`[?&]cid=web-${placement}$`));
+      await store.scrollIntoViewIfNeeded();
+      await store.click();
+      await expect.poll(() => downloadEvents(page)).toEqual([['trackEvent', 'Download', 'store-ms', placement]]);
+    });
+  }
+});
+
+test.describe('help links and FAQ events', () => {
+  test.beforeEach(async ({ page }) => {
+    await blockRealMatomoScript(page);
+    await recordPaq(page);
+  });
+
+  test('download page: the store link in the SmartScreen help has its own placement', async ({ page }) => {
+    await page.goto('/en/download/');
+    const link = page.getByTestId('download-sac-store-link');
+    await expect(link).toHaveAttribute('href', /[?&]cid=web-download-smartscreen-help$/);
+  });
+
+  // Live Matomo filed AppImage clicks as outlinks: the build on main predates
+  // #1938. On dev the AppImage counts twice over: the Download event below and
+  // Matomo's own download report (addDownloadExtensions in the bootstrap).
+  test('AppImage: Download event, and the bootstrap registers the extension', async ({ page }) => {
+    await preventDownloadNavigation(page, ['linux-appimage-button']);
+    await page.goto('/en/download/');
+    // Text matching skips <script> content, so read it directly.
+    const bootstraps = await page.evaluate(() =>
+      [...document.querySelectorAll('script:not([src])')]
+        .map((script) => script.textContent ?? '')
+        .filter((text) => text.includes('addDownloadExtensions')),
+    );
+    expect(bootstraps).toHaveLength(1);
+    expect(bootstraps[0]).toContain('"addDownloadExtensions", "AppImage"');
+    const otherToggle = page.getByTestId('other-platforms-toggle');
+    if ((await otherToggle.isVisible()) && (await otherToggle.getAttribute('aria-expanded')) !== 'true') {
+      await otherToggle.click();
+    }
+    await page.getByTestId('linux-appimage-button').first().click();
+    await expect.poll(() => downloadEvents(page)).toEqual([['trackEvent', 'Download', 'appimage', 'download-page']]);
+  });
+
+  test('opening a purchase question sends FAQ / <key> / <page> once', async ({ page }) => {
+    await page.goto('/en/download/');
+    const row = page.getByTestId('download-faq-whyPay');
+    await row.locator('summary').click();
+    await row.locator('summary').click();
+    await row.locator('summary').click();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          (window as unknown as { __paqCalls: unknown[][] }).__paqCalls.filter(
+            (call) => call[0] === 'trackEvent' && call[1] === 'FAQ',
+          ),
+        ),
+      )
+      .toEqual([['trackEvent', 'FAQ', 'whyPay', 'download-page']]);
+  });
+});

@@ -12,6 +12,7 @@ import type { LabelledQuestion } from '../scripts/faq-match/calibrate.ts';
 export const CALIBRATION: readonly LabelledQuestion[] = [
   // de
   { locale: 'de', q: 'Muss ich für WhisPaste bezahlen?', expect: 'free' },
+  { locale: 'de', q: 'Was bringt mir der Kauf im Store?', expect: 'whyPay' },
   { locale: 'de', q: 'Funktioniert die Spracherkennung auch offline?', expect: 'offline' },
   { locale: 'de', q: 'Welche Hardware brauche ich mindestens?', expect: 'sysreq' },
   { locale: 'de', q: 'Kann ich Schweizerdeutsch oder Englisch diktieren?', expect: 'languages' },
@@ -24,6 +25,7 @@ export const CALIBRATION: readonly LabelledQuestion[] = [
   { locale: 'de', q: 'Mein Mikrofon wird nicht erkannt', expect: 'unknown' },
   // en
   { locale: 'en', q: 'Do I have to pay for it?', expect: 'free' },
+  { locale: 'en', q: 'What do I get if I buy it in the store?', expect: 'whyPay' },
   { locale: 'en', q: 'Can I use it on a plane without wifi?', expect: 'offline' },
   { locale: 'en', q: 'how much ram do i need', expect: 'sysreq' },
   { locale: 'en', q: 'Is Parakeet faster than Whisper?', expect: 'engines' },
@@ -38,6 +40,7 @@ export const CALIBRATION: readonly LabelledQuestion[] = [
   { locale: 'es', q: '¿Tengo que pagar algo?', expect: 'free' },
   { locale: 'es', q: '¿Funciona sin internet?', expect: 'offline' },
   { locale: 'es', q: '¿Qué tarjeta gráfica necesito?', expect: 'choose', keys: ['sysreq', 'accuracy'] },
+  { locale: 'es', q: '¿Puedo recuperar mi dinero?', expect: 'unknown' },
   { locale: 'es', q: '¿Se puede traducir el texto?', expect: 'smartmode' },
   { locale: 'es', q: '¿Hay app para iPhone?', expect: 'windows' },
   { locale: 'es', q: '¿Cómo cambio el atajo de teclado?', expect: 'hotkey' },
@@ -91,6 +94,7 @@ export const TEST: readonly LabelledQuestion[] = [
   // de
   { locale: 'de', q: 'Was kostet die Store Version?', expect: 'free' },
   { locale: 'de', q: 'kostenlos?', expect: 'free' },
+  { locale: 'de', q: 'Lohnt sich die Store-Version?', expect: 'whyPay' },
   { locale: 'de', q: 'Geht WhisPaste ohne Internetverbindung?', expect: 'offline' },
   { locale: 'de', q: 'Wieviel Arbeitsspeicher brauch ich', expect: 'sysreq' },
   { locale: 'de', q: 'Whisper oder Parakeet, was ist schneller?', expect: 'engines' },
@@ -103,8 +107,10 @@ export const TEST: readonly LabelledQuestion[] = [
   { locale: 'de', q: 'Warnung beim Installieren', expect: 'choose', keys: ['smartscreen', 'gatekeeper'] },
   { locale: 'de', q: 'Kann ich mein Geld zurückbekommen?', expect: 'unknown' },
   { locale: 'de', q: 'Wo finde ich das Impressum?', expect: 'unknown' },
+  { locale: 'de', q: 'Ich möchte mein Geld zurück', expect: 'unknown' },
   // en
   { locale: 'en', q: 'Whats the price', expect: 'free' },
+  { locale: 'en', q: 'Is the store version worth buying?', expect: 'whyPay' },
   { locale: 'en', q: 'Does it need internet?', expect: 'offline' },
   { locale: 'en', q: 'Minimum system requirements?', expect: 'sysreq' },
   { locale: 'en', q: 'Does it understand Spanish?', expect: 'languages' },

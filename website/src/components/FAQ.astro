@@ -50,7 +50,7 @@ const lang = currentLocale(Astro.currentLocale);
         <div class="faq-group" id={`faq-group-${group.key}`} data-testid={`faq-group-${group.key}`}>
           <h3 class="faq-group__title" data-i18n={`faq.group.${group.key}`}>{t(lang, `faq.group.${group.key}`)}</h3>
           {group.keys.map((key) => (
-            <details class="faq-row scroll-mt-24" id={`faq-${key}`} data-testid={`faq-${key}`}>
+            <details class="faq-row scroll-mt-24" id={`faq-${key}`} data-testid={`faq-${key}`} data-faq-key={key}>
               <summary class="faq-row__q">
                 <span data-i18n={`faq.${key}.q`}>{t(lang, `faq.${key}.q`)}</span>
                 <span class="faq-row__icon" aria-hidden="true"></span>

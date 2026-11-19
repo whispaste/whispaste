@@ -31,7 +31,10 @@ test('blog post has a table of contents, a download CTA and more posts', async (
   await expect(toc).toBeVisible();
   const firstTarget = await toc.getByRole('link').first().getAttribute('href');
   await expect(page.locator(`[data-testid="blog-article"] ${firstTarget}`)).toHaveCount(1);
-  await expect(page.getByTestId('blog-cta-download')).toHaveAttribute('href', '/download/');
+  // Store-first purchase block (D-005); the quiet link leads to the
+  // download page (with the visitor's OS anchor once scripts ran).
+  await expect(page.getByTestId('blog-cta-buy').getByTestId('store-button')).toBeVisible();
+  await expect(page.getByTestId('blog-cta-download')).toHaveAttribute('href', /\/download\/(#[a-z]+)?$/);
   await expect(page.getByTestId('blog-more').getByRole('link')).not.toHaveCount(0);
 });
 

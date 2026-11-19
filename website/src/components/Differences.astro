@@ -1,0 +1,211 @@
+---
+/**
+ * Differences.astro — what WhisPaste brings beyond the baseline (#1949).
+ *
+ * Maintainer decision D-005 (2026-11-19): "local, free, no account" is the
+ * baseline of the category, not a difference. One short line names it, then
+ * two cards say what comes on top (Smart Mode with ready-made modes, the
+ * built-in local text model), each with its proof. Editor, dictionary,
+ * encryption and store cards were dropped by the maintainer (2026-11-19):
+ * not convincing as differences.
+ * The block has no buy button of its own (maintainer 2026-11-19): it sits
+ * further down the page, the store buttons live in hero and purchase block.
+ *
+ * Only released features (v1.5.2 on main). Store buttons carry no version
+ * notes (maintainer 2026-11-19): copy stays version-independent.
+ *
+ * Used full on `/whisper-desktop/` (before the purchase section, with two
+ * screenshots) and compact on the home page (after the feature highlights,
+ * no screenshots, link to the full block).
+ */
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, localePath, currentLocale, type Locale } from '../scripts/i18n.ts';
+
+interface Props {
+  compact?: boolean;
+  /** Pages that pass `lang` explicitly (the explainer routes). */
+  lang?: Locale;
+}
+
+const { compact = false } = Astro.props;
+const lang = Astro.props.lang ?? currentLocale(Astro.currentLocale);
+// Same rule as the screenshot gallery: German and Russian captures exist,
+// every other locale shows the English ones.
+const shotLang = lang === 'de' || lang === 'ru' ? lang : 'en';
+const screenshotsHref = localePath(lang, 'screenshots');
+const faqHref = (key: string) => `${localePath(lang, '')}#faq-${key}`;
+
+type Proof = { readonly kind: 'screenshot' | 'faq'; readonly href: string; readonly shot?: string };
+const cards: ReadonlyArray<{ key: string; icon: string; proof?: Proof }> = [
+  {
+    key: 'smartmode',
+    icon: '<path d="m12 3-1.9 5.8L4 10.7l5.1 1.9L12 18l2.9-5.4 5.1-1.9-6.1-1.9Z"/><path d="M5 21h14"/>',
+    proof: { kind: 'screenshot', href: screenshotsHref, shot: '06_smart_mode' },
+  },
+  {
+    key: 'localAi',
+    icon: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>',
+    proof: { kind: 'faq', href: faqHref('smartmode') },
+  },
+];
+---
+
+<div
+  id="differences"
+  class:list={['diff', { 'diff--compact': compact }]}
+  data-testid="differences"
+>
+  <div class="diff-head">
+    <SectionEyebrow key="diff.label" />
+    <h2 id="diff-heading" class:list={['diff-title', { 'section-title': compact }]} data-i18n="diff.title">{t(lang, 'diff.title')}</h2>
+    <p class="diff-baseline" data-testid="differences-baseline" data-i18n="diff.baseline">{t(lang, 'diff.baseline')}</p>
+  </div>
+
+  <ul class="diff-grid">
+    {cards.map((card) => (
+      <li class="wp-card diff-card" data-testid={`differences-${card.key}`}>
+        <span class="diff-card__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={card.icon} />
+        </span>
+        <h3 class="diff-card__title" data-i18n={`diff.${card.key}.title`}>{t(lang, `diff.${card.key}.title`)}</h3>
+        <p class="diff-card__body" data-i18n={`diff.${card.key}.body`}>{t(lang, `diff.${card.key}.body`)}</p>
+        {card.proof && !compact && card.proof.shot && (
+          <a href={card.proof.href} class="diff-card__shot" data-testid={`differences-${card.key}-shot`}>
+            <img
+              src={`/screenshots/${shotLang}/dark/${card.proof.shot}.webp`}
+              alt={t(lang, `diff.${card.key}.shotAlt`)}
+              width="1920"
+              height="1072"
+              loading="lazy"
+              decoding="async"
+            />
+          </a>
+        )}
+        {card.proof && (
+          <a href={card.proof.href} class="diff-card__proof" data-testid={`differences-${card.key}-proof`}>
+            <span data-i18n={`diff.proof.${card.proof.kind}`}>{t(lang, `diff.proof.${card.proof.kind}`)}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </a>
+        )}
+      </li>
+    ))}
+  </ul>
+
+  {compact && (
+    <a href={`${localePath(lang, 'whisper-desktop')}#differences`} class="diff-more" data-testid="differences-more" data-i18n="diff.more">{t(lang, 'diff.more')}</a>
+  )}
+</div>
+
+<style>
+  .diff-head {
+    max-width: 48rem;
+  }
+  .diff-title {
+    margin-top: var(--wp-space-3);
+  }
+  .diff-baseline {
+    margin-top: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.55;
+    color: var(--color-ink-muted);
+  }
+  /* `.diff .diff-grid` and the `li + li` reset outrank the prose list
+     styles of LandingPageLayout (`section ul`), which would indent the grid
+     and offset every card after the first. */
+  .diff .diff-grid {
+    list-style: none;
+    margin: var(--wp-space-8) 0 0;
+    padding: 0;
+    max-width: none;
+    display: grid;
+    gap: var(--wp-space-5);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
+  .diff .diff-card {
+    margin: 0;
+  }
+  .diff-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-3);
+  }
+  .diff-card__icon {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-control);
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+  }
+  .diff-card__icon svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+  .diff-card__title {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--wp-font-size-lg);
+    font-weight: 700;
+    letter-spacing: normal;
+    color: var(--color-ink);
+  }
+  .diff-card__body {
+    margin: 0;
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+  .diff-card__shot {
+    display: block;
+    margin-top: auto;
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    border: 1px solid var(--wp-border-subtle);
+  }
+  .diff-card__shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .diff-card__proof {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    margin-top: auto;
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-link);
+  }
+  .diff-card__shot + .diff-card__proof {
+    margin-top: 0;
+  }
+  .diff-card__proof svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .diff-card__proof:hover {
+    color: var(--color-ink);
+  }
+  .diff-more {
+    display: inline-block;
+    margin-top: var(--wp-space-6);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-link);
+  }
+  .diff-more:hover {
+    color: var(--color-ink);
+  }
+  /* Compact (home): a tighter grid, no screenshots. */
+  .diff--compact .diff-grid {
+    gap: var(--wp-space-4);
+  }
+  @media (min-width: 1024px) {
+    .diff--compact .diff-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

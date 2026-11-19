@@ -1,7 +1,7 @@
 /**
  * Download sizes of the speech models, in bytes. Mirrors the app's single
- * source (`sttModels` in lib/services/model_download_service.dart, the
- * Parakeet files in lib/services/stt_parakeet/); the drift test
+ * source, the bundled model catalog (lib/core/models/bundled_model_catalog.dart);
+ * the drift test
  * `__tests__/model-sizes.test.ts` fails when a value differs (#1152).
  *
  * Unit: steps of 1000, like Finder and Linux file managers. Windows Explorer

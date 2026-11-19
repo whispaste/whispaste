@@ -68,10 +68,6 @@ const hero = {
   lead: t(lang, "linuxStt.heroLead"),
 };
 
-const cta = {
-  label: t(lang, "linuxStt.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 /**
  * Die Dateinamen sind bewusst **nicht** übersetzt und stehen literal im Code:
@@ -121,7 +117,6 @@ const relatedPages = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "linuxStt.tldr")}</p>

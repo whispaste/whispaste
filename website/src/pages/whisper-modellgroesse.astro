@@ -42,10 +42,6 @@ const hero = {
   lead: t(lang, "modelSize.heroLead"),
 };
 
-const cta = {
-  label: t(lang, "modelSize.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 const vendorOptions = [
   { value: "nvidia", label: t(lang, "modelSize.vendor.nvidia") },
@@ -130,7 +126,6 @@ const relatedPages = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "modelSize.tldr")}</p>

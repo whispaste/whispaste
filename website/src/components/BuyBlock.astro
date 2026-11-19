@@ -1,0 +1,70 @@
+---
+// BuyBlock.astro — the store-first purchase block (D-005, #1949): the
+// visitor's store button (global.css reduces the buttons to the detected OS;
+// an unknown OS sees both store buttons, Linux its free AppImage because
+// there is no store), the purchase line right under it, and every other route
+// as one quiet link to the download page. Nothing in the block points to
+// GitHub or the free variant; that stays in the price block, the FAQ and on
+// the download page.
+//
+// `placement` names the surface for the download event and the store
+// campaign parameter (internal-notes); every surface gets its own.
+import StoreButton from './StoreButton.astro';
+import MacStoreButton from './MacStoreButton.astro';
+import LinuxButton from './LinuxButton.astro';
+import StoreNote from './StoreNote.astro';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+interface Props {
+  /** `data-download-placement` of the surface, e.g. `hero-whisper-desktop`. */
+  placement: string;
+  testid: string;
+  size?: 'default' | 'lg';
+  /** Test ids of the purchase line and the download-page link. */
+  noteTestid?: string;
+  moreTestid?: string;
+  class?: string;
+}
+
+const { placement, testid, size = 'default', noteTestid, moreTestid, class: className = '' } = Astro.props;
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<div class:list={['buy-block', className]} data-download-placement={placement} data-testid={testid}>
+  <div class="buy-block__buttons">
+    <div data-platform-btn="windows"><StoreButton size={size} /></div>
+    <div data-platform-btn="macos"><MacStoreButton size={size} /></div>
+    <div data-requires-os="linux"><LinuxButton size={size} /></div>
+  </div>
+  <StoreNote testid={noteTestid ?? `${testid}-store-note`} />
+  <a href={pathForSlug(lang, 'download')} class="buy-block__more" data-download-anchor data-testid={moreTestid ?? `${testid}-more`}>
+    <span data-i18n="hero.cta.allDownloads">{t(lang, 'hero.cta.allDownloads')}</span>
+    <span aria-hidden="true">→</span>
+  </a>
+</div>
+
+<style>
+  .buy-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wp-space-3);
+  }
+  .buy-block__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-3);
+  }
+  .buy-block__more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-link);
+  }
+  .buy-block__more:hover {
+    color: var(--color-ink);
+  }
+</style>

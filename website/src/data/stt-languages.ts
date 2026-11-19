@@ -3,7 +3,7 @@
  * never claims more (or less) than the app offers:
  *   - Whisper:  `lib/core/config/whisper_languages.dart` (`whisperLanguages`,
  *               same order — roughly by training data, largest first)
- *   - Parakeet: `lib/services/stt_parakeet/parakeet_model_registry.dart`
+ *   - Parakeet: `lib/core/models/bundled_model_catalog.dart`
  *               (`parakeetSupportedLanguages`, parakeet-tdt-0.6b-v3)
  * `src/data/__tests__/stt-languages.test.ts` fails when the two drift apart.
  * Codes are Whisper's; display names come from `Intl.DisplayNames` per locale.

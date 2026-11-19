@@ -3,10 +3,15 @@
  * Layout for long-tail content pages (use cases, comparisons, explainers).
  *
  * Built on the shared subpage shell: SubpageLayout (nav, footer, language
- * switch) plus PageHero (crumbs, display headline, lead, CTA and a motion
- * illustration picked from the URL, so consumer pages need no art prop).
+ * switch) plus PageHero (crumbs, display headline, lead, purchase block and a
+ * motion illustration picked from the URL, so consumer pages need no art prop).
  * The body is a full-width split: the article on the left, a sticky rail
- * with the download CTA and related pages on the right (≥1280px).
+ * with the purchase block and related pages on the right (≥1280px).
+ *
+ * Purchase path: hero, rail and closing panel each carry the store-first
+ * BuyBlock (D-005), so every long-tail page offers the store purchase, not
+ * only a link to the download page. Each surface reports its own placement,
+ * `hero-|rail-|end-<page>` (internal-notes).
  *
  * Schema: BreadcrumbListSchema is emitted here with the same items as the
  * visible crumbs. Page-specific schemas (HowTo, FAQPage) are emitted by the
@@ -20,7 +25,9 @@ import MotionHardware from "../components/motion/MotionHardware.astro";
 import MotionPrivacy from "../components/motion/MotionPrivacy.astro";
 import MotionHotkey from "../components/motion/MotionHotkey.astro";
 import MotionPlatforms from "../components/motion/MotionPlatforms.astro";
+import BuyBlock from "../components/BuyBlock.astro";
 import { t, type Locale } from "../scripts/i18n.ts";
+import { placementForPath } from "../scripts/download-tracking.ts";
 
 interface SeoProps {
   readonly title: string;
@@ -39,11 +46,6 @@ interface HeroProps {
   readonly note?: string;
 }
 
-interface CtaProps {
-  readonly label: string;
-  readonly href: string;
-}
-
 interface RelatedPageLink {
   readonly label: string;
   readonly href: string;
@@ -54,12 +56,14 @@ interface Props {
   readonly seo: SeoProps;
   readonly breadcrumbs: readonly CrumbItem[];
   readonly hero: HeroProps;
-  readonly cta: CtaProps;
   /** Cross-links within the content cluster, so no page is a sitemap orphan. */
   readonly relatedPages?: readonly RelatedPageLink[];
 }
 
-const { lang, seo, breadcrumbs, hero, cta, relatedPages } = Astro.props;
+const { lang, seo, breadcrumbs, hero, relatedPages } = Astro.props;
+
+// Page part of the placements, language-independent (English slug).
+const page = placementForPath(Astro.url.pathname);
 
 // Topic → illustration. Matched against the URL so all locales (and the
 // diverging DE slugs) resolve without per-page wiring. First match wins.
@@ -92,12 +96,7 @@ import PageSheet from "../components/PageSheet.astro";
   >
     <Fragment slot="actions">
       {Astro.slots.has("hero-actions") ? <slot name="hero-actions" /> : (
-        <a href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
-          <span>{cta.label}</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-          </svg>
-        </a>
+        <BuyBlock placement={`hero-${page}`} testid="lp-hero-buy" size="lg" />
       )}
     </Fragment>
     <div slot="art" class="lp-art">
@@ -137,13 +136,7 @@ import PageSheet from "../components/PageSheet.astro";
       <aside class="page-split__rail" data-testid="lp-rail">
         <div class="lp-rail-card">
           <p class="lp-rail-kicker">WhisPaste</p>
-          <a href={cta.href} class="wp-cta lp-rail-cta">
-            <span>{cta.label}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-            </svg>
-          </a>
-          <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
+          <BuyBlock placement={`rail-${page}`} testid="lp-rail-buy" />
         </div>
         {relatedPages && relatedPages.length > 0 && (
           <nav aria-label={t(lang, "explainer.related.aria")} class="lp-related" data-testid="lp-related">
@@ -161,13 +154,7 @@ import PageSheet from "../components/PageSheet.astro";
     {/* Closing CTA; id=lp-cta doubles as the "content read" sentinel. */}
     <aside id="lp-cta" class="lp-end wp-spot" data-surface="dark" data-testid="lp-cta">
       <p class="lp-end-title">{hero.heading}</p>
-      <a href={cta.href} class="wp-cta">
-        <span>{cta.label}</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-        </svg>
-      </a>
-      <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
+      <BuyBlock placement={`end-${page}`} testid="lp-end-buy" size="lg" />
     </aside>
   </PageSheet>
 
@@ -240,15 +227,6 @@ import PageSheet from "../components/PageSheet.astro";
     text-transform: uppercase;
     color: var(--color-ink-subtle);
     margin-bottom: var(--wp-space-4);
-  }
-  .lp-rail-cta {
-    width: 100%;
-    justify-content: center;
-  }
-  .lp-rail-trust {
-    margin-top: var(--wp-space-4);
-    font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-subtle);
   }
   .lp-related {
     margin-top: var(--wp-space-8);

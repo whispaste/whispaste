@@ -169,9 +169,9 @@ flutter run -d windows   # or: flutter run -d macos / flutter run -d linux
 ## Support the project
 
 WhisPaste is free and stays free. If it saves you time, you can support it via
-[GitHub Sponsors](https://github.com/sponsors/silvio-l), [Ko-fi](https://ko-fi.com/silviol),
+[PayPal](https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY), [Ko-fi](https://ko-fi.com/silviol),
 [Buy Me a Coffee](https://buymeacoffee.com/silvio.lindstedt) or
-[PayPal](https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY). In the app, Help › Support lists every way to help;
+[GitHub Sponsors](https://github.com/sponsors/silvio-l). In the app, Help › Support lists every way to help;
 the Microsoft Store and Mac App Store versions offer an optional one-time tip through the store. External support unlocks nothing.
 
 ## License

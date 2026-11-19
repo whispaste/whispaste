@@ -7,8 +7,9 @@
  * Layout: PageHero with the platforms motion illustration, then a wide
  * grid. The OS-matched store card is featured full width (data-os is set
  * before first paint by Layout.astro), the other paths sit two-up below.
- * "Why two ways" leads in source order (issue 13) and becomes a side rail
- * on wide screens (not sticky: it is taller than many viewports).
+ * "Why two ways" follows the cards in source order (#1949: the store card
+ * comes first on every screen) and becomes a side rail on wide screens (not
+ * sticky: it is taller than many viewports).
  */
 import StorePerks from '../StorePerks.astro';
 import SubpageLayout from '../../layouts/SubpageLayout.astro';
@@ -18,6 +19,7 @@ import StoreButton from '../StoreButton.astro';
 import MacStoreButton from '../MacStoreButton.astro';
 import AppleButton from '../AppleButton.astro';
 import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
+import FAQPageSchema from '../schema/FAQPageSchema.astro';
 import { t, localePath, pathForSlug, type Locale } from '../../scripts/i18n.ts';
 import {
   WINDOWS_SETUP_URL,
@@ -38,6 +40,9 @@ interface Props {
 const { lang } = Astro.props;
 const pkgManagerGroups = getLivePkgManagersGroupedByPlatform();
 const contactMail = 'kontakt@whispaste.de';
+// Purchase questions next to the decision (#1937). Same `faq.<key>` texts as
+// the landing FAQ; the FAQPage JSON-LD below lists exactly these entries.
+const purchaseFaqKeys = ['whyPay', 'free', 'smartscreen'] as const;
 const breadcrumbItems = [
   { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
   { name: t(lang, 'breadcrumb.download'), item: localePath(lang, 'download') },
@@ -60,24 +65,6 @@ import PageSheet from "../PageSheet.astro";
 
   <PageSheet>
     <div class="dl-layout">
-      <aside class="dl-rail">
-        <!-- Why two ways — moved ahead of the card decision (issue 13) so
-             visitors understand the Store-vs-free choice BEFORE they have to
-             make it, not as an afterthought below all the CTAs. Still calm/
-             informational: no CTA, no repeated buttons. -->
-        <div class="download-card rounded-2xl border border-[color:var(--wp-border-subtle)] p-6 sm:p-8 mb-6" data-testid="why-two-ways">
-          {/* h2 (not h3): first section heading after the h1 — keeps the outline
-              gapless. font-sans/tracking-normal preserve the previous h3 look
-              (the base layer gives bare h2s the display face). */}
-          <h2 class="font-sans tracking-normal font-semibold text-ink mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h2>
-          <p class="text-ink-muted text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
-          <p class="text-ink-muted text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
-          <div class="mt-6 pt-6 border-t border-[color:var(--wp-border-subtle)]">
-            <StorePerks testid="download-store-perks" />
-          </div>
-        </div>
-      </aside>
-
       <div class="dl-main">
   <!-- OS-adaptive primary CTA group: order is reassigned per data-os
              below the fold, no DOM reflow (data-os is set before first paint
@@ -131,7 +118,7 @@ import PageSheet from "../PageSheet.astro";
                 dunklen Karten (3.5:1); der Token ist die AA-sichere Caption-Stufe. */}
             <p class="text-xs text-ink-subtle flex items-center gap-1">
               <svg class="w-3 h-3 text-ink-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-              <span data-i18n="download.store.hint">{t(lang, "download.store.hint")}</span>
+              <span data-i18n="store.note.windows" data-testid="download-store-note">{t(lang, "store.note.windows")}</span>
             </p>
           </div>
         </div>
@@ -182,7 +169,7 @@ import PageSheet from "../PageSheet.astro";
             <MacStoreButton size="lg" />
             <p class="text-xs text-ink-subtle flex items-center gap-1">
               <svg class="w-3 h-3 text-ink-subtle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-              <span data-i18n="download.macstore.hint">{t(lang, "download.macstore.hint")}</span>
+              <span data-i18n="store.note.macos" data-testid="download-macstore-note">{t(lang, "store.note.macos")}</span>
             </p>
           </div>
         </div>
@@ -292,6 +279,7 @@ import PageSheet from "../PageSheet.astro";
                 target="_blank"
                 rel="noopener noreferrer"
                 data-testid="linux-github-button"
+                data-download-channel="source"
               >
                 <svg class="dl-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
                 <span class="dl-btn__text">
@@ -345,8 +333,10 @@ import PageSheet from "../PageSheet.astro";
             <div class="tech-helper__body px-5 pb-5">
               <!-- Smart App Control may block unsigned installers (and then
                    "Run anyway" may be unavailable), so the Store is the
-                   hurdle-free path. Wording is hedged on purpose. -->
-              <div class="ml-8 mb-4 rounded-lg border border-[color:var(--wp-border-subtle)] p-3" data-testid="download-sac-note">
+                   hurdle-free path. Wording is hedged on purpose. The store
+                   link here is a help path, not the store card: own placement
+                   (internal-notes). -->
+              <div class="ml-8 mb-4 rounded-lg border border-[color:var(--wp-border-subtle)] p-3" data-testid="download-sac-note" data-download-placement="download-smartscreen-help">
                 <p class="text-ink-muted text-xs leading-relaxed" data-i18n="download.sac.desc">{t(lang, "download.sac.desc")}</p>
                 <a
                   href={MS_STORE_URL}
@@ -650,7 +640,42 @@ import PageSheet from "../PageSheet.astro";
             </div>
           </div>
         </div>
+
+        <!-- Purchase FAQ: why pay when GitHub is free, what it costs, why
+             Windows may warn. Native <details>; opening one sends the FAQ event
+             (faq-tracking.ts). -->
+        <section class="download-card rounded-2xl border border-[color:var(--wp-border-subtle)] p-6 sm:p-8 mt-6" aria-labelledby="download-faq-title" data-testid="download-faq">
+          <h2 id="download-faq-title" class="font-sans tracking-normal font-semibold text-ink mb-3" data-i18n="download.faq.title">{t(lang, "download.faq.title")}</h2>
+          {purchaseFaqKeys.map((key) => (
+            <details class="dl-faq-row" data-testid={`download-faq-${key}`} data-faq-key={key}>
+              <summary class="dl-faq-row__q">
+                <span data-i18n={`faq.${key}.q`}>{t(lang, `faq.${key}.q`)}</span>
+                <svg class="dl-faq-row__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </summary>
+              <p class="dl-faq-row__a" data-i18n={`faq.${key}.a`}>{t(lang, `faq.${key}.a`)}</p>
+            </details>
+          ))}
+        </section>
       </div>
+
+      <aside class="dl-rail">
+        <!-- Why two ways: after the cards in source order since #1949, so
+             on phones and tablets the visitor's store card comes first
+             (D-005: the store buttons are the page's main action). From
+             1280px it is a side rail next to the cards, as before. Still
+             calm/informational: no CTA, no repeated buttons. -->
+        <div class="download-card rounded-2xl border border-[color:var(--wp-border-subtle)] p-6 sm:p-8 mb-6" data-testid="why-two-ways">
+          {/* h2 (not h3): a section heading on the level of the cards — keeps
+              the outline gapless. font-sans/tracking-normal preserve the
+              previous h3 look (the base layer gives bare h2s the display face). */}
+          <h2 class="font-sans tracking-normal font-semibold text-ink mb-3" data-i18n="download.whyTwoWays.title">{t(lang, "download.whyTwoWays.title")}</h2>
+          <p class="text-ink-muted text-sm leading-relaxed" data-i18n="download.whyTwoWays.body1">{t(lang, "download.whyTwoWays.body1")}</p>
+          <p class="text-ink-muted text-sm leading-relaxed mt-3" data-i18n="download.whyTwoWays.body2">{t(lang, "download.whyTwoWays.body2")}</p>
+          <div class="mt-6 pt-6 border-t border-[color:var(--wp-border-subtle)]">
+            <StorePerks testid="download-store-perks" />
+          </div>
+        </div>
+      </aside>
     </div>
   </PageSheet>
 
@@ -692,11 +717,56 @@ import PageSheet from "../PageSheet.astro";
   </script>
 
   <BreadcrumbListSchema items={breadcrumbItems} />
+  <FAQPageSchema locale={lang} questionKeys={purchaseFaqKeys} />
 </SubpageLayout>
 
 <style>
   .download-card {
     background: var(--color-brand-card);
+  }
+  .dl-faq-row {
+    border-top: 1px solid var(--wp-border-subtle);
+  }
+  .dl-faq-row__q {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-4);
+    min-height: 44px;
+    padding: var(--wp-space-3) 0;
+    font-weight: 600;
+    color: var(--color-ink);
+    cursor: pointer;
+    list-style: none;
+  }
+  .dl-faq-row__q::-webkit-details-marker {
+    display: none;
+  }
+  .dl-faq-row__q:focus-visible {
+    outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+  .dl-faq-row__chevron {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: var(--color-ink-subtle);
+    transition: rotate var(--dur-base) var(--ease-flow);
+  }
+  .dl-faq-row[open] .dl-faq-row__chevron {
+    rotate: 180deg;
+  }
+  .dl-faq-row__a {
+    padding-bottom: var(--wp-space-4);
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dl-faq-row__chevron {
+      transition: none;
+    }
   }
   /* OS-matched card: cyan-tinted background + border (overrides base .download-card) */
   :global([data-os="windows"]) .download-card[data-platform-card="windows"],

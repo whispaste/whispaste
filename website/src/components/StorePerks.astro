@@ -1,9 +1,11 @@
 ---
 import { t, currentLocale } from '../scripts/i18n.ts';
 
-// Why the store build is the recommended route (maintainer decision): it funds
-// the project, is reviewed by Microsoft/Apple and updates itself. Claims stay
-// factual — the free GitHub build is a full app too.
+// What the store build gives, in the fixed order of the purchase copy
+// (#1937): the concrete comfort first (installs and updates through the
+// store; on Windows without the SmartScreen warning), then the price model
+// (one-time, no subscription, price shown by the store), then what the money
+// pays for. Claims stay factual — the free GitHub build is a full app too.
 interface Props {
   testid: string;
 }
@@ -11,9 +13,9 @@ const { testid } = Astro.props;
 const lang = currentLocale(Astro.currentLocale);
 
 const perks = [
+  { key: 'comfort', icon: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>' },
+  { key: 'once', icon: '<path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41Z"/><circle cx="7" cy="7" r="1.5"/>' },
   { key: 'support', icon: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>' },
-  { key: 'safe', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>' },
-  { key: 'updates', icon: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>' },
 ] as const;
 ---
 

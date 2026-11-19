@@ -28,16 +28,24 @@ test.describe('subpage shell', () => {
 });
 
 test.describe('long-tail landing pages', () => {
-  test('hero CTA, rail and closing CTA point to the same target', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/gpu-kompatibilitaet/');
-    const heroCta = page.getByTestId('lp-hero-cta');
-    await expect(heroCta).toBeVisible();
-    await expect(page.getByTestId('lp-rail')).toBeVisible();
-    const href = await heroCta.getAttribute('href');
-    expect(href).toBeTruthy();
-    await expect(page.getByTestId('lp-cta').locator('a')).toHaveAttribute('href', href ?? '');
-  });
+  // D-005: hero, rail and closing panel each offer the store purchase, with
+  // the purchase line, and no route to GitHub or the free variant next to it.
+  for (const path of ['/gpu-kompatibilitaet/', '/en/use-cases/students/', '/zh/comparison/voice-input-tool-alternatives/']) {
+    test(`${path}: hero, rail and closing panel carry the store purchase`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(path);
+      for (const id of ['lp-hero-buy', 'lp-rail-buy', 'lp-end-buy']) {
+        const block = page.getByTestId(id);
+        await block.scrollIntoViewIfNeeded();
+        await expect(block.locator('a[href*="apps.microsoft.com"], a[href*="apps.apple.com"]').first()).toBeVisible();
+        await expect(page.getByTestId(`${id}-store-note`)).toBeAttached();
+        const text = (await block.innerText()) ?? '';
+        expect(text, id).not.toMatch(/github|free|kostenlos|gratuit|免费/i);
+        // Linux has no store; only a Linux visitor sees its AppImage button.
+        await expect(block.locator('a[href*="github.com"]:visible')).toHaveCount(0);
+      }
+    });
+  }
 });
 
 test.describe('legal pages', () => {

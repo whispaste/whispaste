@@ -401,7 +401,7 @@ export interface FAQPageOptions {
  * Landing-page FAQ topic groups, in visible order (`FAQ.astro`).
  */
 export const FAQ_GROUPS: readonly { readonly key: string; readonly keys: readonly string[] }[] = [
-  { key: "start", keys: ["free", "windows", "sysreq", "smartscreen", "gatekeeper"] },
+  { key: "start", keys: ["free", "whyPay", "windows", "sysreq", "smartscreen", "gatekeeper"] },
   { key: "local", keys: ["offline", "privacy", "encryption", "engines", "languages", "accuracy"] },
   { key: "features", keys: ["smartmode", "snippets", "hotkey", "accessibility"] },
 ];

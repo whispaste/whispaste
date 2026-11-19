@@ -843,12 +843,16 @@
  * platform CTAs visible) it stays hidden — under three equal-rank buttons a
  * Store-only hint would read as applying to all of them, including Linux
  * which has no store listing. `~=` matches a token in the space-separated
- * `data-requires-os` list (e.g. "windows macos"). */
+ * `data-requires-os` list (e.g. "windows macos"). The same gate with "linux"
+ * shows the free Linux button only to detected Linux visitors, so in the
+ * unknown-OS fallback the store buttons stand without a free route next to
+ * them (D-005, #1949). */
 [data-requires-os] {
   display: none;
 }
 [data-os="windows"] [data-requires-os~="windows"],
-[data-os="macos"] [data-requires-os~="macos"] {
+[data-os="macos"] [data-requires-os~="macos"],
+[data-os="linux"] [data-requires-os~="linux"] {
   display: block;
 }
 

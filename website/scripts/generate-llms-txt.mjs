@@ -97,12 +97,44 @@ const LLMS_TXT_SECTIONS = Object.freeze([
       {
         label: "Download (Deutsch)",
         url: "https://whispaste.de/download/",
-        note: "Microsoft Store, Mac App Store oder kostenlos von GitHub (DMG für macOS sowie Windows- und Linux-Builds)",
+        note: "Kostenlos von GitHub (Windows-Installer oder ZIP, macOS-DMG, Linux-AppImage, .deb, tar.gz) oder als Einmalkauf ohne Abo im Microsoft Store und Mac App Store; der Kauf schaltet nichts frei",
       },
       {
         label: "Download (English)",
         url: "https://whispaste.de/en/download/",
-        note: "Microsoft Store, Mac App Store, or free from GitHub (macOS DMG, Windows and Linux builds)",
+        note: "Free from GitHub (Windows installer or ZIP, macOS DMG, Linux AppImage, .deb, tar.gz) or a one-time purchase with no subscription in the Microsoft Store and Mac App Store; buying unlocks nothing",
+      },
+      {
+        label: "Microsoft Store",
+        url: "https://apps.microsoft.com/detail/9p22jvkrq2v0",
+        note: "One-time purchase for Windows: installs without the SmartScreen warning and updates automatically through the store",
+      },
+      {
+        label: "Mac App Store",
+        url: "https://apps.apple.com/app/id6795319409",
+        note: "One-time purchase for Apple Silicon Macs: installs and updates through the App Store",
+      },
+      {
+        label: "GitHub releases",
+        url: "https://github.com/whispaste/whispaste/releases/latest",
+        note: "Free downloads of the latest release for Windows, macOS and Linux",
+      },
+    ],
+  },
+  {
+    // #1949: local, free and no account are the baseline; this is what
+    // comes on top, the same list as the differences block on the site.
+    title: "What sets WhisPaste apart",
+    links: [
+      {
+        label: "Unterschiede (Deutsch)",
+        url: "https://whispaste.de/whisper-desktop/#differences",
+        note: "Smart Mode mit fertigen Modi (Aufräumen, Kürzen, Übersetzen), lokales Textmodell ohne Zusatzsoftware oder eigener OpenAI-Schlüssel, Aufnahmen, Notizen und Textbausteine in einem Editor, Wörterbuch mit Ersetzungsvorschlägen, verschlüsselte Daten, Microsoft Store und Mac App Store",
+      },
+      {
+        label: "Differences (English)",
+        url: "https://whispaste.de/en/whisper-desktop/#differences",
+        note: "Smart Mode with ready-made modes (clean up, shorten, translate), a local text model with no extra software or your own OpenAI key, recordings, notes and snippets in one editor, a dictionary that suggests replacements, encrypted data, Microsoft Store and Mac App Store",
       },
     ],
   },

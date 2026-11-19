@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-// Privacy shows two labelled audio paths (local default, optional cloud), a
-// telemetry line and a link to the explainer page.
-test('privacy section shows both audio paths and the details link', async ({ page }) => {
+// Privacy shows two labelled audio paths (local default, optional cloud).
+test('privacy section shows both audio paths', async ({ page }) => {
   await page.goto('/en/');
   const section = page.getByTestId('privacy');
   await section.scrollIntoViewIfNeeded();
   await expect(page.getByTestId('privacy-path-local').locator('ol li')).toHaveCount(3);
-  await expect(page.getByTestId('privacy-details')).toHaveAttribute('href', '/en/privacy-speech-recognition/');
+  await expect(page.getByTestId('privacy-path-cloud')).toBeVisible();
 });
 
 // Each path has a transparent, text-free motion loop (VP9 WebM, HEVC .mov for

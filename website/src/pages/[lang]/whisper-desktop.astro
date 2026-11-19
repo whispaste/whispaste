@@ -11,9 +11,12 @@ import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
 import HowToSchema from "../../components/schema/HowToSchema.astro";
 import FAQPageSchema from "../../components/schema/FAQPageSchema.astro";
 import SectionEyebrow from "../../components/SectionEyebrow.astro";
+import StoreButton from "../../components/StoreButton.astro";
+import MacStoreButton from "../../components/MacStoreButton.astro";
+import BuyBlock from "../../components/BuyBlock.astro";
+import Differences from "../../components/Differences.astro";
 import heroDevice from "../../assets/hero-device/hero-device-clean-en.png";
 import { t, localePath, currentLocale, prefixedLocalePaths, LOCALE_META } from "../../scripts/i18n.ts";
-import { GITHUB_REPO_URL } from "../../components/schema/builders.ts";
 
 export function getStaticPaths() {
   return prefixedLocalePaths();
@@ -37,10 +40,6 @@ const hero = {
   note: t(lang, "explainer.whisperDesktop.heroNote"),
 };
 
-const cta = {
-  label: t(lang, "explainer.whisperDesktop.cta.label"),
-  href: localePath(lang, "download"),
-};
 
 const howToSteps = [
   {
@@ -54,35 +53,56 @@ const howToSteps = [
   {
     name: t(lang, "explainer.whisperDesktop.howTo.step3.name"),
     text: t(lang, "explainer.whisperDesktop.howTo.step3.text"),
+  },  {
+    name: t(lang, "explainer.whisperDesktop.howTo.step4.name"),
+    text: t(lang, "explainer.whisperDesktop.howTo.step4.text"),
   },
 ];
 
 const faqQuestions = [
   {
+    key: "whatIs",
     question: t(lang, "explainer.whisperDesktop.faq.whatIs.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.whatIs.a"),
   },
   {
+    key: "howWorks",
     question: t(lang, "explainer.whisperDesktop.faq.howWorks.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.howWorks.a"),
   },
   {
+    key: "files",
+    question: t(lang, "explainer.whisperDesktop.faq.files.q"),
+    answer: t(lang, "explainer.whisperDesktop.faq.files.a"),
+  },
+  {
+    key: "offline",
     question: t(lang, "explainer.whisperDesktop.faq.offline.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.offline.a"),
   },
   {
+    key: "oldGpu",
     question: t(lang, "explainer.whisperDesktop.faq.oldGpu.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.oldGpu.a"),
   },
   {
+    key: "free",
     question: t(lang, "explainer.whisperDesktop.faq.free.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.free.a"),
   },
+  // Same purchase answer as /download/ and the landing FAQ (#1937).
   {
+    key: "whyPay",
+    question: t(lang, "faq.whyPay.q"),
+    answer: t(lang, "faq.whyPay.a"),
+  },
+  {
+    key: "safe",
     question: t(lang, "explainer.whisperDesktop.faq.safe.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.safe.a"),
   },
   {
+    key: "whereTranscript",
     question: t(lang, "explainer.whisperDesktop.faq.whereTranscript.q"),
     answer: t(lang, "explainer.whisperDesktop.faq.whereTranscript.a"),
   },
@@ -102,23 +122,19 @@ const relatedPages = [
   seo={seo}
   breadcrumbs={breadcrumbs}
   hero={hero}
-  cta={cta}
   relatedPages={relatedPages}
 >
+  {/* Store buttons are the hero's main action (D-005, #1949): the
+      visitor's store (Linux: its free download, there is no store), the
+      purchase line right under it, every other route as a quiet link. */}
   <Fragment slot="hero-actions">
-    <a href={cta.href} class="wp-cta wd-dl" data-testid="whisper-desktop-hero-download">
-      <span class="wd-dl-label wd-dl-label--generic">{cta.label}</span>
-      <span class="wd-dl-label wd-dl-label--macos">{t(lang, "explainer.whisperDesktop.cta.macos")}</span>
-      <span class="wd-dl-label wd-dl-label--windows">{t(lang, "explainer.whisperDesktop.cta.windows")}</span>
-      <span class="wd-dl-label wd-dl-label--linux">{t(lang, "explainer.whisperDesktop.cta.linux")}</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
-      </svg>
-    </a>
-    <a href={GITHUB_REPO_URL} class="wp-cta-ghost" target="_blank" rel="noopener" data-testid="whisper-desktop-source-link">
-      <span>{t(lang, "explainer.whisperDesktop.cta.github")}</span>
-      <span aria-hidden="true">↗</span>
-    </a>
+    <BuyBlock
+      placement="hero-whisper-desktop"
+      testid="whisper-desktop-hero-buy"
+      noteTestid="whisper-desktop-hero-store-note"
+      moreTestid="whisper-desktop-hero-download"
+      size="lg"
+    />
   </Fragment>
   {/* Benefit strip: short "why WhisPaste" triad right after the hero,
       BEFORE the search-intent-driven HowTo/FAQ block — critique.md P1
@@ -154,6 +170,32 @@ const relatedPages = [
       <p class="benefit-body">{t(lang, "explainer.whisperDesktop.benefits.hardware.body")}</p>
     </div>
   </div>
+
+  {/* Two jobs, one app (#1937): live dictation at the cursor and local
+      transcription of audio and video files (shipped in 1.5). */}
+  <section aria-labelledby="uses-heading" data-testid="whisper-desktop-uses">
+    <h2 id="uses-heading">{t(lang, "explainer.whisperDesktop.uses.heading")}</h2>
+    <div class="wd-cards">
+      <div class="wd-card" data-testid="whisper-desktop-use-dictate">
+        <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="2" width="6" height="12" rx="3" />
+          <path d="M5 10a7 7 0 0 0 14 0" />
+          <path d="M12 17v5" />
+        </svg>
+        <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.uses.dictate.title")}</h3>
+        <p class="benefit-body">{t(lang, "explainer.whisperDesktop.uses.dictate.body")}</p>
+      </div>
+      <div class="wd-card" data-testid="whisper-desktop-use-files">
+        <svg class="benefit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 2v6h6" />
+          <path d="M9 13v4M12 11v8M15 14v2" />
+        </svg>
+        <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.uses.files.title")}</h3>
+        <p class="benefit-body">{t(lang, "explainer.whisperDesktop.uses.files.body")}</p>
+      </div>
+    </div>
+  </section>
 
   <section aria-labelledby="howto-heading">
     <h2 id="howto-heading">{t(lang, "explainer.whisperDesktop.howTo.name")}</h2>
@@ -214,6 +256,41 @@ const relatedPages = [
     description={t(lang, "explainer.whisperDesktop.heroLead")}
     steps={howToSteps}
   />
+
+  {/* What WhisPaste adds beyond the baseline (#1949), placed before the
+      purchase section; the store buttons follow there (maintainer
+      2026-11-19: original page order kept, block lower). */}
+  <section aria-labelledby="diff-heading" data-testid="whisper-desktop-differences">
+    <Differences lang={lang} />
+  </section>
+
+  {/* Buying comes first and carries the large store buttons (D-005,
+      #1949); the free route follows as a plain paragraph with a text link,
+      so the price block still says that the app is free on GitHub, just not
+      next to the buy button. The store card says what the purchase is
+      before the button, so it never reads like a free download. */}
+  <section aria-labelledby="get-heading" data-testid="whisper-desktop-get">
+    <h2 id="get-heading">{t(lang, "explainer.whisperDesktop.get.heading")}</h2>
+    <p>{t(lang, "explainer.whisperDesktop.get.lead")}</p>
+    <div class="wd-card wd-card--store" data-testid="whisper-desktop-get-store" data-download-placement="get-whisper-desktop">
+      <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.get.store.title")}</h3>
+      <p class="benefit-body">{t(lang, "explainer.whisperDesktop.get.store.body")}</p>
+      <p class="benefit-body wd-card__price">{t(lang, "explainer.whisperDesktop.get.store.price")}</p>
+      <div class="wd-card__stores">
+        <div data-platform-btn="windows"><StoreButton size="lg" /></div>
+        <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
+      </div>
+      <p class="benefit-body wd-card__linux">{t(lang, "explainer.whisperDesktop.get.store.linux")}</p>
+    </div>
+    <div class="wd-free" data-testid="whisper-desktop-get-free">
+      <h3 class="benefit-title">{t(lang, "explainer.whisperDesktop.get.free.title")}</h3>
+      <p class="benefit-body">{t(lang, "explainer.whisperDesktop.get.free.body")}</p>
+      <a href={localePath(lang, "download")} data-download-anchor class="wd-free__link" data-testid="whisper-desktop-get-free-link">
+        <span>{t(lang, "explainer.whisperDesktop.get.free.cta")}</span>
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </section>
 
   <section class="device-photo-block">
     <figure class="device-photo reveal-up">
@@ -299,7 +376,7 @@ const relatedPages = [
     </h2>
     <div class="faq-accordion">
       {faqQuestions.map((entry) => (
-        <details class="faq-item">
+        <details class="faq-item" data-faq-key={entry.key}>
           <summary>
             {entry.question}
             <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
@@ -324,22 +401,66 @@ const relatedPages = [
 </script>
 
 <style>
-  /* Download-first hero (GR-040): the label follows the visitor's OS through the
-     data-os attribute that Layout's inline detector sets before first paint, the
-     same signal as the nav and platform buttons. Unknown OS and no-JS see the
-     neutral label. */
-  .wd-dl-label {
+  /* Store-first hero (#1949): buttons, the purchase line, then a quiet
+     link to every other download. */
+  .wd-free__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-link);
+  }
+  .wd-free__link:hover {
+    color: var(--color-ink);
+  }
+
+  /* Two-card row for "uses" (#1937), two equal columns from sm up. The
+     store card in "get" uses the same material at full width. */
+  .wd-cards {
+    margin-top: var(--wp-space-5);
+    display: grid;
+    gap: var(--wp-space-5);
+  }
+  @media (min-width: 640px) {
+    .wd-cards {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .wd-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    border-radius: var(--radius-card);
+    background: var(--color-brand-card);
+    border: 1px solid var(--wp-border-subtle);
+  }
+  .wd-card__price {
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .wd-card--store {
+    margin-top: var(--wp-space-5);
+  }
+  .wd-card__stores {
+    padding-top: var(--wp-space-4);
+  }
+  .wd-free {
+    margin-top: var(--wp-space-6);
+  }
+  .wd-card__stores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-3);
+  }
+  /* Linux has no store listing: its visitors see this line instead of the
+     (hidden) store buttons. */
+  .wd-card__linux {
     display: none;
   }
-  :global(html:not([data-os])) .wd-dl-label--generic,
-  :global(html[data-os="macos"]) .wd-dl-label--macos,
-  :global(html[data-os="windows"]) .wd-dl-label--windows,
-  :global(html[data-os="linux"]) .wd-dl-label--linux {
-    display: inline;
-  }
-  .wd-dl {
-    max-width: 100%;
-    text-align: center;
+  :global(html[data-os="linux"]) .wd-card__linux {
+    display: block;
   }
 
   /* Lead visual for "How it works": hotkey → speak → text-at-cursor, the

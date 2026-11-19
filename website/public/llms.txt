@@ -1,11 +1,19 @@
 # WhisPaste
 
-> WhisPaste is a free, MIT-licensed voice-input app for Windows, Apple Silicon Macs and Linux: press a hotkey, speak, and the text lands in the active text field. Speech recognition runs locally on your computer.
+> WhisPaste is a dictation app for Windows, Apple Silicon Macs and Linux: press a hotkey, speak, and the text lands in the text field you are working in. Speech recognition runs locally on your computer, and no account is needed. It is open source under the MIT License and free on GitHub; the Microsoft Store and Mac App Store versions are a one-time purchase with no subscription; buying unlocks nothing.
 
 ## Download
 
-- [Download (Deutsch)](https://whispaste.de/download/): Microsoft Store, Mac App Store oder kostenlos von GitHub (DMG für macOS sowie Windows- und Linux-Builds)
-- [Download (English)](https://whispaste.de/en/download/): Microsoft Store, Mac App Store, or free from GitHub (macOS DMG, Windows and Linux builds)
+- [Download (Deutsch)](https://whispaste.de/download/): Kostenlos von GitHub (Windows-Installer oder ZIP, macOS-DMG, Linux-AppImage, .deb, tar.gz) oder als Einmalkauf ohne Abo im Microsoft Store und Mac App Store; der Kauf schaltet nichts frei
+- [Download (English)](https://whispaste.de/en/download/): Free from GitHub (Windows installer or ZIP, macOS DMG, Linux AppImage, .deb, tar.gz) or a one-time purchase with no subscription in the Microsoft Store and Mac App Store; buying unlocks nothing
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0): One-time purchase for Windows: installs without the SmartScreen warning and updates automatically through the store
+- [Mac App Store](https://apps.apple.com/app/id6795319409): One-time purchase for Apple Silicon Macs: installs and updates through the App Store
+- [GitHub releases](https://github.com/whispaste/whispaste/releases/latest): Free downloads of the latest release for Windows, macOS and Linux
+
+## What sets WhisPaste apart
+
+- [Unterschiede (Deutsch)](https://whispaste.de/whisper-desktop/#differences): Smart Mode mit fertigen Modi (Aufräumen, Kürzen, Übersetzen), lokales Textmodell ohne Zusatzsoftware oder eigener OpenAI-Schlüssel, Aufnahmen, Notizen und Textbausteine in einem Editor, Wörterbuch mit Ersetzungsvorschlägen, verschlüsselte Daten, Microsoft Store und Mac App Store
+- [Differences (English)](https://whispaste.de/en/whisper-desktop/#differences): Smart Mode with ready-made modes (clean up, shorten, translate), a local text model with no extra software or your own OpenAI key, recordings, notes and snippets in one editor, a dictionary that suggests replacements, encrypted data, Microsoft Store and Mac App Store
 
 ## FAQ
 

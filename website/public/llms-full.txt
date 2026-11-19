@@ -2,13 +2,24 @@
 
 # WhisPaste
 
-> WhisPaste is a free, MIT-licensed voice-input app for Windows, Apple Silicon Macs and Linux: press a hotkey, speak, and the text lands in the active text field. Speech recognition runs locally on your computer.
+> WhisPaste is a dictation app for Windows, Apple Silicon Macs and Linux: press a hotkey, speak, and the text lands in the text field you are working in. Speech recognition runs locally on your computer, and no account is needed. It is open source under the MIT License and free on GitHub; the Microsoft Store and Mac App Store versions are a one-time purchase with no subscription; buying unlocks nothing.
 
 ## What WhisPaste does
 
 - You hold a global hotkey in any application while you speak and let go to stop, or tap it once to start and again to stop.
 - WhisPaste transcribes the recording on your computer and copies the text to the clipboard. With Auto-Paste switched on, it inserts the text at the cursor of the active application, in almost any app.
 - It is meant for people who write a lot at the desktop: emails, messages, documents, notes, prompts and code comments.
+
+## What WhisPaste adds beyond the basics
+
+Local, no account and free to use is the baseline. On top of that, WhisPaste brings:
+
+- Smart Mode with ready-made modes: clean up, shorten or translate into one of seven languages before the text is pasted. To change selected text, say what should be different.
+- Smart Mode runs on a local text model that WhisPaste downloads for you when you ask; there is no extra software to install (experimental on Linux). Alternatively, use your own OpenAI key.
+- Recordings, notes and snippets in one editor, with the same toolbar, the same shortcuts and autosave.
+- A dictionary with replacements that suggests new replacements from your corrections.
+- History, notes, dictionary, snippets and kept recordings are stored encrypted with your device's own data key.
+- Available in the Microsoft Store and the Mac App Store: on Windows it installs without the SmartScreen warning and updates in the background through the store; on the Mac, installation and updates go through the App Store. One-time purchase, no subscription; the purchase funds development.
 
 ## Speech recognition
 
@@ -22,7 +33,7 @@
 
 - Cleanup removes filler words and fixes punctuation, Concise shortens the text, Translate converts it into German, English, Spanish, French, Portuguese, Mandarin or Russian.
 - Runs locally (macOS and Windows; experimental on Linux) or through OpenAI with your own API key.
-- Your own presets with your own instruction (up to 500 characters); apply a preset later to an earlier recording, the original is kept. Instead of OpenAI, a compatible server of your own (for example LM Studio or Ollama) on your computer or network works too.
+- Your own presets with your own instruction (up to 500 characters); apply a preset later to an earlier recording, the original is kept. Instead of OpenAI, a compatible server of your own (for example Ollama, LM Studio, llama.cpp or KoboldCpp) on your computer or network works too.
 
 ## Everyday features
 
@@ -34,29 +45,42 @@
 - Up to five favorite recognition languages, marked with a star, come first in the language menus; a shortcut switches between them.
 - The Dictionary holds names and specialist terms; replacements fix recurring spellings, and WhisPaste suggests new ones from your repeated corrections.
 - Profiles set language, speech model, Smart Mode, microphone and output for a specific app.
+- Edit selection (optional, off by default): select text in a supported app, press its hotkey and say what to change, for example “shorter” or “translate”; Smart Mode rewrites the selection.
 - If a transcription fails, the audio is kept for 24 hours by default, even after a crash, so you can try again.
 - Accessibility: settings, notes and editor tools work by keyboard and screen reader; tap mode means you never have to hold a key.
 
 ## Privacy
 
 - With local recognition, audio stays on your computer and is discarded after transcription unless you turn on audio retention.
-- On macOS and Windows, WhisPaste does not auto-paste into password fields; the text stays on the clipboard.
+- On Windows and in the macOS version from GitHub, WhisPaste does not auto-paste into password fields; the text stays on the clipboard.
 - Transcripts, notes, the Dictionary, snippets and kept audio are stored encrypted with a data key in the system key store (macOS keychain, Windows data protection, Linux Secret Service). You can back up the key as a recovery code or file.
 - No account is needed.
-- Usage statistics and crash reports contain no audio, transcripts or history and can be switched off in Settings → Privacy.
+- Anonymous usage statistics and crash reports are on by default. They contain no audio, transcripts or history, and each can be switched off in Settings → Privacy.
 - Cloud features send data only to the provider you chose and only when you use them.
 
 ## Platforms and requirements
 
 - Windows 10 or later, macOS 13 Ventura or later on Apple Silicon (Intel Macs are not supported), Linux x64 (AppImage, .deb, tar.gz) on Ubuntu 26.04 or newer with glibc 2.43; older Linux systems stay on version 1.4.2.
+- Linux runs on X11 and Wayland. Under Wayland the desktop binds the global hotkey (through the shortcut portal on GNOME and KDE, or a custom shortcut that runs `whispaste --toggle`), and a few extras such as single-key hotkeys, double tap and “Send after pasting” need X11. Auto-paste on Linux needs a one-time permission (uinput keyboard or desktop portal); without it the text waits on the clipboard.
 - Recommended: at least 8 GB of RAM and a 64-bit processor.
 - Desktop only; there is no iOS or Android version.
 
-## Price and licence
+## How to get WhisPaste and what it costs
 
-- The complete app is free on GitHub under the MIT License.
-- Paid versions in the Microsoft Store and Mac App Store offer the same core features with updates through the store.
-- No subscription. Optional cloud providers may charge for their usage.
+- Free on GitHub, the complete app under the MIT License: Windows installer (WhisPaste-Setup.exe) or portable ZIP, macOS DMG, Linux AppImage, .deb and tar.gz. Package managers: winget (`SilvioLindstedt.WhisPaste`) and Scoop on Windows, Homebrew on macOS. You can also build it yourself from the source code.
+- Microsoft Store (Windows) and Mac App Store (macOS): a one-time purchase, no subscription. The store shows the current price.
+- What the store version adds: on Windows, installation without the SmartScreen warning that the unsigned installer from GitHub can trigger, and automatic updates through the Microsoft Store. On macOS, installation and updates through the App Store. The purchase funds further development.
+- Buying unlocks nothing; the free version stays complete, with nothing locked or time-limited. The GitHub builds for Windows and macOS look for new versions and install an update only after you confirm; on Linux, WhisPaste only tells you about a new release and links to it, and you install it by hand.
+- Where the versions differ: the optional CUDA pack for recent NVIDIA cards is only available in the GitHub builds (Windows and Linux), not in the Microsoft Store version; GPU acceleration through Vulkan works in both. The Mac App Store version runs in Apple’s app sandbox, so it cannot learn from corrections you make in other apps, does not detect password fields, has no AppleScript fallback for pasting and no tool to repair macOS permissions; the version from GitHub has all of these. The Mac App Store currently ships an older version, so audio and video file import reaches it with the next store update.
+- A new version can reach the Mac App Store later than GitHub, because Apple reviews every update.
+- No subscription and no account. If you choose a cloud provider (OpenAI or Deepgram), it bills you directly for its usage under your own API key.
+
+## How WhisPaste differs from built-in dictation
+
+- Voice typing built into Windows (Win+H) uses Microsoft’s online speech recognition and needs an internet connection. WhisPaste recognises speech on your computer and works offline after a one-time model download.
+- Dictation built into macOS uses Apple’s speech recognition only. WhisPaste lets you choose Whisper, Parakeet, Apple’s on-device recognition (macOS 26 or later) or a cloud provider with your own key.
+- Many Linux desktops ship no dictation at all. WhisPaste brings its dictation to Linux as well, with the Wayland limits listed above.
+- Built-in dictation types while you speak. WhisPaste inserts the finished text when you stop, keeps it in the searchable Recordings area, applies your Dictionary and Snippets, can clean it up with Smart Mode, and also transcribes audio and video files.
 
 ## Links
 
@@ -65,6 +89,9 @@
 - [Privacy policy](https://whispaste.de/en/privacy/)
 - [Changelog](https://whispaste.de/en/changelog/)
 - [Source code on GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Latest release on GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -72,13 +99,24 @@
 
 # WhisPaste
 
-> WhisPaste ist eine kostenlose, MIT-lizenzierte Spracheingabe-App für Windows, Macs mit Apple Silicon und Linux: Tastenkürzel drücken, sprechen, und der Text landet im aktiven Textfeld. Die Spracherkennung läuft lokal auf deinem Computer.
+> WhisPaste ist eine Diktat-App für Windows, Macs mit Apple Silicon und Linux: Tastenkürzel drücken, sprechen, und der Text steht in dem Feld, in dem du gerade schreibst. Die Spracherkennung läuft lokal auf deinem Rechner, ein Konto brauchst du nicht. Der Code ist offen (MIT-Lizenz) und die App kostenlos auf GitHub; im Microsoft Store und im Mac App Store gibt es sie als Einmalkauf ohne Abo; der Kauf schaltet nichts frei.
 
 ## Was WhisPaste macht
 
 - Du hältst in einer beliebigen Anwendung ein globales Tastenkürzel, während du sprichst, und lässt zum Stoppen los, oder tippst es einmal zum Starten und noch einmal zum Stoppen.
 - WhisPaste schreibt die Aufnahme auf deinem Computer mit und kopiert den Text in die Zwischenablage. Mit eingeschaltetem Auto-Einfügen setzt es den Text am Cursor der aktiven Anwendung ein, in fast jeder App.
 - Gedacht für Menschen, die am Desktop viel schreiben: E-Mails, Nachrichten, Dokumente, Notizen, Prompts und Code-Kommentare.
+
+## Was über die Grundlage hinausgeht
+
+Lokal, ohne Konto und kostenlos nutzbar ist die Grundlage. Darüber hinaus bringt WhisPaste mit:
+
+- Smart Mode mit fertigen Modi: Aufräumen, Kürzen oder Übersetzen in eine von sieben Sprachen, bevor der Text eingefügt wird. Markierten Text änderst du, indem du sagst, was anders werden soll.
+- Smart Mode läuft mit einem lokalen Textmodell, das WhisPaste auf Wunsch selbst herunterlädt; zusätzliche Software brauchst du nicht (unter Linux experimentell). Wahlweise nutzt du deinen eigenen OpenAI-Schlüssel.
+- Aufnahmen, Notizen und Textbausteine in einem Editor, mit derselben Werkzeugleiste, denselben Tastenkürzeln und automatischem Speichern.
+- Ein Wörterbuch mit Ersetzungen, das aus deinen Korrekturen neue Ersetzungen vorschlägt.
+- Verlauf, Notizen, Wörterbuch, Textbausteine und aufbewahrte Aufnahmen liegen verschlüsselt, mit dem eigenen Datenschlüssel deines Geräts.
+- Erhältlich im Microsoft Store und im Mac App Store: unter Windows Installation ohne SmartScreen-Warnung und Updates im Hintergrund über den Store, auf dem Mac Installation und Updates über den App Store. Einmalkauf, kein Abo; der Kauf finanziert die Weiterentwicklung.
 
 ## Spracherkennung
 
@@ -92,7 +130,7 @@
 
 - Aufräumen entfernt Füllwörter und korrigiert die Zeichensetzung, Kürzen fasst den Text knapper, Übersetzen überträgt ihn ins Deutsche, Englische, Spanische, Französische, Portugiesische, Mandarin oder Russische.
 - Läuft lokal (macOS und Windows; unter Linux experimentell) oder über OpenAI mit eigenem API-Schlüssel.
-- Eigene Presets mit eigener Anweisung (bis 500 Zeichen); ein Preset lässt sich später auf eine frühere Aufnahme anwenden, das Original bleibt. Statt OpenAI funktioniert auch ein eigener kompatibler Server (etwa LM Studio oder Ollama) auf dem Rechner oder im lokalen Netz.
+- Eigene Presets mit eigener Anweisung (bis 500 Zeichen); ein Preset lässt sich später auf eine frühere Aufnahme anwenden, das Original bleibt. Statt OpenAI funktioniert auch ein eigener kompatibler Server (etwa Ollama, LM Studio, llama.cpp oder KoboldCpp) auf dem Rechner oder im lokalen Netz.
 
 ## Im Alltag
 
@@ -104,29 +142,42 @@
 - Bis zu fünf Lieblings-Erkennungssprachen, mit dem Stern markiert, stehen in den Sprachmenüs oben; ein Tastenkürzel wechselt zwischen ihnen.
 - Das Wörterbuch hält Namen und Fachbegriffe; Ersetzungen korrigieren wiederkehrende Schreibweisen, und aus wiederholten Korrekturen schlägt WhisPaste neue vor.
 - Profile legen Sprache, Sprachmodell, Smart Mode, Mikrofon und Ausgabe für eine bestimmte App fest.
+- Auswahl bearbeiten (optional, standardmäßig aus): Text in einer unterstützten App markieren, das Tastenkürzel dafür drücken und sagen, was sich ändern soll, etwa „kürzer“ oder „übersetzen“; Smart Mode überarbeitet die Auswahl.
 - Scheitert eine Transkription, bleibt das Audio standardmäßig 24 Stunden erhalten, auch nach einem Absturz, und du kannst es erneut versuchen.
 - Barrierefreiheit: Einstellungen, Notizen und Editor-Werkzeuge funktionieren per Tastatur und Screenreader; im Tipp-Modus musst du nie eine Taste halten.
 
 ## Datenschutz
 
 - Bei lokaler Erkennung bleibt das Audio auf deinem Computer und wird nach der Transkription verworfen, außer du schaltest das Aufbewahren von Audio ein.
-- Unter macOS und Windows fügt WhisPaste nicht automatisch in Passwortfelder ein; der Text bleibt in der Zwischenablage.
+- Unter Windows und in der macOS-Version von GitHub fügt WhisPaste nicht automatisch in Passwortfelder ein; der Text bleibt in der Zwischenablage.
 - Transkripte, Notizen, Wörterbuch, Textbausteine und aufbewahrtes Audio liegen verschlüsselt, mit einem Datenschlüssel im Schlüsselspeicher des Systems (macOS-Schlüsselbund, Windows-Datenschutz, Linux Secret Service). Den Schlüssel sicherst du als Wiederherstellungscode oder Datei.
 - Kein Konto nötig.
-- Nutzungsstatistik und Absturzberichte enthalten kein Audio, keine Transkripte und keine Einträge aus Aufnahmen und lassen sich unter Einstellungen → Datenschutz ausschalten.
+- Anonyme Nutzungsstatistik und Absturzberichte sind standardmäßig an. Sie enthalten kein Audio, keine Transkripte und keine Einträge aus Aufnahmen und lassen sich einzeln unter Einstellungen → Datenschutz ausschalten.
 - Cloud-Funktionen senden Daten nur an den gewählten Anbieter und nur, wenn du sie nutzt.
 
 ## Plattformen und Voraussetzungen
 
 - Windows 10 oder neuer, macOS 13 Ventura oder neuer auf Apple Silicon (Intel-Macs werden nicht unterstützt), Linux x64 (AppImage, .deb, tar.gz) ab Ubuntu 26.04 mit glibc 2.43; auf älteren Linux-Systemen bleibt Version 1.4.2.
+- Linux läuft unter X11 und Wayland. Unter Wayland vergibt der Desktop das globale Tastenkürzel (über das Shortcut-Portal unter GNOME und KDE oder als eigenes Tastenkürzel mit dem Befehl `whispaste --toggle`), und einige Extras wie Einzeltasten, Doppeltippen und „Nach dem Einfügen senden“ brauchen X11. Auto-Einfügen braucht unter Linux einmalig eine Freigabe (uinput-Tastatur oder Desktop-Portal); ohne sie wartet der Text in der Zwischenablage.
 - Empfohlen: mindestens 8 GB Arbeitsspeicher und ein 64-Bit-Prozessor.
 - Nur Desktop; es gibt keine iOS- oder Android-Version.
 
-## Preis und Lizenz
+## So bekommst du WhisPaste, und was es kostet
 
-- Die vollständige App ist kostenlos auf GitHub unter der MIT-Lizenz.
-- Kostenpflichtige Versionen im Microsoft Store und im Mac App Store bieten dieselben Kernfunktionen mit Updates über den Store.
-- Kein Abo. Optionale Cloud-Anbieter können ihre Nutzung berechnen.
+- Kostenlos auf GitHub, die vollständige App unter der MIT-Lizenz: Windows-Installer (WhisPaste-Setup.exe) oder portables ZIP, macOS-DMG, Linux-AppImage, .deb und tar.gz. Paketmanager: winget (`SilvioLindstedt.WhisPaste`) und Scoop unter Windows, Homebrew auf dem Mac. Du kannst die App auch selbst aus dem Quellcode bauen.
+- Microsoft Store (Windows) und Mac App Store (macOS): Einmalkauf, kein Abo. Den aktuellen Preis zeigt der Store.
+- Was die Store-Version dazugibt: unter Windows die Installation ohne die SmartScreen-Warnung, die der unsignierte Installer von GitHub auslösen kann, und automatische Updates über den Microsoft Store. Auf dem Mac Installation und Updates über den App Store. Der Kauf finanziert die Weiterentwicklung.
+- Der Kauf schaltet nichts frei; die kostenlose Version bleibt vollständig, nichts ist gesperrt oder zeitlich begrenzt. Die GitHub-Builds für Windows und macOS suchen nach neuen Versionen und installieren ein Update erst, wenn du es bestätigst; unter Linux meldet WhisPaste eine neue Version nur und verlinkt sie, installieren musst du sie selbst.
+- Wo sich die Varianten unterscheiden: Das optionale CUDA-Paket für neuere NVIDIA-Karten gibt es nur in den Builds von GitHub (Windows und Linux), nicht in der Version aus dem Microsoft Store; die GPU-Beschleunigung über Vulkan funktioniert in beiden. Die Version aus dem Mac App Store läuft in Apples App-Sandbox: Sie kann nicht aus Korrekturen lernen, die du in anderen Apps machst, erkennt keine Passwortfelder, hat keinen AppleScript-Rückfallweg beim Einfügen und kein Werkzeug, das die macOS-Berechtigungen repariert; die Version von GitHub kann all das. Im Mac App Store steht derzeit noch eine ältere Version, der Import von Audio- und Videodateien kommt dort mit dem nächsten Store-Update.
+- Eine neue Version kann im Mac App Store später ankommen als auf GitHub, weil Apple jedes Update prüft.
+- Kein Abo, kein Konto. Wählst du einen Cloud-Anbieter (OpenAI oder Deepgram), rechnet er die Nutzung direkt über deinen eigenen API-Schlüssel ab.
+
+## Was WhisPaste anders macht als das eingebaute Diktat
+
+- Die in Windows eingebaute Spracheingabe (Win+H) nutzt die Online-Spracherkennung von Microsoft und braucht eine Internetverbindung. WhisPaste erkennt Sprache auf deinem Rechner und funktioniert nach einem einmaligen Modell-Download offline.
+- Das in macOS eingebaute Diktat nutzt nur die Spracherkennung von Apple. In WhisPaste wählst du zwischen Whisper, Parakeet, der Apple-Spracherkennung auf dem Gerät (ab macOS 26) und einem Cloud-Anbieter mit eigenem Schlüssel.
+- Viele Linux-Desktops bringen gar kein Diktat mit. WhisPaste bringt sein Diktat auch unter Linux mit, mit den oben genannten Grenzen unter Wayland.
+- Eingebautes Diktat tippt, während du sprichst. WhisPaste setzt den fertigen Text ein, wenn du aufhörst, behält ihn im durchsuchbaren Bereich Aufnahmen, wendet Wörterbuch und Textbausteine an, kann ihn mit Smart Mode aufräumen und schreibt auch Audio- und Videodateien mit.
 
 ## Links
 
@@ -135,6 +186,9 @@
 - [Datenschutzerklärung](https://whispaste.de/datenschutz/)
 - [Änderungsprotokoll](https://whispaste.de/changelog/)
 - [Quellcode auf GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Aktuelle Version auf GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -142,13 +196,24 @@
 
 # WhisPaste
 
-> WhisPaste es una aplicación de entrada por voz gratuita y con licencia MIT para Windows, Mac con Apple Silicon y Linux: pulsas un atajo de teclado, hablas y el texto aparece en el campo de texto activo. El reconocimiento de voz se ejecuta localmente en tu ordenador.
+> WhisPaste es una aplicación de dictado para Windows, Mac con Apple Silicon y Linux: pulsas un atajo de teclado, hablas y el texto aparece en el campo en el que estás escribiendo. El reconocimiento de voz se ejecuta localmente en tu ordenador y no necesitas ninguna cuenta. Es de código abierto con licencia MIT y gratuita en GitHub; las versiones de Microsoft Store y Mac App Store son una compra única sin suscripción; comprar no desbloquea nada.
 
 ## Qué hace WhisPaste
 
 - Mantienes pulsado un atajo global en cualquier aplicación mientras hablas y lo sueltas para detener, o lo tocas una vez para empezar y otra para detener.
 - WhisPaste transcribe la grabación en tu ordenador y copia el texto al portapapeles. Con el pegado automático activado, lo inserta en el cursor de la aplicación activa, en casi cualquier app.
 - Pensado para quienes escriben mucho en el escritorio: correos, mensajes, documentos, notas, prompts y comentarios de código.
+
+## Lo que WhisPaste añade a lo básico
+
+Local, sin cuenta y de uso gratuito es el punto de partida. Además, WhisPaste ofrece:
+
+- Smart Mode con modos listos para usar: limpiar, acortar o traducir a uno de siete idiomas antes de pegar el texto. Para cambiar un texto seleccionado, di qué debe cambiar.
+- Smart Mode funciona con un modelo de texto local que WhisPaste descarga por ti cuando lo pides; no hace falta instalar software adicional (experimental en Linux). Como alternativa, usa tu propia clave de OpenAI.
+- Grabaciones, notas y bloques de texto en un mismo editor, con la misma barra de herramientas, los mismos atajos y guardado automático.
+- Un diccionario con reemplazos que sugiere reemplazos nuevos a partir de tus correcciones.
+- El historial, las notas, el diccionario, los bloques de texto y las grabaciones guardadas se almacenan cifrados con la clave de datos propia de tu dispositivo.
+- Disponible en Microsoft Store y en Mac App Store: en Windows se instala sin la advertencia de SmartScreen y se actualiza en segundo plano a través de la tienda; en Mac, la instalación y las actualizaciones pasan por App Store. Compra única, sin suscripción; la compra financia el desarrollo.
 
 ## Reconocimiento de voz
 
@@ -162,7 +227,7 @@
 
 - Limpiar elimina muletillas y corrige la puntuación, Resumir acorta el texto y Traducir lo convierte al alemán, inglés, español, francés, portugués, mandarín o ruso.
 - Funciona localmente (macOS y Windows; experimental en Linux) o a través de OpenAI con tu propia clave de API.
-- Presets propios con tu propia instrucción (hasta 500 caracteres); un preset se puede aplicar más tarde a una grabación anterior y el original se conserva. En lugar de OpenAI también funciona un servidor compatible propio (por ejemplo LM Studio u Ollama) en tu ordenador o tu red local.
+- Presets propios con tu propia instrucción (hasta 500 caracteres); un preset se puede aplicar más tarde a una grabación anterior y el original se conserva. En lugar de OpenAI también funciona un servidor compatible propio (por ejemplo Ollama, LM Studio, llama.cpp o KoboldCpp) en tu ordenador o tu red local.
 
 ## En el día a día
 
@@ -174,29 +239,42 @@
 - Hasta cinco idiomas de reconocimiento favoritos, marcados con una estrella, aparecen primero en los menús de idioma; un atajo cambia entre ellos.
 - El vocabulario guarda nombres y términos especializados; los reemplazos corrigen errores recurrentes y WhisPaste propone nuevos a partir de tus correcciones repetidas.
 - Los perfiles fijan idioma, modelo de voz, Smart Mode, micrófono y salida para una app concreta.
+- Editar selección (opcional, desactivado por defecto): selecciona texto en una app compatible, pulsa su atajo y di qué quieres cambiar, por ejemplo «más corto» o «traducir»; Smart Mode reescribe la selección.
 - Si una transcripción falla, el audio se conserva 24 horas por defecto, incluso tras un cierre inesperado, para que puedas reintentarlo.
 - Accesibilidad: ajustes, notas y herramientas del editor funcionan con teclado y lector de pantalla; con el modo de toque nunca tienes que mantener pulsada una tecla.
 
 ## Privacidad
 
 - Con el reconocimiento local, el audio se queda en tu ordenador y se descarta tras la transcripción, salvo que actives su conservación.
-- En macOS y Windows, WhisPaste no pega automáticamente en campos de contraseña; el texto queda en el portapapeles.
+- En Windows y en la versión para macOS de GitHub, WhisPaste no pega automáticamente en campos de contraseña; el texto queda en el portapapeles.
 - Las transcripciones, las notas, el vocabulario, los snippets y el audio conservado se guardan cifrados con una clave de datos en el almacén de claves del sistema (llavero de macOS, protección de datos de Windows, Secret Service de Linux). Puedes hacer una copia de la clave como código de recuperación o archivo.
 - No hace falta ninguna cuenta.
-- Las estadísticas de uso y los informes de errores no contienen audio, transcripciones ni historial y se pueden desactivar en Ajustes → Privacidad.
+- Las estadísticas de uso anónimas y los informes de errores están activados por defecto. No contienen audio, transcripciones ni historial, y cada uno se puede desactivar en Ajustes → Privacidad.
 - Las funciones en la nube solo envían datos al proveedor elegido y solo cuando las usas.
 
 ## Plataformas y requisitos
 
 - Windows 10 o posterior, macOS 13 Ventura o posterior en Apple Silicon (los Mac con Intel no son compatibles), Linux x64 (AppImage, .deb, tar.gz) en Ubuntu 26.04 o posterior con glibc 2.43; los sistemas Linux más antiguos se quedan en la versión 1.4.2.
+- En Linux funciona con X11 y Wayland. En Wayland, el escritorio asigna el atajo global (mediante el portal de atajos en GNOME y KDE, o con un atajo propio que ejecute `whispaste --toggle`), y algunos extras, como las teclas sueltas, el doble toque y «Enviar tras pegar», necesitan X11. El pegado automático en Linux requiere un permiso único (teclado uinput o portal del escritorio); sin él, el texto queda en el portapapeles.
 - Recomendado: al menos 8 GB de RAM y un procesador de 64 bits.
 - Solo escritorio; no hay versión para iOS ni Android.
 
-## Precio y licencia
+## Cómo conseguir WhisPaste y cuánto cuesta
 
-- La aplicación completa es gratuita en GitHub bajo la licencia MIT.
-- Las versiones de pago de Microsoft Store y Mac App Store ofrecen las mismas funciones principales con actualizaciones a través de la tienda.
-- Sin suscripción. Los proveedores en la nube opcionales pueden cobrar por su uso.
+- Gratis en GitHub, la aplicación completa con licencia MIT: instalador para Windows (WhisPaste-Setup.exe) o ZIP portátil, DMG para macOS, AppImage, .deb y tar.gz para Linux. Gestores de paquetes: winget (`SilvioLindstedt.WhisPaste`) y Scoop en Windows, Homebrew en macOS. También puedes compilarla tú mismo desde el código fuente.
+- Microsoft Store (Windows) y Mac App Store (macOS): compra única, sin suscripción. La tienda muestra el precio actual.
+- Qué añade la versión de la tienda: en Windows, la instalación sin el aviso de SmartScreen que puede mostrar el instalador sin firmar de GitHub, y actualizaciones automáticas a través de Microsoft Store. En macOS, instalación y actualizaciones a través de la App Store. La compra financia el desarrollo.
+- Comprar no desbloquea nada; la versión gratuita sigue completa, sin nada bloqueado ni limitado en el tiempo. Las versiones de GitHub para Windows y macOS buscan nuevas versiones e instalan una actualización solo después de que la confirmes; en Linux, WhisPaste solo avisa de una nueva versión y la enlaza, y la instalas tú a mano.
+- En qué se diferencian las versiones: el paquete CUDA opcional para tarjetas NVIDIA recientes solo está disponible en las versiones de GitHub (Windows y Linux), no en la de Microsoft Store; la aceleración por GPU mediante Vulkan funciona en ambas. La versión de la Mac App Store se ejecuta en el sandbox de apps de Apple: no puede aprender de las correcciones que haces en otras apps, no detecta campos de contraseña, no tiene la alternativa de pegado mediante AppleScript ni la herramienta que repara los permisos de macOS; la versión de GitHub sí tiene todo esto. La Mac App Store ofrece por ahora una versión anterior, así que la importación de archivos de audio y vídeo llegará allí con la próxima actualización de la tienda.
+- Una nueva versión puede llegar a la Mac App Store más tarde que a GitHub, porque Apple revisa cada actualización.
+- Sin suscripción y sin cuenta. Si eliges un proveedor en la nube (OpenAI o Deepgram), te cobra su uso directamente a través de tu propia clave de API.
+
+## En qué se diferencia WhisPaste del dictado integrado
+
+- La escritura por voz integrada en Windows (Win+H) usa el reconocimiento de voz en línea de Microsoft y necesita conexión a internet. WhisPaste reconoce la voz en tu ordenador y funciona sin conexión tras una descarga única del modelo.
+- El dictado integrado en macOS solo usa el reconocimiento de voz de Apple. En WhisPaste eliges entre Whisper, Parakeet, el reconocimiento de Apple en el dispositivo (macOS 26 o posterior) o un proveedor en la nube con tu propia clave.
+- Muchos escritorios Linux no incluyen ningún dictado. WhisPaste lleva su dictado también a Linux, con los límites de Wayland indicados arriba.
+- El dictado integrado escribe mientras hablas. WhisPaste inserta el texto terminado cuando paras, lo guarda en el área Grabaciones con búsqueda, aplica tu vocabulario y tus fragmentos, puede limpiarlo con Smart Mode y también transcribe archivos de audio y vídeo.
 
 ## Enlaces
 
@@ -205,6 +283,9 @@
 - [Política de privacidad](https://whispaste.de/es/privacy/)
 - [Registro de cambios](https://whispaste.de/es/changelog/)
 - [Código fuente en GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Última versión en GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -212,13 +293,24 @@
 
 # WhisPaste
 
-> O WhisPaste é um aplicativo de entrada por voz gratuito, com licença MIT, para Windows, Macs com Apple Silicon e Linux: você pressiona um atalho, fala e o texto aparece no campo de texto ativo. O reconhecimento de voz roda localmente no seu computador.
+> O WhisPaste é um aplicativo de ditado para Windows, Macs com Apple Silicon e Linux: você pressiona um atalho, fala e o texto aparece no campo em que você está escrevendo. O reconhecimento de voz roda localmente no seu computador, sem necessidade de conta. Tem código aberto sob a licença MIT e é gratuito no GitHub; as versões da Microsoft Store e da Mac App Store são uma compra única sem assinatura; comprar não desbloqueia nada.
 
 ## O que o WhisPaste faz
 
 - Você segura um atalho global em qualquer aplicativo enquanto fala e solta para parar, ou toca uma vez para começar e de novo para parar.
 - O WhisPaste transcreve a gravação no seu computador e copia o texto para a área de transferência. Com a colagem automática ativada, ele insere o texto no cursor do aplicativo ativo, em quase qualquer app.
 - Feito para quem escreve muito no computador: e-mails, mensagens, documentos, notas, prompts e comentários de código.
+
+## O que o WhisPaste traz além do básico
+
+Local, sem conta e de uso gratuito é o ponto de partida. Além disso, o WhisPaste traz:
+
+- Smart Mode com modos prontos: limpar, encurtar ou traduzir para um de sete idiomas antes de colar o texto. Para mudar um texto selecionado, diga o que deve ficar diferente.
+- O Smart Mode roda com um modelo de texto local que o WhisPaste baixa para você quando você pede; não é preciso instalar software adicional (experimental no Linux). Como alternativa, use sua própria chave da OpenAI.
+- Gravações, notas e blocos de texto em um só editor, com a mesma barra de ferramentas, os mesmos atalhos e salvamento automático.
+- Um dicionário com substituições que sugere novas substituições a partir das suas correções.
+- Histórico, notas, dicionário, blocos de texto e gravações guardadas ficam criptografados com a chave de dados própria do seu dispositivo.
+- Disponível na Microsoft Store e na Mac App Store: no Windows, instala sem o aviso do SmartScreen e atualiza em segundo plano pela loja; no Mac, instalação e atualizações pela App Store. Compra única, sem assinatura; a compra financia o desenvolvimento.
 
 ## Reconhecimento de voz
 
@@ -232,7 +324,7 @@
 
 - Limpar remove palavras de preenchimento e corrige a pontuação, Resumir encurta o texto e Traduzir o converte para alemão, inglês, espanhol, francês, português, mandarim ou russo.
 - Roda localmente (macOS e Windows; experimental no Linux) ou via OpenAI com sua própria chave de API.
-- Presets próprios com sua própria instrução (até 500 caracteres); um preset pode ser aplicado depois a uma gravação anterior e o original é mantido. Em vez da OpenAI, também funciona um servidor compatível próprio (por exemplo LM Studio ou Ollama) no computador ou na rede local.
+- Presets próprios com sua própria instrução (até 500 caracteres); um preset pode ser aplicado depois a uma gravação anterior e o original é mantido. Em vez da OpenAI, também funciona um servidor compatível próprio (por exemplo Ollama, LM Studio, llama.cpp ou KoboldCpp) no computador ou na rede local.
 
 ## No dia a dia
 
@@ -244,29 +336,42 @@
 - Até cinco idiomas de reconhecimento favoritos, marcados com uma estrela, aparecem primeiro nos menus de idioma; um atalho alterna entre eles.
 - O vocabulário guarda nomes e termos técnicos; substituições corrigem grafias recorrentes, e o WhisPaste sugere novas a partir das suas correções repetidas.
 - Perfis definem idioma, modelo de voz, Smart Mode, microfone e saída para um app específico.
+- Editar seleção (opcional, desativado por padrão): selecione um texto em um app compatível, pressione o atalho e diga o que mudar, por exemplo “mais curto” ou “traduzir”; o Smart Mode reescreve a seleção.
 - Se uma transcrição falhar, o áudio é mantido por 24 horas por padrão, mesmo após uma falha do app, para você tentar de novo.
 - Acessibilidade: configurações, notas e ferramentas do editor funcionam com teclado e leitor de tela; com o modo de toque você nunca precisa segurar uma tecla.
 
 ## Privacidade
 
 - Com o reconhecimento local, o áudio fica no seu computador e é descartado após a transcrição, a menos que você ative a retenção de áudio.
-- No macOS e no Windows, o WhisPaste não cola automaticamente em campos de senha; o texto fica na área de transferência.
+- No Windows e na versão para macOS do GitHub, o WhisPaste não cola automaticamente em campos de senha; o texto fica na área de transferência.
 - Transcrições, notas, vocabulário, snippets e áudio guardado ficam salvos com criptografia, com uma chave de dados no armazenamento de chaves do sistema (Keychain do macOS, proteção de dados do Windows, Secret Service do Linux). Você pode fazer backup da chave como código de recuperação ou arquivo.
 - Não é preciso criar conta.
-- Estatísticas de uso e relatórios de falhas não contêm áudio, transcrições nem histórico e podem ser desativados em Configurações → Privacidade.
+- Estatísticas de uso anônimas e relatórios de falhas vêm ativados por padrão. Não contêm áudio, transcrições nem histórico, e cada um pode ser desativado em Configurações → Privacidade.
 - Os recursos na nuvem só enviam dados ao provedor escolhido e só quando você os usa.
 
 ## Plataformas e requisitos
 
 - Windows 10 ou posterior, macOS 13 Ventura ou posterior no Apple Silicon (Macs com Intel não são compatíveis), Linux x64 (AppImage, .deb, tar.gz) no Ubuntu 26.04 ou mais recente com glibc 2.43; sistemas Linux mais antigos ficam na versão 1.4.2.
+- No Linux, funciona com X11 e Wayland. No Wayland, o desktop define o atalho global (pelo portal de atalhos no GNOME e no KDE, ou com um atalho próprio que execute `whispaste --toggle`), e alguns extras, como teclas únicas, toque duplo e “Enviar após colar”, precisam de X11. A colagem automática no Linux exige uma permissão única (teclado uinput ou portal do desktop); sem ela, o texto fica na área de transferência.
 - Recomendado: pelo menos 8 GB de RAM e um processador de 64 bits.
 - Somente desktop; não há versão para iOS nem Android.
 
-## Preço e licença
+## Como obter o WhisPaste e quanto custa
 
-- O aplicativo completo é gratuito no GitHub sob a licença MIT.
-- As versões pagas na Microsoft Store e na Mac App Store oferecem os mesmos recursos principais, com atualizações pela loja.
-- Sem assinatura. Provedores de nuvem opcionais podem cobrar pelo uso.
+- Gratuito no GitHub, o aplicativo completo sob a licença MIT: instalador para Windows (WhisPaste-Setup.exe) ou ZIP portátil, DMG para macOS, AppImage, .deb e tar.gz para Linux. Gerenciadores de pacotes: winget (`SilvioLindstedt.WhisPaste`) e Scoop no Windows, Homebrew no macOS. Você também pode compilá-lo a partir do código-fonte.
+- Microsoft Store (Windows) e Mac App Store (macOS): compra única, sem assinatura. A loja mostra o preço atual.
+- O que a versão da loja acrescenta: no Windows, a instalação sem o aviso do SmartScreen que o instalador não assinado do GitHub pode gerar, e atualizações automáticas pela Microsoft Store. No macOS, instalação e atualizações pela App Store. A compra financia o desenvolvimento.
+- Comprar não desbloqueia nada; a versão gratuita continua completa, sem nada bloqueado ou limitado no tempo. As versões do GitHub para Windows e macOS procuram novas versões e só instalam uma atualização depois que você confirma; no Linux, o WhisPaste apenas avisa sobre uma nova versão e mostra o link, e você a instala manualmente.
+- Onde as versões diferem: o pacote CUDA opcional para placas NVIDIA recentes só está disponível nas versões do GitHub (Windows e Linux), não na versão da Microsoft Store; a aceleração por GPU via Vulkan funciona em ambas. A versão da Mac App Store roda no sandbox de apps da Apple: não aprende com correções que você faz em outros apps, não detecta campos de senha, não tem a alternativa de colagem via AppleScript nem a ferramenta que repara as permissões do macOS; a versão do GitHub tem tudo isso. A Mac App Store ainda oferece uma versão anterior, então a importação de arquivos de áudio e vídeo chega lá com a próxima atualização da loja.
+- Uma nova versão pode chegar à Mac App Store depois do GitHub, porque a Apple revisa cada atualização.
+- Sem assinatura e sem conta. Se você escolher um provedor de nuvem (OpenAI ou Deepgram), ele cobra o uso diretamente pela sua própria chave de API.
+
+## Em que o WhisPaste difere do ditado integrado
+
+- A digitação por voz integrada ao Windows (Win+H) usa o reconhecimento de voz online da Microsoft e precisa de conexão com a internet. O WhisPaste reconhece a fala no seu computador e funciona offline depois de baixar o modelo uma vez.
+- O ditado integrado ao macOS usa apenas o reconhecimento de voz da Apple. No WhisPaste você escolhe entre Whisper, Parakeet, o reconhecimento da Apple no dispositivo (macOS 26 ou posterior) ou um provedor de nuvem com sua própria chave.
+- Muitos desktops Linux não trazem nenhum ditado. O WhisPaste leva seu ditado também ao Linux, com os limites do Wayland citados acima.
+- O ditado integrado digita enquanto você fala. O WhisPaste insere o texto pronto quando você para, guarda-o na área Gravações com busca, aplica seu vocabulário e seus snippets, pode limpá-lo com o Smart Mode e também transcreve arquivos de áudio e vídeo.
 
 ## Links
 
@@ -275,6 +380,9 @@
 - [Política de privacidade](https://whispaste.de/pt/privacy/)
 - [Histórico de alterações](https://whispaste.de/pt/changelog/)
 - [Código-fonte no GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Versão mais recente no GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -282,13 +390,24 @@
 
 # WhisPaste
 
-> WhisPaste è un’app di input vocale gratuita e con licenza MIT per Windows, Mac con Apple Silicon e Linux: premi una scorciatoia, parli e il testo compare nel campo di testo attivo. Il riconoscimento vocale avviene localmente sul tuo computer.
+> WhisPaste è un’app di dettatura per Windows, Mac con Apple Silicon e Linux: premi una scorciatoia, parli e il testo compare nel campo in cui stai scrivendo. Il riconoscimento vocale avviene localmente sul tuo computer e non serve alcun account. È open source con licenza MIT e gratuita su GitHub; le versioni del Microsoft Store e del Mac App Store sono un acquisto una tantum senza abbonamento; l’acquisto non sblocca nulla.
 
 ## Cosa fa WhisPaste
 
 - Tieni premuta una scorciatoia globale in qualsiasi applicazione mentre parli e la rilasci per fermare, oppure la tocchi una volta per iniziare e di nuovo per fermare.
 - WhisPaste trascrive la registrazione sul tuo computer e copia il testo negli appunti. Con l’incolla automatico attivo, lo inserisce nel punto del cursore dell’applicazione attiva, in quasi tutte le app.
 - Pensato per chi scrive molto al computer: e-mail, messaggi, documenti, note, prompt e commenti nel codice.
+
+## Cosa aggiunge WhisPaste oltre le basi
+
+Locale, senza account e gratuito da usare è il punto di partenza. In più, WhisPaste offre:
+
+- Smart Mode con modalità pronte: pulire, accorciare o tradurre in una di sette lingue prima di incollare il testo. Per cambiare un testo selezionato, di' cosa deve cambiare.
+- Smart Mode funziona con un modello di testo locale che WhisPaste scarica per te quando lo chiedi; non serve installare altro software (sperimentale su Linux). In alternativa, usa la tua chiave OpenAI.
+- Registrazioni, note e blocchi di testo in un unico editor, con la stessa barra degli strumenti, le stesse scorciatoie e il salvataggio automatico.
+- Un dizionario con sostituzioni che propone nuove sostituzioni a partire dalle tue correzioni.
+- Cronologia, note, dizionario, blocchi di testo e registrazioni conservate sono salvati cifrati con la chiave dati propria del tuo dispositivo.
+- Disponibile nel Microsoft Store e nel Mac App Store: su Windows si installa senza l'avviso di SmartScreen e si aggiorna in background tramite lo store; sul Mac installazione e aggiornamenti passano dall'App Store. Acquisto unico, senza abbonamento; l'acquisto finanzia lo sviluppo.
 
 ## Riconoscimento vocale
 
@@ -302,7 +421,7 @@
 
 - Pulizia rimuove le parole riempitive e corregge la punteggiatura, Sintesi accorcia il testo, Traduci lo converte in tedesco, inglese, spagnolo, francese, portoghese, cinese mandarino o russo.
 - Funziona localmente (macOS e Windows; sperimentale su Linux) oppure tramite OpenAI con la tua chiave API.
-- Preset propri con una tua istruzione (fino a 500 caratteri); un preset si può applicare in seguito a una registrazione precedente e l’originale resta. Al posto di OpenAI funziona anche un tuo server compatibile (per esempio LM Studio o Ollama) sul computer o nella rete locale.
+- Preset propri con una tua istruzione (fino a 500 caratteri); un preset si può applicare in seguito a una registrazione precedente e l’originale resta. Al posto di OpenAI funziona anche un tuo server compatibile (per esempio Ollama, LM Studio, llama.cpp o KoboldCpp) sul computer o nella rete locale.
 
 ## Nell’uso quotidiano
 
@@ -314,29 +433,42 @@
 - Fino a cinque lingue di riconoscimento preferite, contrassegnate con la stella, compaiono per prime nei menu della lingua; una scorciatoia passa dall’una all’altra.
 - Il vocabolario contiene nomi e termini specialistici; le sostituzioni correggono grafie ricorrenti e WhisPaste ne propone di nuove dalle tue correzioni ripetute.
 - I profili stabiliscono lingua, modello vocale, Smart Mode, microfono e uscita per un’app specifica.
+- Modifica la selezione (facoltativo, disattivato per impostazione predefinita): seleziona del testo in un’app supportata, premi la sua scorciatoia e di’ cosa cambiare, per esempio “più breve” o “traduci”; Smart Mode riscrive la selezione.
 - Se una trascrizione non riesce, l’audio viene conservato per 24 ore per impostazione predefinita, anche dopo un crash, così puoi riprovare.
 - Accessibilità: impostazioni, note e strumenti dell’editor funzionano con tastiera e screen reader; con la modalità a tocco non devi mai tenere premuto un tasto.
 
 ## Privacy
 
 - Con il riconoscimento locale l’audio resta sul tuo computer e viene eliminato dopo la trascrizione, a meno che tu non attivi la conservazione dell’audio.
-- Su macOS e Windows WhisPaste non incolla automaticamente nei campi password; il testo resta negli appunti.
+- Su Windows e nella versione per macOS da GitHub WhisPaste non incolla automaticamente nei campi password; il testo resta negli appunti.
 - Trascrizioni, note, vocabolario, snippet e audio conservato sono salvati in forma cifrata con una chiave dati nell’archivio delle chiavi del sistema (portachiavi di macOS, protezione dati di Windows, Secret Service di Linux). Puoi fare un backup della chiave come codice di recupero o file.
 - Non serve alcun account.
-- Le statistiche d’uso e i rapporti sugli arresti anomali non contengono audio, trascrizioni né cronologia e si possono disattivare in Impostazioni → Privacy.
+- Le statistiche d’uso anonime e i rapporti sugli arresti anomali sono attivi per impostazione predefinita. Non contengono audio, trascrizioni né cronologia e si possono disattivare singolarmente in Impostazioni → Privacy.
 - Le funzioni cloud inviano dati solo al fornitore scelto e solo quando le usi.
 
 ## Piattaforme e requisiti
 
 - Windows 10 o successivo, macOS 13 Ventura o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz) su Ubuntu 26.04 o successivo con glibc 2.43; sui sistemi Linux più vecchi resta la versione 1.4.2.
+- Su Linux funziona con X11 e Wayland. Con Wayland è il desktop ad assegnare la scorciatoia globale (tramite il portale delle scorciatoie su GNOME e KDE, oppure con una scorciatoia personalizzata che esegue `whispaste --toggle`), e alcune funzioni extra come i tasti singoli, il doppio tocco e l’invio dopo l’incolla richiedono X11. L’incolla automatico su Linux richiede un’autorizzazione una tantum (tastiera uinput o portale del desktop); senza di essa il testo resta negli appunti.
 - Consigliati: almeno 8 GB di RAM e un processore a 64 bit.
 - Solo desktop; non esiste una versione per iOS o Android.
 
-## Prezzo e licenza
+## Come ottenere WhisPaste e quanto costa
 
-- L’app completa è gratuita su GitHub con licenza MIT.
-- Le versioni a pagamento nel Microsoft Store e nel Mac App Store offrono le stesse funzioni principali, con aggiornamenti tramite lo store.
-- Nessun abbonamento. I fornitori cloud facoltativi possono addebitare il proprio utilizzo.
+- Gratis su GitHub, l’app completa con licenza MIT: installer per Windows (WhisPaste-Setup.exe) o ZIP portatile, DMG per macOS, AppImage, .deb e tar.gz per Linux. Gestori di pacchetti: winget (`SilvioLindstedt.WhisPaste`) e Scoop su Windows, Homebrew su macOS. Puoi anche compilarla da solo dal codice sorgente.
+- Microsoft Store (Windows) e Mac App Store (macOS): acquisto una tantum, nessun abbonamento. Il prezzo attuale è indicato nello store.
+- Cosa aggiunge la versione dello store: su Windows l’installazione senza l’avviso di SmartScreen che l’installer non firmato di GitHub può mostrare, e aggiornamenti automatici tramite il Microsoft Store. Su macOS installazione e aggiornamenti tramite l’App Store. L’acquisto finanzia lo sviluppo.
+- L’acquisto non sblocca nulla; la versione gratuita resta completa, senza nulla di bloccato o limitato nel tempo. Le versioni GitHub per Windows e macOS cercano nuove versioni e installano un aggiornamento solo dopo la tua conferma; su Linux WhisPaste segnala soltanto la nuova versione e ne mostra il link, e la installi tu a mano.
+- In cosa differiscono le versioni: il pacchetto CUDA facoltativo per le schede NVIDIA recenti è disponibile solo nelle versioni GitHub (Windows e Linux), non nella versione del Microsoft Store; l’accelerazione GPU tramite Vulkan funziona in entrambe. La versione del Mac App Store gira nella sandbox delle app di Apple: non può imparare dalle correzioni che fai in altre app, non riconosce i campi password, non ha il ripiego AppleScript per incollare né lo strumento che ripara i permessi di macOS; la versione da GitHub ha tutto questo. Sul Mac App Store c’è per ora una versione precedente, quindi l’importazione di file audio e video vi arriverà con il prossimo aggiornamento dello store.
+- Una nuova versione può arrivare sul Mac App Store dopo che su GitHub, perché Apple esamina ogni aggiornamento.
+- Nessun abbonamento e nessun account. Se scegli un fornitore cloud (OpenAI o Deepgram), ti addebita l’utilizzo direttamente tramite la tua chiave API.
+
+## In cosa WhisPaste si distingue dalla dettatura integrata
+
+- La digitazione vocale integrata in Windows (Win+H) usa il riconoscimento vocale online di Microsoft e richiede una connessione a internet. WhisPaste riconosce la voce sul tuo computer e funziona offline dopo un unico download del modello.
+- La dettatura integrata in macOS usa solo il riconoscimento vocale di Apple. In WhisPaste scegli tra Whisper, Parakeet, il riconoscimento di Apple sul dispositivo (macOS 26 o successivo) o un fornitore cloud con la tua chiave.
+- Molti desktop Linux non includono alcuna dettatura. WhisPaste porta la sua dettatura anche su Linux, con i limiti di Wayland indicati sopra.
+- La dettatura integrata scrive mentre parli. WhisPaste inserisce il testo finito quando smetti, lo conserva nell’area Registrazioni con ricerca, applica il tuo vocabolario e i tuoi snippet, può ripulirlo con Smart Mode e trascrive anche file audio e video.
 
 ## Link
 
@@ -345,6 +477,9 @@
 - [Informativa sulla privacy](https://whispaste.de/it/privacy/)
 - [Registro delle modifiche](https://whispaste.de/it/changelog/)
 - [Codice sorgente su GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Ultima versione su GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -352,13 +487,24 @@
 
 # WhisPaste
 
-> WhisPaste — бесплатное приложение для голосового ввода с лицензией MIT для Windows, Mac на Apple Silicon и Linux: нажмите сочетание клавиш, говорите, и текст появится в активном текстовом поле. Распознавание речи выполняется локально на вашем компьютере.
+> WhisPaste — приложение для диктовки для Windows, Mac на Apple Silicon и Linux: нажмите сочетание клавиш, говорите, и текст появится в поле, где вы сейчас пишете. Распознавание речи выполняется локально на вашем компьютере, учётная запись не нужна. Исходный код открыт по лицензии MIT, приложение бесплатно на GitHub; версии в Microsoft Store и Mac App Store — разовая покупка без подписки; покупка ничего не разблокирует.
 
 ## Что делает WhisPaste
 
 - Вы удерживаете глобальное сочетание клавиш в любом приложении, пока говорите, и отпускаете для остановки, или нажимаете один раз для старта и ещё раз для остановки.
 - WhisPaste расшифровывает запись на вашем компьютере и копирует текст в буфер обмена. При включённой автовставке текст вставляется в позицию курсора активного приложения, почти в любом приложении.
 - Для тех, кто много пишет за компьютером: письма, сообщения, документы, заметки, промпты и комментарии в коде.
+
+## Что WhisPaste даёт сверх основы
+
+Локально, без аккаунта и бесплатно в использовании — это основа. Сверх этого WhisPaste предлагает:
+
+- Умный режим с готовыми режимами: очистить, сократить или перевести на один из семи языков перед вставкой. Чтобы изменить выделенный текст, скажите, что в нём поменять.
+- Умный режим работает на локальной текстовой модели, которую WhisPaste загрузит по вашему запросу; дополнительное ПО устанавливать не нужно (в Linux экспериментально). Как вариант — собственный ключ OpenAI.
+- Записи, заметки и текстовые блоки в одном редакторе: одна панель инструментов, одни сочетания клавиш, автосохранение.
+- Словарь с заменами, который по вашим исправлениям предлагает новые замены.
+- История, заметки, словарь, текстовые блоки и сохранённые записи хранятся в зашифрованном виде с собственным ключом данных вашего устройства.
+- Доступно в Microsoft Store и Mac App Store: в Windows установка без предупреждения SmartScreen и обновления в фоне через магазин, на Mac установка и обновления через App Store. Разовая покупка, без подписки; покупка финансирует развитие приложения.
 
 ## Распознавание речи
 
@@ -372,7 +518,7 @@
 
 - Очистка убирает слова-паразиты и исправляет пунктуацию, Сокращение делает текст короче, Перевод переводит его на немецкий, английский, испанский, французский, португальский, китайский (мандаринский) или русский.
 - Работает локально (macOS и Windows; в Linux экспериментально) или через OpenAI с вашим API-ключом.
-- Собственные пресеты со своей инструкцией (до 500 символов); пресет можно позже применить к прежней записи, оригинал сохраняется. Вместо OpenAI подойдёт и собственный совместимый сервер (например, LM Studio или Ollama) на компьютере или в локальной сети.
+- Собственные пресеты со своей инструкцией (до 500 символов); пресет можно позже применить к прежней записи, оригинал сохраняется. Вместо OpenAI подойдёт и собственный совместимый сервер (например, Ollama, LM Studio, llama.cpp или KoboldCpp) на компьютере или в локальной сети.
 
 ## В повседневной работе
 
@@ -384,29 +530,42 @@
 - До пяти избранных языков распознавания, отмеченных звёздочкой, стоят первыми в языковых меню; сочетание клавиш переключает между ними.
 - Словарь хранит имена и специальные термины; замены исправляют повторяющиеся варианты написания, а по вашим повторным исправлениям WhisPaste предлагает новые.
 - Профили задают язык, модель распознавания речи, Умный режим, микрофон и вывод для конкретного приложения.
+- Редактирование выделения (дополнительно, по умолчанию выключено): выделите текст в поддерживаемом приложении, нажмите сочетание клавиш и скажите, что изменить, например «короче» или «переведи»; Умный режим перепишет выделенный текст.
 - Если расшифровка не удалась, аудио по умолчанию хранится 24 часа, даже после сбоя, чтобы можно было повторить попытку.
 - Доступность: настройки, заметки и инструменты редактора работают с клавиатуры и с экранным диктором; в режиме нажатия не нужно удерживать клавишу.
 
 ## Конфиденциальность
 
 - При локальном распознавании аудио остаётся на вашем компьютере и удаляется после расшифровки, если вы не включили его сохранение.
-- В macOS и Windows WhisPaste не вставляет текст автоматически в поля пароля; он остаётся в буфере обмена.
+- В Windows и в версии для macOS с GitHub WhisPaste не вставляет текст автоматически в поля пароля; он остаётся в буфере обмена.
 - Расшифровки, заметки, словарь, сниппеты и сохранённое аудио хранятся в зашифрованном виде с ключом данных в системном хранилище ключей (связка ключей macOS, защита данных Windows, Secret Service в Linux). Ключ можно сохранить как код восстановления или файл.
 - Учётная запись не нужна.
-- Статистика использования и отчёты о сбоях не содержат аудио, расшифровок и истории и отключаются в разделе Настройки → Конфиденциальность.
+- Анонимная статистика использования и отчёты о сбоях по умолчанию включены. Они не содержат аудио, расшифровок и истории, и каждую из них можно отключить в разделе Настройки → Конфиденциальность.
 - Облачные функции отправляют данные только выбранному провайдеру и только тогда, когда вы ими пользуетесь.
 
 ## Платформы и требования
 
 - Windows 10 или новее, macOS 13 Ventura или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz) в Ubuntu 26.04 или новее с glibc 2.43; на более старых системах Linux остаётся версия 1.4.2.
+- В Linux работает с X11 и Wayland. В Wayland глобальное сочетание клавиш назначает рабочий стол (через портал сочетаний клавиш в GNOME и KDE или через собственное сочетание с командой `whispaste --toggle`), а некоторые дополнительные возможности, например одиночные клавиши, двойное нажатие и «Отправить после вставки», требуют X11. Для автовставки в Linux нужно один раз выдать разрешение (клавиатура uinput или портал рабочего стола); без него текст остаётся в буфере обмена.
 - Рекомендуется: не менее 8 ГБ оперативной памяти и 64-битный процессор.
 - Только для настольных систем; версий для iOS и Android нет.
 
-## Цена и лицензия
+## Как получить WhisPaste и сколько это стоит
 
-- Полное приложение бесплатно на GitHub по лицензии MIT.
-- Платные версии в Microsoft Store и Mac App Store предлагают те же основные функции с обновлениями через магазин.
-- Без подписки. Дополнительные облачные провайдеры могут брать плату за использование.
+- Бесплатно на GitHub, полное приложение по лицензии MIT: установщик для Windows (WhisPaste-Setup.exe) или портативный ZIP, DMG для macOS, AppImage, .deb и tar.gz для Linux. Менеджеры пакетов: winget (`SilvioLindstedt.WhisPaste`) и Scoop в Windows, Homebrew в macOS. Приложение можно собрать и самостоятельно из исходного кода.
+- Microsoft Store (Windows) и Mac App Store (macOS): разовая покупка, без подписки. Актуальную цену показывает магазин.
+- Что даёт версия из магазина: в Windows — установку без предупреждения SmartScreen, которое может показать неподписанный установщик с GitHub, и автоматические обновления через Microsoft Store. В macOS — установку и обновления через App Store. Покупка финансирует дальнейшую разработку.
+- Покупка ничего не разблокирует; бесплатная версия остаётся полной, ничего не заблокировано и не ограничено по времени. Сборки с GitHub для Windows и macOS проверяют наличие новых версий и устанавливают обновление только после вашего подтверждения; в Linux WhisPaste только сообщает о новой версии и даёт на неё ссылку, а устанавливаете вы её вручную.
+- Чем различаются версии: дополнительный пакет CUDA для современных видеокарт NVIDIA доступен только в сборках с GitHub (Windows и Linux), но не в версии из Microsoft Store; ускорение на GPU через Vulkan работает в обеих. Версия из Mac App Store работает в песочнице приложений Apple: она не учится на исправлениях, которые вы делаете в других приложениях, не распознаёт поля пароля, не имеет запасного способа вставки через AppleScript и инструмента для восстановления разрешений macOS; в версии с GitHub всё это есть. В Mac App Store пока доступна более старая версия, поэтому импорт аудио- и видеофайлов появится там со следующим обновлением в магазине.
+- Новая версия может появиться в Mac App Store позже, чем на GitHub, потому что Apple проверяет каждое обновление.
+- Без подписки и без учётной записи. Если вы выберете облачного провайдера (OpenAI или Deepgram), он выставит счёт за использование напрямую через ваш собственный API-ключ.
+
+## Чем WhisPaste отличается от встроенной диктовки
+
+- Встроенный в Windows голосовой ввод (Win+H) использует онлайн-распознавание речи Microsoft и требует подключения к интернету. WhisPaste распознаёт речь на вашем компьютере и после однократной загрузки модели работает офлайн.
+- Встроенная в macOS диктовка использует только распознавание речи Apple. В WhisPaste можно выбрать Whisper, Parakeet, распознавание Apple на устройстве (macOS 26 или новее) или облачного провайдера с собственным ключом.
+- Во многих окружениях рабочего стола Linux диктовки нет вовсе. WhisPaste даёт диктовку и в Linux, с ограничениями Wayland, описанными выше.
+- Встроенная диктовка печатает, пока вы говорите. WhisPaste вставляет готовый текст, когда вы закончили, сохраняет его в разделе Записи с поиском, применяет ваш словарь и сниппеты, может привести его в порядок Умным режимом и также расшифровывает аудио- и видеофайлы.
 
 ## Ссылки
 
@@ -415,6 +574,9 @@
 - [Политика конфиденциальности](https://whispaste.de/ru/privacy/)
 - [История изменений](https://whispaste.de/ru/changelog/)
 - [Исходный код на GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Последняя версия на GitHub](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -422,13 +584,24 @@
 
 # WhisPaste
 
-> WhisPaste 是一款免费的语音输入应用，采用 MIT 许可证，支持 Windows、Apple Silicon Mac 和 Linux：按下快捷键、开口说话，文字就会出现在当前的文本框中。语音识别在你的电脑上本地运行。
+> WhisPaste 是一款适用于 Windows、Apple Silicon Mac 和 Linux 的听写应用：按下快捷键、开口说话，文字就会出现在你正在输入的文本框中。语音识别在你的电脑上本地运行，无需账户。它以 MIT 许可证开源，在 GitHub 上免费提供；Microsoft Store 和 Mac App Store 版本为一次性购买，没有订阅；购买不会解锁任何功能。
 
 ## WhisPaste 能做什么
 
 - 在任意应用中说话时按住全局快捷键，松开即停止；也可以按一下开始、再按一下停止。
 - WhisPaste 在你的电脑上转写录音，并把文字复制到剪贴板。开启自动粘贴后，它会把文字插入当前应用的光标处，几乎适用于任何应用。
 - 适合在电脑前大量书写的人：邮件、消息、文档、笔记、提示词和代码注释。
+
+## WhisPaste 在基础之上还提供什么
+
+本地运行、无需账户、可免费使用是基础。在此之上，WhisPaste 还提供：
+
+- 自带现成模式的智能模式：在粘贴前清理、缩短，或翻译成七种语言之一。想改选中的文字，只要说出要怎么改。
+- 智能模式使用本地文本模型，你需要时由 WhisPaste 自行下载，不必另装软件（Linux 上为实验功能）。也可以改用自己的 OpenAI 密钥。
+- 录音、笔记和文本块在同一个编辑器里，工具栏、快捷键和自动保存都一样。
+- 带替换规则的词典，会根据你的修改建议新的替换。
+- 历史、笔记、词典、文本块和保留的录音都用你设备自己的数据密钥加密保存。
+- 上架 Microsoft Store 和 Mac App Store：在 Windows 上安装时不会出现 SmartScreen 警告，并通过商店在后台更新；在 Mac 上通过 App Store 安装和更新。一次性购买，无需订阅；购买用于支持后续开发。
 
 ## 语音识别
 
@@ -442,7 +615,7 @@
 
 - “整理”去除口头禅并修正标点，“精简”缩短文本，“翻译”将其译为德语、英语、西班牙语、法语、葡萄牙语、普通话或俄语。
 - 可在本地运行（macOS 和 Windows；Linux 上为实验性），也可通过 OpenAI 使用你自己的 API 密钥。
-- 可用自己的指令（最多 500 个字符）保存自定义预设，并在之后将预设应用到较早的录音上，原文会保留。除了 OpenAI，也可以使用本机或局域网中自己的兼容服务器（例如 LM Studio 或 Ollama）。
+- 可用自己的指令（最多 500 个字符）保存自定义预设，并在之后将预设应用到较早的录音上，原文会保留。除了 OpenAI，也可以使用本机或局域网中自己的兼容服务器（例如 Ollama、LM Studio、llama.cpp 或 KoboldCpp）。
 
 ## 日常功能
 
@@ -454,29 +627,42 @@
 - 最多五种用星标收藏的识别语言排在语言菜单最前面，可用快捷键在它们之间切换。
 - 词汇表保存人名和专业术语；替换规则纠正常见拼写，WhisPaste 还会根据你的重复纠正给出新建议。
 - 配置文件可为特定应用设定语言、语音模型、智能模式、麦克风和输出方式。
+- 修改选中内容（可选，默认关闭）：在受支持的应用中选中文字，按下对应的快捷键并说出要改什么，例如“更短”或“翻译”；智能模式会改写选中的内容。
 - 如果转写失败，音频默认保留 24 小时，即使应用崩溃也不例外，方便你重试。
 - 无障碍：设置、笔记和编辑器工具都能用键盘和屏幕阅读器操作；使用单击模式就无需按住按键。
 
 ## 隐私
 
 - 使用本地识别时，音频留在你的电脑上，转写后即被丢弃，除非你开启了音频保留。
-- 在 macOS 和 Windows 上，WhisPaste 不会自动粘贴到密码框中，文字会保留在剪贴板里。
+- 在 Windows 和 GitHub 版 macOS 应用中，WhisPaste 不会自动粘贴到密码框中，文字会保留在剪贴板里。
 - 转写文本、笔记、词汇表、语音片段和保留的音频均加密保存，数据密钥存放在系统的密钥存储中（macOS 钥匙串、Windows 数据保护、Linux Secret Service）。你可以将密钥备份为恢复码或文件。
 - 无需账户。
-- 使用统计和崩溃报告不包含音频、转写内容或历史记录，可在“设置 → 隐私”中关闭。
+- 匿名使用统计和崩溃报告默认开启。它们不包含音频、转写内容或历史记录，可在“设置 → 隐私”中分别关闭。
 - 云端功能只会在你使用时，把数据发送给你选择的服务商。
 
 ## 平台与配置要求
 
 - Windows 10 或更高版本，Apple Silicon 上的 macOS 13 Ventura 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz），需要 Ubuntu 26.04 或更高版本（glibc 2.43）；更旧的 Linux 系统请继续使用 1.4.2 版。
+- Linux 版支持 X11 和 Wayland。在 Wayland 下，全局快捷键由桌面环境绑定（GNOME 和 KDE 通过快捷键门户，或使用运行 `whispaste --toggle` 的自定义快捷键）；单键快捷键、双击和“粘贴后发送”等少数附加功能需要 X11。Linux 上的自动粘贴需要一次性授权（uinput 键盘或桌面门户）；未授权时，文字会保留在剪贴板中。
 - 建议：至少 8 GB 内存和 64 位处理器。
 - 仅限桌面；没有 iOS 或 Android 版本。
 
-## 价格与许可证
+## 如何获取 WhisPaste 以及费用
 
-- 完整应用在 GitHub 上以 MIT 许可证免费提供。
-- Microsoft Store 和 Mac App Store 中的付费版本提供相同的核心功能，并通过商店更新。
-- 无需订阅。可选的云服务商可能会对其使用收费。
+- 在 GitHub 上免费获取完整应用（MIT 许可证）：Windows 安装程序（WhisPaste-Setup.exe）或便携版 ZIP、macOS DMG、Linux AppImage、.deb 和 tar.gz。包管理器：Windows 上的 winget（`SilvioLindstedt.WhisPaste`）和 Scoop，macOS 上的 Homebrew。你也可以从源代码自行构建。
+- Microsoft Store（Windows）和 Mac App Store（macOS）：一次性购买，没有订阅。当前价格以商店显示为准。
+- 商店版本的额外便利：在 Windows 上，安装时不会出现 GitHub 未签名安装程序可能触发的 SmartScreen 警告，并通过 Microsoft Store 自动更新；在 macOS 上，通过 App Store 安装和更新。购买费用用于支持后续开发。
+- 购买不会解锁任何功能；免费版本始终完整，没有任何功能锁定或时间限制。Windows 和 macOS 的 GitHub 版本会检查新版本，只有在你确认后才安装更新；在 Linux 上，WhisPaste 只会提示有新版本并提供链接，需要你手动安装。
+- 各版本的区别：适用于较新 NVIDIA 显卡的可选 CUDA 包仅在 GitHub 版本（Windows 和 Linux）中提供，Microsoft Store 版本不提供；两者都支持通过 Vulkan 进行 GPU 加速。Mac App Store 版本运行在 Apple 的应用沙盒中：无法从你在其他应用中所做的更正中学习，不能识别密码框，没有 AppleScript 粘贴备用方式，也没有修复 macOS 权限的工具；GitHub 版本具备以上全部功能。Mac App Store 目前提供的仍是较旧的版本，音频和视频文件导入将随下一次商店更新到来。
+- 由于 Apple 会审核每次更新，新版本在 Mac App Store 上线的时间可能晚于 GitHub。
+- 没有订阅，也无需账户。如果你选择云服务商（OpenAI 或 Deepgram），其使用费用会通过你自己的 API 密钥直接向你收取。
+
+## WhisPaste 与系统自带听写的区别
+
+- Windows 自带的语音输入（Win+H）使用 Microsoft 的在线语音识别，需要联网。WhisPaste 在你的电脑上识别语音，一次性下载模型后即可离线使用。
+- macOS 自带的听写只使用 Apple 的语音识别。在 WhisPaste 中，你可以选择 Whisper、Parakeet、Apple 设备端识别（macOS 26 或更高版本）或使用自己密钥的云服务商。
+- 许多 Linux 桌面环境根本没有听写功能。WhisPaste 也为 Linux 提供听写功能，Wayland 下的限制见上文。
+- 系统自带听写会边说边输入。WhisPaste 在你说完后插入完整文字，将其保存在可搜索的“录音”区域，应用你的词典和文本片段，可以用智能模式整理文字，还能转写音频和视频文件。
 
 ## 链接
 
@@ -485,6 +671,9 @@
 - [隐私政策](https://whispaste.de/zh/privacy/)
 - [更新日志](https://whispaste.de/zh/changelog/)
 - [GitHub 上的源代码](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [GitHub 上的最新版本](https://github.com/whispaste/whispaste/releases/latest)
 
 ---
 
@@ -492,13 +681,24 @@
 
 # WhisPaste
 
-> WhisPaste est une application de saisie vocale gratuite, sous licence MIT, pour Windows, les Mac Apple Silicon et Linux : appuyez sur un raccourci, parlez, et le texte arrive dans le champ de texte actif. La reconnaissance vocale s’exécute localement sur votre ordinateur.
+> WhisPaste est une application de dictée pour Windows, les Mac Apple Silicon et Linux : appuyez sur un raccourci, parlez, et le texte arrive dans le champ où vous écrivez. La reconnaissance vocale s’exécute localement sur votre ordinateur, sans compte. Le code est ouvert sous licence MIT et l’application est gratuite sur GitHub ; les versions du Microsoft Store et du Mac App Store sont un achat unique sans abonnement ; l’achat ne débloque rien.
 
 ## Ce que fait WhisPaste
 
 - Vous maintenez un raccourci global dans n’importe quelle application pendant que vous parlez et le relâchez pour arrêter, ou vous appuyez une fois pour démarrer et une seconde fois pour arrêter.
 - WhisPaste transcrit l’enregistrement sur votre ordinateur et copie le texte dans le presse-papiers. Avec le collage automatique activé, il insère le texte au curseur de l’application active, dans presque toutes les apps.
 - Conçu pour celles et ceux qui écrivent beaucoup sur ordinateur : e-mails, messages, documents, notes, prompts et commentaires de code.
+
+## Ce que WhisPaste apporte au-delà de l’essentiel
+
+Local, sans compte et gratuit à l’usage : c’est le point de départ. En plus, WhisPaste apporte :
+
+- Smart Mode avec des modes prêts à l’emploi : nettoyer, raccourcir ou traduire dans l’une de sept langues avant de coller le texte. Pour modifier un texte sélectionné, dites ce qui doit changer.
+- Smart Mode fonctionne avec un modèle de texte local que WhisPaste télécharge pour vous quand vous le demandez ; aucun logiciel supplémentaire à installer (expérimental sous Linux). Vous pouvez aussi utiliser votre propre clé OpenAI.
+- Enregistrements, notes et blocs de texte dans un seul éditeur, avec la même barre d’outils, les mêmes raccourcis et l’enregistrement automatique.
+- Un dictionnaire avec remplacements qui propose de nouveaux remplacements à partir de vos corrections.
+- L’historique, les notes, le dictionnaire, les blocs de texte et les enregistrements conservés sont chiffrés avec la clé de données propre à votre appareil.
+- Disponible dans le Microsoft Store et le Mac App Store : sous Windows, installation sans l’avertissement SmartScreen et mises à jour en arrière-plan via le store ; sur Mac, installation et mises à jour via l’App Store. Achat unique, sans abonnement ; l’achat finance le développement.
 
 ## Reconnaissance vocale
 
@@ -512,7 +712,7 @@
 
 - Nettoyer supprime les mots de remplissage et corrige la ponctuation, Condenser raccourcit le texte, Traduire le convertit en allemand, anglais, espagnol, français, portugais, mandarin ou russe.
 - Fonctionne localement (macOS et Windows ; expérimental sous Linux) ou via OpenAI avec votre propre clé API.
-- Vos propres préréglages avec votre propre consigne (jusqu’à 500 caractères) ; un préréglage peut s’appliquer plus tard à un enregistrement antérieur, l’original est conservé. À la place d’OpenAI, votre propre serveur compatible (par exemple LM Studio ou Ollama) sur votre ordinateur ou votre réseau local fonctionne aussi.
+- Vos propres préréglages avec votre propre consigne (jusqu’à 500 caractères) ; un préréglage peut s’appliquer plus tard à un enregistrement antérieur, l’original est conservé. À la place d’OpenAI, votre propre serveur compatible (par exemple Ollama, LM Studio, llama.cpp ou KoboldCpp) sur votre ordinateur ou votre réseau local fonctionne aussi.
 
 ## Au quotidien
 
@@ -524,29 +724,42 @@
 - Jusqu’à cinq langues de reconnaissance favorites, marquées d’une étoile, apparaissent en premier dans les menus de langue ; un raccourci passe de l’une à l’autre.
 - Le vocabulaire contient noms propres et termes spécialisés ; les remplacements corrigent les graphies récurrentes, et WhisPaste en propose de nouveaux à partir de vos corrections répétées.
 - Les profils définissent langue, modèle vocal, Smart Mode, micro et sortie pour une application donnée.
+- Modifier une sélection (facultatif, désactivé par défaut) : sélectionnez du texte dans une app prise en charge, appuyez sur son raccourci et dites ce qui doit changer, par exemple « plus court » ou « traduire » ; Smart Mode réécrit la sélection.
 - Si une transcription échoue, l’audio est conservé 24 heures par défaut, même après un plantage, pour que vous puissiez réessayer.
 - Accessibilité : paramètres, notes et outils de l’éditeur fonctionnent au clavier et avec un lecteur d’écran ; avec le mode appui, vous n’avez jamais à maintenir une touche.
 
 ## Confidentialité
 
 - Avec la reconnaissance locale, l’audio reste sur votre ordinateur et est supprimé après la transcription, sauf si vous activez sa conservation.
-- Sous macOS et Windows, WhisPaste ne colle pas automatiquement dans les champs de mot de passe ; le texte reste dans le presse-papiers.
+- Sous Windows et dans la version macOS de GitHub, WhisPaste ne colle pas automatiquement dans les champs de mot de passe ; le texte reste dans le presse-papiers.
 - Transcriptions, notes, vocabulaire, snippets et audio conservé sont stockés chiffrés avec une clé de données dans le trousseau du système (trousseau macOS, protection des données de Windows, Secret Service de Linux). Vous pouvez sauvegarder la clé sous forme de code de récupération ou de fichier.
 - Aucun compte n’est nécessaire.
-- Les statistiques d’utilisation et les rapports de plantage ne contiennent ni audio, ni transcriptions, ni historique et se désactivent dans Réglages → Confidentialité.
+- Les statistiques d’utilisation anonymes et les rapports de plantage sont activés par défaut. Ils ne contiennent ni audio, ni transcriptions, ni historique, et chacun se désactive dans Réglages → Confidentialité.
 - Les fonctions cloud n’envoient des données qu’au fournisseur choisi, et seulement lorsque vous les utilisez.
 
 ## Plateformes et configuration requise
 
 - Windows 10 ou ultérieur, macOS 13 Ventura ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz) sous Ubuntu 26.04 ou ultérieur avec glibc 2.43 ; les systèmes Linux plus anciens restent sur la version 1.4.2.
+- Sous Linux, WhisPaste fonctionne avec X11 et Wayland. Sous Wayland, c’est le bureau qui attribue le raccourci global (via le portail de raccourcis sous GNOME et KDE, ou un raccourci personnalisé qui lance `whispaste --toggle`), et quelques extras comme les touches seules, le double appui et l’envoi après collage nécessitent X11. Le collage automatique sous Linux demande une autorisation unique (clavier uinput ou portail du bureau) ; sans elle, le texte reste dans le presse-papiers.
 - Recommandé : au moins 8 Go de RAM et un processeur 64 bits.
 - Ordinateur uniquement ; il n’existe pas de version iOS ni Android.
 
-## Prix et licence
+## Comment obtenir WhisPaste et ce qu’il coûte
 
-- L’application complète est gratuite sur GitHub sous licence MIT.
-- Les versions payantes du Microsoft Store et du Mac App Store offrent les mêmes fonctions principales, avec des mises à jour via le store.
-- Pas d’abonnement. Les fournisseurs cloud facultatifs peuvent facturer leur utilisation.
+- Gratuit sur GitHub, l’application complète sous licence MIT : installeur Windows (WhisPaste-Setup.exe) ou ZIP portable, DMG pour macOS, AppImage, .deb et tar.gz pour Linux. Gestionnaires de paquets : winget (`SilvioLindstedt.WhisPaste`) et Scoop sous Windows, Homebrew sous macOS. Vous pouvez aussi la compiler vous-même à partir du code source.
+- Microsoft Store (Windows) et Mac App Store (macOS) : achat unique, sans abonnement. Le store affiche le prix actuel.
+- Ce qu’apporte la version du store : sous Windows, l’installation sans l’avertissement SmartScreen que peut déclencher l’installeur non signé de GitHub, et des mises à jour automatiques via le Microsoft Store. Sous macOS, l’installation et les mises à jour via l’App Store. L’achat finance le développement.
+- L’achat ne débloque rien ; la version gratuite reste complète, sans rien de verrouillé ni de limité dans le temps. Les versions GitHub pour Windows et macOS recherchent les nouvelles versions et n’installent une mise à jour qu’après votre confirmation ; sous Linux, WhisPaste signale seulement la nouvelle version et renvoie vers elle, et vous l’installez vous-même.
+- Ce qui diffère entre les versions : le pack CUDA facultatif pour les cartes NVIDIA récentes n’est disponible que dans les versions GitHub (Windows et Linux), pas dans la version du Microsoft Store ; l’accélération GPU via Vulkan fonctionne dans les deux. La version du Mac App Store s’exécute dans le bac à sable des apps d’Apple : elle ne peut pas apprendre des corrections que vous faites dans d’autres apps, ne détecte pas les champs de mot de passe, n’a pas de solution de repli AppleScript pour coller ni d’outil de réparation des autorisations macOS ; la version GitHub a tout cela. Le Mac App Store propose pour l’instant une version plus ancienne : l’import de fichiers audio et vidéo y arrivera avec la prochaine mise à jour du store.
+- Une nouvelle version peut arriver sur le Mac App Store plus tard que sur GitHub, car Apple examine chaque mise à jour.
+- Ni abonnement ni compte. Si vous choisissez un fournisseur cloud (OpenAI ou Deepgram), il vous facture directement son utilisation via votre propre clé d’API.
+
+## Ce qui distingue WhisPaste de la dictée intégrée
+
+- La saisie vocale intégrée à Windows (Win+H) utilise la reconnaissance vocale en ligne de Microsoft et nécessite une connexion internet. WhisPaste reconnaît la parole sur votre ordinateur et fonctionne hors ligne après un téléchargement unique du modèle.
+- La dictée intégrée à macOS n’utilise que la reconnaissance vocale d’Apple. Dans WhisPaste, vous choisissez entre Whisper, Parakeet, la reconnaissance d’Apple sur l’appareil (macOS 26 ou ultérieur) ou un fournisseur cloud avec votre propre clé.
+- Beaucoup de bureaux Linux n’intègrent aucune dictée. WhisPaste apporte aussi sa dictée sous Linux, avec les limites de Wayland indiquées plus haut.
+- La dictée intégrée tape pendant que vous parlez. WhisPaste insère le texte terminé quand vous vous arrêtez, le conserve dans l’espace Enregistrements avec recherche, applique votre vocabulaire et vos snippets, peut le nettoyer avec Smart Mode et transcrit aussi des fichiers audio et vidéo.
 
 ## Liens
 
@@ -555,3 +768,6 @@
 - [Politique de confidentialité](https://whispaste.de/fr/privacy/)
 - [Journal des modifications](https://whispaste.de/fr/changelog/)
 - [Code source sur GitHub](https://github.com/whispaste/whispaste)
+- [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0)
+- [Mac App Store](https://apps.apple.com/app/id6795319409)
+- [Dernière version sur GitHub](https://github.com/whispaste/whispaste/releases/latest)

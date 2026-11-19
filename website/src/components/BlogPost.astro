@@ -5,6 +5,7 @@ import BlogCard from "./BlogCard.astro";
 import BlogCover from "./BlogCover.astro";
 import BlogCrumbs from "./BlogCrumbs.astro";
 import TranslateLink from "./TranslateLink.astro";
+import BuyBlock from "./BuyBlock.astro";
 import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
 import { readingMinutes } from "../scripts/blog.ts";
 import { t, localePath, type Locale } from "../scripts/i18n.ts";
@@ -76,7 +77,8 @@ const articleSchema = {
         <div class="post-cta" data-testid="blog-cta">
           <p class="post-cta-title">{t(lang, "blog.cta.title")}</p>
           <p class="post-cta-text">{t(lang, "blog.cta.text")}</p>
-          <a href={localePath(lang, "download")} class="post-cta-btn" data-testid="blog-cta-download">{t(lang, "blog.cta.button")} <span aria-hidden="true">→</span></a>
+          {/* Store-first purchase block (D-005); the text above names no free route. */}
+          <BuyBlock placement="rail-blog" testid="blog-cta-buy" moreTestid="blog-cta-download" class="post-cta-buy" />
         </div>
         <TranslateLink lang={lang} />
       </aside>
@@ -270,7 +272,7 @@ const articleSchema = {
     }
   }
 
-  /* ---- Aside: download CTA + translate hand-off ---- */
+  /* ---- Aside: purchase block + translate hand-off ---- */
   .post-aside {
     display: grid;
     gap: var(--wp-space-5);
@@ -299,30 +301,8 @@ const articleSchema = {
     line-height: 1.6;
     color: var(--color-ink-muted);
   }
-  .post-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--wp-space-2);
-    min-height: 44px;
+  .post-cta :global(.post-cta-buy) {
     margin-top: var(--wp-space-5);
-    padding: var(--wp-space-3) var(--wp-space-5);
-    border-radius: var(--radius-pill);
-    background: var(--wp-button-primary-fill);
-    color: var(--wp-button-primary-text);
-    font-weight: 700;
-    font-size: var(--wp-font-size-md);
-    box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
-    transition: transform var(--dur-base) var(--ease-flow);
-  }
-  .post-cta-btn:hover {
-    transform: translateY(-2px);
-  }
-  .post-cta-btn:active {
-    transform: scale(0.97);
-  }
-  .post-cta-btn:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
-    outline-offset: 3px;
   }
 
   /* ---- More posts + back link ---- */
@@ -363,14 +343,5 @@ const articleSchema = {
   }
   .post-back a:hover {
     color: var(--color-ink);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .post-cta-btn {
-      transition: none;
-    }
-    .post-cta-btn:hover,
-    .post-cta-btn:active {
-      transform: none;
-    }
   }
 </style>
