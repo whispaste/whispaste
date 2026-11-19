@@ -4,6 +4,7 @@
  * desktop app) by navigating to the matching localised URL.
  */
 import { alternatePaths, isLocale, parsePath } from './locales.ts';
+import { rememberReferrer } from './referrer-carry.ts';
 
 export function applyLang(): void {
   const requested = new URLSearchParams(window.location.search).get('lang');
@@ -15,5 +16,7 @@ export function applyLang(): void {
   // Keep a plain in-page anchor only; anything else in the fragment is dropped
   // so the redirect target stays a fixed same-origin route.
   const anchor = /^#[\w-]+$/.exec(window.location.hash)?.[0] ?? '';
+  // Keep the visit's real referrer for Matomo across the redirect.
+  rememberReferrer(target);
   window.location.replace(`${target}${anchor}`);
 }

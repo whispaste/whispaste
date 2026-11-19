@@ -14,6 +14,7 @@ import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
 import WebVitals from "../components/WebVitals.astro";
 import ContactWidget from "../components/ContactWidget.astro";
 import { EXTRA_DOWNLOAD_EXTENSIONS } from "../scripts/download-tracking.ts";
+import { APPLY_CARRIED_REFERRER_JS } from "../scripts/referrer-carry.ts";
 
 interface Props {
   title?: string;
@@ -107,7 +108,9 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
         reports en-US and must still see every locale), and a language picked
         in the switcher (localStorage "wp-lang") wins over the browser setting.
         The target comes from this page's own hreflang alternates, so this
-        must stay below them. */}
+        must stay below them. The original referrer travels along in
+        sessionStorage, otherwise Matomo would see whispaste.de as referrer
+        (scripts/referrer-carry.ts). */}
     {!isPrivate && <script is:inline>
       (function () {
         try {
@@ -132,6 +135,9 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
           if (!link) return;
           var target = new URL(link.href, location.href);
           if (target.pathname === location.pathname) return;
+          // Carry the original referrer to the target page for Matomo
+          // (scripts/referrer-carry.ts; same key and JSON shape).
+          try { sessionStorage.setItem('wp-ref', JSON.stringify({ ref: document.referrer, to: target.pathname, at: Date.now() })); } catch (e) {}
           location.replace(target.pathname + location.search + location.hash);
         } catch (e) {}
       })();
@@ -200,6 +206,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
   var _paq = (window._paq = window._paq || []);
   _paq.push(["disableCookies"]);
   _paq.push(["enableHeartBeatTimer"]);
+  ${APPLY_CARRIED_REFERRER_JS}
   _paq.push(["trackPageView"]);
   _paq.push(["addDownloadExtensions", "${EXTRA_DOWNLOAD_EXTENSIONS.join("|")}"]);
   _paq.push(["enableLinkTracking"]);
