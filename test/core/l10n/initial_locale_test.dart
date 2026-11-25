@@ -58,7 +58,23 @@ void main() {
     });
 
     test('an unsupported system language falls back to English', () {
-      expect(initialLocaleCode(['fr-FR']), 'en');
+      expect(initialLocaleCode(['pl-PL']), 'en');
+    });
+
+    test('French, Italian and Simplified Chinese are taken over (#1951)', () {
+      expect(initialLocaleCode(['fr-FR']), 'fr');
+      expect(initialLocaleCode(['it-IT']), 'it');
+      expect(initialLocaleCode(['zh-Hans-CN']), 'zh');
+      expect(initialLocaleCode(['zh-CN']), 'zh');
+      expect(initialLocaleCode(['zh_CN.UTF-8']), 'zh');
+      expect(initialLocaleCode(['zh-Hans-HK']), 'zh');
+    });
+
+    test('Traditional Chinese is not taken over as Simplified', () {
+      expect(initialLocaleCode(['zh-Hant-TW']), 'en');
+      expect(initialLocaleCode(['zh-TW']), 'en');
+      expect(initialLocaleCode(['zh_HK']), 'en');
+      expect(initialLocaleCode(['zh-Hant', 'de-DE']), 'de');
     });
 
     test('no system languages fall back to English', () {
@@ -66,7 +82,7 @@ void main() {
     });
 
     test('the first supported entry of the preference list wins', () {
-      expect(initialLocaleCode(['fr', 'ru']), 'ru');
+      expect(initialLocaleCode(['pl', 'ru']), 'ru');
     });
   });
 

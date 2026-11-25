@@ -2,7 +2,7 @@
 /// engines read.
 ///
 /// WAV is decoded in Dart ([decodeWavBytes]) on every platform. Compressed
-/// audio formats go through the platform decoder. MP4/MOV and MKV/WebM use
+/// audio formats go through the platform decoder. MP4/MOV, MKV/WebM and MPEG-PS/TS use
 /// the bundled audio-only FFmpeg helper (see video_audio_decoder.dart):
 /// - macOS: AVFoundation (`macos/Runner/AudioFileDecodeHost.swift`) for
 ///   MP3, FLAC and M4A/AAC.
@@ -41,6 +41,16 @@ AudioSourceFormat sniffAudioFormat(Uint8List head) {
   if (isWavBytes(head)) return AudioSourceFormat.wav;
   if (at(0, 'OggS')) return AudioSourceFormat.ogg; // Ogg/Opus or Ogg/Vorbis
   if (at(0, 'fLaC')) return AudioSourceFormat.flac;
+  if (at(0, '\x00\x00\x01\xba')) return AudioSourceFormat.mpeg;
+  // Three consecutive packet sync bytes distinguish TS/M2TS from random data.
+  for (final (offset, stride) in [(0, 188), (4, 192), (0, 204)]) {
+    if (head.length > offset + 2 * stride &&
+        head[offset] == 0x47 &&
+        head[offset + stride] == 0x47 &&
+        head[offset + 2 * stride] == 0x47) {
+      return AudioSourceFormat.mpegts;
+    }
+  }
   if (at(0, 'ID3')) return AudioSourceFormat.mp3;
   if (head.length >= 2 && head[0] == 0xFF && (head[1] & 0xE0) == 0xE0) {
     return AudioSourceFormat.mp3; // MPEG audio frame sync
@@ -210,7 +220,7 @@ Future<void> decodeAudioFileToSttWav({
   final raf = await input.open();
   final Uint8List head;
   try {
-    head = await raf.read(64);
+    head = await raf.read(612);
   } finally {
     await raf.close();
   }
@@ -224,14 +234,11 @@ Future<void> decodeAudioFileToSttWav({
         maxDuration.inMilliseconds,
       ),
     );
-  } else if (format.isCompressed ||
-      format == AudioSourceFormat.mp4 ||
-      format == AudioSourceFormat.matroska) {
+  } else if (format.isCompressed || format.isVideo) {
     final decoder = compressedDecoder ?? MethodChannelAudioDecoder();
     final rawPath = '$outputWavPath.raw';
     try {
-      if (format == AudioSourceFormat.mp4 ||
-          format == AudioSourceFormat.matroska) {
+      if (format.isVideo) {
         await (videoDecoder ?? VideoAudioDecoder()).decodeToRawPcm16(
           inputPath: inputPath,
           rawOutputPath: rawPath,

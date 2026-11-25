@@ -30,17 +30,15 @@ class FirstStepsCard extends ConsumerWidget {
     if (!view.visible) return const SizedBox.shrink();
     final l10n = L10n.of(context);
     final allDone = firstStepsAllDone(view.done);
-    final rows = <Widget>[
-      for (final (i, item) in FirstStepsItem.values.indexed) ...[
-        if (i > 0)
-          const WpRowDivider(
-            inset: EdgeInsetsDirectional.only(
-              start: _CheckMark.size + WpSpacing.md,
-            ),
-          ),
-        _FirstStepsItemRow(item: item, done: view.done.contains(item)),
+    final rows = WpDividedColumn(
+      inset: const EdgeInsetsDirectional.only(
+        start: _CheckMark.size + WpSpacing.md,
+      ),
+      children: [
+        for (final item in FirstStepsItem.values)
+          _FirstStepsItemRow(item: item, done: view.done.contains(item)),
       ],
-    ];
+    );
     return WpCard(
       key: const ValueKey('home-first-steps'),
       title: l10n.firstStepsTitle,
@@ -58,6 +56,7 @@ class FirstStepsCard extends ConsumerWidget {
           WpProgressBar(
             key: const ValueKey('home-first-steps-progress'),
             value: view.done.length / kFirstStepsItemCount,
+            semanticsLabel: l10n.firstStepsTitle,
           ),
           const SizedBox(height: WpSpacing.xs),
           if (allDone)
@@ -73,7 +72,7 @@ class FirstStepsCard extends ConsumerWidget {
               ),
             )
           else
-            ...rows,
+            rows,
         ],
       ),
     );
@@ -123,13 +122,17 @@ class _FirstStepsItemRow extends ConsumerWidget {
             children: [
               _CheckMark(done: done),
               const SizedBox(width: WpSpacing.md),
+              // The row already carries the title as its label; the text
+              // would add it a second time (#1916).
               Expanded(
-                child: Text(
-                  title,
-                  style: style.copyWith(
-                    color: done ? WpColors.textMuted : null,
-                    decoration: done ? TextDecoration.lineThrough : null,
-                    decorationColor: WpColors.textMuted,
+                child: ExcludeSemantics(
+                  child: Text(
+                    title,
+                    style: style.copyWith(
+                      color: done ? WpColors.textMuted : null,
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      decorationColor: WpColors.textMuted,
+                    ),
                   ),
                 ),
               ),

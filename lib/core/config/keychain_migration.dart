@@ -262,9 +262,13 @@ class KeychainMigration {
   /// Deletes the old entry once the new keychain holds [value], then reads
   /// the new entry again: only when it is still there the move counts. A
   /// delete that took the new entry with it (old and new keychain answered
-  /// with the same item, #1674) is undone by writing [value] again.
+  /// with the same item, #1674) is undone by writing [value] again. The check
+  /// runs after the duplicate cleanup of [_afterDelete] (#1841).
   Future<_Move> _deleteOldAndConfirm(String key, String value) async {
     await _deleteOld(key);
+    // Duplicate cleanup first: its extra delete may take the new entry too
+    // (#1841), so the final check comes after every delete.
+    await _afterDelete(key, value);
     if (await primary.read(key: key) != value) {
       _log.warning(
         'Deleting the old entry "$key" removed the new one too; '
@@ -276,7 +280,6 @@ class KeychainMigration {
       }
       return _Move.failed;
     }
-    await _afterDelete(key, value);
     return _Move.moved;
   }
 

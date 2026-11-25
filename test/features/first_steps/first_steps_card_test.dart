@@ -15,6 +15,7 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/features/first_steps/first_steps_card.dart';
 import 'package:whispaste/features/first_steps/first_steps_watcher.dart';
 
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import '../../fixtures/test_helpers.dart';
 
 class _FakeSettings extends SettingsNotifier {
@@ -95,6 +96,26 @@ Future<ProviderContainer> _pump(
 Finder _byId(String id) => find.byKey(ValueKey<String>(id));
 
 void main() {
+  // #1916: each item read its title twice, and the progress bar had no name.
+  testWidgets('items are named once and the progress bar says what it counts', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _pump(tester, settings: _armed());
+    final l10n = L10n.of(tester.element(find.byType(FirstStepsCard)));
+
+    final item = tester
+        .getSemantics(_byId('home-first-steps-item-first_paste'))
+        .getSemanticsData();
+    expect(item.label, l10n.firstStepsItemPasteTitle);
+
+    final bar = tester
+        .getSemantics(find.byType(LinearProgressIndicator))
+        .getSemanticsData();
+    expect(bar.label, l10n.firstStepsTitle);
+    handle.dispose();
+  });
+
   testWidgets('the first-paste action opens the hotkey row in Settings', (
     tester,
   ) async {

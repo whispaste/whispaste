@@ -63,9 +63,14 @@ const lang = currentLocale(Astro.currentLocale);
     transition: opacity var(--wp-duration-slow) ease, visibility var(--wp-duration-slow) ease;
   }
 
+  /* Opening switches visibility at once (0s) and only fades the opacity:
+     a button inside a still visibility:hidden dialog cannot take focus, so
+     focus() in open() used to stay on the trigger behind the modal (#1908).
+     Closing keeps the delayed visibility so the fade-out stays visible. */
   .lightbox[data-open] {
     opacity: 1;
     visibility: visible;
+    transition-property: opacity;
   }
 
   /* Plain dimming, no blur -- no glass/frost material sitewide. */
@@ -192,6 +197,24 @@ const lang = currentLocale(Astro.currentLocale);
     let images: LightboxImage[] = [];
     let currentIdx = 0;
     let previousFocus: HTMLElement | null = null;
+    let inerted: HTMLElement[] = [];
+
+    // The dialog sits inside the section that renders it; move it to <body>
+    // so every other top-level element can be made inert while it is open
+    // (background unreachable by Tab and screen readers, #1908).
+    if (root.parentElement !== document.body) document.body.appendChild(root);
+
+    function setBackgroundInert(on: boolean) {
+      if (on) {
+        inerted = Array.from(document.body.children).filter(
+          (el): el is HTMLElement => el instanceof HTMLElement && el !== root && !el.inert,
+        );
+        inerted.forEach((el) => { el.inert = true; });
+      } else {
+        inerted.forEach((el) => { el.inert = false; });
+        inerted = [];
+      }
+    }
 
     function show(idx: number) {
       currentIdx = Math.max(0, Math.min(idx, images.length - 1));
@@ -213,15 +236,18 @@ const lang = currentLocale(Astro.currentLocale);
       void root.offsetHeight;
       root.setAttribute('data-open', '');
       document.body.style.overflow = 'hidden';
+      setBackgroundInert(true);
 
       show(startIdx);
       root.querySelector<HTMLButtonElement>('.lightbox-close')!.focus();
     }
 
     function close() {
+      if (!root.hasAttribute('data-open')) return;
       root.removeAttribute('data-open');
       document.body.style.overflow = '';
-      setTimeout(() => { root.hidden = true; }, 350);
+      setBackgroundInert(false);
+      setTimeout(() => { if (!root.hasAttribute('data-open')) root.hidden = true; }, 350);
       previousFocus?.focus();
     }
 
@@ -235,7 +261,10 @@ const lang = currentLocale(Astro.currentLocale);
     nextBtn.addEventListener('click', () => show(currentIdx + 1));
 
     // Keyboard — includes focus trap
-    root.addEventListener('keydown', (e) => {
+    // Bound to document (not the dialog) so Escape and arrows work even if
+    // focus is not inside the dialog yet.
+    document.addEventListener('keydown', (e) => {
+      if (!root.hasAttribute('data-open')) return;
       if (e.key === 'Escape') { close(); e.preventDefault(); }
       if (e.key === 'ArrowLeft') { show(currentIdx - 1); e.preventDefault(); }
       if (e.key === 'ArrowRight') { show(currentIdx + 1); e.preventDefault(); }

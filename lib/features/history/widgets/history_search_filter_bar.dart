@@ -9,16 +9,19 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/recording/recording_state.dart';
-import '../../../core/theme/generated/wp_tokens.g.dart' show WpRadiusTokens;
 import '../../../core/theme/tokens.dart';
+import '../../../core/views/smart_view.dart';
+import '../../views/smart_view_ui.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../services/audio/import/audio_import_providers.dart';
 import '../../../widgets/wp_button.dart';
+import 'history_status_row.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_collection_page.dart';
 import '../../../widgets/wp_search_field.dart';
+import '../../../widgets/searchable_list_page.dart';
 import '../../../widgets/wp_sort_menu_button.dart';
 import '../data/providers.dart';
 import '../data/recent_searches.dart';
@@ -719,6 +722,15 @@ class _HistorySearchFilterBarState
     final parsed = parseSearchQuery(rawQuery);
     final bucket = ref.watch(historyDurationBucketProvider);
     void setQuery(String value) => widget.controller.text = value;
+    // Saved views (#658) narrow the live list only, not Archive or Trash.
+    const scope = SmartViewScope.recordings;
+    final viewsApply =
+        widget.activeFilter != HistoryFilter.archived &&
+        widget.activeFilter != HistoryFilter.trash;
+    Future<List<Tag>> loadTags() => ref.read(historyDatabaseProvider).allTags();
+    final viewMark = viewsApply
+        ? smartViewActiveFilter(context, ref, scope: scope)
+        : null;
 
     // Everything that narrows the list shows as a mark next to the search.
     // Tag, language and `longer:`/`shorter:` stay raw tokens: that is how
@@ -739,6 +751,7 @@ class _HistorySearchFilterBarState
           label: storageLabel,
           onRemove: () => widget.onFilterChanged(HistoryFilter.all),
         ),
+      ?viewMark,
       for (final tag in parsed.tagNames)
         WpActiveFilter(
           id: 'tag-$tag',
@@ -813,12 +826,16 @@ class _HistorySearchFilterBarState
       screenId: 'history',
       search: WpSearchField(
         testId: 'history-search',
+        clearOnEscape: true,
         controller: widget.controller,
         focusNode: widget.searchFocusNode,
         hintText: l10n.historySearchTranscriptions,
         variant: WpSearchFieldVariant.outlined,
         onClear: _clearSuggestions,
-        suffix: const _SearchHelpButton(),
+        suffix: _SearchHelpButton(
+          controller: widget.controller,
+          focusNode: widget.searchFocusNode,
+        ),
         semanticsLabel: l10n.historySearchFieldLabel,
       ),
       // Importing audio files is the second way to add a recording, so it
@@ -899,6 +916,14 @@ class _HistorySearchFilterBarState
             ),
           ],
         ),
+        if (viewsApply)
+          smartViewFilterSection(
+            context,
+            ref,
+            scope: scope,
+            screenId: 'history',
+            loadTags: loadTags,
+          ),
         // The period writes the search operator `date:`; the duration
         // buckets (#879) are the one click path for length, `longer:` and
         // `shorter:` stay typed operators (#1176).
@@ -928,6 +953,17 @@ class _HistorySearchFilterBarState
       ],
       activeFilters: activeFilters,
       status: [
+        // Pending imports and interrupted recordings: icon buttons with a
+        // count in this row, never a line of their own above the search.
+        if (ref.watch(historyStatusPendingProvider)) const HistoryStatusRow(),
+        if (viewsApply)
+          ...smartViewStatus(
+            context,
+            ref,
+            scope: scope,
+            screenId: 'history',
+            loadTags: loadTags,
+          ),
         if (rawQuery.isNotEmpty)
           Semantics(
             liveRegion: true,
@@ -953,19 +989,22 @@ class _HistorySearchFilterBarState
       ],
       tools: [
         // The bordered icon button every toolbar control shares (#1498);
-        // `selected` makes it the toggle and announces its state.
-        WpIconButton(
-          key: const ValueKey('history-select-toggle'),
-          testId: 'history-select-toggle',
-          icon: widget.multiSelectMode
-              ? LucideIcons.checkCheck
-              : LucideIcons.listChecks,
-          tooltip: widget.multiSelectMode
-              ? l10n.historyExitSelection
-              : l10n.historySelectMultiple,
-          selected: widget.multiSelectMode,
-          onPressed: widget.onToggleMultiSelect,
-        ),
+        // `selected` makes it the toggle and announces its state. Like on
+        // Notes and Snippets it only shows when there is something to select
+        // (an open selection keeps it, so it can be left).
+        if (widget.resultCount > 0 || widget.multiSelectMode)
+          WpIconButton(
+            key: const ValueKey('history-select-toggle'),
+            testId: 'history-select-toggle',
+            icon: widget.multiSelectMode
+                ? LucideIcons.checkCheck
+                : LucideIcons.listChecks,
+            tooltip: widget.multiSelectMode
+                ? l10n.historyExitSelection
+                : l10n.historySelectMultiple,
+            selected: widget.multiSelectMode,
+            onPressed: widget.onToggleMultiSelect,
+          ),
         WpSortMenuButton<HistorySortOrder>(
           testId: 'history-sort',
           tooltip: _historySortOptions(
@@ -1253,6 +1292,11 @@ class _NewRecordingButton extends ConsumerWidget {
     final isTranscribing =
         phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.refining;
+    // Inside a saved view nothing new starts from here (#658): the new
+    // recording might not match the view. A running recording still stops,
+    // and the global hotkey is never touched (Nordstern).
+    final locked =
+        !isRecording && ref.watch(shownHistorySmartViewProvider) != null;
 
     // Beside the search field: an icon button of the same height
     // (WpLayout.controlHeight, UX-131). Its label is the tooltip and accessible name.
@@ -1262,6 +1306,8 @@ class _NewRecordingButton extends ConsumerWidget {
       // While transcribing the tooltip says why the press does nothing.
       tooltip: isTranscribing
           ? l10n.statusTranscribing
+          : locked
+          ? l10n.smartViewCreateLocked
           : isRecording
           ? l10n.historyStopRecording
           : l10n.historyNewRecording,
@@ -1270,7 +1316,7 @@ class _NewRecordingButton extends ConsumerWidget {
       // Live in every phase but `transcribing` — `toggleRecording` decides
       // what the press means (start from idle/done/error, stop while
       // recording), exactly as it does for the hotkey.
-      onPressed: isTranscribing
+      onPressed: isTranscribing || locked
           ? null
           : () => ref
                 .read(recordingOrchestratorProvider.notifier)
@@ -1287,13 +1333,17 @@ class _ImportFilesButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    // Imports add recordings, so inside a saved view they wait (#658).
+    final locked = ref.watch(shownHistorySmartViewProvider) != null;
     return WpIconButton(
       key: const ValueKey('history-import-add'),
       testId: 'history-import-add',
       icon: LucideIcons.filePlus,
-      tooltip: L10n.of(context).historyImportAddFiles,
-      onPressed: () =>
-          ref.read(audioImportPickRequestProvider.notifier).request(),
+      tooltip: locked ? l10n.smartViewCreateLocked : l10n.historyImportAddFiles,
+      onPressed: locked
+          ? null
+          : () => ref.read(audioImportPickRequestProvider.notifier).request(),
     );
   }
 }
@@ -1303,136 +1353,67 @@ class _ImportFilesButton extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _SearchHelpButton extends StatelessWidget {
-  const _SearchHelpButton();
+  const _SearchHelpButton({required this.controller, this.focusNode});
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+
+  /// Appends [token] to the query and puts the caret after it, so the next
+  /// keystroke completes the filter (`#` → tag suggestions open). The
+  /// controller listener runs the search.
+  void _start(String token) {
+    final text = controller.text;
+    final glue = text.isEmpty || text.endsWith(' ') ? '' : ' ';
+    final next = '$text$glue$token';
+    controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    focusNode?.requestFocus();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final textPrimary = WpColors.textPrimary;
-    // A popup menu floats over arbitrary content — pre-composited card
-    // material, see `WpColors.floatingSurface`.
-    final surface = WpColors.floatingSurface;
-
-    return WpIconButton.ghost(
-      testId: 'history-search-help',
-      icon: LucideIcons.info,
-      tooltip: l10n.historySearchHelpTitle,
-      onPressed: () {
-        final renderBox = context.findRenderObject() as RenderBox?;
-        if (renderBox == null) return;
-        final offset = renderBox.localToGlobal(Offset.zero);
-        final size = renderBox.size;
-
-        showMenu<void>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            offset.dx,
-            offset.dy + size.height,
-            offset.dx + size.width,
-            offset.dy + size.height + 200,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: WpRadius.borderMd),
-          color: surface,
-          items: [
-            PopupMenuItem<void>(
-              enabled: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    l10n.historySearchHelpTitle,
-                    style: TextStyle(
-                      fontSize: WpTypography.body,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: WpSpacing.xs),
-                  _HelpRow(
-                    icon: LucideIcons.tag,
-                    text: l10n.historySearchHelpTags,
-                    example: '#meeting',
-                  ),
-                  const SizedBox(height: WpSpacing.xxs),
-                  _HelpRow(
-                    icon: LucideIcons.globe,
-                    text: l10n.historySearchHelpLang,
-                    example: 'lang:en',
-                  ),
-                  const SizedBox(height: WpSpacing.xxs),
-                  _HelpRow(
-                    icon: LucideIcons.calendarRange,
-                    text: l10n.historySearchHelpRange,
-                    example: 'date:7d',
-                  ),
-                  const SizedBox(height: WpSpacing.xxs),
-                  _HelpRow(
-                    icon: LucideIcons.textSearch,
-                    text: l10n.historySearchHelpFreeText,
-                    example: '',
-                  ),
-                ],
-              ),
+    // The tips are the shared list menu (#1757): each tip is also the way to
+    // use it, a pick starts that filter in the field.
+    return Builder(
+      builder: (buttonContext) => WpIconButton.ghost(
+        testId: 'history-search-help',
+        icon: LucideIcons.info,
+        tooltip: l10n.historySearchHelpTitle,
+        onPressed: () => unawaited(
+          showWpListMenu(buttonContext, [
+            WpListMenuAction(
+              itemKey: const ValueKey('history-search-help-tags'),
+              label: l10n.historySearchHelpTags,
+              hint: '#meeting',
+              icon: LucideIcons.tag,
+              onSelected: () => _start('#'),
             ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _HelpRow extends StatelessWidget {
-  const _HelpRow({
-    required this.icon,
-    required this.text,
-    required this.example,
-  });
-
-  final IconData icon;
-  final String text;
-  final String example;
-
-  @override
-  Widget build(BuildContext context) {
-    final textMuted = WpColors.textMuted;
-    final accent = WpColors.accent;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: WpIconSize.xxs, color: textMuted),
-        const SizedBox(width: WpSpacing.xs),
-        Flexible(
-          child: Text(
-            text,
-            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
-          ),
+            WpListMenuAction(
+              itemKey: const ValueKey('history-search-help-lang'),
+              label: l10n.historySearchHelpLang,
+              hint: 'lang:en',
+              icon: LucideIcons.globe,
+              onSelected: () => _start('lang:'),
+            ),
+            WpListMenuAction(
+              itemKey: const ValueKey('history-search-help-range'),
+              label: l10n.historySearchHelpRange,
+              hint: 'date:7d',
+              icon: LucideIcons.calendarRange,
+              onSelected: () => _start('date:'),
+            ),
+            WpListMenuAction(
+              itemKey: const ValueKey('history-search-help-text'),
+              label: l10n.historySearchHelpFreeText,
+              icon: LucideIcons.textSearch,
+              onSelected: () => focusNode?.requestFocus(),
+            ),
+          ]),
         ),
-        if (example.isNotEmpty) ...[
-          const SizedBox(width: WpSpacing.xs),
-          Container(
-            // Vertical 1 stays off-scale on purpose: the example mini-chip hugs
-            // its caption text; xxs would double the chip height.
-            padding: const EdgeInsets.symmetric(
-              horizontal: WpSpacing.xxs,
-              vertical: 1,
-            ),
-            decoration: BoxDecoration(
-              color: WpColors.accentChipFill,
-              borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
-            ),
-            child: Text(
-              example,
-              style: TextStyle(
-                fontSize: WpTypography.caption,
-                fontWeight: FontWeight.w500,
-                color: accent,
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -1491,10 +1472,6 @@ class _HistoryToolsOverflowButton extends StatefulWidget {
       _HistoryToolsOverflowButtonState();
 }
 
-/// Sentinel menu value for the selection-mode toggle; the other menu values
-/// are the view-mode and sort-order enums themselves.
-const Object _multiSelectMenuValue = Object();
-
 class _HistoryToolsOverflowButtonState
     extends State<_HistoryToolsOverflowButton> {
   String _viewLabel(L10n l10n, HistoryViewMode mode) => switch (mode) {
@@ -1503,62 +1480,47 @@ class _HistoryToolsOverflowButtonState
     HistoryViewMode.compact => l10n.historyCompact,
   };
 
-  String _sortLabel(L10n l10n, HistorySortOrder order) => switch (order) {
-    HistorySortOrder.newest => l10n.historySortNewest,
-    HistorySortOrder.oldest => l10n.historySortOldest,
-    HistorySortOrder.longest => l10n.historySortLongest,
+  static const Map<HistoryViewMode, IconData> _viewIcons = {
+    HistoryViewMode.list: LucideIcons.list,
+    HistoryViewMode.cards: LucideIcons.layoutGrid,
+    HistoryViewMode.compact: LucideIcons.rows3,
   };
 
-  Future<void> _openMenu(L10n l10n) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final box = context.findRenderObject()! as RenderBox;
-    final anchor = box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
-    final choice = await showMenu<Object>(
-      context: context,
-      position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
-      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
-      items: [
+  /// The collapsed tools as the shared list menu (#1757): view, sort and
+  /// selection, one group each, the current choice checked.
+  void _openMenu(BuildContext buttonContext, L10n l10n) {
+    final sortOptions = _historySortOptions(l10n);
+    unawaited(
+      showWpListMenu(buttonContext, [
         for (final mode in HistoryViewMode.values)
-          PopupMenuItem<Object>(
-            key: ValueKey('history-toolbar-view-${mode.name}'),
-            value: mode,
-            child: _ToolsMenuRow(
-              label: _viewLabel(l10n, mode),
-              selected: widget.viewMode == mode,
-            ),
+          WpListMenuAction(
+            itemKey: ValueKey('history-toolbar-view-${mode.name}'),
+            label: _viewLabel(l10n, mode),
+            icon: _viewIcons[mode]!,
+            checked: widget.viewMode == mode,
+            onSelected: () => widget.onViewModeChanged(mode),
           ),
-        const PopupMenuDivider(),
-        for (final order in HistorySortOrder.values)
-          PopupMenuItem<Object>(
-            key: ValueKey('history-toolbar-sort-${order.name}'),
-            value: order,
-            child: _ToolsMenuRow(
-              label: _sortLabel(l10n, order),
-              selected: widget.sortOrder == order,
-            ),
+        for (final (index, option) in sortOptions.indexed)
+          WpListMenuAction(
+            itemKey: ValueKey('history-toolbar-sort-${option.value.name}'),
+            label: option.label,
+            icon: option.icon,
+            checked: widget.sortOrder == option.value,
+            dividerBefore: index == 0,
+            onSelected: () => widget.onSortOrderChanged(option.value),
           ),
-        const PopupMenuDivider(),
-        PopupMenuItem<Object>(
-          key: const ValueKey('history-toolbar-select'),
-          value: _multiSelectMenuValue,
-          child: _ToolsMenuRow(
-            label: widget.multiSelectMode
-                ? l10n.historyExitSelection
-                : l10n.historySelectMultiple,
-            selected: widget.multiSelectMode,
-          ),
+        WpListMenuAction(
+          itemKey: const ValueKey('history-toolbar-select'),
+          label: widget.multiSelectMode
+              ? l10n.historyExitSelection
+              : l10n.historySelectMultiple,
+          icon: LucideIcons.listChecks,
+          checked: widget.multiSelectMode,
+          dividerBefore: true,
+          onSelected: widget.onToggleMultiSelect,
         ),
-      ],
+      ]),
     );
-    if (!mounted || choice == null) return;
-    if (choice is HistoryViewMode) {
-      widget.onViewModeChanged(choice);
-    } else if (choice is HistorySortOrder) {
-      widget.onSortOrderChanged(choice);
-    } else if (identical(choice, _multiSelectMenuValue)) {
-      widget.onToggleMultiSelect();
-    }
   }
 
   @override
@@ -1572,43 +1534,7 @@ class _HistoryToolsOverflowButtonState
       icon: LucideIcons.slidersHorizontal,
       tooltip: l10n.historyToolsMenu,
       color: widget.multiSelectMode ? WpColors.accent : null,
-      onPressed: () => _openMenu(l10n),
-    );
-  }
-}
-
-/// One row of the collapsed tools menu: a check mark column, then the label.
-class _ToolsMenuRow extends StatelessWidget {
-  const _ToolsMenuRow({required this.label, required this.selected});
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: WpIconSize.sm,
-          child: selected
-              ? Icon(
-                  LucideIcons.check,
-                  size: WpIconSize.sm,
-                  color: WpColors.accent,
-                )
-              : null,
-        ),
-        const SizedBox(width: WpSpacing.xs),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: WpTypography.body,
-            color: selected ? WpColors.accent : null,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ],
+      onPressed: () => _openMenu(context, l10n),
     );
   }
 }

@@ -11,6 +11,7 @@ import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/services/audio/import/pcm_decoder.dart';
+import 'package:whispaste/services/audio/upload_audio_encoder.dart';
 import 'package:whispaste/services/transcription/openai_transcriber.dart';
 import 'package:whispaste/services/transcription/slice_manifest.dart';
 import 'package:whispaste/services/transcription/transcriber.dart';
@@ -69,6 +70,7 @@ class _FakeSecureKeyStore implements SecureKeyStore {
 ProviderContainer _makeContainer(
   Map<String, String> keys, {
   AppSettings? settings,
+  UploadAudioEncoder? encoder,
 }) {
   return ProviderContainer(
     overrides: [
@@ -76,13 +78,68 @@ ProviderContainer _makeContainer(
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(settings ?? AppSettings.defaults),
       ),
+      if (encoder != null)
+        uploadAudioEncoderProvider.overrideWithValue(encoder),
     ],
   );
+}
+
+/// Records every encoding and answers with a small WebM-like body, or with
+/// null (send WAV) when [fail] is set.
+class _FakeEncoder implements UploadAudioEncoder {
+  _FakeEncoder({this.fail = false});
+
+  final bool fail;
+  final calls = <int>[];
+
+  @override
+  Future<EncodedUpload?> encode(List<Uint8List> pcmParts, int pcmLength) async {
+    calls.add(pcmLength);
+    if (fail) return null;
+    return EncodedUpload(
+      Uint8List.fromList([0x1A, 0x45, 0xDF, 0xA3, calls.length]),
+      filename: 'audio.webm',
+      mime: 'audio/webm',
+    );
+  }
+}
+
+/// One canonical WAV of [seconds] of silence.
+Uint8List _wavOf(int seconds) {
+  final pcmBytes = seconds * 32000;
+  return Uint8List(44 + pcmBytes)
+    ..setRange(0, 44, wavHeaderPcm16Mono(pcmBytes));
 }
 
 List<int> _silentWav() => List.filled(44, 0); // minimal WAV bytes
 
 void main() {
+  test(
+    'auto serializes all expected languages as repeated multipart fields',
+    () async {
+      String? body;
+      final client = MockClient((r) async {
+        body = r.body;
+        return http.Response('{"text":"hello"}', 200);
+      });
+      final container = _makeContainer(
+        {'wp_openai_api_key': 'test'},
+        settings: AppSettings.defaults.copyWithSections(
+          stt: AppSettings.defaults.stt.copyWith(
+            expectedLanguages: ['de', 'en'],
+          ),
+        ),
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.transcribe(_silentWav(), language: 'auto');
+      expect(RegExp(r'name="languages\[\]"').allMatches(body!).length, 2);
+      expect(body, contains('\r\n\r\nde\r\n'));
+      expect(body, contains('\r\n\r\nen\r\n'));
+    },
+  );
+
   // Deliberately no TestWidgetsFlutterBinding.ensureInitialized() here: it
   // installs a fake HttpOverrides that makes every dart:io-backed HTTP
   // request return a synthetic 400 without touching the network (see
@@ -107,22 +164,25 @@ void main() {
     });
 
     for (final (reply, expected) in [
-      ('Thank you for watching.', ''),
+      ('Thank you for watching.', 'Thank you for watching.'),
       ('(Musik)', ''),
       ('Ich sage (Musik) laut.', 'Ich sage (Musik) laut.'),
     ]) {
-      test('drops silence artefacts: "$reply" → "$expected"', () async {
-        final client = MockClient(
-          (_) async => http.Response(jsonEncode({'text': reply}), 200),
-        );
-        final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
-        addTearDown(container.dispose);
+      test(
+        'keeps phrases without evidence and drops sound annotations: "$reply" → "$expected"',
+        () async {
+          final client = MockClient(
+            (_) async => http.Response(jsonEncode({'text': reply}), 200),
+          );
+          final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
+          addTearDown(container.dispose);
 
-        final transcriber = container.read(_testTranscriberProvider(client));
-        await transcriber.prepare();
+          final transcriber = container.read(_testTranscriberProvider(client));
+          await transcriber.prepare();
 
-        expect(await transcriber.transcribe(_silentWav()), expected);
-      });
+          expect(await transcriber.transcribe(_silentWav()), expected);
+        },
+      );
     }
 
     test('an unexpected API error names the status and the error code, '
@@ -507,6 +567,102 @@ void main() {
       await transcriber.transcribe(_silentWav());
 
       expect(requests, 1);
+    });
+  });
+
+  group('OpenAiTranscriber upload compression (#177)', () {
+    Future<List<(String?, List<int>)>> uploadsOf(
+      Uint8List wav,
+      _FakeEncoder encoder, {
+      bool custom = false,
+      List<int> statuses = const [],
+    }) async {
+      final uploads = <(String?, List<int>)>[];
+      var request = 0;
+      final client = MockClient.streaming((r, _) async {
+        final file = (r as http.MultipartRequest).files.single;
+        final bytes = [for (final c in await file.finalize().toList()) ...c];
+        uploads.add((file.filename, bytes));
+        final status = request < statuses.length ? statuses[request] : 200;
+        request++;
+        final body = jsonEncode({'text': 'part ${uploads.length}'});
+        return http.StreamedResponse(Stream.value(utf8.encode(body)), status);
+      });
+      final settings = custom
+          ? AppSettings.defaults.copyWithSections(
+              cloudProvider: CloudProviderSettings.defaults.copyWith(
+                customEndpointUrl: 'http://127.0.0.1:8080/v1',
+                customEndpointSttModel: 'whisper',
+              ),
+            )
+          : null;
+      final container = _makeContainer(
+        {'wp_openai_api_key': 'sk-test'},
+        settings: settings,
+        encoder: encoder,
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final transcriber = container.read(
+        (custom ? _testCustomTranscriberProvider : _testTranscriberProvider)(
+          client,
+        ),
+      );
+      await transcriber.transcribe(wav);
+      return uploads;
+    }
+
+    test('a recording goes up as the encoded WebM, not as WAV', () async {
+      final encoder = _FakeEncoder();
+      final uploads = await uploadsOf(_wavOf(60), encoder);
+
+      expect(encoder.calls, [60 * 32000]);
+      expect(uploads.single.$1, 'audio.webm');
+      expect(uploads.single.$2, [0x1A, 0x45, 0xDF, 0xA3, 1]);
+    });
+
+    test(
+      'every slice is encoded once, also when its upload is retried',
+      () async {
+        final encoder = _FakeEncoder();
+        final wav = _wavOf(30 * 60);
+        final slices = splitWavForUpload(wav);
+        final uploads = await uploadsOf(wav, encoder, statuses: [500]);
+
+        expect(encoder.calls, [for (final s in slices) s.length - 44]);
+        expect(uploads.length, slices.length + 1);
+        // The retry resends the body of the first encoding.
+        expect(uploads[0].$2, uploads[1].$2);
+        expect(uploads.map((u) => u.$1).toSet(), {'audio.webm'});
+      },
+    );
+
+    test('a failed encoding sends the WAV unchanged', () async {
+      final encoder = _FakeEncoder(fail: true);
+      final wav = _wavOf(60);
+      final uploads = await uploadsOf(wav, encoder);
+
+      expect(encoder.calls, hasLength(1));
+      expect(uploads.single.$1, 'audio.wav');
+      expect(uploads.single.$2.length, wav.length);
+    });
+
+    test('the own endpoint always receives WAV', () async {
+      final encoder = _FakeEncoder();
+      final uploads = await uploadsOf(_wavOf(60), encoder, custom: true);
+
+      expect(encoder.calls, isEmpty);
+      expect(uploads.single.$1, 'audio.wav');
+    });
+
+    test('a WAV in a foreign layout is not encoded', () async {
+      final encoder = _FakeEncoder();
+      final wav = _wavOf(60);
+      ByteData.sublistView(wav).setUint32(24, 44100, Endian.little);
+      final uploads = await uploadsOf(wav, encoder);
+
+      expect(encoder.calls, isEmpty);
+      expect(uploads.single.$1, 'audio.wav');
     });
   });
 

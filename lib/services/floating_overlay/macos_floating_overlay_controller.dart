@@ -14,7 +14,10 @@ import 'overlay_waveform_payload.dart';
 class MacOSFloatingOverlayController
     extends MethodChannelPlatformHost<FloatingOverlayEvent>
     with FloatingOverlayControllerMixin
-    implements FloatingOverlayController, RenderEngineRecovery {
+    implements
+        FloatingOverlayController,
+        RenderEngineRecovery,
+        OverlayCaptureExclusion {
   static const _channelName = 'com.whispaste.floating_overlay';
 
   MacOSFloatingOverlayController() : super(_channelName);
@@ -49,4 +52,9 @@ class MacOSFloatingOverlayController
     'items': items,
     'appearance': appearance,
   });
+
+  /// "In Bildschirmfreigaben und Screenshots verbergen" (overlay F).
+  @override
+  Future<void> setCaptureExcluded(bool excluded) =>
+      invokeMethod('setCaptureExcluded', {'excluded': excluded});
 }

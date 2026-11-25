@@ -20,6 +20,9 @@ final _irreversibleClaims = <String, RegExp>{
   'pt': RegExp('permanente|definitiv|não pode ser desfeit'),
   'ru': RegExp('навсегда|окончательно|нельзя отменить'),
   'he': RegExp('לצמיתות|אין דרך לבטל'),
+  'fr': RegExp('définitiv|irréversible|ne peut pas être annul'),
+  'it': RegExp('definitiv|irreversibil|non può essere annullat'),
+  'zh': RegExp('永久|彻底|无法撤销|不可撤销|不可恢复'),
 };
 
 void main() {

@@ -14,6 +14,8 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/floating_button/floating_button_controller_interface.dart';
 import '../../../services/floating_button/floating_button_support.dart';
 import '../../../services/floating_button/floating_button_support_provider.dart';
+import '../../../services/floating_overlay/overlay_hide_rules.dart';
+import '../../../services/floating_overlay/overlay_key_hints.dart';
 import '../../../widgets/floating_button/floating_button_view.dart';
 import '../settings_widgets.dart';
 import '../widgets/overlay_size_selector.dart';
@@ -47,6 +49,11 @@ class OverlaySection extends ConsumerWidget {
       settings.overlaySizeType.variant,
     );
     final notAtThisSize = l10n.settingsOverlayNotAtThisSize;
+    // The key hints are drawn only in the normal size.
+    final keyHintsShown = OverlayKeyHints.showsFor(
+      size: settings.overlaySizeType.variant,
+      live: true,
+    );
 
     // Consolidated dropdown value: 'off' when overlay is disabled, real
     // position otherwise (back-compat: overlayStartPosition is never 'off').
@@ -189,6 +196,43 @@ class OverlaySection extends ConsumerWidget {
                 notifier.updateSettings((s) => s.copyWith(overlayQuietHint: v)),
           ),
         ),
+        // Overlay E: the stop and cancel key hints go away once learned;
+        // this keeps them for good.
+        WpSettingsRow(
+          rowId: 'appearance-overlay-key-hints-always',
+          title: l10n.settingsOverlayKeyHintsAlways,
+          subtitle: l10n.settingsOverlayKeyHintsAlwaysSubtitle,
+          disabledReason: keyHintsShown ? null : notAtThisSize,
+          switchNamesRow: true,
+          trailing: settingsToggle(
+            label: l10n.settingsOverlayKeyHintsAlways,
+            testId: 'overlay-key-hints-always-toggle',
+            disabledReason: keyHintsShown ? null : notAtThisSize,
+            value: settings.overlayKeyHintsAlways,
+            onChanged: keyHintsShown
+                ? (v) => notifier.updateSettings(
+                    (s) => s.copyWith(overlayKeyHintsAlways: v),
+                  )
+                : null,
+          ),
+        ),
+        // Overlay F: captures leave the overlay out, the user still sees it.
+        // macOS and Windows only; Linux offers no such switch.
+        if (overlayCaptureExclusionApplies(defaultTargetPlatform))
+          WpSettingsRow(
+            rowId: 'appearance-overlay-hide-from-capture',
+            title: l10n.settingsOverlayHideFromCapture,
+            subtitle: l10n.settingsOverlayHideFromCaptureSubtitle,
+            switchNamesRow: true,
+            trailing: settingsToggle(
+              label: l10n.settingsOverlayHideFromCapture,
+              testId: 'overlay-hide-from-capture-toggle',
+              value: settings.overlayHideFromCapture,
+              onChanged: (v) => notifier.updateSettings(
+                (s) => s.copyWith(overlayHideFromCapture: v),
+              ),
+            ),
+          ),
         WpSettingsRow(
           rowId: 'appearance-overlay-form',
           title: l10n.settingsOverlayForm,
@@ -507,9 +551,14 @@ class FloatingButtonSection extends ConsumerWidget {
               label: l10n.settingsFloatingButtonRing,
               key: const ValueKey('floating-button-ring-toggle'),
               value: look.ring,
-              onChanged: (v) => notifier.updateSettings(
-                (s) => s.copyWith(floatingButtonRing: v),
-              ),
+              // Locked: the switch wears the disabled look instead of the
+              // full teal ON style that read as active (#1845).
+              disabledReason: lookReason,
+              onChanged: shown
+                  ? (v) => notifier.updateSettings(
+                      (s) => s.copyWith(floatingButtonRing: v),
+                    )
+                  : null,
             ),
           ),
         ),

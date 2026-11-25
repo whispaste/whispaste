@@ -4,6 +4,7 @@
 
 #include "secondary_engine.h"
 #include "secondary_plugin_registrant.h"
+#include "system_motion_host.h"
 
 SnippetPickerWindow::SnippetPickerWindow() = default;
 
@@ -46,6 +47,7 @@ void SnippetPickerWindow::Create() {
 
   FlView* view = fl_view_new(project);
   secondary_view_watch_first_frame(view, "Snippet picker");
+  system_motion_attach(view);
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};

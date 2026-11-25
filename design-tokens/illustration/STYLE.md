@@ -153,3 +153,24 @@ Erkennbar ist der Stil an drei Dingen:
 5. Randlose Vollfläche, mindestens 10 % Rand.
 6. Im Kontaktbogen neben den Referenzbildern (`refs/`) beurteilt, nicht einzeln.
 7. Lesbar bei Einsatzgröße (600 px Mail, 160 px Leerzustand).
+
+## 12. Im Produkt (#1595)
+
+Erste nachgezeichnete Motive. Jede Farbe liest ein Token, kein Hex im Einsatz:
+
+| Motiv | Quelle | Einsatz |
+|---|---|---|
+| Keine Aufnahmen | `assets/illustrations/empty_recordings.svg` (Ruhe-Pille, Karte mit drei Zeilen, D1) | App, Leerzustand Aufnahmen |
+| Keine Notizen | `assets/illustrations/empty_notes.svg` (Dokumentkarte mit Zeilen und Cursor, Ruhe-Pille, D2) | App, Leerzustand Notizen |
+| Keine Textbausteine | `assets/illustrations/empty_snippets.svg` (Karte mit Cursor über drei Tasten, Ruhe-Pille, D1) | App, Leerzustand Textbausteine |
+| Auf jedem Rechner | `website/src/components/illustration/CutEveryComputer.astro` (zwei Laptops, Monitor, D2) | Website, Kopf des Abschnitts Engines, alle 8 Sprachen |
+
+- App: Die SVG-Quellen tragen die hellen Hex aus §2 auf einer gerundeten Kachel (`glacier.50`);
+  `WpCutIllustration` (`lib/widgets/wp_cut_illustration.dart`) tauscht jede Farbe beim Laden gegen eine
+  `WpColors`-Rolle. Hell und Marine treffen §2 exakt; Dunkel folgt der Navy-Bühne (E1 `navy.800`), die
+  Trägerfläche ist dort eine Stufe heller statt weiß, weil Weiß in einer dunklen Leerfläche blendet. Neue Farben
+  im SVG nur zusammen mit einer Rolle im Mapper (Test `test/widgets/wp_cut_illustration_test.dart`). Die Motive
+  stehen still (§10), nur der Grundzustand „noch nichts da“ zeigt sie; Filter, Papierkorb und Fehler behalten das
+  Symbol-Stillleben.
+- Website: Farben aus `--wp-illustration-cut-*` (`components.tokens.json`), je Band aufgelöst. Die Stäbe der
+  Cyan-Pille sind Tinte (`text.on-action`), nicht Weiß: Weiß auf Cyan 400 erreicht knapp 2:1, Tinte gut 9:1.

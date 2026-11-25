@@ -17,6 +17,7 @@ Note _sampleNote({
 }) {
   final t = updatedAt ?? DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: false,

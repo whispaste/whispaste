@@ -48,14 +48,12 @@ enum SupportPlatform { windows, macos, linux }
 ///   Browser checkout is allowed after installation; third-party providers
 ///   must be disclosed in Partner Center during submission. Policy source:
 ///   https://learn.microsoft.com/en-us/windows/apps/publish/store-policies#108-financial-transactions
-/// - Mac App Store builds ([DeployChannel.store] on macOS) offer the same
-///   channels as direct builds, with the native tip first (maintainer decision
-///   2026-11-09, #1006). Guideline 3.1.1 only bars calls to action towards
-///   other purchasing mechanisms for unlocking content; voluntary support
-///   unlocks nothing (grey zone, 3.2.1(vii)). If App Review objects, remove
-///   [SupportAsk.githubSponsors], [SupportAsk.kofi] and [SupportAsk.paypal]
-///   from [_macAppStoreAsks] below, the only place to change, and resubmit
-///   (`internal-notes`).
+/// - Mac App Store builds ([DeployChannel.store] on macOS) offer the native
+///   tip and the reach asks, but no external payment link (#2202, replaces
+///   #1006). App Review Guideline 3.1.1 names tips as in-app purchases and
+///   bars buttons, links and calls to action towards other purchasing
+///   mechanisms (outside the US storefront, which the app cannot tell apart
+///   reliably); GitHub Sponsors, Ko-fi and PayPal would be exactly that.
 /// - Linux gets sponsoring and reach asks only.
 List<SupportAsk> supportCapabilities(
   DeployChannel channel,
@@ -76,9 +74,6 @@ List<SupportAsk> supportCapabilities(
 
 const _macAppStoreAsks = <SupportAsk>[
   SupportAsk.nativeTip,
-  SupportAsk.githubSponsors,
-  SupportAsk.kofi,
-  SupportAsk.paypal,
   SupportAsk.rate,
   SupportAsk.star,
   SupportAsk.share,
@@ -180,6 +175,19 @@ CoffeeSupportTarget coffeeSupportTarget(
       ? CoffeeSupportTarget.externalLinks
       : CoffeeSupportTarget.hidden;
 }
+
+/// Whether the Overview support card names the store version (#1941): only
+/// for builds whose support page leads with the store offer (Windows
+/// installer and portable, macOS portable) and only while the user has not
+/// hidden that offer. Every other build keeps the general support text, so
+/// Linux, package managers and store builds never see a store pitch there.
+bool overviewNamesStoreOffer(
+  List<SupportAsk> asks, {
+  required bool storeOfferDismissed,
+}) =>
+    !storeOfferDismissed &&
+    asks.isNotEmpty &&
+    asks.first == SupportAsk.storePurchaseUpsell;
 
 /// One external coffee page: its address and the suffix that extends the
 /// button's test id (`about-coffee-button` + suffix).

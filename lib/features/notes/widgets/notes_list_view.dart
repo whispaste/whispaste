@@ -16,7 +16,7 @@ import '../../../widgets/wp_collection_list_pane.dart';
 
 // ---------------------------------------------------------------------------
 // Note list — favourites first, then the chosen sort order (filteredNotesProvider).
-// With "group by date" on, date headers split it into sections (#654).
+// A date sort splits it into day sections, as on Recordings (#654).
 // ---------------------------------------------------------------------------
 
 class NotesListView extends ConsumerWidget {
@@ -39,6 +39,8 @@ class NotesListView extends ConsumerWidget {
     required this.onRestore,
     required this.onDeleteForever,
     this.onMoveToTrash,
+    this.onToggleArchive,
+    this.onMoveToFolder,
   });
 
   final List<Note> notes;
@@ -78,17 +80,27 @@ class NotesListView extends ConsumerWidget {
   /// The row's visible Delete action (moves the note to the trash).
   final ValueChanged<Note>? onMoveToTrash;
 
+  /// Files a note into the archive or takes it back out (#656); null leaves
+  /// the action out (trash view).
+  final ValueChanged<Note>? onToggleArchive;
+
+  /// "Move to folder…" for one row (#659); null in the trash.
+  final ValueChanged<Note>? onMoveToFolder;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final sort = ref.watch(notesSortProvider).value ?? kNotesDefaultSort;
-    final browsing = !isTrashView && !isSearch;
+    // Archive and trash are storages with their own flat order (#656).
+    final browsing =
+        !isTrashView &&
+        !isSearch &&
+        ref.watch(notesFilterProvider) != NotesFilter.archive;
     // The hit list marks the search term in each tile's excerpt (#872).
     final query = isSearch ? ref.watch(notesSearchProvider).trim() : '';
-    final grouped =
-        browsing &&
-        canGroupByDate(sort) &&
-        (ref.watch(notesGroupByDateProvider).value ?? false);
+    // A date sort always shows its day sections, as Recordings does; a title
+    // sort has none (the same day would appear more than once).
+    final grouped = browsing && canGroupByDate(sort);
     final collapsed =
         browsing && (ref.watch(notesFavoritesCollapsedProvider).value ?? false);
     final rows = _rows(
@@ -150,6 +162,12 @@ class NotesListView extends ConsumerWidget {
         onMoveToTrash: onMoveToTrash == null
             ? null
             : () => onMoveToTrash!(note),
+        onToggleArchive: onToggleArchive == null
+            ? null
+            : () => onToggleArchive!(note),
+        onMoveToFolder: onMoveToFolder == null
+            ? null
+            : () => onMoveToFolder!(note),
       ),
     );
   }

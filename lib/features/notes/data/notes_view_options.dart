@@ -146,35 +146,8 @@ NotesDateGroup dateGroupOf(Note note, ListSort sort, DateTime now) {
   return NotesDateGroup.older;
 }
 
-/// Whether the list shows date sections. Remembered like the sort.
-class NotesGroupByDateNotifier extends AsyncNotifier<bool> {
-  static const _key = 'notes_group_by_date';
-
-  @override
-  Future<bool> build() async {
-    final raw = await ref.read(historyDatabaseProvider).readAppSetting(_key);
-    return raw == '1';
-  }
-
-  Future<void> choose(bool grouped) async {
-    state = AsyncData(grouped);
-    try {
-      await ref
-          .read(historyDatabaseProvider)
-          .writeAppSetting(_key, grouped ? '1' : '0');
-    } on Object catch (e, st) {
-      _log.warning('Could not save the note grouping', e, st);
-    }
-  }
-}
-
-final notesGroupByDateProvider =
-    AsyncNotifierProvider<NotesGroupByDateNotifier, bool>(
-      NotesGroupByDateNotifier.new,
-    );
-
 /// Whether the favourites section of the list is folded. Remembered like the
-/// grouping: a user who folds it wants it folded at the next start too.
+/// sort: a user who folds it wants it folded at the next start too.
 class NotesFavoritesCollapsedNotifier extends AsyncNotifier<bool> {
   static const _key = 'notes_favorites_collapsed';
 

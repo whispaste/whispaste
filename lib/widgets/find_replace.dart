@@ -218,8 +218,59 @@ class WpFindHighlightController extends TextEditingController {
     _activeIndex = -1;
   }
 
+  List<TextRange> _spellErrors = const [];
+
+  /// Misspelled words, sorted and non-overlapping, drawn with a wavy
+  /// underline on top of whatever [buildDecoratedTextSpan] paints (#670).
+  List<TextRange> get spellErrors => _spellErrors;
+
+  /// Repaints only; like [setFindHighlight] it notifies without a text
+  /// change. Pass `notify: false` from a [State.dispose].
+  void setSpellErrors(List<TextRange> ranges, {bool notify = true}) {
+    if (_sameRanges(ranges, _spellErrors)) return;
+    _spellErrors = List.unmodifiable(ranges);
+    if (notify) notifyListeners();
+  }
+
+  static bool _sameRanges(List<TextRange> a, List<TextRange> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  /// Style of a misspelled word: a wavy underline in the error colour, the
+  /// text colour stays as it is.
+  static TextStyle get spellErrorStyle => TextStyle(
+    decoration: TextDecoration.underline,
+    decorationStyle: TextDecorationStyle.wavy,
+    decorationColor: WpColors.error,
+  );
+
   @override
   TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final span = buildDecoratedTextSpan(
+      context: context,
+      style: style,
+      withComposing: withComposing,
+    );
+    // Mid-composition the composing underline is the signal that matters.
+    if (_spellErrors.isEmpty ||
+        (withComposing && value.isComposingRangeValid) ||
+        _spellErrors.last.end > value.text.length) {
+      return span;
+    }
+    return styleRanges(span, _spellErrors, spellErrorStyle);
+  }
+
+  /// The span before the spell-check underline: find tints here, subclasses
+  /// add their own painting (marks, paragraph focus).
+  TextSpan buildDecoratedTextSpan({
     required BuildContext context,
     TextStyle? style,
     required bool withComposing,
@@ -278,4 +329,55 @@ class WpFindHighlightController extends TextEditingController {
 
     return TextSpan(style: style, children: children);
   }
+}
+
+/// [span] with [extra] merged into the text inside [ranges] (sorted,
+/// non-overlapping). Works on a flat span (root text and/or leaf children);
+/// a nested span comes back unchanged.
+TextSpan styleRanges(TextSpan span, List<TextRange> ranges, TextStyle extra) {
+  if (ranges.isEmpty) return span;
+  final root = span.text;
+  final pieces = <(String, TextStyle?)>[?(root == null ? null : (root, null))];
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    if (child is! TextSpan || child.children != null || child.text == null) {
+      return span;
+    }
+    pieces.add((child.text!, child.style));
+  }
+  final out = <InlineSpan>[];
+  var offset = 0;
+  var r = 0;
+  for (final (text, style) in pieces) {
+    final end = offset + text.length;
+    var cursor = offset;
+    while (cursor < end) {
+      while (r < ranges.length && ranges[r].end <= cursor) {
+        r++;
+      }
+      if (r >= ranges.length || ranges[r].start >= end) {
+        out.add(TextSpan(text: text.substring(cursor - offset), style: style));
+        break;
+      }
+      final range = ranges[r];
+      if (range.start > cursor) {
+        out.add(
+          TextSpan(
+            text: text.substring(cursor - offset, range.start - offset),
+            style: style,
+          ),
+        );
+        cursor = range.start;
+      }
+      final to = range.end < end ? range.end : end;
+      out.add(
+        TextSpan(
+          text: text.substring(cursor - offset, to - offset),
+          style: style?.merge(extra) ?? extra,
+        ),
+      );
+      cursor = to;
+    }
+    offset = end;
+  }
+  return TextSpan(style: span.style, children: out);
 }

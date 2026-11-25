@@ -19,6 +19,10 @@
 //   purchase {productId}     → "succeeded" | "cancelled" | "networkError" |
 //                              "serverError" | "unavailable"
 //   hasVerifiedAppPurchase   → bool (StoreAppLicense.IsActive && !IsTrial)
+//   requestRateAndReview     → "succeeded" | "cancelled" | "networkError" |
+//                              "error" | "unavailable" (the Store's own
+//                              rate-and-review dialog; Dart side:
+//                              lib/services/review_prompt_service.dart)
 // Store failures on loadProducts / hasVerifiedAppPurchase reply with
 // "store_error"; purchase never errors, it always answers a status name.
 //

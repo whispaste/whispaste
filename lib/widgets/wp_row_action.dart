@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'focus_first_in.dart';
 import 'wp_focus_ring.dart';
 import 'wp_touch_target.dart';
 
@@ -304,9 +305,16 @@ class _WpRowActionsState extends State<WpRowActions> {
   /// [WpRowAction] is mounted while the group is hidden.
   final FocusNode _entryNode = FocusNode(debugLabel: 'WpRowActions.entry');
 
+  /// Holds the revealed actions, so the hand-off can name the first one.
+  final FocusNode _actionsNode = FocusNode(
+    debugLabel: 'WpRowActions.actions',
+    skipTraversal: true,
+  );
+
   @override
   void dispose() {
     _entryNode.dispose();
+    _actionsNode.dispose();
     super.dispose();
   }
 
@@ -314,7 +322,12 @@ class _WpRowActionsState extends State<WpRowActions> {
     if (hasFocus) {
       setState(() => _handingOff = true);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _handingOff) _entryNode.nextFocus();
+        // The first action by name, not `nextFocus()`: from the zero-width
+        // entry the geometric order picked the last action, so Tab skipped
+        // Copy and Star (#1845).
+        if (mounted && _handingOff && !focusFirstIn(_actionsNode)) {
+          _entryNode.nextFocus();
+        }
       });
     } else if (_handingOff) {
       setState(() => _handingOff = false);
@@ -350,7 +363,19 @@ class _WpRowActionsState extends State<WpRowActions> {
                 ),
               ),
             ),
-            if (show) ...widget.children,
+            if (show)
+              Focus(
+                focusNode: _actionsNode,
+                canRequestFocus: false,
+                skipTraversal: true,
+                child: FocusTraversalGroup(
+                  policy: WidgetOrderTraversalPolicy(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: widget.children,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

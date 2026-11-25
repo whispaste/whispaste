@@ -15,6 +15,7 @@ class AppDelegate: FlutterAppDelegate {
   private var snippetPickerHost: SnippetPickerHost?
   private var trayPanelHost: TrayPanelHost?
   private var audioRoutingHost: AudioRoutingHost?
+  private var mediaPauseHost: MediaPauseHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
   private var modifierKeyHost: ModifierKeyHost?
@@ -30,9 +31,11 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
   private var fieldTypeHost: FieldTypeHost?
   private var hangWatchdogHost: HangWatchdogHost?
   private var systemSpeechHost: SystemSpeechHost?
+  private var systemContactsHost: SystemContactsHost?
   private var lifecycleChannel: FlutterMethodChannel?
   private var powerChannel: FlutterMethodChannel?
   private var systemLanguagesChannel: FlutterMethodChannel?
+  private var spellCheckHost: SpellCheckHost?
   private var quietKeychainChannel: FlutterMethodChannel?
 
   /// Whether macOS launched this process as a login item. Captured once at
@@ -160,6 +163,7 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
 
     // Register native MethodChannel hosts.
     desktopPasteHost = DesktopPasteHost(messenger: messenger)
+    RenderEngineAccessibility.start()
     floatingButtonHost = FloatingButtonHost(messenger: messenger)
     floatingOverlayHost = FloatingOverlayHost(messenger: messenger)
     sidePanelHost = SidePanelHost(messenger: messenger)
@@ -167,6 +171,8 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
     snippetPickerHost = SnippetPickerHost(messenger: messenger)
     trayPanelHost = TrayPanelHost(messenger: messenger)
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
+    // Pause supported players / turn playback down while recording (#1511).
+    mediaPauseHost = MediaPauseHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
     modifierKeyHost = ModifierKeyHost(messenger: messenger)
@@ -183,6 +189,8 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
     // Hang watchdog (#338); Dart arms it once the app is up.
     hangWatchdogHost = HangWatchdogHost(messenger: messenger)
     systemSpeechHost = SystemSpeechHost(messenger: messenger)
+    // Contact names for the dictionary (#2037); read only from its page.
+    systemContactsHost = SystemContactsHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
@@ -192,6 +200,9 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
     lifecycleChannel?.setMethodCallHandler { [weak self] call, result in
       self?.handleLifecycleCall(call, result: result)
     }
+
+    // Editor spell check (whispaste/spell_check, #670).
+    spellCheckHost = SpellCheckHost(messenger: messenger)
 
     // System language list for the first start (whispaste/system_languages):
     // the preferred languages of macOS in their order, as Language & Region
@@ -741,5 +752,68 @@ final class SettingsWindowPlacementHost {
     y = min(max(y, visible.minY), visible.maxY - size.height)
     window.setFrameOrigin(NSPoint(x: x, y: y))
     return true
+  }
+}
+
+/// Owns `whispaste/spell_check` (#670): the editor spell check through
+/// NSSpellChecker. Same contract as Windows (ISpellCheckerFactory) and Linux
+/// (Enchant): `languages`, `checkWords {language, words}` -> [Bool] with true
+/// for a correct word, `suggest {language, word}` -> [String].
+final class SpellCheckHost {
+  private let channel: FlutterMethodChannel
+  private let maxSuggestions = 10
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(
+      name: "whispaste/spell_check",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handle(call, result: result)
+    }
+  }
+
+  deinit {
+    channel.setMethodCallHandler(nil)
+  }
+
+  private func handle(_ call: FlutterMethodCall, result: FlutterResult) {
+    let checker = NSSpellChecker.shared
+    if call.method == "languages" {
+      result(checker.availableLanguages)
+      return
+    }
+    guard let args = call.arguments as? [String: Any],
+      let language = args["language"] as? String
+    else {
+      result(FlutterError(code: "bad_args", message: "language missing", details: nil))
+      return
+    }
+    switch call.method {
+    case "checkWords":
+      guard let words = args["words"] as? [String] else {
+        result(FlutterError(code: "bad_args", message: "words missing", details: nil))
+        return
+      }
+      result(words.map { word -> Bool in
+        if word.isEmpty { return true }
+        let miss = checker.checkSpelling(
+          of: word, startingAt: 0, language: language, wrap: false,
+          inSpellDocumentWithTag: 0, wordCount: nil)
+        return miss.location == NSNotFound
+      })
+    case "suggest":
+      guard let word = args["word"] as? String, !word.isEmpty else {
+        result([String]())
+        return
+      }
+      let range = NSRange(location: 0, length: (word as NSString).length)
+      let guesses = checker.guesses(
+        forWordRange: range, in: word, language: language,
+        inSpellDocumentWithTag: 0) ?? []
+      result(Array(guesses.prefix(maxSuggestions)))
+    default:
+      result(FlutterMethodNotImplemented)
+    }
   }
 }

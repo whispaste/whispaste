@@ -4,7 +4,12 @@
 /// The dialog only ever starts from an explicit tap on the support page. Each
 /// store outcome has its own view: a cancelled purchase returns silently to
 /// the amounts, a pending one says so, and failures offer a retry. Prices are
-/// the store's own `formattedPrice`, shown verbatim.
+/// the store's own `formattedPrice`, shown verbatim: the app holds no amount
+/// and no currency of its own, so a store that delivers nothing shows the
+/// honest "unavailable" state, never invented prices (#2202). Where the
+/// channel matrix allows external ways, that state offers them right away.
+/// In the store's test environment (local Mac App Store preview) a note says
+/// that prices follow the sandbox account and purchases are test purchases.
 library;
 
 import 'package:flutter/material.dart';
@@ -142,6 +147,8 @@ class _SupportPurchaseContentState
       ref.watch(supportPlatformProvider),
     );
     final catalogue = ref.watch(supportTipProductsProvider);
+    final testEnvironment =
+        ref.watch(supportStoreTestEnvironmentProvider).value ?? false;
 
     final view = _purchaseView ?? _catalogueView(catalogue);
     final body = switch (view) {
@@ -149,11 +156,19 @@ class _SupportPurchaseContentState
         text: l10n.supportSheetLoading,
         showSpinner: true,
       ),
-      _SheetView.pricesError => _RetryText(
-        text: l10n.supportSheetPricesError,
-        onRetry: () => ref.invalidate(supportTipProductsProvider),
+      _SheetView.pricesError => _WithOtherWays(
+        otherWays: otherWays,
+        onOpenOther: _openOther,
+        child: _RetryText(
+          text: l10n.supportSheetPricesError,
+          onRetry: () => ref.invalidate(supportTipProductsProvider),
+        ),
       ),
-      _SheetView.unavailable => _StatusText(text: l10n.supportSheetUnavailable),
+      _SheetView.unavailable => _WithOtherWays(
+        otherWays: otherWays,
+        onOpenOther: _openOther,
+        child: _StatusText(text: l10n.supportSheetUnavailable),
+      ),
       _SheetView.purchasing => _StatusText(
         text: l10n.supportSheetPurchasing,
         showSpinner: true,
@@ -188,6 +203,16 @@ class _SupportPurchaseContentState
             color: WpColors.textSecondary,
           ),
         ),
+        if (testEnvironment) ...[
+          const SizedBox(height: WpSpacing.sm),
+          Text(
+            l10n.supportStoreTestEnvironment,
+            key: const ValueKey('support-purchase-test-environment'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: WpColors.textSecondary,
+            ),
+          ),
+        ],
         const SizedBox(height: WpSpacing.md),
         body,
       ],
@@ -278,25 +303,84 @@ class _ProductList extends StatelessWidget {
           ),
           if (otherOpen) ...[
             const SizedBox(height: WpSpacing.xs),
-            Text(
-              l10n.supportSheetOtherAmountHint,
-              style: TextStyle(
-                color: WpColors.textSecondary,
-                fontSize: WpTypography.body,
-              ),
+            _OtherWayButtons(
+              hint: l10n.supportSheetOtherAmountHint,
+              otherWays: otherWays,
+              onOpenOther: onOpenOther,
             ),
-            const SizedBox(height: WpSpacing.xs),
-            for (final way in otherWays) ...[
-              WpButton(
-                key: ValueKey('support-purchase-other-${way.name}'),
-                label: _providerFor(way).label,
-                variant: WpButtonVariant.secondary,
-                expanded: true,
-                onPressed: () => onOpenOther(way),
-              ),
-              const SizedBox(height: WpSpacing.xs),
-            ],
           ],
+        ],
+      ],
+    );
+  }
+}
+
+/// A store state without amounts ([child]) followed by the channel's external
+/// ways, so nobody hits a dead end when the store cannot sell. Channels
+/// without external ways (Mac App Store, guideline 3.1.1) show [child] alone.
+class _WithOtherWays extends StatelessWidget {
+  const _WithOtherWays({
+    required this.otherWays,
+    required this.onOpenOther,
+    required this.child,
+  });
+
+  final List<OtherAmountWay> otherWays;
+  final ValueChanged<OtherAmountWay> onOpenOther;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (otherWays.isEmpty) return child;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        child,
+        const SizedBox(height: WpSpacing.md),
+        _OtherWayButtons(
+          hint: L10n.of(context).supportSheetOtherWaysHint,
+          otherWays: otherWays,
+          onOpenOther: onOpenOther,
+        ),
+      ],
+    );
+  }
+}
+
+/// One explanatory line and one button per external way.
+class _OtherWayButtons extends StatelessWidget {
+  const _OtherWayButtons({
+    required this.hint,
+    required this.otherWays,
+    required this.onOpenOther,
+  });
+
+  final String hint;
+  final List<OtherAmountWay> otherWays;
+  final ValueChanged<OtherAmountWay> onOpenOther;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          hint,
+          style: TextStyle(
+            color: WpColors.textSecondary,
+            fontSize: WpTypography.body,
+          ),
+        ),
+        const SizedBox(height: WpSpacing.xs),
+        for (final way in otherWays) ...[
+          WpButton(
+            key: ValueKey('support-purchase-other-${way.name}'),
+            label: _providerFor(way).label,
+            variant: WpButtonVariant.secondary,
+            expanded: true,
+            onPressed: () => onOpenOther(way),
+          ),
+          const SizedBox(height: WpSpacing.xs),
         ],
       ],
     );

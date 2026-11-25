@@ -1,7 +1,5 @@
-/// Speech Recognition settings section — unified tier-based UI.
-///
-/// When local STT is selected, shows quality tier cards (compact/balanced/
-/// premium) with one-click download. When a cloud provider is selected,
+/// Speech settings retain the installed-model choice and link to the shared
+/// library for installation and removal. When a cloud provider is selected,
 /// shows whether its API key is stored and links to the API keys area, the
 /// one place where keys are entered (#208).
 library;
@@ -11,41 +9,33 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/text/name_order.dart';
 import '../../../core/config/language_favorites_provider.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
-import '../../../core/config/stt_choice.dart' show applyEngineChoice;
+import '../../../core/config/spoken_languages.dart';
 import '../../../core/config/whisper_languages.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/l10n/download_error_text.dart';
 import '../../../core/l10n/locale_native_name.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/navigation/page_state.dart'
     show settingsLanguageDialogRequestProvider;
 import '../../../core/theme/colors.dart';
 import '../../../widgets/wp_progress_bar.dart';
-import '../../../widgets/model_ram_precheck_dialog.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/engine_recommendation.dart';
-import '../../../services/speech_recommendation.dart'
-    show systemLanguageCodesProvider;
-import '../../../services/model_download_service.dart'
-    show modelDownloadProvider, sttModels;
+import '../../../services/model_catalog/remote_model_catalog.dart'
+    show activeModelCatalogProvider;
 import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../services/stt/whisper/vram_gate.dart';
-import '../../../services/stt_parakeet/parakeet_download_service.dart';
-import '../../../services/system_speech/system_speech_channel.dart';
 import '../../../services/system_speech/system_speech_status.dart';
 import '../../../services/telemetry_service.dart';
-import '../../../widgets/wp_stt_model_manager.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../services/stt/stt_bundle.dart' show localSttBundleProvider;
 import '../../../widgets/wp_banner.dart';
 import 'gpu_probe_row.dart';
-import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
+import '../widgets/model_choice_row.dart' show SpeechModelChoiceRow;
 import '../widgets/wp_language_dialog.dart';
 import '../../../services/stt_parakeet/parakeet_language_support.dart';
 import '../../../widgets/parakeet_language_notice.dart';
@@ -59,38 +49,6 @@ import '../widgets/wp_settings_group.dart';
 // ---------------------------------------------------------------------------
 // Speech Recognition section
 // ---------------------------------------------------------------------------
-
-/// Labels of the engine dropdown, in [OnDeviceEngine] order (Whisper, then
-/// Parakeet). The recommended engine carries the badge, so for a Parakeet
-/// language exactly this one entry says "Empfohlen" (UIA-RT-03).
-List<String> sttEngineDropdownLabels(
-  L10n l10n, {
-  required bool parakeetRecommended,
-  bool systemAvailable = false,
-}) => [
-  l10n.settingsSttEngineWhisper,
-  parakeetRecommended
-      ? '${l10n.settingsSttEngineParakeet} · ${l10n.settingsSttEngineRecommended}'
-      : l10n.settingsSttEngineParakeet,
-  if (systemAvailable) l10n.settingsSttEngineSystem,
-];
-
-/// The engines the dropdown offers, in the same order as
-/// [sttEngineDropdownLabels]. Apple's engine appears only on macOS 26+.
-List<OnDeviceEngine> sttEngineChoices({required bool systemAvailable}) => [
-  OnDeviceEngine.whisper,
-  OnDeviceEngine.parakeet,
-  if (systemAvailable) OnDeviceEngine.system,
-];
-
-/// The engine the dropdown shows: the stored one when it is offered, else
-/// Whisper (for example Apple's engine on a Mac older than macOS 26).
-OnDeviceEngine shownOnDeviceEngine(
-  AppSettings settings,
-  List<OnDeviceEngine> choices,
-) => choices.contains(settings.onDeviceEngine)
-    ? settings.onDeviceEngine
-    : OnDeviceEngine.whisper;
 
 class SpeechRecognitionSection extends ConsumerStatefulWidget {
   const SpeechRecognitionSection({super.key});
@@ -113,18 +71,13 @@ class _SpeechRecognitionSectionState
     );
   }
 
-  /// Opens the language dialog for a pending "More languages…" request, when
-  /// the engine lets the user pick a language at all.
+  /// Opens the language dialog for a pending "More languages…" request.
   void _takeLanguageDialogRequest() {
     if (!mounted) return;
-    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final picksLanguage =
-        !settings.sttProviderType.isLocal ||
-        settings.onDeviceEngine == OnDeviceEngine.whisper;
     if (!ref.read(settingsLanguageDialogRequestProvider.notifier).take()) {
       return;
     }
-    if (picksLanguage) unawaited(_openLanguageDialog());
+    unawaited(_openLanguageDialog());
   }
 
   /// Recognition-language names localised to the active UI language via CLDR
@@ -141,17 +94,19 @@ class _SpeechRecognitionSectionState
           ),
         )
         .toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
+      ..sort((a, b) => compareDisplayNames(a.value, b.value));
   }
 
-  /// The full recognition-language selection, with the favorite stars.
+  /// The languages the user speaks, with the favorite stars (#2045): one
+  /// is a fixed language, several restrict automatic detection, none
+  /// detects freely ([withSpokenLanguages]).
   Future<void> _openLanguageDialog() async {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final sttLanguages = _sttLanguages(context);
     final selection = await showWpLanguageDialog(
       context: context,
+      multiple: true,
       options: [
-        for (final e in sttLanguages)
+        for (final e in _sttLanguages(context))
           WpLanguageOption(
             code: e.key,
             name: e.value,
@@ -159,10 +114,8 @@ class _SpeechRecognitionSectionState
           ),
       ],
       initial: WpLanguageSelection(
-        autoDetect: settings.sttLanguageCode == 'auto',
-        codes: settings.sttLanguageCode == 'auto'
-            ? const []
-            : [settings.sttLanguageCode],
+        autoDetect: false,
+        codes: spokenLanguagesOf(settings),
       ),
       favorites: settings.stt.favoriteLanguages,
       // Stars persist at once, not on Save: they are a standing
@@ -173,17 +126,16 @@ class _SpeechRecognitionSectionState
     if (selection == null) return;
     await ref
         .read(settingsProvider.notifier)
-        .updateSettings((s) => s.copyWith(sttLanguage: selection.sttCode));
+        .updateSettings((s) => withSpokenLanguages(s, selection.codes));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    // [sttModels] grows when a downloaded catalog adds models (#1792).
+    ref.watch(activeModelCatalogProvider);
     final isLocal = settings.sttProviderType.isLocal;
-    final engineChoices = sttEngineChoices(
-      systemAvailable: systemSpeechOsSupported(),
-    );
 
     final sttLanguages = _sttLanguages(context);
     // "More languages…" in the tray or the floating button's menu asks for
@@ -193,7 +145,6 @@ class _SpeechRecognitionSectionState
     });
 
     return WpSettingsGroup(
-      heading: l10n.settingsSpeechRecognition,
       children: [
         // Provider selector (On-device / OpenAI / Deepgram)
         WpSettingsRow(
@@ -225,121 +176,13 @@ class _SpeechRecognitionSectionState
         // ----- Local mode: engine selector + tier cards / model management --
         if (isLocal) ...[
           const SizedBox(height: WpSpacing.xs),
-          // On-device engine selector (Whisper / Parakeet).
-          WpSettingsRow(
-            rowId: 'stt-model',
-            title: l10n.settingsSttEngine,
-            trailing: settingsDropdown(
-              context: context,
-              value: shownOnDeviceEngine(settings, engineChoices).value,
-              items: engineChoices.map((e) => e.value).toList(),
-              labels: sttEngineDropdownLabels(
-                l10n,
-                parakeetRecommended: parakeetRecommendedFor(
-                  recommendationLanguages(
-                    sttLanguageCode: settings.sttLanguageCode,
-                    systemLanguages: ref.watch(systemLanguageCodesProvider),
-                    uiLocale: settings.interface_.locale,
-                  ),
-                ),
-                systemAvailable: systemSpeechOsSupported(),
-              ),
-              onChanged: (v) async {
-                final current = ref.read(settingsProvider).value;
-                final downloaded = ref
-                    .read(modelDownloadProvider)
-                    .downloadedModels;
-                if (current != null) {
-                  final next = applyEngineChoice(
-                    current,
-                    v!,
-                    downloaded: downloaded,
-                    models: sttModels,
-                  );
-                  // Nothing loads while the target is not on disk yet.
-                  final installed =
-                      next.onDeviceEngine == OnDeviceEngine.parakeet
-                      ? ref.read(parakeetDownloadProvider).installed
-                      : downloaded.contains(next.effectiveModelId);
-                  if (!context.mounted ||
-                      !await confirmSttSettingsRam(
-                        context: context,
-                        settings: next,
-                        loads: installed,
-                      )) {
-                    return;
-                  }
-                }
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => applyEngineChoice(
-                        s,
-                        v!,
-                        downloaded: downloaded,
-                        models: sttModels,
-                      ),
-                    );
-                try {
-                  ref.read(telemetryProvider).trackSettingChange('stt_engine');
-                } catch (e) {
-                  _log.debug('telemetry failed: $e');
-                }
-              },
-            ),
-          ),
-          // Deliberately outside the row's `subtitle:` slot, unlike every
-          // other explanatory line in Settings. This one is a two-clause
-          // comparison of both engines (languages, GPU backends, CPU speed);
-          // in the label column it would wrap to four or five lines beside
-          // the dropdown and turn the row into a paragraph with a control
-          // stuck to its side. Full width is the readable shape here, and
-          // the choice it explains is the most consequential one on the
-          // page. It starts on kSettingRowInset, so it still shares the
-          // reading edge with the section title and the row icons above it.
-          //
-          // Style matches SettingRow's own subtitle (bodySmall in textMuted)
-          // rather than a hand-mixed pair, so it reads as the same kind of
-          // text it would have been in the slot.
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: kSettingRowInset,
-              vertical: WpSpacing.xs,
-            ),
-            child: Text(
-              l10n.settingsSttEngineSubtitle,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
-            ),
-          ),
-          const SizedBox(height: WpSpacing.xs),
+          // The installed models, the way to the library, or the download
+          // when none is there yet (#2045).
+          const SpeechModelChoiceRow(),
           if (settings.onDeviceEngine == OnDeviceEngine.system)
-            _SystemSpeechModelRow(l10n: l10n)
-          else if (settings.onDeviceEngine == OnDeviceEngine.parakeet)
-            _ParakeetModelRow(l10n: l10n)
-          else
-            SettingsRowFrame(
-              rowId: 'speech-quality',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
-                    child: Text(
-                      l10n.settingsQuality,
-                      style: TextStyle(
-                        fontSize: WpTypography.rowTitle,
-                        fontWeight: FontWeight.w500,
-                        color: WpColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  const WpSttModelManager(),
-                  const _SttVramGateNotice(),
-                ],
-              ),
-            ),
+            _SystemSpeechModelRow(l10n: l10n),
+          if (settings.onDeviceEngine == OnDeviceEngine.whisper)
+            const _SttVramGateNotice(),
           const SizedBox(height: WpSpacing.xs),
           const SttKeepLoadedRows(),
           const SizedBox(height: WpSpacing.xs),
@@ -437,33 +280,31 @@ class _SpeechRecognitionSectionState
                 ),
           ),
 
-        // Language selector — Whisper only. Values are short codes
-        // ('auto', 'en', 'ru', …); `sttLanguageCode` normalizes legacy
-        // persisted display values ('German') so they keep selecting
-        // correctly. Hidden entirely for Parakeet: the sherpa_onnx
-        // NeMo-transducer binding used here has no per-request language
-        // override — it always auto-detects among its supported
-        // languages — so a picker would look functional but silently do
-        // nothing, the same "looks available but isn't" trap as the
-        // GPU-acceleration row above.
-        if (!isLocal || settings.onDeviceEngine == OnDeviceEngine.whisper) ...[
-          WpSettingsRow(
-            rowId: 'speech-language',
-            title: l10n.settingsRecognitionLanguage,
-            subtitle: l10n.settingsRecognitionLanguageSubtitle,
-            key: const ValueKey('settings-stt-language'),
-            trailing: _LanguageSummary(
-              current: settings.sttLanguageCode == 'auto'
-                  ? l10n.settingsLanguageAutoDetect
-                  : sttLanguages
-                            .where((e) => e.key == settings.sttLanguageCode)
-                            .map((e) => e.value)
-                            .firstOrNull ??
-                        settings.sttLanguageCode,
-              onChange: _openLanguageDialog,
+        // One row for the languages the user speaks (#2045), for every
+        // engine. Where the engine decides the language itself, the subtitle
+        // says so instead of a list of engine names.
+        WpSettingsRow(
+          rowId: 'speech-language',
+          title: l10n.settingsRecognitionLanguage,
+          subtitle: spokenLanguagesIgnored(settings)
+              ? '${l10n.settingsRecognitionLanguageSubtitle} '
+                    '${_parakeetActive(settings) ? l10n.settingsSpokenLanguagesParakeet : l10n.settingsSpokenLanguagesIgnored}'
+              : l10n.settingsRecognitionLanguageSubtitle,
+          key: const ValueKey('settings-stt-language'),
+          trailing: _LanguageSummary(
+            current: spokenLanguagesSummary(
+              l10n,
+              effectiveSpokenLanguagesOf(settings),
+              (code) =>
+                  sttLanguages
+                      .where((e) => e.key == code)
+                      .map((e) => e.value)
+                      .firstOrNull ??
+                  code,
             ),
+            onChange: _openLanguageDialog,
           ),
-        ],
+        ),
 
         // Both punctuation-related toggles are grouped directly together
         // (Strip Punctuation, then Punctuation Priming right below it) so
@@ -584,150 +425,6 @@ class _SystemSpeechModelRow extends ConsumerWidget {
   }
 }
 
-class _ParakeetModelRow extends ConsumerWidget {
-  const _ParakeetModelRow({required this.l10n});
-
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dl = ref.watch(parakeetDownloadProvider);
-    final gpuWanted = parakeetGpuWantedForSetting(
-      ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
-    );
-    final sizeLabel = parakeetDownloadSizeLabel(gpuWanted: gpuWanted);
-
-    Widget trailing;
-    if (dl.installed && !dl.isBusy) {
-      trailing = Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // A failed delete leaves the model installed; say why right here
-          // instead of only in the not-installed branch (UIA-SET-04).
-          if (dl.phase == ParakeetDownloadPhase.error &&
-              dl.errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
-              child: Text(
-                downloadFailureText(
-                  l10n,
-                  message: dl.errorMessage,
-                  kind: dl.errorKind,
-                ),
-                style: TextStyle(
-                  fontSize: WpTypography.caption,
-                  color: WpColors.error,
-                ),
-              ),
-            ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(l10n.parakeetModelInstalled),
-              Semantics(
-                label: l10n.parakeetModelDelete,
-                button: true,
-                child: IconButton(
-                  icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-                  tooltip: l10n.parakeetModelDelete,
-                  onPressed: () async {
-                    final deleter = ref.read(parakeetDownloadProvider.notifier);
-                    final confirmed = await showWpConfirmDialog(
-                      context: context,
-                      title: l10n.modelDeleteConfirm,
-                      message: l10n.modelDeleteConfirmMessage,
-                      confirmLabel: l10n.actionDelete,
-                      cancelLabel: l10n.actionCancel,
-                      destructive: true,
-                    );
-                    if (confirmed) deleter.deleteBundle();
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      );
-    } else if (dl.isBusy) {
-      trailing = SizedBox(
-        width: 180,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Flexible so a long translation or a narrow window ellipsizes
-                // instead of overflowing the fixed-width slot (#1152).
-                Flexible(
-                  child: Text(
-                    '${l10n.parakeetModelDownloading} ${dl.progressPercent}%',
-                    key: const ValueKey('speech-parakeet-download-status'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Semantics(
-                  label: l10n.parakeetModelCancel,
-                  button: true,
-                  child: IconButton(
-                    key: const ValueKey('speech-parakeet-download-cancel'),
-                    icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-                    tooltip: l10n.parakeetModelCancel,
-                    onPressed: () => ref
-                        .read(parakeetDownloadProvider.notifier)
-                        .cancelDownload(),
-                  ),
-                ),
-              ],
-            ),
-            WpProgressBar(value: dl.progressPercent / 100),
-          ],
-        ),
-      );
-    } else {
-      trailing = Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (dl.phase == ParakeetDownloadPhase.error &&
-              dl.errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
-              child: Text(
-                downloadFailureText(
-                  l10n,
-                  message: dl.errorMessage,
-                  kind: dl.errorKind,
-                ),
-                style: TextStyle(
-                  fontSize: WpTypography.caption,
-                  color: WpColors.error,
-                ),
-              ),
-            ),
-          WpButton(
-            label: l10n.parakeetModelDownload,
-            variant: WpButtonVariant.ghost,
-            icon: LucideIcons.download,
-            onPressed: () =>
-                ref.read(parakeetDownloadProvider.notifier).downloadBundle(),
-          ),
-        ],
-      );
-    }
-
-    return WpSettingsRow(
-      rowId: 'speech-parakeet',
-      title: l10n.parakeetModelTitle,
-      subtitle: l10n.parakeetModelSubtitle(sizeLabel),
-      trailing: trailing,
-    );
-  }
-}
-
 /// Trailing slot of the recognition-language row: the current choice and the
 /// "Ändern" button that opens the language dialog (ticket wiring).
 class _LanguageSummary extends StatelessWidget {
@@ -773,7 +470,12 @@ class _SttVramGateNotice extends ConsumerWidget {
     final l10n = L10n.of(context);
     return Padding(
       key: const ValueKey('speech-vram-notice'),
-      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        kSettingRowInset,
+        WpSpacing.xs,
+        kSettingRowInset,
+        WpSpacing.xs,
+      ),
       child: Text(
         l10n.settingsSttVramGateNotice(notice.vramMb, notice.requiredMb),
         style: Theme.of(
@@ -783,3 +485,9 @@ class _SttVramGateNotice extends ConsumerWidget {
     );
   }
 }
+
+/// Parakeet runs on this device: its language row explains the script check
+/// that hands a foreign-script result to Whisper (#2168).
+bool _parakeetActive(AppSettings settings) =>
+    settings.sttProviderType.isLocal &&
+    settings.onDeviceEngine == OnDeviceEngine.parakeet;

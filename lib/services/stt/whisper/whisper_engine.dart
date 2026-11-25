@@ -421,3 +421,8 @@ abstract class AbortableDecode {
 
 /// Message of the [WhisperEngineException] an aborted decode ends with.
 const String kWhisperDecodeAborted = 'whisper_decode_aborted';
+
+/// Optional per-request automatic-language restriction.
+abstract class ExpectedLanguageSupport {
+  set expectedLanguages(List<String> codes);
+}

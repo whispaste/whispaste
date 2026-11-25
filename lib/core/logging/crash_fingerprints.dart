@@ -93,6 +93,10 @@ const String historyEncryptionFailed = 'history-encryption-failed';
 /// start (#1020); the database does not open and nothing is changed.
 const String historyKeyUnavailable = 'history-key-unavailable';
 
+/// The data key is lost (#1023): the encrypted history was set aside
+/// unchanged and the app started with empty data.
+const String historyKeyLostSetAside = 'history-key-lost-set-aside';
+
 /// Catch-all for `WhisperServerDownloader.download` failures that are not
 /// the stall-detector path (network errors, 404s, asset-pattern misses).
 const String serverDownloadFailed = 'server-download-failed';
@@ -138,7 +142,9 @@ const String sttEarlyExit = 'stt-early-exit';
 
 /// Auto-escalation path from `AppLogger` — any `_log.error` / `_log.fatal`
 /// that did NOT explicitly call `captureError` with its own fingerprint
-/// lands here. One bucket keeps the auto-escalation noise from sharding.
+/// starts its fingerprint with this value, followed by the logger name and
+/// the message template (`autoEscalationFingerprint` in `app_logger.dart`):
+/// one issue per log site, not one for the whole app.
 const String appLoggerAutoEscalated = 'app-logger-auto-escalated';
 
 /// Riverpod `ProviderObserver.providerDidFail` capture. One bucket per
@@ -258,6 +264,7 @@ const List<String> allCrashFingerprints = <String>[
   historyMigrationCopyKept,
   historyEncryptionFailed,
   historyKeyUnavailable,
+  historyKeyLostSetAside,
   serverDownloadFailed,
   serverDownloadStalled,
   modelDownloadFailed,

@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart'
 
 import 'core/accessibility/accessibility_reply_binding.dart';
 import 'app.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/licenses/third_party_licenses.dart';
 import 'core/app_info.dart';
 import 'core/config/ram_gate_config.dart';
@@ -62,6 +63,8 @@ import 'services/auto_updater_service.dart';
 import 'services/automation_api/automation_api_controller.dart';
 import 'services/automation_api/automation_api_router.dart'
     show AutomationDictationBusyException, DictationTriggerResult;
+import 'services/automation_api/automation_write_jobs.dart'
+    show automationWriteRunnerProvider;
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -69,15 +72,21 @@ import 'services/graceful_shutdown.dart';
 import 'services/quit_deadline.dart';
 import 'services/hardware_info_service.dart' as hw;
 import 'services/headless/headless_cli.dart';
+import 'services/headless/user_model_check_cli.dart';
+import 'services/user_models/user_model_use.dart' show userModelUseProvider;
 import 'services/headless/headless_transcription.dart'
     show HeadlessTranscriptionOptions;
 import 'services/headless/package_diagnose.dart'
     show PackageDiagnoseOptions, runPackageDiagnoseCli;
 import 'services/legacy_residue_cleanup.dart';
+import 'services/model_catalog/remote_model_catalog.dart';
 import 'services/path_service.dart';
 import 'services/recording_orchestrator.dart';
+import 'services/smart_mode/write/smart_write_automation.dart';
 import 'services/single_instance_service.dart';
+import 'services/instance_cli.dart';
 import 'services/opened_files.dart';
+import 'services/file_import_inbox.dart';
 import 'services/smart_mode/smart_mode_presets.dart'
     show smartModePresetFromSettingsValue;
 import 'services/sound_feedback_service.dart';
@@ -87,6 +96,7 @@ import 'services/stt/whisper/gpu_probe.dart'
 import 'services/stt_parakeet/parakeet_language_support.dart';
 import 'services/stt_parakeet/parakeet_model_registry.dart';
 import 'services/model_hardware_telemetry.dart';
+import 'services/telemetry_model_buckets.dart' show daysSinceOnboardingBucket;
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/legacy_update_channel_migration.dart';
@@ -199,6 +209,16 @@ Future<ProviderContainer> bootstrapAppContainer({
                   ),
                 );
               },
+        ),
+      ),
+      // Write jobs of the automation API (#255): the Smart Mode write path,
+      // wired here for the same import-cycle reason as the trigger above.
+      automationWriteRunnerProvider.overrideWith(
+        (ref) => SmartWriteAutomationRunner(
+          ref,
+          preflight: () => ref
+              .read(recordingOrchestratorProvider.notifier)
+              .automationWritePreflight(),
         ),
       ),
       ...overrides,
@@ -346,6 +366,12 @@ Future<void> main(List<String> args) async {
   if (HeadlessTranscriptionOptions.isRequested(args)) {
     exit(await runHeadlessCli(args));
   }
+  // `whispaste --check-user-model <id> --out <report>`: format check and
+  // short test of a model the user added (#1789), as a child of the app so
+  // a crashing model cannot take the app down (user_model_checker.dart).
+  if (isUserModelCheckRequested(args)) {
+    exit(await runUserModelCheckCli(args));
+  }
   // `whispaste --download-cuda-pack --accept-nvidia-eula`: CUDA pack download
   // without the window; refuses unless the NVIDIA EULA flag is given.
   if (isCudaPackDownloadRequested(args)) {
@@ -355,6 +381,19 @@ Future<void> main(List<String> args) async {
   // (scripts/smoke/) — same early exit, no UI, settings or permissions.
   if (PackageDiagnoseOptions.isRequested(args)) {
     exit(await runPackageDiagnoseCli(args));
+  }
+  // `whispaste --help`, and the guard for the remote-control commands
+  // (#1952): an unknown command or a missing file ends here with a message,
+  // before anything starts or the running instance is signalled.
+  switch (checkLaunchCommandLine(args)) {
+    case InstanceCliHelp():
+      stdout.write(instanceCliUsage);
+      exit(0);
+    case InstanceCliError(:final message, :final exitCode):
+      stderr.writeln('$message\n$instanceCliHelpHint');
+      exit(exitCode);
+    case InstanceCliLaunch():
+      break;
   }
 
   // The binding is created here, before SentryFlutter.init, which reuses an
@@ -401,16 +440,19 @@ Future<void> _runApp(List<String> args) async {
   await _runBundleIdMigration();
 
   // Single-instance guard: if another instance is running, signal it and exit.
-  // The signal carries `--toggle`/`--cancel`, so `whispaste --toggle` from a
-  // shortcut or script drives the running instance's recording.
+  // The signal carries `--start`/`--stop`/`--toggle`/`--cancel` (#1952), so
+  // `whispaste --toggle` from a shortcut or script drives the running
+  // instance's recording.
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    final imports = FileImportInbox.arguments(args);
+    if (imports.isNotEmpty) await FileImportInbox().enqueue(imports);
     final command = InstanceCommand.fromArgs(args);
     // Files from the file manager's "Transcribe with WhisPaste" entry
     // (#1684): a running instance takes them over, a cold start transcribes
     // them once the history is wired up.
     final isPrimary = await SingleInstanceService.ensureSingleInstance(
       command: command,
-      openFiles: openedFilesFromArgs(args),
+      openFiles: imports.isEmpty ? openedFilesFromArgs(args) : const [],
     );
     if (!isPrimary) {
       exit(0);
@@ -418,10 +460,11 @@ Future<void> _runApp(List<String> args) async {
     // When no lock could be tried at all (rights, #1647) the app still
     // starts, but the history database stays closed behind a start screen
     // until the user confirms that no other WhisPaste is open.
-    // No running instance means no dictation to cancel — a cancel shortcut
-    // must not launch the app as a side effect. (`--toggle` instead starts
-    // the app and then a dictation, queued inside ensureSingleInstance.)
-    if (command == InstanceCommand.cancel) {
+    // No running instance means no dictation to stop or cancel — such a
+    // shortcut must not launch the app as a side effect. (`--toggle` and
+    // `--start` instead start the app and then a dictation, queued inside
+    // ensureSingleInstance.)
+    if (command == InstanceCommand.cancel || command == InstanceCommand.stop) {
       exit(0);
     }
   }
@@ -436,6 +479,16 @@ Future<void> _runApp(List<String> args) async {
 
   // Windows: trust the bundled Mozilla roots for every download (lib/core/tls/).
   await installBundledMozillaRoots();
+
+  // A model catalog loaded earlier without an app release (#1792): checked
+  // again and merged before anything lists or scans models. No network.
+  final catalogService = RemoteModelCatalogService(
+    cache: ModelCatalogCache(modelCatalogCacheDir(appDataDir())),
+    appVersion: appVersion,
+    platform: currentModelPlatform(),
+  );
+  await catalogService.loadCached();
+  _modelCatalogService = catalogService;
 
   // Bootstrap the provider container early so we can read persisted window
   // geometry BEFORE creating the window — this avoids resize/move flicker.
@@ -473,6 +526,14 @@ Future<void> _runApp(List<String> args) async {
   // the same settingsProvider-cache-race reason the GPU probe below is
   // awaited before runApp().
   await recoverFromGpuLoadCrash(container);
+
+  // An own model (#1789) a previous run died in, or one in use that is no
+  // longer ready, is taken out of use before anything loads it.
+  try {
+    await container.read(userModelUseProvider).recoverAtStart();
+  } on Object catch (e) {
+    _log.warning('Own model recovery failed: ${e.runtimeType}');
+  }
 
   // Wire up the GPU-detection-failure → Sentry telemetry callback.
   // Must run after CrashReporter.init() (done inside AppMonitoring.bootstrap).
@@ -585,7 +646,7 @@ Future<void> _runApp(List<String> args) async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const WhisPasteApp(),
+      child: const SystemMotionScope(child: WhisPasteApp()),
     ),
   );
 
@@ -744,6 +805,10 @@ void _startTextWriter(ProviderContainer container) {
   );
 }
 
+/// The downloadable model catalog (#1792), created in [_runApp] before the
+/// container so the stored catalog is in use before models are scanned.
+RemoteModelCatalogService? _modelCatalogService;
+
 /// Schedules fire-and-forget startup side effects that do not block the UI.
 void _scheduleStartupSideEffects(
   ProviderContainer container,
@@ -824,15 +889,31 @@ void _scheduleStartupSideEffects(
     }
   }
 
+  // Newer model catalog (#1792): only where the app updates itself, after a
+  // first run's privacy choice, at start and every 24 h while "Check for
+  // updates" is on (re-read on every tick). Store and package-manager builds
+  // get new catalog entries with the next app version.
+  final catalogService = _modelCatalogService;
+  if (!isExternallyManaged(channel) && catalogService != null) {
+    gate.whenOpen(() {
+      Future<void>.delayed(const Duration(seconds: 5), () {
+        startModelCatalogRefresh(
+          refresh: catalogService.refresh,
+          enabled: () => _automaticUpdateChecksEnabled(container),
+        );
+      });
+    });
+  }
+
   // Anonymous usage telemetry (opt-out). No-op without consent or config.
   // The app_version dimension on this event doubles as version-adoption
   // signal.
   // On a first run the start event and the alive ping wait for the privacy
   // choice (the service is also gated, so nothing slips through).
   gate.whenOpen(() => _sendStartTelemetry(container));
-  // Counts failed model downloads for the session; read once so the listener
-  // lives as long as the app.
-  container.read(modelDownloadFailureTelemetryProvider);
+  // Model lifecycle events and failed downloads (#1791); read once so the
+  // listeners live as long as the app.
+  container.read(modelLifecycleTelemetryWatcherProvider);
 
   // Best-effort graceful teardown on logout/kill. macOS/Linux emit SIGTERM on
   // session end; SIGINT covers Ctrl+C everywhere. Windows has no real
@@ -844,13 +925,24 @@ void _scheduleStartupSideEffects(
 /// stands now (after a first run's privacy choice, not at process start).
 void _sendStartTelemetry(ProviderContainer container) {
   final telemetry = container.read(telemetryProvider);
-  telemetry.trackEvent(category: 'lifecycle', action: 'start');
-  // T5 (Matomo product analysis 2026-09-04): coarse, once-per-day
-  // active-install signal, deliberately separate from the granular event
-  // above — see `TelemetryService.sendDailyAlivePingIfDue` for the
-  // consent/opt-out caveat.
   unawaited(
-    SharedPreferences.getInstance().then(telemetry.sendDailyAlivePingIfDue),
+    SharedPreferences.getInstance().then((prefs) {
+      // The name is the coarse install age (days since onboarding, bucketed);
+      // `unknown` when the completion date was never stored.
+      telemetry.trackEvent(
+        category: 'lifecycle',
+        action: 'start',
+        name: daysSinceOnboardingBucket(
+          completedOn: readOnboardingCompletedOn(prefs),
+          now: DateTime.now(),
+        ),
+      );
+      // T5 (Matomo product analysis 2026-09-04): coarse, once-per-day
+      // active-install signal, deliberately separate from the granular event
+      // above — see `TelemetryService.sendDailyAlivePingIfDue` for the
+      // consent/opt-out caveat.
+      return telemetry.sendDailyAlivePingIfDue(prefs);
+    }),
   );
 }
 
@@ -925,7 +1017,7 @@ Future<void> _runBundleIdMigration() async {
 
 /// Makes the app-data and application-support folders owner-only (POSIX).
 Future<void> _hardenAppData() async {
-  if (Platform.isWindows) return; // per-user ACL, see internal-notes
+  if (Platform.isWindows) return; // per-user profile ACL
   final roots = <String>[];
   try {
     roots.add(appDataDir());

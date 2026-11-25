@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "system_motion_channel.h"
 #include "native_context_menu.h"
 
 #include "floating_button_window.h"
@@ -91,6 +92,8 @@ class FloatingButtonHost {
   std::unique_ptr<flutter::FlutterViewController> render_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       render_channel_;
+  // "Reduce motion" for this engine (#1756); reset with render_channel_.
+  std::unique_ptr<SystemMotionChannel> motion_channel_;
 
   // ── Shell window ─────────────────────────────────────────────────
   std::unique_ptr<FloatingButtonWindow> window_;

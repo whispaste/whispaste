@@ -39,28 +39,6 @@ void main() {
     );
   });
 
-  test('he CLI subtitle isolates path, token and command', () {
-    final text = he.automationIntegrationsCliSubtitle(
-      ltrIsolate('tool/whispaste.dart'),
-      ltrIsolate('WHISPASTE_API_TOKEN'),
-      ltrIsolate('mcp'),
-    );
-    expect(
-      text,
-      contains(
-        '$_lri'
-        'tool/whispaste.dart$_pdi',
-      ),
-    );
-    expect(
-      text,
-      contains(
-        '$_lri'
-        'WHISPASTE_API_TOKEN$_pdi',
-      ),
-    );
-  });
-
   test('he CSV hint isolates the trigger separator', () {
     expect(he.dictionaryCsvHint(ltrIsolate('|')), contains('$_lri|$_pdi'));
   });

@@ -63,6 +63,7 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
 <style>
   .wp-apple-btn {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
     gap: var(--wp-space-3);
     padding: var(--wp-space-3) var(--wp-space-6);
@@ -127,6 +128,7 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
     display: flex;
     flex-direction: column;
     line-height: 1.2;
+    min-width: 0;
   }
 
   /* Default: single line */
@@ -142,14 +144,20 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn--lg .wp-apple-btn__label {
     font-size: var(--wp-font-size-xs);
     font-weight: 400;
-    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
+    /* Full-strength ink: at 68 % alpha this 12 px pre-label measured
+       4.0-4.4:1 on the gradient's light stop, under WCAG AA (#1911). */
+    color: var(--color-brand-darker);
     letter-spacing: 0.01em;
   }
 
+  /* Wraps the architecture badge under the platform name on a narrow
+     screen: unwrapped, the large button held 293 px and widened the
+     download page past a 320 px viewport (#1845, WCAG 1.4.10). */
   .wp-apple-btn__platform-row {
     display: inline-flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: var(--wp-space-2);
+    gap: var(--wp-space-1) var(--wp-space-2);
   }
 
   .wp-apple-btn--lg .wp-apple-btn__platform {

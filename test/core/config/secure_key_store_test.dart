@@ -11,7 +11,7 @@ import 'package:whispaste/core/config/data_key_store.dart'
 import 'package:whispaste/core/config/secure_access_gate.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/services/automation_api/automation_api_token_store.dart'
-    show automationApiTokenKey;
+    show automationApiTokenKey, automationWriteTokenKey;
 import 'package:whispaste/services/feedback_consent_store.dart'
     show kSecureConsentStateKey;
 
@@ -99,6 +99,7 @@ void main() {
       dataKeyStorageName,
       kSecureConsentStateKey,
       automationApiTokenKey,
+      automationWriteTokenKey,
       ...allSecureKeys,
     ];
 

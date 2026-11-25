@@ -145,6 +145,7 @@ void FloatingButtonHost::Destroy() {
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
+    motion_channel_.reset();
   }
 
   // Tear down the shell BEFORE the render engine/controller — the shell
@@ -254,6 +255,8 @@ bool FloatingButtonHost::EnsureEngineAndShell(double lx, double ly,
   render_project_ = std::move(project);
   render_controller_ = std::move(controller);
   render_channel_ = std::move(render_ch);
+  motion_channel_ = std::make_unique<SystemMotionChannel>(
+      render_controller_->engine()->messenger());
   window_ = std::move(shell);
 
   OutputDebugStringW(
@@ -416,6 +419,7 @@ void FloatingButtonHost::HandleMethodCall(
     const auto [x, y] = window_->GetPosition();
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
+    motion_channel_.reset();
     window_->Destroy();
     window_.reset();
     render_controller_.reset();
@@ -438,6 +442,7 @@ void FloatingButtonHost::HandleMethodCall(
     if (render_channel_) {
       render_channel_->SetMethodCallHandler(nullptr);
       render_channel_.reset();
+      motion_channel_.reset();
     }
     if (window_) {
       window_->Destroy();

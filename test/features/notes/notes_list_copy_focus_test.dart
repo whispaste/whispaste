@@ -37,6 +37,7 @@ void main() {
     });
     final t = DateTime(2025, 6, 1);
     final note = Note(
+      archived: false,
       id: 'n1',
       content: 'Copy me please',
       pinned: false,

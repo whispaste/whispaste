@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import Cocoa
 import FlutterMacOS
 
@@ -43,9 +44,40 @@ class FloatingOverlayHost {
   // Overlay size class: "normal" | "compact" | "mini" | "nano" (mirrors the Dart
   // OverlaySizeVariant serialised as snapshot["size"]).
   private var sizeClass: String = "normal"
+  /// Window height of the notice card from the snapshot's `noticeHeight`
+  /// (#1845): the card grows with its content. 164 is the smallest card.
+  private var noticeHeight: CGFloat = 164
   private var contextMenuEntries: [NativeMenuEntry] = []
   private var contextMenuAppearance: NSAppearance?
+  /// "In Bildschirmfreigaben und Screenshots verbergen" (overlay F, #194).
+  /// Kept across panel rebuilds; every new panel takes it over.
+  private var captureExcluded = false
   private var screenObserver: NSObjectProtocol?
+
+  // MARK: Edit session of the write preview (#254)
+
+  /// Whether the card on screen holds an open edit field. Only then may the
+  /// panel become key ([FloatingOverlayPanel.acceptsKeyboard]).
+  private var editSession = false
+
+  /// The app that was frontmost when the edit field took the keyboard, so a
+  /// session that ends without an insert (Esc, the card closing) hands the
+  /// keyboard back to it. The insert itself goes through
+  /// `DesktopPasteHost.activateTarget`, which activates the captured target
+  /// and confirms it is in front before anything is pasted.
+  private var editPreviousFrontApp: NSRunningApplication?
+
+  /// Re-activates WhisPaste when a click puts the panel back to key during a
+  /// session (same reason as `SnippetPickerHost.windowDidBecomeKey`: macOS
+  /// routes keystrokes to the active app only).
+  private var editKeyObserver: NSObjectProtocol?
+
+  /// Local keyDown monitor during a session: Return, Shift+Return and
+  /// Escape go to the field as `editKey` (`enter`, `newline`, `escape`) on
+  /// the render channel, independent of how the embedder's text-input proxy
+  /// forwards them (the Escape gap `SnippetPickerHost.escapeMonitor`
+  /// documents) and of the engine's own Shift state.
+  private var editKeyMonitor: Any?
 
   // The render engine boots asynchronously: its Dart MethodChannel handler is
   // only ready a few runloop turns after `engine.run`. Until the engine sends
@@ -208,6 +240,14 @@ class FloatingOverlayHost {
       (contextMenuEntries, contextMenuAppearance) = NativeContextMenu.parse(call.arguments)
       result(nil)
 
+    case "setCaptureExcluded":
+      // Overlay F: screen sharing, recordings and screenshots leave the
+      // panel out; the user still sees it.
+      let args = call.arguments as? [String: Any]
+      captureExcluded = args?["excluded"] as? Bool ?? false
+      applyCaptureExclusion()
+      result(true)
+
     case "destroy":
       teardown()
       result(nil)
@@ -233,12 +273,17 @@ class FloatingOverlayHost {
     // payloads from an older main engine.
     let size = args["size"] as? String
       ?? ((args["compact"] as? Bool ?? false) ? "compact" : "normal")
+    let newNoticeHeight = (args["noticeHeight"] as? NSNumber).map {
+      CGFloat(truncating: $0)
+    } ?? 164
     let sizeChanged = size != sizeClass
+      || (size == "notice" && newNoticeHeight != noticeHeight)
     let previousContent = panel?.contentView?.frame.size
     // Set the size class BEFORE lazy-creating the panel so the very first
     // (possibly compact/mini) snapshot sizes the shell correctly instead of
     // creating it at normal size and resizing a frame later.
     sizeClass = size
+    noticeHeight = newNoticeHeight
 
     // Content and window must never disagree (#1193): a notice card rendered
     // in the pill's window overflowed, and the resize waited on a frame of
@@ -278,6 +323,7 @@ class FloatingOverlayHost {
     if resizeExisting && shrinking {
       resizeShell()
     }
+    setEditSession(visible && Self.hasOpenEditField(args))
 
     // Show or hide the native shell. Re-showing a previously-hidden panel is
     // the other synchronous, potentially-blocking AppKit/Flutter operation
@@ -469,6 +515,8 @@ class FloatingOverlayHost {
 
     let p = FloatingOverlayPanel(width: size.width, height: size.height)
     panel = p
+    p.acceptsKeyboard = editSession
+    applyCaptureExclusion()
     if let origin {
       p.setFrameOrigin(origin)
     }
@@ -494,11 +542,19 @@ class FloatingOverlayHost {
     case "nano":
       return NSSize(width: 104, height: 40)
     case "notice":
-      // Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
-      return NSSize(width: 346, height: 164)
+      // Notice card (overlay F2): OverlayDesignSpec.noticeWindowSizeFor,
+      // height from the snapshot (#1845).
+      return NSSize(width: 346, height: noticeHeight)
     default:
       return NSSize(width: 346, height: 80)
     }
+  }
+
+  /// Applies [captureExcluded] to the panel: `.none` keeps the window out of
+  /// window-server captures (screenshots, screen sharing, recordings),
+  /// `.readOnly` is the AppKit default.
+  private func applyCaptureExclusion() {
+    panel?.sharingType = captureExcluded ? .none : .readOnly
   }
 
   private func ensurePanel() {
@@ -506,6 +562,7 @@ class FloatingOverlayHost {
 
     let p = FloatingOverlayPanel(width: size.width, height: size.height)
     panel = p
+    applyCaptureExclusion()
     bootRenderEngine()
     NSLog("[overlay] ensurePanel: panel created, content \(size.width)x\(size.height)")
 
@@ -532,6 +589,7 @@ class FloatingOverlayHost {
     // delegates into the overlay render app). There is no `libraryURI:`
     // variant on macOS FlutterEngine.
     let engine = FlutterEngine(name: "floating_overlay", project: nil)
+    SystemMotionHost.attach(engine.binaryMessenger)
     let didRun = engine.run(withEntrypoint: "floatingOverlayMain")
     NSLog("[overlay] bootRenderEngine: engine.run(floatingOverlayMain) -> \(didRun)")
 
@@ -544,6 +602,8 @@ class FloatingOverlayHost {
     }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+
+    RenderEngineAccessibility.replayToNewEngine()
     // REAL surface transparency: must be set so the engine composites onto a
     // clear surface instead of opaque black. Set before the view is shown.
     vc.backgroundColor = .clear
@@ -693,6 +753,12 @@ class FloatingOverlayHost {
 
     case "noticeAction":
       // A notice-card button (overlay F2): relay {id} to the main engine.
+      // The edit field reporting its focus (#254) also takes the keyboard.
+      if let args = call.arguments as? [String: Any],
+         args["id"] as? String == "edit_focus",
+         args["focused"] as? Bool == true {
+        takeKeyboardForEdit()
+      }
       channel.invokeMethod("onNoticeAction", arguments: call.arguments)
       result(nil)
 
@@ -760,6 +826,141 @@ class FloatingOverlayHost {
     channel.invokeMethod("onContextMenu", arguments: ["action": id])
   }
 
+  // MARK: - Edit session (#254)
+
+  /// Whether the snapshot [args] carries a notice card with an open edit
+  /// field (`notice.edit.open`, see `OverlayNoticeEdit.toMap`).
+  static func hasOpenEditField(_ args: [String: Any]) -> Bool {
+    guard let notice = args["notice"] as? [String: Any],
+          let edit = notice["edit"] as? [String: Any] else { return false }
+    return edit["open"] as? Bool ?? false
+  }
+
+  /// Starts or ends the edit session. Starting only makes the panel
+  /// key-capable; the keyboard comes with the field's focus
+  /// ([takeKeyboardForEdit]) or a click into the panel. Ending takes the
+  /// capability away and, when the panel still holds the keyboard (Esc, the
+  /// card closed), hands it back to the app that had it before.
+  private func setEditSession(_ on: Bool) {
+    guard on != editSession else { return }
+    editSession = on
+    panel?.acceptsKeyboard = on
+    NSLog("[overlay] edit session \(on ? "started" : "ended") appActive=\(NSApp.isActive) panelKey=\(panel?.isKeyWindow ?? false)")
+    if on {
+      installEditKeyHandling()
+      return
+    }
+    removeEditKeyHandling()
+    let holdsKeyboard = NSApp.isActive && (panel?.isKeyWindow ?? false)
+    let previous = editPreviousFrontApp
+    editPreviousFrontApp = nil
+    if holdsKeyboard, let previous, !previous.isTerminated {
+      Self.activateGivingAway(previous)
+    }
+  }
+
+  /// The edit field got the focus: make the panel key and WhisPaste active,
+  /// in the order `SnippetPickerHost.show` found reliable (key and first
+  /// responder before the activation, re-asserted one runloop turn later).
+  /// Activating without `.activateAllWindows` raises only this panel, not the
+  /// main window.
+  private func takeKeyboardForEdit() {
+    guard editSession, let p = panel, p.isVisible else {
+      NSLog("[overlay] edit focus ignored: session=\(editSession) visible=\(panel?.isVisible ?? false)")
+      return
+    }
+    let front = NSWorkspace.shared.frontmostApplication
+    if front?.bundleIdentifier != Bundle.main.bundleIdentifier {
+      editPreviousFrontApp = front
+    }
+    p.acceptsKeyboard = true
+    p.makeKey()
+    claimFirstResponder(in: p)
+    activateForEdit()
+    NSLog("[overlay] edit field took the keyboard: panelKey=\(p.isKeyWindow) appActive=\(NSApp.isActive)")
+    DispatchQueue.main.async { [weak self] in
+      guard let self, self.editSession, let p = self.panel, p.isVisible else { return }
+      if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+      if !p.isKeyWindow { p.makeKey() }
+      self.claimFirstResponder(in: p)
+    }
+  }
+
+  /// Makes the render view first responder unless a view inside it (the
+  /// engine's text-input proxy) already is.
+  private func claimFirstResponder(in p: NSPanel) {
+    guard let view = renderViewController?.view else { return }
+    let responder = p.firstResponder as? NSView
+    if responder === view || (responder?.isDescendant(of: view) ?? false) { return }
+    p.makeFirstResponder(view)
+  }
+
+  private func activateForEdit() {
+    guard !NSApp.isActive else { return }
+    NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
+  }
+
+  /// Gives activation away to [app]; macOS grants this to the active app,
+  /// so the cooperative form is enough from macOS 14 on.
+  static func activateGivingAway(_ app: NSRunningApplication) {
+    if #available(macOS 14.0, *) {
+      app.activate(options: [])
+    } else {
+      app.activate(options: [.activateIgnoringOtherApps])
+    }
+  }
+
+  private func installEditKeyHandling() {
+    if editKeyObserver == nil {
+      editKeyObserver = NotificationCenter.default.addObserver(
+        forName: NSWindow.didBecomeKeyNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] note in
+        guard let self, self.editSession, let p = self.panel,
+              note.object as? NSWindow === p else { return }
+        // A click into the panel made it key without activating WhisPaste.
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.bundleIdentifier != Bundle.main.bundleIdentifier {
+          self.editPreviousFrontApp = front
+        }
+        self.activateForEdit()
+      }
+    }
+    if editKeyMonitor == nil {
+      editKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+        guard let self, self.editSession, let p = self.panel, p.isVisible,
+              event.window === p || p.isKeyWindow else { return event }
+        let key: String
+        switch Int(event.keyCode) {
+        case kVK_Escape:
+          key = "escape"
+        case kVK_Return, kVK_ANSI_KeypadEnter:
+          // Shift+Return is the line break. Decided here from the event's
+          // own flags: the engine's pressed-key state can miss a Shift that
+          // came only as a flag, and then the field would insert instead.
+          key = event.modifierFlags.contains(.shift) ? "newline" : "enter"
+        default:
+          return event
+        }
+        guard self.renderReady, let render = self.renderChannel else { return event }
+        render.invokeMethod("editKey", arguments: ["key": key])
+        return nil
+      }
+    }
+  }
+
+  private func removeEditKeyHandling() {
+    if let observer = editKeyObserver {
+      NotificationCenter.default.removeObserver(observer)
+      editKeyObserver = nil
+    }
+    if let monitor = editKeyMonitor {
+      NSEvent.removeMonitor(monitor)
+      editKeyMonitor = nil
+    }
+  }
+
   // MARK: - Teardown
 
   private func teardown() {
@@ -767,6 +968,7 @@ class FloatingOverlayHost {
       NotificationCenter.default.removeObserver(obs)
       screenObserver = nil
     }
+    setEditSession(false)
     renderReadyTimeoutTimer?.invalidate()
     renderReadyTimeoutTimer = nil
     renderReadyRetryCount = 0

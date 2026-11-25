@@ -23,6 +23,7 @@ import 'package:whispaste/services/hotkey_registrar.dart';
 import 'package:whispaste/services/input_monitoring_offer.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/modifier_key_monitor.dart';
+import 'package:whispaste/services/recording_trigger_handler.dart';
 import 'package:whispaste/services/short_press_hint.dart';
 
 // ---------------------------------------------------------------------------
@@ -1090,6 +1091,48 @@ void main() {
         );
       },
     );
+
+    // #250: refining a write draft by voice holds the Smart Mode key only
+    // where its release arrives (macOS); elsewhere the same press toggles.
+    for (final (platform, keyUp) in [
+      ('macOS', true),
+      ('Windows/Linux', false),
+    ]) {
+      test('Smart Mode hotkey with push-to-talk on $platform: '
+          '${keyUp ? 'hold' : 'toggle'}', () {
+        final registrar = FakeHotKeyRegistrar(supportsKeyUp: keyUp);
+        final service = _makeService(registrar);
+        if (!keyUp) service.injectMonitor(FakeKeyboardUpMonitor());
+        var start = 0, stop = 0, toggle = 0;
+        var recording = false;
+        var now = DateTime(2026, 11, 23, 9);
+        // Wired as the service bootstrap wires the Smart Mode hotkey.
+        final handler = RecordingTriggerHandler(
+          startRecording: () async {
+            start++;
+            recording = true;
+          },
+          stopRecording: () async {
+            stop++;
+            recording = false;
+          },
+          toggleRecording: () async {
+            toggle++;
+            recording = !recording;
+          },
+          pushToTalkEnabled: () => true,
+          registrarSupportsKeyUp: () => service.optionalActionsSupportKeyUp,
+          isRecording: () => recording,
+          clock: () => now,
+        );
+
+        handler.onKeyDown();
+        now = now.add(const Duration(seconds: 1));
+        handler.onKeyUp();
+
+        expect((start, stop, toggle), keyUp ? (1, 1, 0) : (0, 0, 1));
+      });
+    }
 
     test(
       'supportsKeyUp=true: onHotkeyReleased fires when keyUp handler is called',
@@ -2817,6 +2860,57 @@ void main() {
   });
 
   group('HotkeyService — notice-card action key (issue #585)', () {
+    test(
+      'a stale native Enter cannot act on a newer preview session',
+      () async {
+        final registrar = FakeHotKeyRegistrar();
+        final service = _makeService(registrar);
+        var calls = 0;
+        await service.registerNoticeActionKey(
+          key: LogicalKeyboardKey.enter,
+          onPressed: () => calls++,
+        );
+        final stale =
+            registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!;
+        await service.unregisterNoticeActionKey();
+        await service.registerNoticeActionKey(
+          key: LogicalKeyboardKey.enter,
+          onPressed: () => calls++,
+        );
+        stale(HotKey(key: LogicalKeyboardKey.enter));
+        expect(calls, 0);
+        registrar.keyDownHandlersByKeyId[LogicalKeyboardKey.enter.keyId]!(
+          HotKey(key: LogicalKeyboardKey.enter),
+        );
+        expect(calls, 1);
+      },
+    );
+
+    test('registration failure is observable by write preview', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final service = _makeService(registrar);
+      registrar.throwOnFirstRegister = PlatformException(code: 'conflict');
+      expect(
+        await service.registerNoticeActionKey(
+          key: LogicalKeyboardKey.enter,
+          onPressed: () {},
+        ),
+        isFalse,
+      );
+      registrar.throwOnFirstRegister = PlatformException(code: 'conflict');
+      expect(
+        await service.registerCancelDictationKey(onCancel: () {}),
+        isFalse,
+      );
+      expect(
+        await service.registerNoticeActionKey(
+          key: LogicalKeyboardKey.enter,
+          onPressed: () {},
+        ),
+        isTrue,
+      );
+    });
+
     test('registers the given key, keyDown runs the card button', () async {
       final registrar = FakeHotKeyRegistrar();
       final service = _makeService(registrar);

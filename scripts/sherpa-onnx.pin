@@ -32,3 +32,6 @@ ORT_WIN_X64_MD_RELEASE=onnxruntime-win-x64-1.28.2.zip
 UPSTREAM_HOLD_REASON=''
 UPSTREAM_HOLD_CHECK=''
 ORT_WIN_X64_MD_RELEASE_SHA256=c4eedd29489d5feca21866d054638416f3655bf6b18851b3b6b85c8313e95c35
+
+# Invalidate native caches after the execution-provider integration.
+SHERPA_PROVIDER_REVISION=1

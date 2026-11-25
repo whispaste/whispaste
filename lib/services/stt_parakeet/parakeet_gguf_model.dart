@@ -1,11 +1,9 @@
 /// GGUF model for the GPU Parakeet engine (libparakeet).
 ///
 /// Source: `ggml-org/parakeet-GGUF` on HuggingFace, the official ggml-org
-/// conversion of `nvidia/parakeet-tdt-0.6b-v3` (CC-BY-4.0, see NOTICE). The
-/// file is pinned to one repository revision and to its LFS SHA-256, both
-/// taken from the HuggingFace tree API (`/api/models/ggml-org/parakeet-GGUF/tree/main`).
-/// The f16 file was also reproduced locally from the NeMo checkpoint and
-/// matches the upstream SHA-256 byte for byte.
+/// conversion of `nvidia/parakeet-tdt-0.6b-v3` (CC-BY-4.0, see NOTICE). Size,
+/// SHA-256 and the pinned revision live in the bundled model catalog
+/// (`lib/core/models/bundled_model_catalog.dart`).
 ///
 /// Integrity: [verifyParakeetGguf] checks the exact size and the SHA-256 before
 /// every load. The hash is cached as a stamp per file version, so only the first
@@ -18,6 +16,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/models/bundled_model_catalog.dart';
 import '../file_verification_service.dart';
 import '../http_model_fetcher.dart';
 import 'parakeet_model_registry.dart' show parakeetModelDir;
@@ -38,6 +37,12 @@ enum ParakeetGgufQuant {
 
   /// Tag used in the GGUF file name (`ggml-parakeet-tdt-0.6b-v3-<tag>.bin`).
   final String tag;
+
+  /// ID of this variant in the bundled model catalog.
+  String get catalogId => switch (this) {
+    ParakeetGgufQuant.q8Zero => CatalogIds.parakeetGgufQ8,
+    ParakeetGgufQuant.f16 => CatalogIds.parakeetGgufF16,
+  };
 }
 
 class ParakeetGgufFile {
@@ -45,8 +50,19 @@ class ParakeetGgufFile {
     required this.quant,
     required this.sizeBytes,
     required this.sha256,
-    this.mirrorUrls = const [],
+    this.sources = const [],
   });
+
+  /// The entry of [quant] in the bundled model catalog.
+  factory ParakeetGgufFile.fromCatalog(ParakeetGgufQuant quant) {
+    final file = bundledModelCatalog.byId(quant.catalogId).file;
+    return ParakeetGgufFile(
+      quant: quant,
+      sizeBytes: file.sizeBytes,
+      sha256: file.sha256,
+      sources: file.sources,
+    );
+  }
 
   final ParakeetGgufQuant quant;
   final int sizeBytes;
@@ -54,34 +70,16 @@ class ParakeetGgufFile {
   /// Lower-case hex SHA-256 of the whole file.
   final String sha256;
 
-  /// Further sources of the identical file, tried in order after [url]
-  /// fails (`HttpModelFetcher.fetchVerified`), each checked against [sha256].
-  final List<String> mirrorUrls;
-
-  /// [url] followed by [mirrorUrls].
-  List<String> get sources => [url, ...mirrorUrls];
+  /// Public sources of the identical file, tried in order
+  /// (`HttpModelFetcher.fetchVerified`), each checked against [sha256].
+  final List<String> sources;
 
   String get filename => 'ggml-parakeet-tdt-0.6b-v3-${quant.tag}.bin';
-
-  /// Pinned repository revision of `ggml-org/parakeet-GGUF`.
-  static const String revision = '35156454d1a39de06863303dd209fd2bed6ee079';
-
-  String get url =>
-      'https://huggingface.co/ggml-org/parakeet-GGUF/resolve/$revision/$filename';
 }
 
-/// Pinned GGUF files, keyed by quant. Sizes and hashes come from the HF tree.
-const Map<ParakeetGgufQuant, ParakeetGgufFile> parakeetGgufFiles = {
-  ParakeetGgufQuant.q8Zero: ParakeetGgufFile(
-    quant: ParakeetGgufQuant.q8Zero,
-    sizeBytes: 668757119,
-    sha256: '4d64e9e96c2792186d072fde0034df0ad670cf680a2f53069052ead827fd600e',
-  ),
-  ParakeetGgufQuant.f16: ParakeetGgufFile(
-    quant: ParakeetGgufQuant.f16,
-    sizeBytes: 1255897319,
-    sha256: '833bffc9513b2cae867ee9e51633cfd11e4d51aaa5597c8ac02159385a2b426f',
-  ),
+/// Pinned GGUF files, keyed by quant, read from the bundled model catalog.
+final Map<ParakeetGgufQuant, ParakeetGgufFile> parakeetGgufFiles = {
+  for (final q in ParakeetGgufQuant.values) q: ParakeetGgufFile.fromCatalog(q),
 };
 
 /// The pinned file for [parakeetGgufDefaultQuant].

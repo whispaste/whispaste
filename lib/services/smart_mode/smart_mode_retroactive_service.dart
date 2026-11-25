@@ -21,7 +21,8 @@ import '../drift_recording_store.dart' show factKnownTermsProvider;
 import '../recording/pipeline_step_runner.dart';
 import 'smart_mode_fact_guard.dart';
 import 'smart_mode_ffi_engine.dart' show smartModeEngineProvider;
-import 'smart_mode_model_download_service.dart' show smartModeDownloadProvider;
+import '../user_models/user_model_use.dart'
+    show smartModeLocalModelReadyProvider;
 import 'smart_mode_presets.dart';
 
 /// Why [SmartModeRetroactiveResult] failed, for callers that want to show a
@@ -94,8 +95,7 @@ class SmartModeRetroactiveService {
     final provider = SmartModeProviderType.fromValue(
       _ref.read(settingsProvider).value?.smartMode.provider,
     );
-    if (provider.isLocal &&
-        !_ref.read(smartModeDownloadProvider).modelDownloaded) {
+    if (provider.isLocal && !_ref.read(smartModeLocalModelReadyProvider)) {
       return const SmartModeRetroactiveFailure(
         SmartModeRetroactiveFailureReason.modelMissing,
       );

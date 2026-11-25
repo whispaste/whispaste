@@ -38,6 +38,8 @@
 		AA000A012044A3C60003C045 /* ClipboardMonitorHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000A002044A3C60003C045 /* ClipboardMonitorHost.swift */; };
 		A9200001A9200001A9200001 /* TrayPanelPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9200002A9200002A9200002 /* TrayPanelPanel.swift */; };
 		A9200003A9200003A9200003 /* TrayPanelHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9200004A9200004A9200004 /* TrayPanelHost.swift */; };
+		A9756001A9756001A9756001 /* SystemMotionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9756002A9756002A9756002 /* SystemMotionHost.swift */; };
+		A9751511A9751511A9751511 /* MediaPauseHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9751512A9751512A9751512 /* MediaPauseHost.swift */; };
 		7AA84E5B35FA4516BC66090E /* SnippetPickerPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */; };
 		56E0E49240AC49B1A7F27C32 /* SnippetPickerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */; };
 		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
@@ -47,6 +49,7 @@
 		5A1C0E0F00A1B2C3D4E5F602 /* ModifierKeyHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */; };
 		A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */; };
 		A1F0D3C0DE0000000000C1B1 /* SystemSpeechHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000C1A1 /* SystemSpeechHost.swift */; };
+		A1F0D3C0DE0000000000C2B1 /* SystemContactsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000C2A1 /* SystemContactsHost.swift */; };
 		A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */; settings = {COMPILER_FLAGS = "-std=c++17"; }; };
 		A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A005 /* audio_file_decode_core.cc */; settings = {COMPILER_FLAGS = "-std=c++17 -DWP_WITH_FLAC=0"; }; };
 		A1F0D3C0DE0000000000B004 /* audio_file_decode_gst.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A006 /* audio_file_decode_gst.cc */; settings = {COMPILER_FLAGS = "-std=c++17"; }; };
@@ -130,6 +133,8 @@
 		AA000A002044A3C60003C045 /* ClipboardMonitorHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitorHost.swift; sourceTree = "<group>"; };
 		A9200002A9200002A9200002 /* TrayPanelPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrayPanelPanel.swift; sourceTree = "<group>"; };
 		A9200004A9200004A9200004 /* TrayPanelHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrayPanelHost.swift; sourceTree = "<group>"; };
+		A9756002A9756002A9756002 /* SystemMotionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionHost.swift; sourceTree = "<group>"; };
+		A9751512A9751512A9751512 /* MediaPauseHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPauseHost.swift; sourceTree = "<group>"; };
 		CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetPickerPanel.swift; sourceTree = "<group>"; };
 		B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetPickerHost.swift; sourceTree = "<group>"; };
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
@@ -139,6 +144,7 @@
 		5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModifierKeyHost.swift; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileDecodeHost.swift; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000C1A1 /* SystemSpeechHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemSpeechHost.swift; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000C2A1 /* SystemContactsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemContactsHost.swift; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WhispasteOpusDecode.cc; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WhispasteOpusDecode.h; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A004 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -161,12 +167,18 @@
 		AA2001000000000000000103 /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/MainMenu.strings; sourceTree = "<group>"; };
 		AA2001000000000000000104 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/MainMenu.strings; sourceTree = "<group>"; };
 		AA2001000000000000000105 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000106 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000107 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000108 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = zh-Hans.lproj/MainMenu.strings; sourceTree = "<group>"; };
 		BB2001000000000000000001 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Base; path = Base.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BB2001000000000000000002 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BB2001000000000000000003 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BB2001000000000000000004 /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BB2001000000000000000005 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		BB2001000000000000000006 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		BB2001000000000000000007 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		BB2001000000000000000008 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		BB2001000000000000000009 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = zh-Hans.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -271,6 +283,8 @@
 				CD5F778C9B774D99AA5ADE03 /* SnippetPickerPanel.swift */,
 				A9200002A9200002A9200002 /* TrayPanelPanel.swift */,
 				A9200004A9200004A9200004 /* TrayPanelHost.swift */,
+				A9756002A9756002A9756002 /* SystemMotionHost.swift */,
+				A9751512A9751512A9751512 /* MediaPauseHost.swift */,
 				B0486CFCB9C24358A216F09D /* SnippetPickerHost.swift */,
 				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
 				AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */,
@@ -279,6 +293,7 @@
 				5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */,
 				A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */,
 				A1F0D3C0DE0000000000C1A1 /* SystemSpeechHost.swift */,
+				A1F0D3C0DE0000000000C2A1 /* SystemContactsHost.swift */,
 				A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */,
 				A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */,
 				A1F0D3C0DE0000000000A004 /* Runner-Bridging-Header.h */,
@@ -419,6 +434,9 @@
 				he,
 				pt,
 				ru,
+				fr,
+				it,
+				"zh-Hans",
 			);
 			mainGroup = 33CC10E42044A3C60003C045;
 			productRefGroup = 33CC10EE2044A3C60003C045 /* Products */;
@@ -694,6 +712,8 @@
 				7AA84E5B35FA4516BC66090E /* SnippetPickerPanel.swift in Sources */,
 				A9200001A9200001A9200001 /* TrayPanelPanel.swift in Sources */,
 				A9200003A9200003A9200003 /* TrayPanelHost.swift in Sources */,
+				A9756001A9756001A9756001 /* SystemMotionHost.swift in Sources */,
+				A9751511A9751511A9751511 /* MediaPauseHost.swift in Sources */,
 				56E0E49240AC49B1A7F27C32 /* SnippetPickerHost.swift in Sources */,
 				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,
 				AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */,
@@ -702,6 +722,7 @@
 				5A1C0E0F00A1B2C3D4E5F602 /* ModifierKeyHost.swift in Sources */,
 				A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */,
 				A1F0D3C0DE0000000000C1B1 /* SystemSpeechHost.swift in Sources */,
+				A1F0D3C0DE0000000000C2B1 /* SystemContactsHost.swift in Sources */,
 				A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */,
 				A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */,
 				A1F0D3C0DE0000000000B004 /* audio_file_decode_gst.cc in Sources */,
@@ -748,6 +769,9 @@
 				AA2001000000000000000103 /* he */,
 				AA2001000000000000000104 /* pt */,
 				AA2001000000000000000105 /* ru */,
+				AA2001000000000000000106 /* fr */,
+				AA2001000000000000000107 /* it */,
+				AA2001000000000000000108 /* zh-Hans */,
 			);
 			name = MainMenu.strings;
 			path = Runner;
@@ -762,6 +786,9 @@
 				BB2001000000000000000004 /* he */,
 				BB2001000000000000000005 /* pt */,
 				BB2001000000000000000006 /* ru */,
+				BB2001000000000000000007 /* fr */,
+				BB2001000000000000000008 /* it */,
+				BB2001000000000000000009 /* zh-Hans */,
 			);
 			name = InfoPlist.strings;
 			path = Runner;

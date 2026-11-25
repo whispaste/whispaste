@@ -464,12 +464,11 @@ Future<void> _openDictionary(
   await tester.pump();
   await tester.tap(find.byKey(const ValueKey('sidebar-nav-replacements')));
   await tester.pump();
-  await tester.tap(find.byKey(const ValueKey('dictionary-tab-replacements')));
   await tester.pump();
   await _settle(
     tester,
     () =>
-        _present(const ValueKey('replacements-more')) &&
+        _present(const ValueKey('dictionary-more')) &&
         find.byType(WpListSkeleton).evaluate().isEmpty,
     what: 'dictionary page open',
   );
@@ -478,7 +477,7 @@ Future<void> _openDictionary(
 /// Opens the replacements toolbar's ⋯ menu. CSV import and export live there
 /// (ticket), so the journey reaches them the way a user does.
 Future<void> _openMenu(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('replacements-more')));
+  await tester.tap(find.byKey(const ValueKey('dictionary-more')));
   await tester.pumpAndSettle();
 }
 
@@ -520,6 +519,7 @@ void main() {
   });
 
   setUp(() {
+    mockHotkeyPluginChannels(on: true);
     // The pipeline's fire-and-forget review/support prompt checks read
     // SharedPreferences; without a backend getInstance fails and the error
     // can escape into the test zone, depending on timing.
@@ -555,6 +555,7 @@ void main() {
   });
 
   tearDown(() {
+    mockHotkeyPluginChannels(on: false);
     sttDirOverride = null;
     retainedAudioDirOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

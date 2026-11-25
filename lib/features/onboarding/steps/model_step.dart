@@ -19,6 +19,9 @@ import '../../../services/connection_return_watcher.dart';
 import '../../../services/download_error_kind.dart';
 import '../../../services/free_disk_space.dart';
 import '../../../services/model_download_service.dart';
+import '../../../services/model_folder.dart';
+import '../../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelDir;
 import '../../../services/path_service.dart' show sttDir;
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/system_speech/system_speech_channel.dart'
@@ -181,6 +184,13 @@ class _ModelStepState extends ConsumerState<ModelStep> {
             'auto',
       );
       if (!mounted || _shortBenchmarkCancelled) return;
+      if (runner.failed) {
+        // The short test itself broke (not slow, not cancelled): counted per
+        // model for the usage statistics (#1791).
+        ref
+            .read(modelLifecycleTelemetryProvider)
+            .checkFailed('small', ModelCheck.shortTest);
+      }
       ref.read(shortModelBenchmarkRtfProvider.notifier).setResult(rtf);
       final facts = await ref.read(speechRecommendationProvider.future);
       if (!mounted) return;
@@ -281,10 +291,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final parakeetEligible =
         rec.engine == OnDeviceEngine.parakeet ||
         parakeetRecommendedFor(
-          recommendationLanguages(
-            sttLanguageCode: settings.sttLanguageCode,
-            systemLanguages: ref.read(systemLanguageCodesProvider),
-            uiLocale: settings.locale,
+          dictationLanguagesFor(
+            settings,
+            ref.read(systemLanguageCodesProvider),
           ),
         );
     setState(() {
@@ -336,6 +345,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       case OnDeviceEngine.parakeet:
         final dl = ref.read(parakeetDownloadProvider);
         return dl.installed || dl.phase == ParakeetDownloadPhase.done;
+      // An own model (#1789) is already on disk; onboarding never offers it.
+      case OnDeviceEngine.userModel:
+        return true;
     }
   }
 
@@ -405,8 +417,9 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     switch (_selectedEngine) {
       case OnDeviceEngine.whisper:
         ref.read(modelDownloadProvider.notifier).cancelDownload();
-      case OnDeviceEngine.system:
+      case OnDeviceEngine.system || OnDeviceEngine.userModel:
         // The system installs its assets on its own; there is no cancel.
+        // An own model (#1789) is already on disk.
         break;
       case OnDeviceEngine.parakeet:
         ref.read(parakeetDownloadProvider.notifier).cancelDownload();
@@ -436,7 +449,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     // may still go ahead. An unknown answer is treated as enough.
     final needed = switch (engine) {
       OnDeviceEngine.whisper => _effectiveWhisperModel.sizeBytes,
-      OnDeviceEngine.system => 0,
+      OnDeviceEngine.system || OnDeviceEngine.userModel => 0,
       OnDeviceEngine.parakeet => parakeetDownloadBytes(
         gpuWanted: parakeetGpuWantedForSetting(
           ref.read(settingsProvider).value?.behavior.gpuAcceleration,
@@ -492,6 +505,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
         unawaited(ref.read(systemSpeechProvider.notifier).install());
       case OnDeviceEngine.parakeet:
         ref.read(parakeetDownloadProvider.notifier).downloadBundle();
+      case OnDeviceEngine.userModel:
+        break;
     }
   }
 
@@ -509,6 +524,8 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       case OnDeviceEngine.parakeet:
         final dl = ref.read(parakeetDownloadProvider);
         return dl.phase == ParakeetDownloadPhase.done || dl.installed;
+      case OnDeviceEngine.userModel:
+        return true;
       case null:
         return false;
     }
@@ -631,7 +648,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       OnDeviceEngine.parakeet => _parakeetPhaseAsDownloadPhase(
         parakeetDl.phase,
       ),
-      null => DownloadPhase.idle,
+      OnDeviceEngine.userModel || null => DownloadPhase.idle,
     };
     final isDownloading =
         selectedPhase == DownloadPhase.downloading ||
@@ -645,7 +662,7 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     final isDone = _selectedEngineDone();
     final errorKind = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperDl.errorKind,
-      OnDeviceEngine.system => null,
+      OnDeviceEngine.system || OnDeviceEngine.userModel => null,
       OnDeviceEngine.parakeet => parakeetDl.errorKind,
       null => null,
     };
@@ -653,11 +670,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
       OnDeviceEngine.whisper => whisperDl.progressPercent,
       OnDeviceEngine.system => systemSpeech.percent,
       OnDeviceEngine.parakeet => parakeetDl.progressPercent,
-      null => 0,
+      OnDeviceEngine.userModel || null => 0,
     };
     final selectedSizeLabel = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperModel.sizeLabel,
-      OnDeviceEngine.system => '',
+      OnDeviceEngine.system || OnDeviceEngine.userModel => '',
       OnDeviceEngine.parakeet => parakeetDownloadSizeLabel(
         gpuWanted: parakeetGpuWantedForSetting(
           ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
@@ -919,6 +936,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                     sizeLabel: selectedSizeLabel,
                     l10n: l10n,
                     onStartDownload: _startDownload,
+                    modelFolder: systemSelected
+                        ? null
+                        : (_selectedEngine == OnDeviceEngine.parakeet
+                              ? parakeetModelDir
+                              : sttDir),
                     onCancelDownload: systemSelected ? null : _cancelDownload,
                     ctaLabel: systemSelected
                         ? l10n.settingsSttSystemInstall
@@ -1093,6 +1115,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
     required this.onStartDownload,
     required this.onCancelDownload,
     this.ctaLabel,
+    this.modelFolder,
   });
 
   final DownloadPhase phase;
@@ -1112,6 +1135,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
 
   /// The CTA text when it is not "download and continue (size)".
   final String? ctaLabel;
+  final String Function()? modelFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -1129,6 +1153,7 @@ class _ModelStepDownloadStatus extends StatelessWidget {
         kind: errorKind,
         l10n: l10n,
         onRetry: onStartDownload,
+        modelFolder: modelFolder,
       );
     }
     if (isDone) {
@@ -1799,6 +1824,7 @@ class _DownloadError extends ConsumerStatefulWidget {
     required this.kind,
     required this.l10n,
     required this.onRetry,
+    this.modelFolder,
   });
 
   /// The raw exception text stays in the log; the page only names what the
@@ -1806,6 +1832,7 @@ class _DownloadError extends ConsumerStatefulWidget {
   final DownloadErrorKind? kind;
   final L10n l10n;
   final VoidCallback onRetry;
+  final String Function()? modelFolder;
 
   @override
   ConsumerState<_DownloadError> createState() => _DownloadErrorState();
@@ -1920,6 +1947,15 @@ class _DownloadErrorState extends ConsumerState<_DownloadError> {
           expanded: true,
           onPressed: widget.onRetry,
         ),
+        if (widget.modelFolder != null)
+          WpButton(
+            testId: 'onboarding-speech-open-model-folder',
+            label: l10n.modelOpenFolder,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            icon: LucideIcons.folderOpen,
+            onPressed: () => openModelFolder(widget.modelFolder!()),
+          ),
         if (_offline)
           WpButton(
             testId: 'onboarding-speech-manual-install',

@@ -75,6 +75,24 @@ void main() {
     expect(ttfd, [('onboarding', 'ttfd', '5_10m')]);
   });
 
+  test(
+    'time to first dictation counts from a welcome held before a restart',
+    () {
+      // GR-033: the welcome of the previous process is only in the held copy.
+      final afterRestart = OnboardingTelemetry(
+        track: ({required category, required action, name}) =>
+            events.add((category, action, name)),
+        decide: ({required shareUsageStats}) {},
+        heldWelcomeAt: () => now.subtract(const Duration(minutes: 12)),
+        clock: () => now,
+      );
+      afterRestart.stepShown(OnboardingScreen.welcome);
+      afterRestart.firstDictation(OnboardingFirstDictation.ok);
+      final ttfd = events.where((e) => e.$2 == 'ttfd').toList();
+      expect(ttfd, [('onboarding', 'ttfd', '10_30m')]);
+    },
+  );
+
   test('roles send one event per selected role, none when empty', () {
     telemetry
       ..roles({OnboardingRole.legal, OnboardingRole.dev})

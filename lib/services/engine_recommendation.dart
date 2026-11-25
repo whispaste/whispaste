@@ -112,18 +112,26 @@ bool parakeetRecommendedFor(Iterable<String> languageCodes) {
   return codes.isNotEmpty && codes.every(parakeetSupportedLanguages.contains);
 }
 
-/// The languages a recommendation is made for: the chosen dictation language
-/// (`AppSettings.sttLanguageCode`, skipped while it is `'auto'`) first, then
-/// every system language Whisper writes, in the system's order. A German and
-/// Japanese speaker who dictates German still speaks Japanese. The UI locale
-/// stands in when neither names a language.
+/// The languages a recommendation is made for, the user's dictation
+/// languages: the chosen dictation language (`AppSettings.sttLanguageCode`,
+/// skipped while it is `'auto'`) first, then the favorite languages
+/// (`settings.stt.favoriteLanguages`, #1209), then every system language
+/// Whisper writes, in the system's order. A German and Japanese speaker who
+/// dictates German still speaks Japanese. The UI locale stands in when none
+/// names a language. The model library marks against the same list which
+/// models write them (#1953).
 List<String> recommendationLanguages({
   required String sttLanguageCode,
+  Iterable<String> favoriteLanguages = const [],
   required Iterable<String> systemLanguages,
   required String uiLocale,
 }) {
   final languages = {
     if (sttLanguageCode != 'auto') _normalizeLanguageCode(sttLanguageCode),
+    for (final code in favoriteLanguages)
+      if (_normalizeLanguageCode(code) case final c
+          when c.isNotEmpty && c != 'auto')
+        c,
     ...systemDictationLanguages(systemLanguages),
   };
   return languages.isEmpty

@@ -30,6 +30,7 @@ import 'onboarding_test_doubles.dart';
 
 import 'package:whispaste/services/audio_service.dart'
     show audioInputDevicesProvider;
+import '../../fixtures/telemetry_hits.dart';
 
 class _NoopHotkeyService extends HotkeyService {
   @override
@@ -56,8 +57,9 @@ void main() {
     mic = OnboardingCountingMicChecker();
     final client = MockClient((request) async {
       posts++;
-      final fields = request.bodyFields;
-      if (fields['e_a'] != null) actions.add(fields['e_a']!);
+      for (final fields in telemetryHits(request)) {
+        if (fields['e_a'] != null) actions.add(fields['e_a']!);
+      }
       return http.Response('', 204);
     });
     tester.view.physicalSize = const Size(1280, 1600);

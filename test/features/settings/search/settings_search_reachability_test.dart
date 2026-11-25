@@ -46,6 +46,11 @@ const Set<String> _renderedOnlyInState = {
   'speech-system',
   'advanced-automation-status',
   'advanced-automation-token',
+  // Only while the automation API runs (#255); token and log only with
+  // writing on.
+  'advanced-automation-write',
+  'advanced-automation-write-token',
+  'advanced-automation-write-protocol',
   'advanced-onboarding-again',
   'appearance-floating-button',
   'appearance-floating-button-wayland',
@@ -59,6 +64,8 @@ const Set<String> _renderedOnlyInState = {
   'general-review-prompt-restore',
   // Only while the "Erste Schritte" card can come back.
   'general-first-steps-restore',
+  // Only while a notice is switched off (#1852).
+  'general-muted-notice-paste-unconfirmed',
   'general-hotkey-smart-mode-target',
   'privacy-backup-status',
   'privacy-history-auto-lock',
@@ -81,7 +88,6 @@ const Set<String> _renderedOnlyInState = {
   // Linux only, under Auto-Paste (V1 Wayland); the fixture renders as macOS.
   'text-linux-always-shift-paste',
   'speech-keep-loaded-minutes',
-  'speech-parakeet',
   'text-smart-mode-key',
   'text-smart-mode-target',
   'text-smart-mode-endpoint-url',

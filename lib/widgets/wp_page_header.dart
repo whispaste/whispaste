@@ -22,7 +22,11 @@ class WpPageHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
+          // Its own node: without `container` the heading flag merged into
+          // the shell's node, and assistive tech read the whole app (title
+          // bar, sidebar, page, dock) as one heading (#1845).
           child: Semantics(
+            container: true,
             header: true,
             child: Text(title, style: WpTextStyles.pageTitle),
           ),

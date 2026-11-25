@@ -11,7 +11,6 @@ import 'package:whispaste/core/config/settings_labels.dart'
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/l10n/ltr_isolate.dart';
 import 'package:whispaste/core/recording/recording_state.dart'
     show RecordingPhase;
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
@@ -146,38 +145,17 @@ void main() {
       expect(text, isNot(contains('Ctrl+Space')));
     });
 
-    test('with a held action key the footer names the way to the buttons', () {
-      // #816: one button, one press; two buttons, a second press.
-      String footer(int buttons) => noticeFooterFor(
+    test('the footer leaves the button keys to the buttons (#1845)', () {
+      // The buttons carry their own key ("Open (F12)"); the footer names only
+      // the keys no button shows, so it stays short enough to read.
+      final footer = noticeFooterFor(
         l10n: l10n,
         phase: NoticeFooterPhase.idle,
         hotkey: 'Ctrl+Space',
         cancelKey: 'Esc',
-        actionKey: 'F12',
-        buttons: buttons,
       );
-      final idle = l10n.overlayNoticeFooterIdle('Ctrl+Space', 'Esc');
-      expect(footer(0), idle);
-      expect(
-        footer(1),
-        '${l10n.overlayNoticeFooterOneButton(ltrIsolate('F12'))} · $idle',
-      );
-      expect(
-        footer(2),
-        '${l10n.overlayNoticeFooterTwoButtons(ltrIsolate('F12'), ltrIsolate('2× F12'))} · $idle',
-      );
-      // While dictating the key is not held, so the footer does not name it.
-      expect(
-        noticeFooterFor(
-          l10n: l10n,
-          phase: NoticeFooterPhase.recording,
-          hotkey: 'Ctrl+Space',
-          cancelKey: 'Esc',
-          actionKey: 'F12',
-          buttons: 2,
-        ),
-        isNot(contains('F12')),
-      );
+      expect(footer, l10n.overlayNoticeFooterIdle('Ctrl+Space', 'Esc'));
+      expect(footer, isNot(contains('F12')));
     });
 
     test('presses of the action key map to the buttons', () {

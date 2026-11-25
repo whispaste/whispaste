@@ -20,6 +20,7 @@ import '../../../services/model_hardware_telemetry.dart';
 import '../../../services/telemetry_model_buckets.dart';
 import '../../../widgets/wp_button.dart';
 import '../widgets/wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 /// Speech-section row that runs the performance benchmark and reports it in
 /// place: progress while running (with cancel), the last result afterwards
@@ -58,34 +59,25 @@ class SttBenchmarkRow extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (run.isRunning)
-                Semantics(
-                  identifier: 'settings-benchmark-cancel',
-                  label: l10n.benchmarkCancel,
-                  button: true,
-                  child: IconButton(
-                    key: const ValueKey('settings-benchmark-cancel'),
-                    icon: const Icon(LucideIcons.x, size: WpIconSize.sm),
-                    tooltip: l10n.benchmarkCancel,
-                    onPressed: ref
-                        .read(sttBenchmarkRunProvider.notifier)
-                        .requestCancel,
-                  ),
+                WpIconButton.ghost(
+                  key: const ValueKey('settings-benchmark-cancel'),
+                  testId: 'settings-benchmark-cancel',
+                  icon: LucideIcons.x,
+                  tooltip: l10n.benchmarkCancel,
+                  onPressed: ref
+                      .read(sttBenchmarkRunProvider.notifier)
+                      .requestCancel,
                 ),
-              Semantics(
-                identifier: 'settings-benchmark-run',
-                label: l10n.qualityTierBenchmarkReRun,
-                button: true,
-                enabled: !run.isRunning,
-                child: IconButton(
-                  key: const ValueKey('settings-benchmark-run'),
-                  icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
-                  tooltip: l10n.qualityTierBenchmarkReRun,
-                  onPressed: run.isRunning
-                      ? null
-                      : () => ref
-                            .read(localSttBundleProvider.notifier)
-                            .runBenchmark(),
-                ),
+              WpIconButton.ghost(
+                key: const ValueKey('settings-benchmark-run'),
+                testId: 'settings-benchmark-run',
+                icon: LucideIcons.refreshCw,
+                tooltip: l10n.qualityTierBenchmarkReRun,
+                onPressed: run.isRunning
+                    ? null
+                    : () => ref
+                          .read(localSttBundleProvider.notifier)
+                          .runBenchmark(),
               ),
             ],
           ),

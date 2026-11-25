@@ -1,113 +1,22 @@
-/// Where the term list stops reaching the active recognition (#622): the
-/// limit is worked out per recognition, from the real token count of the
-/// loaded model (a fake counter here), never guessed.
+/// What each recognition gets of the term list (#622, #1969): the front,
+/// most used first, in whole terms, within that recognition's real limit.
 library;
 
+import 'dart:convert' show utf8;
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/services/dictionary/auto_terms.dart';
 import 'package:whispaste/services/dictionary/term_budget.dart';
+import 'package:whispaste/services/dictionary/vocabulary_terms.dart';
+import 'package:whispaste/services/stt/prompt_token_budget.dart';
+import 'package:whispaste/services/transcription/openai_transcriber.dart'
+    show openAiPrompt;
 
-/// One token per started 4 characters: enough to place a limit exactly.
-Future<int?> _fakeCount(String text) async => (text.length / 4).ceil();
-
-Future<int?> _onDevice(
-  List<String> terms, {
-  OnDeviceEngine engine = OnDeviceEngine.whisper,
-  TermTokenCounter? counter = _fakeCount,
-}) => firstLeftOutTerm(
-  terms,
-  provider: SttProviderType.onDevice,
-  engine: engine,
-  countTokens: counter,
-);
-
-/// Distinct terms of exactly 30 bytes each.
-List<String> _thirty(int n) => [
-  for (var i = 0; i < n; i++)
-    'w${i.toString().padLeft(2, '0')}'.padRight(30, 'x'),
-];
+/// One token per started 4 characters.
+Future<int> _fakeCount(String text) async => (text.length / 4).ceil();
 
 void main() {
-  group('on-device Whisper (fake counter, limit 63)', () {
-    test('a short list is used completely', () async {
-      expect(await _onDevice(['GitHub', 'npm', 'JSON']), isNull);
-    });
-
-    test('a model that goes away mid-count claims nothing', () async {
-      var calls = 0;
-      final terms = [for (var i = 0; i < 60; i++) 'term$i'];
-      expect(
-        await _onDevice(terms, counter: (t) async => ++calls == 1 ? 999 : null),
-        isNull,
-      );
-    });
-
-    test('without a loaded model nothing is claimed', () async {
-      final terms = [for (var i = 0; i < 60; i++) 'term$i'];
-      expect(await _onDevice(terms, counter: (_) async => null), isNull);
-      expect(await _onDevice(terms, counter: null), isNull);
-    });
-  });
-
-  group('Deepgram (50 terms, 500 bytes)', () {
-    Future<int?> deepgram(List<String> terms) => firstLeftOutTerm(
-      terms,
-      provider: SttProviderType.deepgram,
-      engine: OnDeviceEngine.whisper,
-    );
-
-    test('the 51st term is the first one left out', () async {
-      expect(await deepgram([for (var i = 0; i < 50; i++) 'a$i']), isNull);
-      expect(await deepgram([for (var i = 0; i < 51; i++) 'a$i']), 50);
-    });
-
-    test('a repeated term is sent once and takes no room', () async {
-      final terms = [for (var i = 0; i < 50; i++) 'a$i', 'A0', 'A1'];
-      expect(await deepgram(terms), isNull);
-    });
-
-    test('a long term past the budget is the first one reported', () async {
-      final terms = [..._thirty(16), 'y' * 40, 'z'];
-      expect(await deepgram(terms), 16);
-    });
-
-    test('the byte budget cuts before the count', () async {
-      final terms = _thirty(20);
-      expect(await deepgram(terms), 16); // 16 * 30 = 480, the 17th makes 510
-    });
-  });
-
-  group('recognitions without a limit known to the app', () {
-    final many = [for (var i = 0; i < 200; i++) 'term$i'];
-
-    test('Parakeet has no prompt channel', () async {
-      expect(await _onDevice(many, engine: OnDeviceEngine.parakeet), isNull);
-    });
-
-    test('OpenAI and the own endpoint report none', () async {
-      for (final p in [
-        SttProviderType.openAI,
-        SttProviderType.customEndpoint,
-      ]) {
-        expect(
-          await firstLeftOutTerm(
-            many,
-            provider: p,
-            engine: OnDeviceEngine.whisper,
-            countTokens: _fakeCount,
-          ),
-          isNull,
-        );
-      }
-    });
-  });
-
   group('measured with the real whisper tokenizer (large-v3-turbo, #786)', () {
-    // 26 typical German/English terms, token counts of the first n terms
-    // joined, measured with whisper.cpp v1.9.5 `whisper_tokenize` (the call
-    // the app counts with) on 2026-11-05. The counter is a lookup of these
-    // measurements, so the test pins the bisection against real BPE counts,
-    // which are not linear in the text length.
     const terms = [
       'GitHub',
       'npm',
@@ -145,33 +54,95 @@ void main() {
       109, 113, 118, 122, 125, 129, 134, 140,
     ];
 
-    Future<int?> Function(String) lookup(String sep, List<int> prefix) {
+    Future<int> Function(String) lookup(String sep, List<int> prefix) {
       final byText = {
         for (var n = 1; n <= terms.length; n++)
           terms.take(n).join(sep): prefix[n - 1],
       };
-      return (text) async => byText[text];
+      return (text) async => byText[text]!;
     }
 
-    test(
-      'comma list: 12 terms are exactly 63 tokens, the 13th is cut',
-      () async {
-        expect(await _onDevice(terms, counter: lookup(', ', commaPrefix)), 12);
-      },
-    );
+    test('comma list: the 12 leading terms (63 tokens) go in', () async {
+      final sent = await vocabularyWithinTokens(
+        terms.join(', '),
+        63,
+        lookup(', ', commaPrefix),
+      );
+      expect(vocabularyTerms(sent), terms.take(12));
+    });
 
-    test(
-      'one term per line: 10 terms fit (60), the 11th (64) is cut',
-      () async {
-        final cut = await firstLeftOutTerm(
-          terms,
-          provider: SttProviderType.onDevice,
-          engine: OnDeviceEngine.whisper,
-          style: 'one\nper line',
-          countTokens: lookup('\n', linePrefix),
-        );
-        expect(cut, 10);
-      },
-    );
+    test('one term per line: 10 terms (60 tokens) go in', () async {
+      final sent = await vocabularyWithinTokens(
+        terms.join('\n'),
+        63,
+        lookup('\n', linePrefix),
+      );
+      expect(sent, terms.take(10).join('\n'));
+    });
+  });
+
+  group('on-device Whisper keeps the most used terms, whole', () {
+    // 50 used replacements, listed least used first; the hint puts the most
+    // used first.
+    final hint = autoTermsVocabulary([
+      for (var i = 49; i >= 0; i--)
+        (
+          replacement: i.isEven ? 'Mac Studio $i' : 'Kubernetes$i',
+          usageCount: 100 - i,
+          isTerm: false,
+          changed: DateTime(2026),
+        ),
+    ]);
+
+    test('the cut keeps the top used terms inside 63 tokens', () async {
+      final sent = await vocabularyWithinTokens(hint, 63, _fakeCount);
+      final kept = vocabularyTerms(sent);
+      expect(kept, isNotEmpty);
+      expect(await _fakeCount(sent), lessThanOrEqualTo(63));
+      expect(kept.first, 'Mac Studio 0');
+      expect(kept, vocabularyTerms(hint).take(kept.length));
+    });
+
+    test('no term is handed on half cut', () async {
+      // 4 characters a token, 5 tokens: the old word-level cut kept
+      // "Kubernetes, Mac", half of "Mac Studio".
+      const list = 'Kubernetes, Mac Studio';
+      expect(
+        await truncatePromptToTokenBudget(list, 5, _fakeCount),
+        'Kubernetes, Mac',
+      );
+      expect(await vocabularyWithinTokens(list, 5, _fakeCount), 'Kubernetes');
+    });
+
+    test('without a token count only a byte-safe prefix goes', () {
+      final sent = vocabularyWithinBytes(hint, 63);
+      expect(utf8.encode(sent).length, lessThanOrEqualTo(63));
+      expect(vocabularyTerms(sent).first, 'Mac Studio 0');
+    });
+  });
+
+  group('cloud prompt (OpenAI, own endpoint)', () {
+    final long = [for (var i = 0; i < 50; i++) 'Fachbegriff-Nummer-$i'];
+
+    test('an overlong list keeps its front, within the estimate', () {
+      // whisper-1 reads only the last 224 tokens: without the cut the most
+      // used terms at the front were the ones lost.
+      final prompt = openAiPrompt(long.join(', '), 'carried context');
+      final vocab = prompt.substring(
+        0,
+        prompt.length - ' carried context'.length,
+      );
+      expect(
+        estimatedPromptTokens(vocab),
+        lessThanOrEqualTo(kCloudPromptVocabularyTokens),
+      );
+      expect(prompt, startsWith('Fachbegriff-Nummer-0, '));
+      expect(vocabularyTerms(vocab).last, startsWith('Fachbegriff-Nummer-'));
+      expect(prompt, endsWith(' carried context'));
+    });
+
+    test('a short list goes in full', () {
+      expect(openAiPrompt('GitHub, npm', null), 'GitHub, npm');
+    });
   });
 }

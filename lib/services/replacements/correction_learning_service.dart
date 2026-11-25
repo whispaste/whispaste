@@ -74,7 +74,8 @@ class CorrectionLearningService {
   /// Persists the candidates of one observed [signal]. Each candidate is
   /// counted under its own key (source and target), so repeats of the same
   /// word-level fix add up even when the surrounding sentences differ.
-  /// Candidates that duplicate an existing replacement trigger are not stored.
+  /// Candidates that duplicate an existing replacement trigger are stored for
+  /// the log but never counted as proposed.
   ///
   /// Call-sites check the "learn from corrections" setting themselves before
   /// calling this; the service has no settings dependency.
@@ -103,13 +104,14 @@ class CorrectionLearningService {
     await db.correctionObservationTransaction(() async {
       final triggers = await _existingTriggers(db);
       for (final pair in pairs) {
-        if (isDuplicateCorrectionCandidate(
+        // A pair an existing replacement already covers is still logged
+        // (#1969): the log names it "already a replacement" instead of the
+        // correction vanishing without a trace. It is never proposed.
+        final covered = isDuplicateCorrectionCandidate(
           pair,
           existingTriggers: triggers,
           existingTerms: const {},
-        )) {
-          continue;
-        }
+        );
         final key = normalizeCorrectionKey(pair.sourceText, pair.targetText);
         final row = await db.readCorrectionObservation(key);
         final existing = row == null ? null : _observationFromRow(row);
@@ -133,7 +135,8 @@ class CorrectionLearningService {
           firstSeenAt: row?.firstSeenAt ?? signal.timestamp,
           lastSeenAt: signal.timestamp,
         );
-        if (outcome.observation.status == CorrectionObservationStatus.pending &&
+        if (!covered &&
+            outcome.observation.status == CorrectionObservationStatus.pending &&
             outcome.observation.occurrenceCount >=
                 correctionCandidateThreshold) {
           proposed++;

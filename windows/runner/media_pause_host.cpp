@@ -3,10 +3,14 @@
 // <unknwn.h> must precede the C++/WinRT headers so `as<>` works.
 #include <unknwn.h>
 
+#include <audiopolicy.h>
+#include <endpointvolume.h>
 #include <flutter/standard_method_codec.h>
+#include <mmdeviceapi.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
+#include <winrt/base.h>
 
 #include <functional>
 #include <mutex>
@@ -42,6 +46,121 @@ void PostToPlatformThread(HWND window, std::function<void()> work) {
   }
 }
 
+
+std::string Utf8(const wchar_t* wide) {
+  if (wide == nullptr) return std::string();
+  const int size = ::WideCharToMultiByte(CP_UTF8, 0, wide, -1, nullptr, 0,
+                                         nullptr, nullptr);
+  if (size <= 1) return std::string();
+  std::string out(static_cast<size_t>(size - 1), '\0');
+  ::WideCharToMultiByte(CP_UTF8, 0, wide, -1, out.data(), size, nullptr,
+                        nullptr);
+  return out;
+}
+
+// One audio session of the default playback device that is not WhisPaste's
+// own and not the system sounds.
+struct ForeignSession {
+  std::string id;  // session instance identifier (includes the process)
+  winrt::com_ptr<ISimpleAudioVolume> volume;
+  bool audible = false;
+};
+
+// Sessions of the default render endpoint (ducking, #1511). Throws
+// winrt::hresult_error when there is no endpoint.
+std::vector<ForeignSession> ForeignSessions() {
+  auto enumerator = winrt::create_instance<IMMDeviceEnumerator>(
+      __uuidof(MMDeviceEnumerator));
+  winrt::com_ptr<IMMDevice> device;
+  winrt::check_hresult(
+      enumerator->GetDefaultAudioEndpoint(eRender, eConsole, device.put()));
+  winrt::com_ptr<IAudioSessionManager2> manager;
+  winrt::check_hresult(device->Activate(__uuidof(IAudioSessionManager2),
+                                        CLSCTX_ALL, nullptr,
+                                        manager.put_void()));
+  winrt::com_ptr<IAudioSessionEnumerator> sessions;
+  winrt::check_hresult(manager->GetSessionEnumerator(sessions.put()));
+  int count = 0;
+  winrt::check_hresult(sessions->GetCount(&count));
+  const DWORD own = ::GetCurrentProcessId();
+  std::vector<ForeignSession> out;
+  for (int i = 0; i < count; ++i) {
+    winrt::com_ptr<IAudioSessionControl> control;
+    if (FAILED(sessions->GetSession(i, control.put()))) continue;
+    auto control2 = control.try_as<IAudioSessionControl2>();
+    if (!control2 || control2->IsSystemSoundsSession() == S_OK) continue;
+    DWORD pid = 0;
+    if (FAILED(control2->GetProcessId(&pid)) || pid == own || pid == 0) {
+      continue;
+    }
+    LPWSTR raw_id = nullptr;
+    if (FAILED(control2->GetSessionInstanceIdentifier(&raw_id))) continue;
+    ForeignSession session;
+    session.id = Utf8(raw_id);
+    ::CoTaskMemFree(raw_id);
+    session.volume = control.try_as<ISimpleAudioVolume>();
+    if (!session.volume || session.id.empty()) continue;
+    AudioSessionState state = AudioSessionStateInactive;
+    BOOL muted = FALSE;
+    float peak = 0.0f;
+    auto meter = control.try_as<IAudioMeterInformation>();
+    // Audible: an active stream that is not muted and actually sends sound.
+    // An open but silent stream (a paused browser tab) is left alone.
+    session.audible = SUCCEEDED(control->GetState(&state)) &&
+                      state == AudioSessionStateActive &&
+                      SUCCEEDED(session.volume->GetMute(&muted)) && !muted &&
+                      meter && SUCCEEDED(meter->GetPeakValue(&peak)) &&
+                      peak > 0.0f;
+    out.push_back(std::move(session));
+  }
+  return out;
+}
+
+EncodableValue PlayingVolumes() {
+  flutter::EncodableList list;
+  for (auto const& session : ForeignSessions()) {
+    if (!session.audible) continue;
+    float level = 0.0f;
+    if (FAILED(session.volume->GetMasterVolume(&level))) continue;
+    list.push_back(EncodableValue(flutter::EncodableMap{
+        {EncodableValue("id"), EncodableValue(session.id)},
+        {EncodableValue("levels"),
+         EncodableValue(flutter::EncodableList{
+             EncodableValue(static_cast<double>(level))})},
+    }));
+  }
+  return EncodableValue(list);
+}
+
+// Sets each listed session to its level; a session that ended is skipped.
+// The float -> double -> float round trip is exact, so a restore puts back
+// the very value read before.
+void SetVolumes(const EncodableValue* arguments) {
+  const auto* targets =
+      arguments ? std::get_if<flutter::EncodableList>(arguments) : nullptr;
+  if (targets == nullptr || targets->empty()) return;
+  auto sessions = ForeignSessions();
+  for (auto const& entry : *targets) {
+    const auto* map = std::get_if<flutter::EncodableMap>(&entry);
+    if (map == nullptr) continue;
+    auto id_it = map->find(EncodableValue("id"));
+    auto levels_it = map->find(EncodableValue("levels"));
+    if (id_it == map->end() || levels_it == map->end()) continue;
+    const auto* id = std::get_if<std::string>(&id_it->second);
+    const auto* levels = std::get_if<flutter::EncodableList>(&levels_it->second);
+    if (id == nullptr || levels == nullptr || levels->empty()) continue;
+    const auto* level = std::get_if<double>(&levels->front());
+    if (level == nullptr) continue;
+    for (auto const& session : sessions) {
+      if (session.id != *id) continue;
+      float value = static_cast<float>(*level);
+      if (value < 0.0f) value = 0.0f;
+      if (value > 1.0f) value = 1.0f;
+      session.volume->SetMasterVolume(value, nullptr);
+    }
+  }
+}
+
 }  // namespace
 
 // Sessions this host paused; guarded because pause and resume run on worker
@@ -63,6 +182,45 @@ MediaPauseHost::MediaPauseHost(flutter::BinaryMessenger* messenger, HWND window)
           std::unique_ptr<Result> raw_result) {
         SharedResult result(std::move(raw_result));
         const std::string method = call.method_name();
+        if (method == "duckAvailable" || method == "playingVolumes" ||
+            method == "setVolumes") {
+          std::unique_ptr<EncodableValue> args;
+          if (call.arguments()) {
+            args = std::make_unique<EncodableValue>(*call.arguments());
+          }
+          std::thread([window, result, method,
+                       args = std::shared_ptr<EncodableValue>(
+                           std::move(args))] {
+            EncodableValue reply;
+            try {
+              winrt::init_apartment(winrt::apartment_type::multi_threaded);
+              if (method == "duckAvailable") {
+                ForeignSessions();
+                reply = EncodableValue(true);
+              } else if (method == "playingVolumes") {
+                reply = PlayingVolumes();
+              } else {
+                SetVolumes(args.get());
+              }
+            } catch (const winrt::hresult_error&) {
+              if (method == "duckAvailable") {
+                reply = EncodableValue(false);
+              } else if (method == "setVolumes") {
+                // Keep the journal so the next start restores (#1511).
+                PostToPlatformThread(window, [result] {
+                  result->Error("unavailable", "no playback device");
+                });
+                return;
+              } else {
+                reply = EncodableValue(flutter::EncodableList{});
+              }
+            }
+            PostToPlatformThread(window, [result, reply] {
+              result->Success(reply);
+            });
+          }).detach();
+          return;
+        }
         if (method != "isAvailable" && method != "pauseIfPlaying" &&
             method != "resumePaused") {
           result->NotImplemented();

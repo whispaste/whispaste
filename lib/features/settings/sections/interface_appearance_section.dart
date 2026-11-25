@@ -6,9 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/editor/editor_text_view.dart';
+import '../../../widgets/editor_text_view_scope.dart';
+import '../../../widgets/searchable_list_page.dart' show showWpListMenu;
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/spell/spell_check.dart';
+import '../../../widgets/editor_spell_check.dart' show spellLanguageLabel;
 import '../../../services/clipboard_history/clipboard_app_exclusion.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
@@ -24,9 +29,20 @@ class InterfaceAppearanceSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final iface = settings.interface_;
+    final textView =
+        ref.watch(editorTextViewProvider).value ?? EditorTextView.standard;
+    // `null` while the system is still asked; empty = no checker (#670).
+    final spellLanguages = ref.watch(spellLanguagesProvider).value;
+    final spellItems = [
+      spellCheckLanguageAuto,
+      ...?spellLanguages,
+      // A choice imported from another system stays visible as it is.
+      if (iface.spellCheckLanguage != spellCheckLanguageAuto &&
+          !(spellLanguages ?? const []).contains(iface.spellCheckLanguage))
+        iface.spellCheckLanguage,
+    ];
 
     return WpSettingsGroup(
-      heading: l10n.settingsAppearance,
       children: [
         SettingsRowFrame(
           rowId: 'appearance-mode',
@@ -45,6 +61,70 @@ class InterfaceAppearanceSection extends ConsumerWidget {
             ),
           ),
         ),
+        WpSettingsRow(
+          rowId: 'appearance-editor-text-view',
+          title: l10n.editorTextViewMenu,
+          subtitle: l10n.editorTextViewCurrentSize(textView.textSize),
+          trailing: Builder(
+            builder: (context) => WpButton(
+              testId: 'settings-editor-text-view',
+              label: l10n.editorTextViewMenu,
+              variant: WpButtonVariant.secondary,
+              onPressed: () =>
+                  showWpListMenu(context, editorTextViewMenuActions(context)),
+            ),
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-spell-check',
+          title: l10n.settingsSpellCheck,
+          subtitle: spellLanguages != null && spellLanguages.isEmpty
+              ? l10n.settingsSpellCheckUnavailable
+              : l10n.settingsSpellCheckSubtitle,
+          switchNamesRow: true,
+          trailing: settingsToggle(
+            label: l10n.settingsSpellCheck,
+            testId: 'settings-spell-check-toggle',
+            value: iface.spellCheckEnabled,
+            onChanged: (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWithSections(
+                    interface_: s.interface_.copyWith(spellCheckEnabled: v),
+                  ),
+                ),
+          ),
+        ),
+        if (iface.spellCheckEnabled)
+          WpSettingsRow(
+            rowId: 'appearance-spell-check-language',
+            title: l10n.settingsSpellCheckLanguage,
+            subtitle: l10n.settingsSpellCheckLanguageSubtitle,
+            indent: true,
+            trailing: settingsDropdown(
+              context: context,
+              testId: 'settings-spell-check-language',
+              value: iface.spellCheckLanguage,
+              items: spellItems,
+              labels: [
+                for (final tag in spellItems)
+                  tag == spellCheckLanguageAuto
+                      ? l10n.settingsSpellCheckLanguageAuto
+                      : spellLanguageLabel(context, tag),
+              ],
+              onChanged: spellLanguages == null || spellLanguages.isEmpty
+                  ? null
+                  : (v) => ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWithSections(
+                            interface_: s.interface_.copyWith(
+                              spellCheckLanguage: v ?? spellCheckLanguageAuto,
+                            ),
+                          ),
+                        ),
+            ),
+          ),
         WpSettingsRow(
           rowId: 'appearance-backend-utilization',
           title: l10n.settingsShowBackendUtilization,

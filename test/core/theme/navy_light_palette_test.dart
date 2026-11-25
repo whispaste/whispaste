@@ -27,8 +27,6 @@ final _fields = <(String, Object? Function(WpThemeColors))>[
   ('onAction', (c) => c.onAction),
   ('accentSubtle', (c) => c.accentSubtle),
   ('accentChipFill', (c) => c.accentChipFill),
-  ('accentChipFillHover', (c) => c.accentChipFillHover),
-  ('accentMiniTagFill', (c) => c.accentMiniTagFill),
   ('accentBorder30', (c) => c.accentBorder30),
   ('accentButtonFill', (c) => c.accentButtonFill),
   ('accentActiveFill', (c) => c.accentActiveFill),
@@ -86,6 +84,6 @@ final _fields = <(String, Object? Function(WpThemeColors))>[
 void main() {
   test('every WpThemeColors field is listed once', () {
     expect(_fields.map((f) => f.$1).toSet(), hasLength(_fields.length));
-    expect(_fields, hasLength(76));
+    expect(_fields, hasLength(74));
   });
 }

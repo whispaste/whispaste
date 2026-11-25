@@ -38,6 +38,13 @@ class OverviewRowsCard extends StatelessWidget {
   final List<Widget> rows;
 
   /// The empty state shown instead of the rows, or null when there are rows.
+  ///
+  /// Deliberately not a `WpEmptyState` (#1757): the overview is a dashboard
+  /// of several short cards, and an empty card says so in one row-sized
+  /// sentence with its one action inline (a text link or the hotkey caps).
+  /// The centred icon-title-hint block would push every card below it out of
+  /// view. Both cards use the same sentence look ([WpTextStyles.rowTitle]
+  /// plus [WpTextLink]).
   final Widget? empty;
 
   @override
@@ -57,21 +64,17 @@ class OverviewRowsCard extends StatelessWidget {
       bodyPadding: empty != null ? null : const EdgeInsets.all(WpSpacing.xs),
       child:
           empty ??
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final (i, row) in rows.indexed) ...[
-                if (i > 0)
-                  const WpRowDivider(
-                    inset: EdgeInsets.symmetric(horizontal: WpSpacing.md),
-                  ),
-                row,
-              ],
-            ],
+          WpDividedColumn(
+            inset: const EdgeInsets.symmetric(horizontal: WpSpacing.md),
+            children: rows,
           ),
     );
   }
 }
+
+/// Below this width (unscaled, it grows with the text size) an
+/// [OverviewRow] takes its two-line form, as in the side column (#1970).
+const double kOverviewRowCompactBelow = 400;
 
 /// One row of an [OverviewRowsCard]: a time column that grows with the text
 /// size, a leading tile, the text (clicking it opens the item, where people
@@ -132,17 +135,15 @@ class _OverviewRowState extends State<OverviewRow> {
             horizontal: WpSpacing.md,
             vertical: WpSpacing.xs,
           ),
-          child: Row(
-            children: [
-              // Grows with the text so the time never breaks at its colon.
-              SizedBox(
-                width: MediaQuery.textScalerOf(context).scale(widget.timeWidth),
-                child: Text(widget.time, style: meta),
-              ),
-              const SizedBox(width: WpSpacing.md),
-              widget.leading,
-              const SizedBox(width: WpSpacing.md),
-              Expanded(
+          // A card moved into the narrow side column (#1970) shows its rows
+          // in two lines: the time joins the meta line and the actions go
+          // below, so the text keeps a readable width at any text size.
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final scaler = MediaQuery.textScalerOf(context);
+              final compact =
+                  constraints.maxWidth < scaler.scale(kOverviewRowCompactBelow);
+              final open = Expanded(
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
@@ -157,19 +158,63 @@ class _OverviewRowState extends State<OverviewRow> {
                           overflow: TextOverflow.ellipsis,
                           style: WpTextStyles.rowTitle,
                         ),
-                        if (subtitle != null && subtitle.isNotEmpty)
+                        if (compact)
+                          Text(
+                            [
+                              widget.time,
+                              if (subtitle != null && subtitle.isNotEmpty)
+                                subtitle,
+                            ].join(' · '),
+                            style: meta,
+                          )
+                        else if (subtitle != null && subtitle.isNotEmpty)
                           Text(subtitle, style: meta),
                       ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: WpSpacing.md),
-              for (final (i, action) in widget.actions.indexed) ...[
-                if (i > 0) const SizedBox(width: WpSpacing.xs),
-                action,
-              ],
-            ],
+              );
+              final actions = [
+                for (final (i, action) in widget.actions.indexed) ...[
+                  if (i > 0) const SizedBox(width: WpSpacing.xs),
+                  action,
+                ],
+              ];
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        widget.leading,
+                        const SizedBox(width: WpSpacing.md),
+                        open,
+                      ],
+                    ),
+                    if (actions.isNotEmpty)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: actions,
+                      ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  // Grows with the text so the time never breaks at its colon.
+                  SizedBox(
+                    width: scaler.scale(widget.timeWidth),
+                    child: Text(widget.time, style: meta),
+                  ),
+                  const SizedBox(width: WpSpacing.md),
+                  widget.leading,
+                  const SizedBox(width: WpSpacing.md),
+                  open,
+                  const SizedBox(width: WpSpacing.md),
+                  ...actions,
+                ],
+              );
+            },
           ),
         ),
       ),

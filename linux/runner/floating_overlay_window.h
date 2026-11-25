@@ -17,9 +17,17 @@ constexpr int kOverlayMiniW = 166;
 constexpr int kOverlayMiniH = 50;
 constexpr int kOverlayNanoW = 104;
 constexpr int kOverlayNanoH = 40;
-// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
+// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSizeFor. The
+// card grows with its content (#1845): its height arrives with every
+// snapshot as `noticeHeight`; 164 is the smallest card.
 constexpr int kOverlayNoticeW = 346;
-constexpr int kOverlayNoticeH = 164;
+constexpr int kOverlayNoticeMinH = 164;
+
+// Current notice-card window height, set from each snapshot.
+inline int& OverlayNoticeH() {
+  static int height = kOverlayNoticeMinH;
+  return height;
+}
 
 // Logical shell size for a size class ("normal" | "compact" | "mini" | "nano",
 // mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
@@ -35,7 +43,7 @@ inline int OverlayLogicalH(const std::string& size_class) {
   if (size_class == "compact") return kOverlayCompactH;
   if (size_class == "mini") return kOverlayMiniH;
   if (size_class == "nano") return kOverlayNanoH;
-  if (size_class == "notice") return kOverlayNoticeH;
+  if (size_class == "notice") return OverlayNoticeH();
   return kOverlayNormalH;
 }
 
@@ -103,6 +111,24 @@ class FloatingOverlayWindow {
   // before Create() or after Destroy().
   GtkWidget* GetGtkWindow() const { return window_; }
 
+  // Whether this session lets the overlay take the keyboard focus for the
+  // write preview's edit field and confirm its return (#254, see
+  // overlay_edit_focus.h). Plain X11 only; false before Create().
+  bool EditFocusSupported() const {
+    return window_ != nullptr && SessionSupportsEditFocus();
+  }
+
+  // The same answer before any overlay exists (the type the shell gets is
+  // fixed per session, see positioned_window_type.h).
+  static bool SessionSupportsEditFocus();
+
+  // Turns the edit focus on or off (#254, D13). On: the shell accepts focus
+  // and is activated through the WM, so typing reaches the field. Off: it
+  // stops accepting focus again and, if it still holds the focus (Esc, a
+  // closed card), the window active before gets it back. A no-op where
+  // EditFocusSupported() is false.
+  void SetEditFocus(bool focus);
+
   // Callback fired from the configure-event signal whenever the window's
   // position or size changes (user drag or programmatic move).
   // x, y are root-window coordinates of the window's top-left corner.
@@ -117,6 +143,11 @@ class FloatingOverlayWindow {
 
   // Current size class; applied in Create() and on SetSizeClass().
   std::string size_class_ = "normal";
+
+  // Edit focus (#254): on while the edit field is open; the window that was
+  // active when it came on (X11 XID, 0 = none).
+  bool edit_focus_ = false;
+  unsigned long edit_focus_previous_ = 0;
 
   OnMovedCallback on_moved_cb_ = nullptr;
   void* on_moved_user_data_ = nullptr;

@@ -17,6 +17,11 @@ final _forbidden = <String, RegExp>{
   'пожертвование (ru)': RegExp('пожертв', caseSensitive: false),
   'תרומה (he)': RegExp('תרומ'),
   'תורם (he)': RegExp('תורם'),
+  // Whole words only, so "donne", "données" and "dont" stay allowed.
+  'don (fr)': RegExp(r"(?<!\p{L})dons?(?![\p{L}'’])", unicode: true),
+  'donazione (it)': RegExp('donazion', caseSensitive: false),
+  'donare (it)': RegExp(r'\bdonar[ei]\b', caseSensitive: false),
+  '捐 (zh)': RegExp('捐'),
 };
 
 void _collectStrings(Object? node, void Function(String) onString) {

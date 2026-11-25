@@ -135,7 +135,9 @@ class DriftRecordingStore implements RecordingStore {
         timestamp: now,
         model: input.modelId,
         isLocal: input.isLocal,
-        durationSec: input.audioDuration.inSeconds.toDouble(),
+        // Milliseconds, not whole seconds: short dictations rounded down to
+        // 0 s made the words-per-minute figure explode (#1845).
+        durationSec: input.audioDuration.inMilliseconds / 1000,
         processingDurationSec: input.processingDurationSec.toDouble(),
         wordCount: input.wordCount,
         costUsd: 0,
@@ -144,7 +146,9 @@ class DriftRecordingStore implements RecordingStore {
         rawWordCount: input.originalTranscript == null
             ? input.wordCount
             : computeWordCountFast(input.originalTranscript!),
-        transformed: input.originalTranscript != null,
+        // Every dictation carries its cleaned original; only a text that
+        // differs from it was reworked (#1845).
+        transformed: isReworked(input.originalTranscript, processedTranscript),
       );
     }
 

@@ -18,7 +18,7 @@ GNOME-Runtime geprüft (beim ersten Flatpak-Build prüfen).
 | Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⛔ in dieser Form nicht einreichbar (App-ID, Build aus Quellcode, KI-Richtlinie von Flathub) — Befunde: `flatpak/README.md` |
 | AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
 | `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in der Release-Pipeline gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
-| Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ Manifest auf 1.5.1, Name `whispaste` nicht registriert, noch kein Build (test-lab `ubu` ist ein LXC-Container ohne snapd) — Runbook: `snap/README.md` |
+| Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ Name registriert; Revision 1 (1.5.1) wartet auf uinput-Freigabe. Manifest 1.5.2/core26 vorbereitet; noch kein öffentlicher Kanal — Runbook: `snap/README.md` |
 | GNOME-Shell-Fokus-Erweiterung (optional) | `packaging/linux/gnome-shell-extension/` + `packaging/linux/install-gnome-extension.sh` | Linux, GNOME 45–50 | ✅ im `.deb` (deaktiviert) und im Linux-Tarball; EGO-Zip: `packaging/linux/make-gnome-extension-zip.sh` (vorbereitet, **nicht eingereicht**). AppImage und Snap: kein Installationsweg dokumentiert, die Erweiterung ist dort nicht geprüft (Laufzeitcheck offen) |
 
 > **Flatpak caveat:** libFLAC ships inside the bundle (#84); whether the GNOME 50 runtime ships libopusfile is not verified. Until it is, voice-note import (Ogg/Opus, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
@@ -141,7 +141,7 @@ Onboarding-Hinweis wählt den Text nach dem erkannten Format
 | `.deb` / nativ | erst nach Zustimmung | im Onboarding bzw. in den Einstellungen „Freigeben“ und Administratorpasswort (polkit-Aktion `de.whispaste.uinput.manage`, Hilfsprogramm `/usr/libexec/whispaste/uinput-access`). „Freigabe entfernen“ nimmt sie zurück, die Deinstallation ebenfalls (`prerm`) |
 | Tarball | erst nach Zustimmung | `sudo ./install-uinput-rule.sh`, zurück mit `sudo ./uninstall-uinput-rule.sh` |
 | Flatpak | über `--device=all` | udev-Regel `71-whispaste-uinput.rules` auf dem Host, Befehl kopierbar im Onboarding (Administratorrechte, sudo). WhisPaste selbst liest keine Eingabegeräte. Mit `--device=all` sind `/dev/input/*` in der Sandbox aber sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen. Mitglieder der Gruppe `input` können außerdem Tastatureingaben lesen und virtuelle Eingaben erzeugen. Wer das nicht möchte: Auto-Paste aus lassen, Text von Hand einfügen |
-| Snap | braucht die Schnittstelle `uinput` | einmal `sudo snap connect whispaste:uinput`, zurück mit `sudo snap disconnect whispaste:uinput` (die Auto-Paste-Karte in den Einstellungen zeigt den Befehl kopierbar) |
+| Snap | braucht die Schnittstelle `uinput` | Schnittstelle verbinden **und** Host-Zugriff auf `/dev/uinput` sicherstellen; `sudo snap connect whispaste:uinput`, zurück mit `sudo snap disconnect whispaste:uinput` (die Auto-Paste-Karte in den Einstellungen zeigt den Befehl kopierbar) |
 | AppImage | braucht Zugriff auf `/dev/uinput` | udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger`. Der Befehl erscheint kopierbar im Onboarding, erst nach der Erklärung. Die Befehle brauchen **Administratorrechte** (sudo). Zurücknehmen: Die Auto-Paste-Karte in den Einstellungen zeigt den Entfernen-Befehl kopierbar, solange die Regel liegt (ohne Helfer gibt es keinen Knopf); er löscht die Regel und entzieht die Sitzungs-ACL (`kLinuxUinputRemoveCommand`). Wer das AppImage löscht, ohne vorher zu entfernen, lässt die Regel zurück |
 
 Nach dem Entfernen endet Auto-Paste sofort, ohne Neustart: Die laufende App prüft den
@@ -203,8 +203,8 @@ beiden Runbooks.
 Vierter Linux-Kanal laut PRD §8.3 (Snap zuletzt). Das `snap/snapcraft.yaml`
 stagt — wie Flatpak/AppImage/`.deb` — das fertige Linux-x86_64-Release-Bundle
 des `build-linux`-Jobs (kein Flutter-Rebuild); die `gnome`-Extension verdrahtet
-die GTK/GNOME-Laufzeit darum. **Strict** Confinement (Store-auto-review-
-freundlich); die Plugs decken Display/Clipboard (`wayland`/`x11`/`desktop`/
+die GTK/GNOME-Laufzeit darum. **Strict** Confinement; `uinput` benötigt eine manuelle Store-Freigabe
+([Anfrage](https://forum.snapcraft.io/t/54267)). die Plugs decken Display/Clipboard (`wayland`/`x11`/`desktop`/
 `desktop-legacy`), Hotkey (`unity7`), Audio (`audio-record`/`audio-playback`)
 und den Netzwerk-Self-Download (`network`) ab. Der Self-Download-Schreibpfad
 funktioniert unter strict Confinement, weil snapd `$XDG_CONFIG_HOME` auf das

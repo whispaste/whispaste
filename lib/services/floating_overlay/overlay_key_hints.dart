@@ -14,20 +14,21 @@ import '../../core/theme/overlay_design_spec.dart'
 /// preset ink, dimmed only as far as the 3:1 floor allows (see [inkFor]).
 @immutable
 class OverlayKeyHints {
-  const OverlayKeyHints({required this.stop, this.cancel});
+  const OverlayKeyHints({this.stop, this.cancel});
 
-  /// Restores the hints from their snapshot strings; null when no stop hint
-  /// was sent, which is how the snapshot says "no hints".
+  /// Restores the hints from their snapshot strings; null when neither hint
+  /// was sent, which is how the snapshot says "no hints". An empty string is
+  /// the same as a missing one.
   static OverlayKeyHints? fromStrings({String? stop, String? cancel}) {
-    if (stop == null || stop.isEmpty) return null;
-    return OverlayKeyHints(
-      stop: stop,
-      cancel: (cancel == null || cancel.isEmpty) ? null : cancel,
-    );
+    final s = (stop == null || stop.isEmpty) ? null : stop;
+    final c = (cancel == null || cancel.isEmpty) ? null : cancel;
+    if (s == null && c == null) return null;
+    return OverlayKeyHints(stop: s, cancel: c);
   }
 
-  /// The active dictation hotkey as shown to the user, e.g. `⌥ Space`.
-  final String stop;
+  /// The active dictation hotkey as shown to the user, e.g. `⌥ Space`. Null
+  /// hides the stop hint once the hotkey is learned (overlay E).
+  final String? stop;
 
   /// The cancel key label, e.g. `Esc`. Null hides the cancel hint, for
   /// example when the cancel glyph itself is switched off.
@@ -55,11 +56,13 @@ class OverlayKeyHints {
   }) => size == OverlaySizeVariant.normal && live;
 
   /// Builds the hints for a live recording, or null when they do not show.
-  /// [cancelLabel] is passed only when the cancel glyph is shown.
+  /// [stopLabel] is passed only while the stop hint is not learned,
+  /// [cancelLabel] only when the cancel glyph is shown and its key not
+  /// learned.
   static OverlayKeyHints? forRecording({
     required OverlaySizeVariant size,
     required bool live,
-    required String stopLabel,
+    String? stopLabel,
     String? cancelLabel,
   }) {
     if (!showsFor(size: size, live: live)) return null;

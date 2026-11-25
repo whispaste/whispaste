@@ -30,6 +30,7 @@ const Map<SettingsArea, IconData> _kSettingsAreaIcons = {
   SettingsArea.shortcuts: LucideIcons.keyboard,
   SettingsArea.recording: LucideIcons.mic,
   SettingsArea.speech: LucideIcons.audioLines,
+  SettingsArea.models: LucideIcons.boxes,
   SettingsArea.textInsert: LucideIcons.textCursorInput,
   SettingsArea.profiles: LucideIcons.layers,
   SettingsArea.privacy: LucideIcons.shieldCheck,
@@ -46,6 +47,7 @@ final Map<SettingsArea, String Function(L10n)> _kSettingsAreaLabels = {
   SettingsArea.shortcuts: (l) => l.settingsAreaShortcuts,
   SettingsArea.recording: (l) => l.settingsAreaRecording,
   SettingsArea.speech: (l) => l.settingsAreaSpeech,
+  SettingsArea.models: (l) => l.settingsAreaModels,
   SettingsArea.textInsert: (l) => l.settingsAreaTextInsert,
   SettingsArea.profiles: (l) => l.settingsAreaProfiles,
   SettingsArea.privacy: (l) => l.settingsAreaPrivacy,
@@ -212,6 +214,10 @@ class _SettingsNavRowState extends State<_SettingsNavRow> {
       button: true,
       selected: widget.selected,
       label: widget.label,
+      onTap: widget.onTap,
+      // The visible text below is the same name; without the exclusion it
+      // was appended and assistive tech read "Allgemein Allgemein" (#1916).
+      excludeSemantics: true,
       child: Focus(
         onKeyEvent: _onKey,
         onFocusChange: (f) => setState(() => _focused = f),

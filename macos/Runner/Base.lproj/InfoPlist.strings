@@ -1,3 +1,4 @@
 /* Permission reasons shown by macOS (Info.plist keys), per app language. */
 "NSMicrophoneUsageDescription" = "WhisPaste needs microphone access for speech-to-text dictation.";
-"NSAppleEventsUsageDescription" = "WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable.";
+"NSAppleEventsUsageDescription" = "WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable, and to pause Music or Spotify while you dictate.";
+"NSContactsUsageDescription" = "WhisPaste reads only the names and companies of your contacts, after you agree in the app, so that dictation spells them correctly. They stay on this Mac.";

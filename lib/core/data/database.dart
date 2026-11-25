@@ -38,11 +38,13 @@ import '../theme/persisted_appearance.dart';
 import '../config/data_key_store.dart';
 import '../config/secure_access_gate.dart';
 import 'content_metadata_index.dart';
+import 'content_search_query.dart';
 import 'editor_view_state.dart';
 import 'index_maintenance.dart';
 import 'history_backups.dart';
 import 'history_encryption.dart';
 import 'history_query.dart';
+import 'history_set_aside.dart';
 import 'instance_write_gate.dart';
 import 'sqlite_copy_check.dart';
 import 'note_asset_storage.dart';
@@ -54,7 +56,9 @@ import 'tables.dart';
 import '../utils/word_count.dart';
 import 'database_too_new_exception.dart';
 import 'database_upgrade_interrupted_exception.dart';
+import 'encryption_preference.dart';
 
+export 'content_search_query.dart' show ContentSearchSpec;
 export 'database_too_new_exception.dart';
 export 'database_upgrade_interrupted_exception.dart';
 export 'history_query.dart'
@@ -100,7 +104,7 @@ List<OrderClauseGenerator<T>> _userOrder<T extends Table>(
 ];
 
 /// Schema version of this build; a file stored below it is upgraded on open.
-const int historySchemaVersion = 44;
+const int historySchemaVersion = 48;
 
 @DriftDatabase(
   tables: [
@@ -117,6 +121,9 @@ const int historySchemaVersion = 44;
     SnippetFields,
     Notes,
     NoteTags,
+    SnippetTags,
+    NoteFolders,
+    ContactNameGroups,
     NoteVersions,
     EntryVersions,
     ReprocessedVersions,
@@ -459,6 +466,29 @@ class HistoryDatabase extends _$HistoryDatabase {
               await m.createTable(reprocessedVersions);
             }
           }
+          // v45: archive for notes (issue #656). Additive: one boolean
+          // column, every existing note stays active.
+          if (from < 45) {
+            await _addNoteArchivedColumn();
+          }
+          // v46: tags for Textbausteine (issue #662). Additive: one new
+          // link table, every existing snippet starts without tags.
+          if (from < 46) {
+            if (!await _tableExists('snippet_tags')) {
+              await m.createTable(snippetTags);
+            }
+          }
+          // v47: folders for notes (issue #659). Additive: one new table and
+          // one nullable column, every existing note stays at the top level.
+          if (from < 47) {
+            await _ensureNoteFolderSchema();
+          }
+          // v48: contact names in the dictionary (issue #2036). Additive:
+          // one new table and one nullable column, every existing entry
+          // stays outside any import group.
+          if (from < 48) {
+            await _ensureContactGroupSchema();
+          }
           // Opening repairs must roll back together with the schema steps.
           await _prepareOpen();
         }).onError<SqliteException>(
@@ -514,8 +544,20 @@ class HistoryDatabase extends _$HistoryDatabase {
     await _reconcileGoSchema();
     // Ensure indexes on entry_tags for fast tag joins.
     await _ensureEntryTagIndexes();
+    // A file stamped v44 by a parallel branch may still lack the notes
+    // archive column (PRAGMA-checked, cheap).
+    await _addNoteArchivedColumn();
     // Ensure indexes on notes/note_tags for fast sort/tag joins.
     await _ensureNotesIndexes();
+    // A file stamped v45 by a parallel branch may still lack the snippet
+    // tag links (#662); the indexes keep the tag joins fast.
+    await _ensureSnippetTagSchema();
+    // A file stamped v46 by a parallel branch may still lack the note
+    // folders (#659).
+    await _ensureNoteFolderSchema();
+    // A file stamped v47 by a parallel branch may still lack the contact
+    // name groups (#2036).
+    await _ensureContactGroupSchema();
     // Ensure index on history_entries for fast active/trash/archive sort.
     await _ensureHistoryEntriesIndexes();
     // Ensure index on entry_notes for fast per-entry "Anmerkung" lookups.
@@ -925,6 +967,15 @@ class HistoryDatabase extends _$HistoryDatabase {
     await _addNullableColumns('snippets', ['deleted_at'], type: 'INTEGER');
   }
 
+  /// v45: `archived` on `notes`. Idempotent: added only when missing.
+  Future<void> _addNoteArchivedColumn() async {
+    if (await _tableHasColumn('notes', 'archived')) return;
+    await customStatement(
+      'ALTER TABLE notes ADD COLUMN archived INTEGER NOT NULL '
+      'DEFAULT 0 CHECK (archived IN (0, 1))',
+    );
+  }
+
   /// v39: `use_count` and `last_used_at` on `snippets`. Idempotent: each column
   /// is added only when missing, so a repeated upgrade does not fail.
   Future<void> _addSnippetUsageColumns() async {
@@ -1288,13 +1339,6 @@ class HistoryDatabase extends _$HistoryDatabase {
         );
       }
     });
-  }
-
-  /// Sets the dictionary favourite flag of one replacement entry.
-  Future<void> setReplacementFavourite(String id, {required bool value}) {
-    return (update(textReplacements)..where((t) => t.id.equals(id))).write(
-      TextReplacementsCompanion(isFavorite: Value(value)),
-    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1689,6 +1733,48 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
   }
 
+  /// Creates `snippet_tags` when missing and its lookup indexes (#662).
+  /// Idempotent, runs on every open.
+  Future<void> _ensureSnippetTagSchema() async {
+    if (!await _tableExists('snippet_tags')) {
+      await Migrator(this).createTable(snippetTags);
+    }
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_snippet_tags_tag_id '
+      'ON snippet_tags(tag_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_snippet_tags_snippet_id '
+      'ON snippet_tags(snippet_id)',
+    );
+  }
+
+  /// Creates `note_folders` and `notes.folder_id` when missing, plus the
+  /// lookup index (#659). Idempotent, runs on every open.
+  Future<void> _ensureNoteFolderSchema() async {
+    if (!await _tableExists('note_folders')) {
+      await Migrator(this).createTable(noteFolders);
+    }
+    await _addNullableColumns('notes', ['folder_id']);
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_notes_folder_id ON notes(folder_id)',
+    );
+  }
+
+  /// Creates `contact_name_groups` and `text_replacements.import_group_id`
+  /// when missing, plus the lookup index (#2036). Idempotent, runs on every
+  /// open.
+  Future<void> _ensureContactGroupSchema() async {
+    if (!await _tableExists('contact_name_groups')) {
+      await Migrator(this).createTable(contactNameGroups);
+    }
+    await _addNullableColumns('text_replacements', ['import_group_id']);
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_text_replacements_import_group_id '
+      'ON text_replacements(import_group_id)',
+    );
+  }
+
   /// Exposed for testing — re-runs the idempotent notes/note_tags index
   /// guard directly against the already-open database.
   @visibleForTesting
@@ -1966,6 +2052,53 @@ class HistoryDatabase extends _$HistoryDatabase {
       return row.read<int>('c');
     } catch (e, st) {
       _log.warning('History search failed: $e');
+      _noteSearchFailure(e);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  /// Notes that [spec] matches (#628), newest change first, at most
+  /// [limit]. Same index and syntax as the recordings search.
+  Future<List<Note>> searchNotesContent(
+    ContentSearchSpec spec, {
+    required int limit,
+  }) async {
+    final where = notesSearchWhere(spec);
+    if (where == null || _isClosed) return [];
+    try {
+      final rows = await customSelect(
+        'SELECT n.* FROM notes n WHERE ${where.sql} '
+        'ORDER BY n.updated_at DESC, n.id DESC LIMIT ?',
+        variables: [...where.variables, Variable.withInt(limit)],
+        readsFrom: {notes},
+      ).get();
+      return [for (final r in rows) notes.map(r.data)];
+    } catch (e, st) {
+      _log.warning('Notes search failed: $e');
+      _noteSearchFailure(e);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  /// Snippets that [spec] matches (#628), newest change first, at most
+  /// [limit]. Same index and syntax as the recordings search.
+  Future<List<Snippet>> searchSnippetsContent(
+    ContentSearchSpec spec, {
+    required int limit,
+  }) async {
+    final where = snippetsSearchWhere(spec);
+    if (where == null || _isClosed) return [];
+    try {
+      final rows = await customSelect(
+        'SELECT s.* FROM snippets s WHERE ${where.sql} '
+        'ORDER BY COALESCE(s.updated_at, s.created_at) DESC, s.id DESC '
+        'LIMIT ?',
+        variables: [...where.variables, Variable.withInt(limit)],
+        readsFrom: {snippets, snippetTags, tags},
+      ).get();
+      return [for (final r in rows) snippets.map(r.data)];
+    } catch (e, st) {
+      _log.warning('Snippets search failed: $e');
       _noteSearchFailure(e);
       Error.throwWithStackTrace(e, st);
     }
@@ -3301,11 +3434,12 @@ class HistoryDatabase extends _$HistoryDatabase {
     return Tag(id: id, name: normalized, createdAt: now);
   }
 
-  /// Deletes a tag and all its entry and note links.
+  /// Deletes a tag and all its entry, note and snippet links.
   Future<void> deleteTag(String tagId) {
     return _writeCoordinator.write<void>(() async {
       await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
       await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
+      await (delete(snippetTags)..where((st) => st.tagId.equals(tagId))).go();
       await (delete(tags)..where((t) => t.id.equals(tagId))).go();
     });
   }
@@ -3423,7 +3557,8 @@ class HistoryDatabase extends _$HistoryDatabase {
     return all.map((t) => (t, counts[t.id] ?? 0)).toList();
   }
 
-  /// Per-tag usage count, summed across [entryTags] and [noteTags] links.
+  /// Per-tag usage count, summed across [entryTags], [noteTags] and
+  /// [snippetTags] links (#662: a tag only a Textbaustein carries is in use).
   Future<Map<String, int>> _combinedTagUsageCounts() async {
     final counts = <String, int>{};
 
@@ -3449,6 +3584,18 @@ class HistoryDatabase extends _$HistoryDatabase {
       final tagId = row.read(noteTags.tagId);
       if (tagId == null) continue;
       counts[tagId] = (counts[tagId] ?? 0) + (row.read(noteCount) ?? 0);
+    }
+
+    final snippetCount = snippetTags.tagId.count();
+    final snippetRows =
+        await (selectOnly(snippetTags)
+              ..addColumns([snippetTags.tagId, snippetCount])
+              ..groupBy([snippetTags.tagId]))
+            .get();
+    for (final row in snippetRows) {
+      final tagId = row.read(snippetTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(snippetCount) ?? 0);
     }
 
     return counts;
@@ -3605,6 +3752,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(noteAppends).go();
         await delete(noteVersions).go();
         await delete(notes).go();
+        await delete(noteFolders).go();
       });
     });
   }
@@ -3622,6 +3770,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       await transaction(() async {
         await delete(entryTags).go();
         await delete(noteTags).go();
+        await delete(snippetTags).go();
         await delete(noteVersions).go();
         await delete(entryVersions).go();
         await delete(reprocessedVersions).go();
@@ -3631,11 +3780,13 @@ class HistoryDatabase extends _$HistoryDatabase {
         await delete(entryAttachments).go();
         await delete(tags).go();
         await delete(notes).go();
+        await delete(noteFolders).go();
         await delete(historyEntries).go();
         await delete(dailyStats).go();
         await delete(hotkeyLatencyEntries).go();
         await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
+        await delete(contactNameGroups).go();
         await delete(snippetFields).go();
         await delete(snippets).go();
         await delete(correctionObservations).go();
@@ -3768,6 +3919,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     double? fuzzyThreshold,
     String origin = 'manual',
     DateTime? updatedAt,
+    Value<String?> importGroupId = const Value.absent(),
   }) async {
     assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
     final stamp = updatedAt ?? DateTime.now();
@@ -3782,6 +3934,7 @@ class HistoryDatabase extends _$HistoryDatabase {
           fuzzyThreshold: Value(fuzzyThreshold),
           origin: Value(origin),
           updatedAt: Value(stamp),
+          importGroupId: importGroupId,
         ),
         onConflict: DoUpdate(
           (_) => TextReplacementsCompanion(
@@ -3791,6 +3944,7 @@ class HistoryDatabase extends _$HistoryDatabase {
             fuzzyThreshold: Value(fuzzyThreshold),
             origin: Value(origin),
             updatedAt: Value(stamp),
+            importGroupId: importGroupId,
           ),
         ),
       );
@@ -3886,6 +4040,103 @@ class HistoryDatabase extends _$HistoryDatabase {
     return transaction(() async {
       await delete(textReplacementTriggers).go();
       await delete(textReplacements).go();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Contact-name groups (#2036)
+  // ---------------------------------------------------------------------------
+
+  /// Every contact-name group, oldest first.
+  Future<List<ContactNameGroup>> readContactNameGroups() {
+    return (select(
+      contactNameGroups,
+    )..orderBy([(g) => OrderingTerm.asc(g.createdAt)])).get();
+  }
+
+  /// Writes one reviewed contact-name import in a single transaction: the
+  /// group row (created, or its label and time refreshed), the [add]ed names
+  /// as term entries ("name -> name") tied to the group, and the removal of
+  /// [removeIds] -- only rows that still belong to this group, so an entry
+  /// the user edited in the meantime (and that thereby left the group) is
+  /// never deleted by an update.
+  Future<void> applyContactNameImport({
+    required String groupId,
+    required String sourceKind,
+    required String sourceLabel,
+    required DateTime consentedAt,
+    required List<({String id, String name})> add,
+    required List<String> removeIds,
+    DateTime? now,
+  }) {
+    final stamp = now ?? DateTime.now();
+    return transaction(() async {
+      await into(contactNameGroups).insert(
+        ContactNameGroupsCompanion.insert(
+          id: groupId,
+          sourceKind: sourceKind,
+          sourceLabel: sourceLabel,
+          consentedAt: consentedAt,
+          createdAt: stamp,
+          updatedAt: stamp,
+        ),
+        onConflict: DoUpdate(
+          (_) => ContactNameGroupsCompanion(
+            sourceKind: Value(sourceKind),
+            sourceLabel: Value(sourceLabel),
+            updatedAt: Value(stamp),
+          ),
+        ),
+      );
+      for (final id in removeIds) {
+        final owned =
+            await (select(textReplacements)..where(
+                  (t) => t.id.equals(id) & t.importGroupId.equals(groupId),
+                ))
+                .getSingleOrNull();
+        if (owned == null) continue;
+        await (delete(
+          textReplacementTriggers,
+        )..where((t) => t.replacementId.equals(id))).go();
+        await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+      }
+      for (final entry in add) {
+        await upsertReplacementWithTriggers(
+          id: entry.id,
+          triggers: [entry.name],
+          replacement: entry.name,
+          createdAt: stamp,
+          origin: 'imported',
+          updatedAt: stamp,
+          importGroupId: Value(groupId),
+        );
+      }
+    });
+  }
+
+  /// Removes a contact-name group in one step: every entry still tied to it
+  /// (with its triggers), then the group row itself. This is also how the
+  /// consent for that source is withdrawn. Entries the user edited have left
+  /// the group and stay.
+  Future<void> deleteContactNameGroup(String groupId) {
+    return transaction(() async {
+      final ids =
+          await (selectOnly(textReplacements)
+                ..addColumns([textReplacements.id])
+                ..where(textReplacements.importGroupId.equals(groupId)))
+              .map((r) => r.read(textReplacements.id)!)
+              .get();
+      if (ids.isNotEmpty) {
+        await (delete(
+          textReplacementTriggers,
+        )..where((t) => t.replacementId.isIn(ids))).go();
+        await (delete(
+          textReplacements,
+        )..where((t) => t.importGroupId.equals(groupId))).go();
+      }
+      await (delete(
+        contactNameGroups,
+      )..where((g) => g.id.equals(groupId))).go();
     });
   }
 
@@ -4211,6 +4462,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     final doomed = await (select(snippets)..where(where)).get();
     if (doomed.isEmpty) return 0;
     final ids = [for (final s in doomed) s.id];
+    await (delete(snippetTags)..where((t) => t.snippetId.isIn(ids))).go();
     await (delete(snippetFields)..where((f) => f.snippetId.isIn(ids))).go();
     return (delete(snippets)..where((s) => s.id.isIn(ids))).go();
   }
@@ -4367,6 +4619,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         await (delete(
           snippetFields,
         )..where((f) => f.snippetId.equals(id))).go();
+        await (delete(snippetTags)..where((t) => t.snippetId.equals(id))).go();
         await (delete(snippets)..where((s) => s.id.equals(id))).go();
       }),
     );
@@ -4379,6 +4632,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _writeCoordinator.write<void>(
       () => transaction(() async {
         await delete(snippetFields).go();
+        await delete(snippetTags).go();
         await delete(snippets).go();
       }),
     );
@@ -4400,6 +4654,37 @@ class HistoryDatabase extends _$HistoryDatabase {
         // Only the active library is replaced; the trash is not part of the
         // exported file and stays recoverable.
         await _deleteSnippetsWhereRaw((s) => s.deletedAt.isNull());
+        for (final item in items) {
+          await _upsertSnippetRaw(
+            id: item.id,
+            title: item.title,
+            body: item.body,
+            createdAt: createdAt,
+            kind: item.kind,
+          );
+          await _replaceSnippetFieldsRaw(
+            snippetId: item.id,
+            fieldNames: item.fields,
+          );
+        }
+      }),
+    );
+  }
+
+  /// Writes the snippets of a file import (#665) in one coordinated
+  /// transaction: new ids are inserted, existing ids get the imported title,
+  /// body, kind and fields (their creation time, favourite, tags and usage
+  /// stay). A failing row rolls back the whole import. Nothing else of the
+  /// library, and nothing in the trash, is touched.
+  Future<void> importSnippets(
+    List<
+      ({String id, String title, String body, String kind, List<String> fields})
+    >
+    items, {
+    required DateTime createdAt,
+  }) {
+    return _writeCoordinator.write<void>(
+      () => transaction(() async {
         for (final item in items) {
           await _upsertSnippetRaw(
             id: item.id,
@@ -4508,7 +4793,8 @@ class HistoryDatabase extends _$HistoryDatabase {
   // "pinned first" provider is needed.
   // ---------------------------------------------------------------------------
 
-  /// Active (non-deleted) notes, favourites first then most recently updated.
+  /// Active notes (neither archived nor trashed), favourites first then most
+  /// recently updated.
   ///
   /// List rows: [Note.content] holds only the stored preview, never the full
   /// text (#639). Saving a long note therefore re-reads a few hundred
@@ -4516,9 +4802,21 @@ class HistoryDatabase extends _$HistoryDatabase {
   Stream<List<Note>> watchNotes() {
     if (_isClosed) return const Stream.empty();
     return _watchNoteList(
-      where: notes.deletedAt.isNull(),
+      where: notes.deletedAt.isNull() & notes.archived.equals(false),
       order: [
         OrderingTerm(expression: notes.pinned, mode: OrderingMode.desc),
+        OrderingTerm(expression: notes.updatedAt, mode: OrderingMode.desc),
+      ],
+    );
+  }
+
+  /// Archived, not trashed notes, most recently updated first (list rows,
+  /// see [watchNotes]). Issue #656.
+  Stream<List<Note>> watchArchivedNotes() {
+    if (_isClosed) return const Stream.empty();
+    return _watchNoteList(
+      where: notes.deletedAt.isNull() & notes.archived.equals(true),
+      order: [
         OrderingTerm(expression: notes.updatedAt, mode: OrderingMode.desc),
       ],
     );
@@ -4557,6 +4855,8 @@ class HistoryDatabase extends _$HistoryDatabase {
         notes.pinned,
         notes.isQuickNote,
         notes.sourceEntryId,
+        notes.archived,
+        notes.folderId,
         notes.deletedAt,
         notes.createdAt,
         notes.updatedAt,
@@ -4574,6 +4874,8 @@ class HistoryDatabase extends _$HistoryDatabase {
             pinned: r.read(notes.pinned)!,
             isQuickNote: r.read(notes.isQuickNote)!,
             sourceEntryId: r.read(notes.sourceEntryId),
+            archived: r.read(notes.archived)!,
+            folderId: r.read(notes.folderId),
             deletedAt: r.read(notes.deletedAt),
             createdAt: r.read(notes.createdAt)!,
             updatedAt: r.read(notes.updatedAt)!,
@@ -4696,6 +4998,8 @@ class HistoryDatabase extends _$HistoryDatabase {
         id: newId,
         content: Value(original.content),
         preview: Value(notePreview(original.content)),
+        // The copy sits beside the original (#659).
+        folderId: Value(original.folderId),
         createdAt: now,
         updatedAt: now,
       );
@@ -4719,7 +5023,9 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
-  Future<Note> createNote() {
+  /// Creates a new, empty note, in [folderId] when given (#659), and returns
+  /// it.
+  Future<Note> createNote({String? folderId}) {
     return _writeCoordinator.write<Note>(() async {
       final id = _uuid();
       final now = DateTime.now();
@@ -4727,11 +5033,14 @@ class HistoryDatabase extends _$HistoryDatabase {
         NotesCompanion.insert(
           id: id,
           preview: const Value(''),
+          folderId: Value(folderId),
           createdAt: now,
           updatedAt: now,
         ),
       );
       return Note(
+        archived: false,
+        folderId: folderId,
         id: id,
         content: '',
         preview: '',
@@ -4799,12 +5108,46 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// The currently marked quick note, or `null` if none is marked or the
-  /// marked note is in the trash — a trashed note is not a valid target.
+  /// marked note is in the trash or the archive — neither is a valid target.
   Future<Note?> getQuickNote() {
-    return (select(notes)
-          ..where((n) => n.isQuickNote.equals(true) & n.deletedAt.isNull()))
+    return (select(notes)..where(
+          (n) =>
+              n.isQuickNote.equals(true) &
+              n.deletedAt.isNull() &
+              n.archived.equals(false),
+        ))
         .getSingleOrNull();
   }
+
+  /// The most recently edited note outside trash and archive, or `null` when
+  /// there is none: the "continue the last note" quick-note target (#661).
+  /// Favourites do not jump ahead here, only the edit time counts.
+  Future<Note?> getLastEditedNote() {
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNull() & n.archived.equals(false))
+          ..orderBy([
+            (n) => OrderingTerm.desc(n.updatedAt),
+            (n) => OrderingTerm.desc(n.id),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Moves a note into the notes archive or back out of it (#656). Leaves
+  /// `updatedAt` alone: filing a note away is not an edit of it.
+  Future<int> setNoteArchived(String noteId, {required bool archived}) =>
+      _writeRows(
+        notes,
+        (n) => n.id.equals(noteId),
+        // An archived note is no quick-note target (getQuickNote skips it),
+        // so archiving drops the mark instead of leaving a dead one behind.
+        archived
+            ? const NotesCompanion(
+                archived: Value(true),
+                isQuickNote: Value(false),
+              )
+            : const NotesCompanion(archived: Value(false)),
+      );
 
   /// Soft-delete a note (move to notes trash).
   Future<int> softDeleteNote(String noteId) => _writeRows(
@@ -4845,6 +5188,183 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// Sets the favourite flag of all [noteIds] to [pinned] in one write.
   /// Bumps `updatedAt` like [toggleNotePin], so the order matches a single
   /// toggle.
+  /// Files all [noteIds] into the archive or takes them back out, in one
+  /// write (multi-select, #656). Same rules as [setNoteArchived].
+  Future<int> setNotesArchived(List<String> noteIds, {required bool archived}) {
+    if (noteIds.isEmpty) return Future.value(0);
+    return _writeRows(
+      notes,
+      (n) => n.id.isIn(noteIds),
+      archived
+          ? const NotesCompanion(
+              archived: Value(true),
+              isQuickNote: Value(false),
+            )
+          : const NotesCompanion(archived: Value(false)),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Note folders (#659, ADR 0034)
+  // ---------------------------------------------------------------------------
+
+  /// All note folders, alphabetically. Watched only while the notes area is
+  /// open (ADR 0034: folder data loads lazily).
+  Stream<List<NoteFolder>> watchNoteFolders() {
+    if (_isClosed) return const Stream.empty();
+    return (select(noteFolders)..orderBy([
+          (f) => OrderingTerm(expression: f.name.collate(Collate.noCase)),
+        ]))
+        .watch();
+  }
+
+  /// Creates a folder named [name] under [parentId] (top level when null).
+  /// Folders have at most two levels: a missing parent or one that is itself
+  /// a subfolder throws [ArgumentError], as does an empty name.
+  Future<NoteFolder> createNoteFolder(String name, {String? parentId}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      // As a failed future like the other refusals, so callers that await it
+      // (and the folder dialog) see one error path.
+      return Future.error(
+        ArgumentError.value(name, 'name', 'must not be empty'),
+      );
+    }
+    return _writeCoordinator.write<NoteFolder>(() async {
+      if (parentId != null) {
+        final parent = await (select(
+          noteFolders,
+        )..where((f) => f.id.equals(parentId))).getSingleOrNull();
+        if (parent == null) {
+          throw ArgumentError.value(parentId, 'parentId', 'no such folder');
+        }
+        if (parent.parentId != null) {
+          throw ArgumentError.value(
+            parentId,
+            'parentId',
+            'folders have at most two levels',
+          );
+        }
+      }
+      final folder = NoteFolder(
+        id: _uuid(),
+        name: trimmed,
+        parentId: parentId,
+        createdAt: DateTime.now(),
+      );
+      await into(noteFolders).insert(folder);
+      return folder;
+    });
+  }
+
+  /// Renames folder [folderId]; an empty name is ignored.
+  Future<int> renameNoteFolder(String folderId, String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return Future.value(0);
+    return _writeRows(
+      noteFolders,
+      (f) => f.id.equals(folderId),
+      NoteFoldersCompanion(name: Value(trimmed)),
+    );
+  }
+
+  /// Moves [noteIds] into [folderId] (top level when null) and returns the
+  /// folder each note sat in before, for the undo ([restoreNoteFolderIds]).
+  /// Leaves `updatedAt` alone: filing a note is not an edit.
+  Future<Map<String, String?>> moveNotesToFolder(
+    List<String> noteIds,
+    String? folderId,
+  ) {
+    if (noteIds.isEmpty) return Future.value(const {});
+    return _writeCoordinator.write<Map<String, String?>>(
+      () => transaction(() async {
+        final rows =
+            await (selectOnly(notes)
+                  ..addColumns([notes.id, notes.folderId])
+                  ..where(notes.id.isIn(noteIds)))
+                .get();
+        final before = <String, String?>{
+          for (final r in rows) r.read(notes.id)!: r.read(notes.folderId),
+        };
+        await (update(notes)..where((n) => n.id.isIn(before.keys))).write(
+          NotesCompanion(folderId: Value(folderId)),
+        );
+        return before;
+      }),
+    );
+  }
+
+  /// Puts every note back into the folder [previous] names for it — the undo
+  /// of [moveNotesToFolder].
+  Future<void> restoreNoteFolderIds(Map<String, String?> previous) {
+    if (previous.isEmpty) return Future.value();
+    return _writeCoordinator.write<void>(
+      () => transaction(() async {
+        for (final entry in previous.entries) {
+          await (update(notes)..where((n) => n.id.equals(entry.key))).write(
+            NotesCompanion(folderId: Value(entry.value)),
+          );
+        }
+      }),
+    );
+  }
+
+  /// Deletes folder [folderId] and its subfolders (ADR 0034). Notes are
+  /// never lost silently: with [trashNotes] false they move to the top
+  /// level, with true the live ones go to the trash, from where they can be
+  /// restored. Either way they leave the deleted folders. Returns the ids of
+  /// the notes that sat in them.
+  Future<List<String>> deleteNoteFolder(
+    String folderId, {
+    required bool trashNotes,
+  }) {
+    return _writeCoordinator.write<List<String>>(
+      () => transaction(() async {
+        final children = await (select(
+          noteFolders,
+        )..where((f) => f.parentId.equals(folderId))).get();
+        final folderIds = [folderId, for (final c in children) c.id];
+        final rows =
+            await (selectOnly(notes)
+                  ..addColumns([notes.id])
+                  ..where(notes.folderId.isIn(folderIds)))
+                .get();
+        final noteIds = [for (final r in rows) r.read(notes.id)!];
+        if (noteIds.isNotEmpty) {
+          if (trashNotes) {
+            await (update(notes)
+                  ..where((n) => n.id.isIn(noteIds) & n.deletedAt.isNull()))
+                .write(NotesCompanion(deletedAt: Value(DateTime.now())));
+          }
+          await (update(notes)..where((n) => n.id.isIn(noteIds))).write(
+            const NotesCompanion(folderId: Value(null)),
+          );
+        }
+        await (delete(noteFolders)..where((f) => f.id.isIn(folderIds))).go();
+        return noteIds;
+      }),
+    );
+  }
+
+  /// Number of notes not in the trash that sit in folder [folderId] or its
+  /// subfolders — active and archived alike, so the delete question for a
+  /// folder names every note it would touch.
+  Future<int> countNoteFolderNotes(String folderId) async {
+    final children = await (select(
+      noteFolders,
+    )..where((f) => f.parentId.equals(folderId))).get();
+    final folderIds = [folderId, for (final c in children) c.id];
+    final count = notes.id.count();
+    final row =
+        await (selectOnly(notes)
+              ..addColumns([count])
+              ..where(
+                notes.folderId.isIn(folderIds) & notes.deletedAt.isNull(),
+              ))
+            .getSingle();
+    return row.read(count) ?? 0;
+  }
+
   Future<int> setNotesPinned(List<String> noteIds, {required bool pinned}) {
     if (noteIds.isEmpty) return Future.value(0);
     return _writeRows(
@@ -5083,6 +5603,94 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
+  /// Link a snippet to a tag (#662) — mirrors [tagNote], same shared [Tags]
+  /// table. Idempotent (no duplicate links).
+  Future<void> tagSnippet(String snippetId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => into(snippetTags).insert(
+        SnippetTagsCompanion.insert(snippetId: snippetId, tagId: tagId),
+        mode: InsertMode.insertOrIgnore,
+      ),
+    );
+  }
+
+  /// Remove a tag from a snippet (does not delete the tag itself).
+  Future<void> untagSnippet(String snippetId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () =>
+          (delete(snippetTags)..where(
+                (st) => st.snippetId.equals(snippetId) & st.tagId.equals(tagId),
+              ))
+              .go(),
+    );
+  }
+
+  /// Tags of one snippet, sorted alphabetically.
+  Future<List<Tag>> tagsForSnippet(String snippetId) => _tagsOf(
+    _tagsLinkedVia(
+      snippetTags,
+      snippetTags.tagId.equalsExp(tags.id),
+      snippetTags.snippetId.equals(snippetId),
+    ),
+  );
+
+  /// Every snippet→tags link, grouped by snippet id, tags by name.
+  Future<Map<String, List<Tag>>> readAllSnippetTags() async {
+    final rows = await _allSnippetTagsQuery().get();
+    return _groupSnippetTagRows(rows);
+  }
+
+  /// Reactive form of [readAllSnippetTags]: the list rows, the tag filter and
+  /// the editor's tag field all read this one map.
+  Stream<Map<String, List<Tag>>> watchAllSnippetTags() {
+    if (_isClosed) return const Stream.empty();
+    return _allSnippetTagsQuery().watch().map(_groupSnippetTagRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _allSnippetTagsQuery() =>
+      select(snippetTags).join([
+        innerJoin(tags, tags.id.equalsExp(snippetTags.tagId)),
+      ])..orderBy([OrderingTerm.asc(tags.name)]);
+
+  Map<String, List<Tag>> _groupSnippetTagRows(List<TypedResult> rows) {
+    final grouped = <String, List<Tag>>{};
+    for (final row in rows) {
+      final snippetId = row.readTable(snippetTags).snippetId;
+      grouped.putIfAbsent(snippetId, () => []).add(row.readTable(tags));
+    }
+    return grouped;
+  }
+
+  /// Tag names of the given notes, grouped by note id (content search hits,
+  /// #662). Empty input reads nothing.
+  Future<Map<String, List<String>>> tagNamesForNotes(List<String> ids) =>
+      _tagNamesFor(noteTags, noteTags.noteId, noteTags.tagId, ids);
+
+  /// Tag names of the given snippets, grouped by snippet id.
+  Future<Map<String, List<String>>> tagNamesForSnippets(List<String> ids) =>
+      _tagNamesFor(snippetTags, snippetTags.snippetId, snippetTags.tagId, ids);
+
+  Future<Map<String, List<String>>> _tagNamesFor(
+    TableInfo<Table, dynamic> link,
+    GeneratedColumn<String> owner,
+    GeneratedColumn<String> tagId,
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty || _isClosed) return const {};
+    final rows =
+        await (select(link).join([innerJoin(tags, tags.id.equalsExp(tagId))])
+              ..where(owner.isIn(ids))
+              ..orderBy([OrderingTerm.asc(tags.name)]))
+            .get();
+    final grouped = <String, List<String>>{};
+    for (final row in rows) {
+      final id = row.read(owner);
+      if (id == null) continue;
+      grouped.putIfAbsent(id, () => []).add(row.readTable(tags).name);
+    }
+    return grouped;
+  }
+
   // ---------------------------------------------------------------------------
   // Notes core (ticket, schema v31): title, version history, image assets.
   // Every mutator funnels through [_writeCoordinator]. Image bytes are files
@@ -5133,6 +5741,17 @@ class HistoryDatabase extends _$HistoryDatabase {
           ..where((a) => a.noteId.equals(noteId))
           ..orderBy([(a) => OrderingTerm(expression: a.appendedAt)]))
         .watch();
+  }
+
+  /// Ids of the notes that took at least one quick-note dictation, for the
+  /// quick-note source of saved views (#658).
+  Stream<Set<String>> watchNoteIdsWithAppends() {
+    if (_isClosed) return const Stream.empty();
+    final query = selectOnly(noteAppends, distinct: true)
+      ..addColumns([noteAppends.noteId]);
+    return query.watch().map(
+      (rows) => {for (final r in rows) r.read(noteAppends.noteId)!},
+    );
   }
 
   /// Sets the explicit title of [noteId]; `null` or blank clears it, so the
@@ -5558,8 +6177,12 @@ class HistoryDatabase extends _$HistoryDatabase {
       return;
     }
 
-    // Read ALL history entries (including deleted/archived) for backfill.
-    final entries = await select(historyEntries).get();
+    // Read ALL history entries (including deleted/archived) for backfill —
+    // except imported files: Statistics count dictations only, the live path
+    // never records an import either (#1930).
+    final entries = await (select(
+      historyEntries,
+    )..where((e) => e.source.equals('import').not())).get();
     // One transaction for the whole backfill instead of one implicit
     // commit per `recordDailyStat` upsert: with no explicit WAL pragma set
     // on the connection (see `_openConnection`), each un-batched statement
@@ -5585,7 +6208,7 @@ class HistoryDatabase extends _$HistoryDatabase {
           rawWordCount: original == null
               ? words
               : computeWordCountFast(original),
-          transformed: original != null,
+          transformed: isReworked(original, e.content),
         );
       }
       await _markDailyStatsBackfilled();
@@ -5916,8 +6539,17 @@ class HistoryDatabase extends _$HistoryDatabase {
   }) {
     return transaction(() async {
       if (replaceAll) {
-        await delete(textReplacementTriggers).go();
-        await delete(textReplacements).go();
+        // Contact names (#2036) are never part of a settings export, so a
+        // restore keeps them: their group and its consent stay intact.
+        final keep = selectOnly(textReplacements)
+          ..addColumns([textReplacements.id])
+          ..where(textReplacements.importGroupId.isNotNull());
+        await (delete(
+          textReplacementTriggers,
+        )..where((t) => t.replacementId.isNotInQuery(keep))).go();
+        await (delete(
+          textReplacements,
+        )..where((t) => t.importGroupId.isNull())).go();
       }
       for (final item in items) {
         await upsertReplacementWithTriggers(
@@ -6048,12 +6680,26 @@ class _ResolvedHistoryKey {
 /// without a key keeps the plain file and encrypts it on a later start.
 /// Start-time work, so no keyring may be created; a key the system would
 /// only hand out after a prompt counts as missing (closed gate).
+///
+/// Throws [HistoryKeyringUnavailableException] while a locked or unreachable
+/// keyring (Linux) holds the key back, so the open can tell that session
+/// state from a key that is really gone. Throws [HistoryKeyLostException]
+/// when the store reports the key as lost (#1023): the marker is there, the
+/// store holds no key or another one. A key the system would hand out only
+/// after a prompt is not lost: the quiet read reports it as unavailable.
 Future<String?> historyKeyFromStore(DataKeyStore store) async {
   if (store.recordedBackend() == null) return null;
   final result = await withSecureTrigger(
     'history database',
     () => withoutKeyringCreation(store.obtain),
   );
+  if (result case DataKeyUnavailable(
+    reason: DataKeyUnavailableReason.keyringLocked ||
+        DataKeyUnavailableReason.keyringUnreachable,
+  )) {
+    throw const HistoryKeyringUnavailableException();
+  }
+  if (result is DataKeyLost) throw const HistoryKeyLostException();
   return result is DataKeyReady ? sqliteHexKey(result.key.bytes) : null;
 }
 
@@ -6066,6 +6712,24 @@ class HistoryKeyUnavailableException implements Exception {
   String toString() =>
       'HistoryKeyUnavailableException: the history database is encrypted '
       'and the data key is not available';
+}
+
+/// The data key exists but a locked or unreachable keyring (Linux) holds it
+/// back for now; unlocking the keyring and starting again opens the history.
+/// A [HistoryKeyUnavailableException], so callers that only know that one
+/// treat it the same way.
+class HistoryKeyringUnavailableException
+    extends HistoryKeyUnavailableException {
+  const HistoryKeyringUnavailableException();
+}
+
+/// The data key is known to be gone (#1023): the store holds no key or a
+/// different one than the marker names. Unlike a locked keyring or a key
+/// that waits for consent, waiting does not bring it back. Thrown by a
+/// [HistoryKeySource]; the open then sets the encrypted file aside and
+/// starts with an empty history.
+class HistoryKeyLostException extends HistoryKeyUnavailableException {
+  const HistoryKeyLostException();
 }
 
 QueryExecutor _openConnection(
@@ -6096,30 +6760,60 @@ QueryExecutor _openConnection(
     // Encryption at rest (#1020): the file is opened with the data key once
     // one exists. A plain file from before is converted once, after a
     // verified backup through the #562 path; a failure keeps the plain file.
-    final key = await _historyKey(keySource);
-    final exists = File(path).existsSync();
+    // With encryption switched off (#1022) the way is the same in the other
+    // direction: an encrypted file is converted back to a plain one.
+    final wanted = encryptionOnThisSession(appData);
+    final (:key, :keyringUnavailable, :keyLost) = await _historyKey(keySource);
+    // A history set aside after a lost key comes back once its key does.
+    if (key != null) _restoreSetAsideHistory(appData, path, key);
+    var exists = File(path).existsSync();
     var plain = exists && isPlainSqliteFile(path);
+    if (exists && !plain && key == null && keyLost) {
+      // The key is gone for good (#1023): the encrypted file is set aside
+      // unchanged and the app starts with an empty history.
+      exists = !_setAsideLockedHistory(appData, path);
+    }
     if (exists && !plain && key == null) {
-      _log.warning('History database is encrypted, the data key is missing');
-      CrashReporter.instance?.captureError(
-        message: 'History database encrypted but the data key is unavailable',
-        fingerprint: const [historyKeyUnavailable],
-        severity: 'critical',
-      );
+      if (keyringUnavailable) {
+        // A locked keyring is the user's session, not a lost key: the start
+        // gate explains it and the next start opens the file. Reported as
+        // critical it made up most of Sentry issue FLUTTER_WHISPASTE-S5.
+        _log.warning('History database is encrypted, the keyring is locked');
+      } else {
+        _log.warning('History database is encrypted, the data key is missing');
+        CrashReporter.instance?.captureError(
+          message: 'History database encrypted but the data key is unavailable',
+          fingerprint: const [historyKeyUnavailable],
+          severity: 'critical',
+        );
+      }
       throw const HistoryKeyUnavailableException();
     }
     var backedUp = false;
-    if (key != null && plain) {
-      final backup = await backupBeforeRiskyStep(appData, path);
-      backedUp = true;
-      if (backup.result != HistoryBackupResult.failed) {
-        final run = await _encryptInBackground(path, key);
-        reportHistoryEncryption(run);
-        plain = isPlainSqliteFile(path);
+    if (key != null && exists && plain == wanted) {
+      encryptionConversionProgress.value = EncryptionConversionProgress(
+        toPlain: !wanted,
+        step: EncryptionConversionStep.history,
+      );
+      try {
+        final backup = await backupBeforeRiskyStep(
+          appData,
+          path,
+          hexKey: plain ? null : key,
+        );
+        backedUp = true;
+        if (backup.result != HistoryBackupResult.failed) {
+          final run = await _convertInBackground(path, key, toPlain: !wanted);
+          reportHistoryEncryption(run);
+          plain = isPlainSqliteFile(path);
+        }
+      } finally {
+        encryptionConversionProgress.value = null;
       }
     }
-    // A missing file is created encrypted; a plain one stays plain.
-    final fileKey = plain ? null : key;
+    // A missing file is created encrypted (plain while encryption is off); a
+    // plain one stays plain.
+    final fileKey = plain || (!exists && !wanted) ? null : key;
     resolved.hex = fileKey;
     // A verified copy right before an upgrade (#562); an ordinary start
     // takes none. The copy before the encryption covers an upgrade too.
@@ -6149,18 +6843,73 @@ void Function(Database) _historySetup(String? fileKey, String folder) => (db) {
   hardenPrivateAppFilesSync([folder]);
 };
 
-/// Runs [encryptHistoryDatabase] off the UI isolate; top-level for the same
-/// reason as [_historySetup].
-Future<HistoryEncryption> _encryptInBackground(String path, String key) =>
-    Isolate.run(() => encryptHistoryDatabase(path, key));
+/// Runs [encryptHistoryDatabase] or [decryptHistoryDatabase] off the UI
+/// isolate; top-level for the same reason as [_historySetup].
+Future<HistoryEncryption> _convertInBackground(
+  String path,
+  String key, {
+  required bool toPlain,
+}) => Isolate.run(
+  () => toPlain
+      ? decryptHistoryDatabase(path, key)
+      : encryptHistoryDatabase(path, key),
+);
 
-Future<String?> _historyKey(HistoryKeySource? source) async {
-  if (source == null) return null;
+/// The history key from [source], or null; [keyringUnavailable] is true when
+/// a locked or unreachable keyring held it back, [keyLost] when the key is
+/// known to be gone (#1023).
+Future<({String? key, bool keyringUnavailable, bool keyLost})> _historyKey(
+  HistoryKeySource? source,
+) async {
+  if (source == null) {
+    return (key: null, keyringUnavailable: false, keyLost: false);
+  }
   try {
-    return await source();
+    return (key: await source(), keyringUnavailable: false, keyLost: false);
+  } on HistoryKeyringUnavailableException {
+    _log.warning('Data key for the history not read: the keyring is locked');
+    return (key: null, keyringUnavailable: true, keyLost: false);
+  } on HistoryKeyLostException {
+    _log.warning('Data key for the history is lost');
+    return (key: null, keyringUnavailable: false, keyLost: true);
   } catch (e) {
     _log.warning('Data key for the history not read: ${errorKind(e)}');
-    return null;
+    return (key: null, keyringUnavailable: false, keyLost: false);
+  }
+}
+
+/// Moves the encrypted history at [path] aside after its key was lost
+/// (#1023) and records the notice. True when the file moved; false keeps
+/// the earlier behaviour (the start screen of a locked history).
+bool _setAsideLockedHistory(String appData, String path) {
+  try {
+    setAsideHistory(appData, path, now: DateTime.now());
+  } on FileSystemException catch (e) {
+    _log.warning('Locked history not set aside: ${errorKind(e)}');
+    return false;
+  }
+  _log.warning('Data key lost: history set aside, starting with empty data');
+  CrashReporter.instance?.captureError(
+    message: 'Data key lost; the encrypted history was set aside',
+    fingerprint: const [historyKeyLostSetAside],
+    severity: 'warning',
+  );
+  noteHistoryStartupProblem(HistoryStartupProblem.keyLostStartedEmpty);
+  return true;
+}
+
+/// Puts a history set aside after a lost key back once [hexKey] opens it,
+/// and records the notice. Never throws: a failure leaves both files where
+/// they are and the next start tries again.
+void _restoreSetAsideHistory(String appData, String path, String hexKey) {
+  try {
+    final folder = setAsideHistoryFor(appData, hexKey);
+    if (folder == null) return;
+    restoreSetAsideHistory(appData, path, folder, now: DateTime.now());
+    _log.info('History set aside after a lost key is back');
+    noteHistoryStartupProblem(HistoryStartupProblem.setAsideHistoryRestored);
+  } on Object catch (e) {
+    _log.warning('Set-aside history not restored: ${errorKind(e)}');
   }
 }
 
@@ -6171,12 +6920,14 @@ void reportHistoryEncryption(HistoryEncryption run) {
   switch (run.result) {
     case HistoryEncryptionResult.encrypted:
       _log.info('History database encrypted');
+    case HistoryEncryptionResult.decrypted:
+      _log.info('History database decrypted (encryption switched off)');
     case HistoryEncryptionResult.notNeeded:
       break;
     case HistoryEncryptionResult.failed:
-      _log.warning('History database not encrypted: ${run.error}');
+      _log.warning('History database not converted: ${run.error}');
       CrashReporter.instance?.captureError(
-        message: 'History database encryption failed; the plain file stays',
+        message: 'History database conversion failed; the original stays',
         fingerprint: const [historyEncryptionFailed],
         error: run.error,
         severity: 'critical',
@@ -6192,6 +6943,14 @@ enum HistoryStartupProblem {
 
   /// The safety copy before an upgrade or the move could not be written.
   backupFailed,
+
+  /// The data key is lost: the encrypted history was set aside unchanged
+  /// and the app started with empty data (#1023).
+  keyLostStartedEmpty,
+
+  /// The data key is back: the history set aside after its loss was moved
+  /// back, the one used in between was set aside (#1023).
+  setAsideHistoryRestored,
 }
 
 final Set<HistoryStartupProblem> _startupProblems = {};

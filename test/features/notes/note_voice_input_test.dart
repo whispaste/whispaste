@@ -653,6 +653,7 @@ void main() {
 // ─── Note-switch harness ──────────────────────────────────────────────────
 
 Note _note(String id) => Note(
+  archived: false,
   id: id,
   content: 'Notiz $id',
   createdAt: DateTime(2026, 4, 14, 10, 30),

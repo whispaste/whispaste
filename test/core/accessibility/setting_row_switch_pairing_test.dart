@@ -18,9 +18,16 @@ void main() {
 
     for (final file in sources) {
       final source = file.readAsStringSync();
+      // A switch built beforehand into a local (e.g. shown next to a restart
+      // button) still names the row when the call passes that local.
+      final prebuilt = RegExp(
+        r'(?:final|var)\s+(\w+)\s*=\s*settingsToggle\(',
+      ).allMatches(source).map((m) => m.group(1)!).toList();
       for (final match in row.allMatches(source)) {
         final call = _callAt(source, match.end);
-        final hasSwitch = call.contains('settingsToggle(');
+        final hasSwitch =
+            call.contains('settingsToggle(') ||
+            prebuilt.any((n) => RegExp('\\b$n\\b').hasMatch(call));
         final line = '\n'.allMatches(source.substring(0, match.start)).length;
         final where = '${file.path}:${line + 1}';
         if (hasSwitch && !call.contains('switchNamesRow:')) {

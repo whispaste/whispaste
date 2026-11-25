@@ -13,6 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/text/markdown_plain_text.dart';
+import '../../../services/smart_mode/editor_smart_action.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/find_replace.dart';
@@ -26,6 +27,7 @@ import '../../../widgets/wp_editor_pane.dart';
 import '../../../widgets/wp_head_actions.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_markdown_view.dart';
+import '../../../widgets/editor_text_view_scope.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../../../widgets/wp_voice_input_button.dart';
 import 'note_tag_field.dart';
@@ -35,9 +37,13 @@ import '../data/note_title.dart';
 import '../data/writing_focus.dart' show writingFocusShortcutLabel;
 import 'note_append_gutter.dart';
 import 'long_note_editor.dart';
+import 'note_fold_controller.dart';
 import 'note_image_strip.dart';
 import 'note_title_field.dart';
 import 'note_source_link.dart';
+import '../../links/entry_link_picker.dart' show pickEntryLinkText;
+import '../../links/entry_links_section.dart';
+import '../../../core/text/entry_link.dart' show EntryLinkKind;
 import 'quick_note_hotkey_line.dart';
 import '../../../widgets/wp_copy_feedback.dart';
 import '../../snippets/snippets_page.dart' show insertSnippetAtCursor;
@@ -73,6 +79,8 @@ class NoteEditorExtras {
     this.onCreateSnippet,
     this.onGoToParagraph,
     this.onSplitNote,
+    this.onSmartAction,
+    this.folds,
     this.onToggleFocusMode,
     this.focusMode = false,
     this.titleRevision = 0,
@@ -95,6 +103,14 @@ class NoteEditorExtras {
   /// the editing limit (#641).
   final VoidCallback? onSplitNote;
 
+  /// Smart Mode on the selection (#650): toolbar menu, Ctrl/Cmd+J and the
+  /// context menu.
+  final ValueChanged<EditorSmartAction>? onSmartAction;
+
+  /// Folding of heading sections in a long note (#1344): the menu folds or
+  /// unfolds all of them through it.
+  final NoteFoldController? folds;
+
   /// Enters or leaves focus mode (#669); `null` hides the button.
   final VoidCallback? onToggleFocusMode;
 
@@ -115,6 +131,10 @@ class NoteReadingViewNotifier extends Notifier<bool> {
   bool build() => false;
 
   void toggle() => state = !state;
+
+  /// Back to writing: a search hit opens where its matches can be found and
+  /// stepped through (#653).
+  void edit() => state = false;
 }
 
 final noteReadingViewProvider = NotifierProvider<NoteReadingViewNotifier, bool>(
@@ -137,6 +157,7 @@ class NoteEditorPanel extends ConsumerWidget {
     required this.onMoveToTrash,
     required this.onRestore,
     required this.onDeleteForever,
+    this.onToggleArchive,
     required this.onAddTag,
     required this.onRemoveTag,
     required this.onExport,
@@ -170,6 +191,10 @@ class NoteEditorPanel extends ConsumerWidget {
   final VoidCallback onMoveToTrash;
   final VoidCallback onRestore;
   final VoidCallback onDeleteForever;
+
+  /// Files the note into the archive, or takes an archived note back out
+  /// (#656). Null leaves the archive button out.
+  final VoidCallback? onToggleArchive;
 
   /// Add/remove a tag on this note (tagName / tagId).
   final ValueChanged<String> onAddTag;
@@ -205,7 +230,10 @@ class NoteEditorPanel extends ConsumerWidget {
               focusNode: focusNode,
             ),
           );
-    final showQuickNoteMark = !isTrashed && note.isQuickNote;
+    // Archived notes stay editable but carry neither favourite nor quick-note
+    // mark: both belong to the active list (#656).
+    final isArchived = !isTrashed && note.archived;
+    final showQuickNoteMark = !isTrashed && !isArchived && note.isQuickNote;
     // An empty note has nothing to read; it always opens for writing, so a
     // new note never asks for a click before the first word.
     final reading =
@@ -344,7 +372,7 @@ class NoteEditorPanel extends ConsumerWidget {
                         color: textMuted,
                       ),
                     ),
-                  if (!isTrashed && !note.isQuickNote)
+                  if (!isTrashed && !isArchived && !note.isQuickNote)
                     // Setting the mark sits with the other per-note actions; on
                     // the note that already holds it this action is simply
                     // absent, so re-marking is impossible rather than a silent
@@ -362,6 +390,25 @@ class NoteEditorPanel extends ConsumerWidget {
                         icon: LucideIcons.zap,
                         tooltip: l10n.notesQuickNoteSet,
                         onPressed: onQuickNoteSet,
+                        color: textMuted,
+                      ),
+                    ),
+                  // Archive (#656); on an archived note the Unarchive button
+                  // takes the star's place instead.
+                  if (!isTrashed && !isArchived && onToggleArchive != null)
+                    _HeadAction(
+                      testId: 'notes-editor-archive',
+                      rank: 7,
+                      icon: LucideIcons.archive,
+                      label: l10n.notesArchiveAction,
+                      onSelected: onToggleArchive!,
+                      button: WpIconButton.ghost(
+                        compact: true,
+                        key: ValueKey('notes-editor-archive-${note.id}'),
+                        testId: 'notes-editor-archive',
+                        icon: LucideIcons.archive,
+                        tooltip: l10n.notesArchiveAction,
+                        onPressed: onToggleArchive,
                         color: textMuted,
                       ),
                     ),
@@ -394,8 +441,9 @@ class NoteEditorPanel extends ConsumerWidget {
                 const extent = WpHeadActions.slot + WpHeadActions.gap;
                 final fixed =
                     WpSpacing.xs +
-                    // dictation, favourite (or the trash pair), menu, close
-                    WpHeadActions.widthFor(isTrashed ? 5 : 4);
+                    // dictation, favourite (or unarchive), menu, close; in
+                    // the trash no dictation, the restore/delete pair instead
+                    WpHeadActions.widthFor(4);
                 final room = constraints.hasBoundedWidth
                     ? constraints.maxWidth -
                           WpEditorHead.padding.horizontal -
@@ -423,7 +471,8 @@ class NoteEditorPanel extends ConsumerWidget {
                   // The title takes all the width the actions leave; actions
                   // that would squeeze it below [_titleMinWidth] went into
                   // the menu above (#1498).
-                  title: extras.onSaveTitle == null
+                  // The trash is read-only (#656): the title is plain text.
+                  title: extras.onSaveTitle == null || isTrashed
                       ? Padding(
                           // The heading field's inset, as in the other heads.
                           padding: WpTextField.headingContentPadding,
@@ -467,31 +516,33 @@ class NoteEditorPanel extends ConsumerWidget {
                         if (action.testId == 'notes-editor-copy' &&
                             shown.contains(action.testId))
                           action.button,
-                      Semantics(
-                        container: true,
-                        identifier: 'notes-editor-voice',
-                        child: WpVoiceInputButton(
-                          // Keyed per note. A dictation started here
-                          // delivers its transcript into whichever note
-                          // is open when it finishes (up to 45 s later),
-                          // so the button has to go down with the note it
-                          // was started on: its own mounted-guard then
-                          // drops the transcript instead of writing note
-                          // A's words into note B.
-                          key: ValueKey('voice-${note.id}'),
-                          compact: true,
-                          onTranscript: onVoiceTranscript,
-                          onError: (message) => showWpPageNotice(
-                            context,
-                            page: WpNoticePage.notes,
-                            notice: WpPageNotice(
-                              id: 'notes-voice-failed',
-                              message: message,
-                              area: note.id,
+                      // No dictation into the read-only trash (#656).
+                      if (!isTrashed)
+                        Semantics(
+                          container: true,
+                          identifier: 'notes-editor-voice',
+                          child: WpVoiceInputButton(
+                            // Keyed per note. A dictation started here
+                            // delivers its transcript into whichever note
+                            // is open when it finishes (up to 45 s later),
+                            // so the button has to go down with the note it
+                            // was started on: its own mounted-guard then
+                            // drops the transcript instead of writing note
+                            // A's words into note B.
+                            key: ValueKey('voice-${note.id}'),
+                            compact: true,
+                            onTranscript: onVoiceTranscript,
+                            onError: (message) => showWpPageNotice(
+                              context,
+                              page: WpNoticePage.notes,
+                              notice: WpPageNotice(
+                                id: 'notes-voice-failed',
+                                message: message,
+                                area: note.id,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                       if (isTrashed) ...[
                         // Trash view: restore + delete forever instead of
                         // the favourite.
@@ -511,7 +562,17 @@ class NoteEditorPanel extends ConsumerWidget {
                           onPressed: onDeleteForever,
                           color: errorColor,
                         ),
-                      ] else
+                      ] else if (isArchived)
+                        WpIconButton.ghost(
+                          compact: true,
+                          key: ValueKey('notes-editor-unarchive-${note.id}'),
+                          testId: 'notes-editor-unarchive',
+                          icon: LucideIcons.archiveRestore,
+                          tooltip: l10n.notesUnarchive,
+                          onPressed: onToggleArchive,
+                          color: textMuted,
+                        )
+                      else
                         WpFavouriteStar.head(
                           key: ValueKey('notes-editor-favorite-${note.id}'),
                           testId: 'notes-editor-favorite',
@@ -561,6 +622,13 @@ class NoteEditorPanel extends ConsumerWidget {
           // until closed, so an error cannot pass unread.
           WpPageNoticeSlot(page: WpNoticePage.notes, area: note.id),
           if (!isTrashed) NoteSourceLink(sourceEntryId: note.sourceEntryId),
+          // Back after a jump, links to and from this note (#660).
+          if (!isTrashed)
+            EntryLinksSection(
+              key: ValueKey('notes-editor-links-${note.id}'),
+              entry: (kind: ContentKind.note, id: note.id),
+              testId: 'notes-editor',
+            ),
         ],
         // ── Meta: quick-note mark + hotkey ──
         // Only on the note that holds the mark. The mark used to lead the
@@ -623,7 +691,9 @@ class NoteEditorPanel extends ConsumerWidget {
             onSave: extras.onSaveVersionNow,
             saveStatus: isTrashed ? null : extras.saveStatus,
             onGoToParagraph: extras.onGoToParagraph,
+            folds: extras.folds,
             onInsertSnippet: insertSnippet,
+            onSmartAction: isTrashed ? null : extras.onSmartAction,
             onSaveSelectionAsSnippet: isTrashed ? null : extras.onCreateSnippet,
             // Suggestions of the existing tags (#830); no inline label and no
             // management-dialog button, unlike history's tag section.
@@ -643,6 +713,7 @@ class NoteEditorPanel extends ConsumerWidget {
                 onRemove: onRemoveTag,
                 hintText: l10n.notesAddTag,
                 searchHintText: l10n.notesTagPlaceholder,
+                readOnly: isTrashed,
               ),
             ),
           ),
@@ -670,7 +741,9 @@ class _NoteEditorBody extends StatefulWidget {
     required this.onSave,
     required this.saveStatus,
     required this.onGoToParagraph,
+    required this.folds,
     required this.onInsertSnippet,
+    required this.onSmartAction,
     required this.onSaveSelectionAsSnippet,
     required this.tags,
   });
@@ -690,7 +763,9 @@ class _NoteEditorBody extends StatefulWidget {
   final VoidCallback? onSave;
   final ValueListenable<WpSaveStatus>? saveStatus;
   final VoidCallback? onGoToParagraph;
+  final NoteFoldController? folds;
   final VoidCallback? onInsertSnippet;
+  final ValueChanged<EditorSmartAction>? onSmartAction;
   final VoidCallback? onSaveSelectionAsSnippet;
 
   @override
@@ -766,11 +841,23 @@ class _NoteEditorBodyState extends State<_NoteEditorBody> {
       scrollToEnd: widget.scrollEditorToEnd,
       variant: WpTextFieldVariant.bare,
       hintText: l10n.notesEditorPlaceholder,
-      onSave: widget.onSave,
+      // The trash is read-only (#656): no toolbar, no formatting, no saving;
+      // the tags still show on their own.
+      readOnly: widget.isTrashed,
+      showToolbar: !widget.isTrashed,
+      onSave: widget.isTrashed ? null : widget.onSave,
       saveStatus: widget.saveStatus,
       onInsertSnippet: widget.onInsertSnippet,
+      onSmartAction: widget.onSmartAction,
       onSaveSelectionAsSnippet: widget.onSaveSelectionAsSnippet,
-      // Caret, place and text size come back per note (#678).
+      // `[[` opens the link chooser (#660); the trash takes no links.
+      onPickLink: widget.isTrashed
+          ? null
+          : () => pickEntryLinkText(
+              context,
+              except: (kind: EntryLinkKind.note, id: widget.noteId),
+            ),
+      // Caret and place come back per note (#678).
       viewMemory: (kind: ContentKind.note, id: widget.noteId),
       // Reading view (#643): the same text rendered, in the field's own
       // style and inset, so the words keep their place when switching. A
@@ -794,9 +881,13 @@ class _NoteEditorBodyState extends State<_NoteEditorBody> {
                       child: WpMarkdownView(
                         testId: 'notes-editor-read',
                         source: controller.text,
-                        style: WpTextField.styleFor(
-                          WpTextFieldVariant.bare,
-                          color: WpColors.textPrimary,
+                        // The editors' line spacing (#648).
+                        style: WpEditorText.styleOf(
+                          context,
+                          WpTextField.styleFor(
+                            WpTextFieldVariant.bare,
+                            color: WpColors.textPrimary,
+                          ),
                         ),
                         onChanged: widget.isTrashed
                             ? null
@@ -826,6 +917,8 @@ class _NoteEditorBodyState extends State<_NoteEditorBody> {
                 focusNode: widget.focusNode,
                 scrollToEnd: widget.scrollEditorToEnd,
                 semanticsLabel: l10n.notesLongEditorLabel,
+                folds: widget.folds,
+                readOnly: widget.isTrashed,
               ),
             )
           : null,
@@ -943,7 +1036,18 @@ class _NoteEditorMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final folds = extras.folds;
+    if (folds == null) return _build(context, null);
+    // The fold entries come and go with the sections of the open note.
+    return ListenableBuilder(
+      listenable: folds,
+      builder: (context, _) => _build(context, folds),
+    );
+  }
+
+  Widget _build(BuildContext context, NoteFoldController? folds) {
     final l10n = L10n.of(context);
+    final canFold = folds != null && folds.canFold;
     final focusIcon = extras.focusMode
         ? LucideIcons.minimize2
         : LucideIcons.maximize2;
@@ -996,6 +1100,18 @@ class _NoteEditorMenu extends StatelessWidget {
         LucideIcons.listOrdered,
         l10n.notesMenuGoToParagraph,
         extras.onGoToParagraph,
+      ),
+      (
+        'notes-editor-menu-fold-all',
+        LucideIcons.chevronsDownUp,
+        l10n.notesFoldAll,
+        canFold ? folds.foldAll : null,
+      ),
+      (
+        'notes-editor-menu-unfold-all',
+        LucideIcons.chevronsUpDown,
+        l10n.notesUnfoldAll,
+        canFold && folds.anyFolded ? folds.unfoldAll : null,
       ),
       (
         'notes-editor-menu-split',

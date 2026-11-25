@@ -314,7 +314,13 @@ class OnboardingHeadingFocus extends StatefulWidget {
 }
 
 class _OnboardingHeadingFocusState extends State<OnboardingHeadingFocus> {
-  final FocusNode _node = FocusNode(debugLabel: 'onboardingHeading');
+  /// Focus lands here when the page opens, but Tab never comes back: the
+  /// heading is no control, so a Tab stop on it is an invisible stop in
+  /// the cycle (#1845).
+  final FocusNode _node = FocusNode(
+    debugLabel: 'onboardingHeading',
+    skipTraversal: true,
+  );
 
   @override
   void initState() {

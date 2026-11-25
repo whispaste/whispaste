@@ -110,8 +110,6 @@ abstract final class WpColors {
   static Color get onAction => _active.onAction;
   static Color get accentSubtle => _active.accentSubtle;
   static Color get accentChipFill => _active.accentChipFill;
-  static Color get accentChipFillHover => _active.accentChipFillHover;
-  static Color get accentMiniTagFill => _active.accentMiniTagFill;
   static Color get accentBorder30 => _active.accentBorder30;
   static Color get accentButtonFill => _active.accentButtonFill;
   static Color get accentActiveFill => _active.accentActiveFill;

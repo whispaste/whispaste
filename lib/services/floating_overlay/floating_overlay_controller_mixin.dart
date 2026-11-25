@@ -37,7 +37,7 @@ mixin FloatingOverlayControllerMixin
       case 'onNoticeAction':
         final args = call.arguments as Map?;
         final id = args?['id'] as String?;
-        if (id != null) return OverlayNoticeActionClicked(id);
+        if (id != null) return OverlayNoticeActionClicked(id, args!);
         return null;
       case 'onRenderFrame':
         return const OverlayRenderFrame();

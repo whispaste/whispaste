@@ -76,6 +76,7 @@ HistoryEntry _entry(String id, DateTime ts) => HistoryEntry(
 Note _note(String id, String content) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: false,

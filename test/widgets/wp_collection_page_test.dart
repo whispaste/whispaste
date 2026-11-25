@@ -3,6 +3,7 @@
 // head and the tools overflow. Layout looks are not tested here.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -133,6 +134,23 @@ void main() {
     expect(find.byType(WpCollectionToolbar), findsOneWidget);
   });
 
+  testWidgets('the selection bar sits between search row and list', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await _pump(
+      tester,
+      size: const Size(1100, 900),
+      child: _page(focus: focus, selectionBar: const Text('selection')),
+    );
+    final bar = tester.getRect(find.text('selection'));
+    final toolbar = tester.getRect(find.byType(WpCollectionToolbar));
+    final list = tester.getRect(find.byKey(const ValueKey('demo-list-area')));
+    expect(bar.top, greaterThanOrEqualTo(toolbar.bottom));
+    expect(bar.bottom, lessThanOrEqualTo(list.top));
+  });
+
   testWidgets('tools collapse into one overflow button on a narrow row', (
     tester,
   ) async {
@@ -179,6 +197,35 @@ void main() {
       find.bySemanticsIdentifier('demo-filter-mark-trash-remove'),
     );
     expect(removed, 1);
+    // A screen reader or voice control presses it through its semantics
+    // action, not a pointer (#662).
+    final node = tester.getSemantics(
+      find.bySemanticsIdentifier('demo-filter-mark-trash-remove'),
+    );
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    node.owner!.performAction(node.id, SemanticsAction.tap);
+    expect(removed, 2);
+    handle.dispose();
+  });
+
+  testWidgets('a filter popover opened by pointer takes focus, so Escape '
+      'closes it (#1845)', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _pump(tester, child: _page(focus: focus));
+    focus.requestFocus();
+    await tester.pump();
+    await tester.tap(find.bySemanticsIdentifier('demo-filter-menu'));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsIdentifier('demo-filter-section-view'),
+      findsOneWidget,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsIdentifier('demo-filter-section-view'),
+      findsNothing,
+    );
     handle.dispose();
   });
 }

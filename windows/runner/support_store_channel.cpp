@@ -33,6 +33,8 @@ using winrt::Windows::Services::Store::StoreProduct;
 using winrt::Windows::Services::Store::StoreProductQueryResult;
 using winrt::Windows::Services::Store::StorePurchaseResult;
 using winrt::Windows::Services::Store::StorePurchaseStatus;
+using winrt::Windows::Services::Store::StoreRateAndReviewResult;
+using winrt::Windows::Services::Store::StoreRateAndReviewStatus;
 
 using Result = flutter::MethodResult<EncodableValue>;
 using SharedResult = std::shared_ptr<Result>;
@@ -256,6 +258,41 @@ void Purchase(HWND window, const SharedResult& reply,
       [finish](const std::string&) { finish("serverError"); });
 }
 
+// Wire name of a rate-and-review outcome. "succeeded" means the user submitted
+// (or updated) a rating; Dart then never asks again.
+std::string RateStatusName(StoreRateAndReviewStatus status) {
+  switch (status) {
+    case StoreRateAndReviewStatus::Succeeded:
+      return "succeeded";
+    case StoreRateAndReviewStatus::CanceledByUser:
+      return "cancelled";
+    case StoreRateAndReviewStatus::NetworkError:
+      return "networkError";
+    default:
+      return "error";
+  }
+}
+
+// Shows the Store's own rate-and-review dialog, modal to the runner window
+// (StoreContext::RequestRateAndReviewAppAsync, Windows 10 1809+). Must start
+// on the platform thread like the purchase dialog. Always answers a status
+// name; a Store failure answers "error", so Dart can fall back to the review
+// page of the listing.
+void RequestRateAndReview(HWND window, const SharedResult& reply,
+                          const StoreContext& context) {
+  const Finish finish = [window, reply](std::string status) {
+    PostToPlatformThread(window, [reply, status] {
+      reply->Success(EncodableValue(status));
+    });
+  };
+  OnStoreCompleted(
+      context.RequestRateAndReviewAppAsync(),
+      [finish](const StoreRateAndReviewResult& result) {
+        finish(RateStatusName(result.Status()));
+      },
+      [finish](const std::string&) { finish("error"); });
+}
+
 const EncodableValue* ArgumentValue(const flutter::MethodCall<EncodableValue>& call,
                                     const char* key) {
   const auto* args = std::get_if<EncodableMap>(call.arguments());
@@ -326,6 +363,16 @@ void HandleMethodCall(HWND window, const flutter::MethodCall<EncodableValue>& ca
         return;
       }
       Purchase(window, reply, *context, *offer_id);
+      return;
+    }
+
+    if (method == "requestRateAndReview") {
+      const auto context = TryContext(window);
+      if (!context) {
+        reply->Success(EncodableValue("unavailable"));
+        return;
+      }
+      RequestRateAndReview(window, reply, *context);
       return;
     }
 

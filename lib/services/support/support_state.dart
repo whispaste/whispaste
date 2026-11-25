@@ -300,11 +300,19 @@ class SupportStatusNotifier extends Notifier<SupportStatus> {
 
 /// Store catalogue for native tips. Empty unless this build offers the
 /// native tip ask, so no store call is made where the tip is not shown.
+/// Prices are the store's localized strings for the user's storefront
+/// (StoreKit `displayPrice`, Microsoft Store `FormattedPrice`); the app holds
+/// no amount or currency of its own.
 final supportTipProductsProvider = FutureProvider<List<SupportProduct>>((
   ref,
 ) async {
   final asks = ref.watch(supportCapabilitiesProvider);
   if (!asks.contains(SupportAsk.nativeTip)) return const [];
+  // A store that cannot sell right now (no store context, purchases
+  // restricted) shows the honest "unavailable" state, never a dead buy button.
+  if (!await ref.watch(supportStoreTipAvailableProvider.future)) {
+    return const [];
+  }
   return ref.watch(supportStoreBridgeProvider).loadProducts(kSupportProductIds);
 });
 
@@ -313,9 +321,27 @@ final supportStatusProvider =
       SupportStatusNotifier.new,
     );
 
-/// The passive store thank-you line (S5) shows for store installs only.
+/// Whether this store build talks to the store's test environment (#2202):
+/// the local Mac App Store preview and Xcode runs, which Apple did not sign
+/// for the store. Prices then follow the sandbox account and purchases are
+/// test purchases. False for every other build and on any failure.
+final supportStoreTestEnvironmentProvider = FutureProvider<bool>((ref) async {
+  final bridge = ref.watch(supportStoreBridgeProvider);
+  if (bridge is! TestEnvironmentAwareSupportStoreBridge) return false;
+  try {
+    return await bridge.isTestEnvironment();
+  } on Exception catch (e) {
+    _log.debug('store environment check failed (non-fatal): $e');
+    return false;
+  }
+});
+
+/// The passive store thank-you line (S5) shows for store installs only, and
+/// not in the store's test environment, where nobody bought the app (#2202).
 final supportStoreThankYouLineProvider = Provider<bool>(
-  (ref) => ref.watch(deployChannelProvider) == DeployChannel.store,
+  (ref) =>
+      ref.watch(deployChannelProvider) == DeployChannel.store &&
+      !(ref.watch(supportStoreTestEnvironmentProvider).value ?? false),
 );
 
 /// Anonymous support events. The category is always `support`; [name] is a
@@ -349,12 +375,15 @@ void recordSupportEvent(
   telemetry.trackEvent(category: 'support', action: event.wireName, name: name);
 }
 
-/// Where a coffee or sponsoring link was opened (GR-022). A closed list, so the
-/// `linkOpened` name never carries free text.
+/// Where a coffee, sponsoring or project link was opened (GR-022). A closed
+/// list, so the `linkOpened` name never carries free text.
 enum SupportLinkSurface {
   about('about'),
   supportTab('support_tab'),
-  tray('tray');
+  tray('tray'),
+
+  /// The "Mitmachen" block on the Übersicht (the trailer frame).
+  overviewCommunity('overview_community');
 
   const SupportLinkSurface(this.wireName);
 
@@ -364,6 +393,10 @@ enum SupportLinkSurface {
 /// The `linkOpened` event name: `<stelle>.<ziel>`, for example `about.kofi`.
 String linkOpenedName(SupportLinkSurface surface, String target) =>
     '${surface.wireName}.$target';
+
+/// `linkOpened` target of the trailer frame in the "Mitmachen" block: the
+/// trailer opened on YouTube (`overview_community.youtube_video`).
+const kTrailerLinkTarget = 'youtube_video';
 
 /// Sends one `linkOpened` event with its surface (GR-022).
 void recordLinkOpened(

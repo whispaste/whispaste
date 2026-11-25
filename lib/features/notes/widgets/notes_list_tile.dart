@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/data/content_metadata_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -10,6 +12,7 @@ import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/views/smart_view_providers.dart';
 import '../../../widgets/wp_collection_list_item.dart';
 import '../../../widgets/wp_context_menu.dart';
 import '../../../widgets/wp_list_item_content.dart';
@@ -18,6 +21,7 @@ import '../../../widgets/wp_row_action.dart';
 import '../../../widgets/wp_row_checkbox.dart';
 import '../data/note_search_snippet.dart';
 import '../data/note_title.dart';
+import '../../../widgets/wp_tag_chip.dart';
 
 // ---------------------------------------------------------------------------
 // Note list tile — the shared WpListItemContent row (#1498): derived title,
@@ -44,6 +48,8 @@ class NotesListTile extends ConsumerStatefulWidget {
     required this.onRestore,
     required this.onDeleteForever,
     this.onMoveToTrash,
+    this.onToggleArchive,
+    this.onMoveToFolder,
     this.searchQuery = '',
     this.selecting = false,
   });
@@ -62,6 +68,14 @@ class NotesListTile extends ConsumerStatefulWidget {
   /// Trash view swaps Star and Delete for Restore and Delete forever.
   final bool isTrashView;
   final bool isSelected;
+
+  /// Files the note into the archive, or takes an archived one back out
+  /// (#656). Offered outside the trash in the context menu and as a screen
+  /// reader action; null leaves it out.
+  final VoidCallback? onToggleArchive;
+
+  /// "Move to folder…" (#659); null hides it (the trash).
+  final VoidCallback? onMoveToFolder;
 
   /// Whether this tile is the list's virtual keyboard cursor (arrow-key
   /// navigation in NotesPage) — highlighted like a hover.
@@ -272,6 +286,30 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
           onSelected: widget.onDeleteForever,
           destructive: true,
         ),
+      ] else if (note.archived) ...[
+        // An archived note is filed away: no favourite, no quick-note mark
+        // (#656), like an archived recording.
+        if (widget.onToggleArchive case final onToggleArchive?)
+          WpContextMenuEntry(
+            key: ValueKey('notes-unarchive-$id'),
+            icon: LucideIcons.archiveRestore,
+            label: l10n.notesUnarchive,
+            onSelected: onToggleArchive,
+          ),
+        if (widget.onMoveToFolder case final onMoveToFolder?)
+          WpContextMenuEntry(
+            key: ValueKey('notes-move-$id'),
+            icon: LucideIcons.folderInput,
+            label: l10n.notesMoveToFolder,
+            onSelected: onMoveToFolder,
+          ),
+        if (widget.onMoveToTrash case final onMoveToTrash?)
+          WpContextMenuEntry(
+            icon: LucideIcons.trash2,
+            label: l10n.notesMoveToTrash,
+            onSelected: onMoveToTrash,
+            destructive: true,
+          ),
       ] else ...[
         WpContextMenuEntry(
           icon: LucideIcons.star,
@@ -290,6 +328,20 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
             icon: LucideIcons.zap,
             label: l10n.notesQuickNoteSet,
             onSelected: widget.onQuickNoteSet,
+          ),
+        if (widget.onToggleArchive case final onToggleArchive?)
+          WpContextMenuEntry(
+            key: ValueKey('notes-archive-$id'),
+            icon: LucideIcons.archive,
+            label: l10n.notesArchiveAction,
+            onSelected: onToggleArchive,
+          ),
+        if (widget.onMoveToFolder case final onMoveToFolder?)
+          WpContextMenuEntry(
+            key: ValueKey('notes-move-$id'),
+            icon: LucideIcons.folderInput,
+            label: l10n.notesMoveToFolder,
+            onSelected: onMoveToFolder,
           ),
         if (widget.onMoveToTrash case final onMoveToTrash?)
           WpContextMenuEntry(
@@ -310,15 +362,34 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
     final l10n = L10n.of(context);
     final id = widget.note.id;
     final title = _title ?? l10n.notesUntitled;
+    final hasDictations =
+        !widget.isTrashView &&
+        !widget.note.isQuickNote &&
+        ref.watch(
+          noteIdsWithAppendsProvider.select(
+            (ids) => ids.value?.contains(id) ?? false,
+          ),
+        );
 
     // The actions without a button: reachable from the context menu and,
     // because a screen reader cannot open a right-click menu, as custom
     // semantics actions on the row.
     final semanticsActions = <CustomSemanticsAction, VoidCallback>{
       CustomSemanticsAction(label: l10n.actionDuplicate): ?widget.onDuplicate,
-      if (!widget.isTrashView && !widget.note.isQuickNote)
+      if (!widget.isTrashView &&
+          !widget.note.archived &&
+          !widget.note.isQuickNote)
         CustomSemanticsAction(label: l10n.notesQuickNoteSet):
             widget.onQuickNoteSet,
+      if (!widget.isTrashView)
+        CustomSemanticsAction(
+          label: widget.note.archived
+              ? l10n.notesUnarchive
+              : l10n.notesArchiveAction,
+        ): ?widget.onToggleArchive,
+      if (!widget.isTrashView)
+        CustomSemanticsAction(label: l10n.notesMoveToFolder):
+            ?widget.onMoveToFolder,
     };
 
     // Deliberately no semantics label: the rendered title names the row (a
@@ -347,7 +418,8 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
         title,
         key: ValueKey('notes-row-title-$id'),
       ),
-      isFavourite: !widget.isTrashView && widget.note.pinned,
+      isFavourite:
+          !widget.isTrashView && !widget.note.archived && widget.note.pinned,
       favouriteMarkKey: ValueKey('notes-favourite-mark-$id'),
       favouriteMarkLabel: l10n.listItemFavouriteMark,
       marks: [
@@ -372,13 +444,37 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
       actions: (visible) => _buildActions(l10n, visible),
       preview: _buildPreview(title),
       previewSemanticsLabel: _spokenPreview(title),
-      meta: (color) => WpListItemMeta(
+      meta: (color) => WpListItemMeta.segments(
         key: ValueKey('notes-row-meta-$id'),
         color: color,
-        spans: [TextSpan(text: _relativeDateLabel(context))],
+        segments: [
+          [TextSpan(text: _relativeDateLabel(context))],
+          // #661: a note that took quick-note dictations without holding the
+          // mark ("continue last note", "new note") says so in its meta line,
+          // in words a screen reader reads with the row. The marked quick
+          // note already carries the bolt.
+          if (hasDictations)
+            [
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  key: ValueKey('notes-quick-note-dictations-mark-$id'),
+                  padding: const EdgeInsets.only(right: WpSpacing.xxs),
+                  child: FaIcon(
+                    FontAwesomeIcons.bolt,
+                    size: WpIconSize.xs,
+                    color: color ?? WpColors.textMuted,
+                  ),
+                ),
+              ),
+              TextSpan(text: l10n.notesQuickNoteDictationsMark),
+            ],
+        ],
       ),
       // Compact tag pills, informative only (no tap).
-      footer: widget.tags.isEmpty ? null : _NoteTagChips(tags: widget.tags),
+      footer: widget.tags.isEmpty
+          ? null
+          : WpTagChipRow(names: [for (final t in widget.tags) t.name]),
       isFocused: widget.isFocused,
       isSelected: widget.isSelected,
       onTap: widget.onTap,
@@ -458,12 +554,15 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
     return WpListItemActions(
       visible: visible,
       copy: copy,
-      star: WpFavouriteStar(
-        key: ValueKey('notes-favorite-$id'),
-        testId: 'notes-favorite-$id',
-        isFavourite: widget.note.pinned,
-        onToggle: widget.onFavoriteToggle,
-      ),
+      // Archived notes carry no favourite (#656).
+      star: widget.note.archived
+          ? null
+          : WpFavouriteStar(
+              key: ValueKey('notes-favorite-$id'),
+              testId: 'notes-favorite-$id',
+              isFavourite: widget.note.pinned,
+              onToggle: widget.onFavoriteToggle,
+            ),
       // The one label that differs from the other lists on purpose: a note
       // is not deleted here but moved to the trash.
       delete: onMoveToTrash == null
@@ -477,67 +576,6 @@ class _NotesListTileState extends ConsumerState<NotesListTile> {
               isDestructive: true,
               dense: true,
             ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Compact, non-interactive tag pills — structural sibling of history's
-// _EntryTagChips/_EntryTagChip: max. 3 visible chips + "+N" overflow count.
-// ---------------------------------------------------------------------------
-
-class _NoteTagChips extends StatelessWidget {
-  const _NoteTagChips({required this.tags});
-
-  final List<Tag> tags;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = WpColors.accent;
-    final textMuted = WpColors.textMuted;
-    return Wrap(
-      spacing: 4,
-      runSpacing: 2,
-      children: [
-        for (final tag in tags.take(3))
-          _NoteTagChip(name: tag.name, accent: accent),
-        if (tags.length > 3)
-          Text(
-            '+${tags.length - 3}',
-            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
-          ),
-      ],
-    );
-  }
-}
-
-class _NoteTagChip extends StatelessWidget {
-  const _NoteTagChip({required this.name, required this.accent});
-
-  final String name;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      // Vertical 1 stays off-scale on purpose: the mini tag hugs its micro
-      // text; xxs would double the chip height (same as history's mini tag).
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xxs,
-        vertical: 1,
-      ),
-      decoration: BoxDecoration(
-        color: WpColors.accentMiniTagFill,
-        borderRadius: WpRadius.borderSm,
-      ),
-      child: Text(
-        '#$name',
-        style: TextStyle(
-          fontSize: WpTypography.caption,
-          color: accent.withValues(alpha: 0.9),
-          fontWeight: FontWeight.w500,
-        ),
-      ),
     );
   }
 }

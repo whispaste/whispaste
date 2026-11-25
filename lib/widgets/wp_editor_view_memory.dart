@@ -1,6 +1,8 @@
 /// Brings someone back to where they were in an entry (#678): caret or
-/// selection, the paragraph at the top of the view, and the entry's text
-/// size. Shared by recordings, notes and snippets; the state lives in
+/// selection, the paragraph at the top of the view and, in the long-note
+/// editor, the folded sections (#1344). The text size is no
+/// longer per entry: it is the editors' shared text view (#648,
+/// `WpEditorText`). Shared by recordings, notes and snippets; the state lives in
 /// [EditorViewStateStore], apart from the text, which this widget never
 /// writes.
 library;
@@ -12,17 +14,13 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/accessibility/announce.dart';
-import '../core/config/command_shortcut.dart';
 import '../core/data/database.dart';
 import '../core/data/editor_view_state.dart';
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/theme/tokens.dart';
-import 'wp_button.dart';
 
 /// An editor that scrolls by itself in blocks (the long-note editor) reports
 /// and takes its scroll anchor through this; anything else is measured from
@@ -35,8 +33,15 @@ abstract interface class WpEditorViewAnchor {
 
   void restoreViewAnchor(int block, double offset);
 
-  /// Notifies when the view scrolls.
+  /// Notifies when the view scrolls or the folds change.
   Listenable get viewAnchorChanges;
+
+  /// Ordinals of the folded heading sections (#1344).
+  List<int> captureFolds();
+
+  /// Folds the sections [folded] names; a section holding the caret stays
+  /// open.
+  void restoreFolds(List<int> folded);
 }
 
 class WpEditorViewMemory extends ConsumerStatefulWidget {
@@ -45,7 +50,6 @@ class WpEditorViewMemory extends ConsumerStatefulWidget {
     required this.entry,
     required this.text,
     required this.focusNode,
-    required this.testIdPrefix,
     required this.child,
     this.controller,
     this.takeFocus = true,
@@ -64,14 +68,24 @@ class WpEditorViewMemory extends ConsumerStatefulWidget {
   /// The focus that "lands in the text" on restore.
   final FocusNode focusNode;
 
-  /// The editor's test ID: the reset chip is `<testIdPrefix>-zoom-reset`.
-  final String testIdPrefix;
-
   /// False where moving the focus would take it from somewhere it is
   /// needed (a list the arrow keys walk through).
   final bool takeFocus;
 
   final Widget child;
+
+  /// Selections put in on purpose, by controller, until a restore saw them.
+  static final _placed = Expando<TextSelection>();
+
+  /// Puts [selection] into [controller] on purpose (a search hit opened at
+  /// its match, #628). The next restore of a remembered place, which may
+  /// only start once the entry is on screen, then keeps this selection and
+  /// the view instead of moving back to where the entry was left; unless
+  /// the selection moved in the meantime.
+  static void place(TextEditingController controller, TextSelection selection) {
+    _placed[controller] = selection;
+    controller.selection = selection;
+  }
 
   @override
   ConsumerState<WpEditorViewMemory> createState() => _WpEditorViewMemoryState();
@@ -87,6 +101,10 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   bool _captureScheduled = false;
   Timer? _saveTimer;
   Listenable? _scrollSource;
+
+  /// The block editor seen last; folds are captured from it even while the
+  /// focus is elsewhere (the editor menu folds all sections).
+  WpEditorViewAnchor? _lastEditor;
 
   @override
   void initState() {
@@ -132,7 +150,12 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   Future<void> _load() async {
     final stored = await _store.read(widget.entry);
     if (!mounted) return;
-    if (stored == null) {
+    final controller = widget.controller;
+    final placed = controller == null
+        ? null
+        : WpEditorViewMemory._placed[controller];
+    if (controller != null) WpEditorViewMemory._placed[controller] = null;
+    if (stored == null || (placed != null && controller!.selection == placed)) {
       _ready = true;
       _watchScroll();
       return;
@@ -140,7 +163,6 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
     final state = stored.clampedTo(widget.text());
     setState(() => _state = state);
     _saved = state;
-    final controller = widget.controller;
     if (controller != null && widget.text().isNotEmpty) {
       controller.selection = TextSelection(
         baseOffset: state.selectionBase,
@@ -185,6 +207,7 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   void _capture() {
     final selection = widget.controller?.selection;
     final anchor = _measureAnchor();
+    final folds = _foldingEditor()?.captureFolds();
     final next = _state.copyWith(
       selectionBase: selection != null && selection.isValid
           ? selection.baseOffset
@@ -194,6 +217,7 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
           : null,
       anchorBlock: anchor?.block,
       anchorOffset: anchor?.offset,
+      folded: folds,
     );
     if (next == _state) return;
     _state = next;
@@ -223,6 +247,12 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   // Geometry
   // ---------------------------------------------------------------------------
 
+  WpEditorViewAnchor? _foldingEditor() {
+    final last = _lastEditor;
+    if (last is State && !(last as State).mounted) _lastEditor = null;
+    return _anchorEditor() ?? _lastEditor;
+  }
+
   WpEditorViewAnchor? _anchorEditor() {
     WpEditorViewAnchor? found;
     final focusContext = _activeFocusContext();
@@ -234,6 +264,7 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
       }
       return true;
     });
+    if (found != null) _lastEditor = found;
     return found;
   }
 
@@ -256,7 +287,7 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
       ?.renderEditable;
 
   /// A read-only text: the first paragraph under this widget, which is the
-  /// entry's text (the reset chip comes after it).
+  /// entry's text.
   RenderParagraph? _paragraph() {
     final box = context.findRenderObject();
     RenderParagraph? found;
@@ -305,7 +336,10 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   void _restoreAnchor(EditorViewState state) {
     final editor = _anchorEditor();
     if (editor != null) {
-      editor.restoreViewAnchor(state.anchorBlock, state.anchorOffset);
+      // Folds first: they change the heights the anchor is measured in.
+      editor
+        ..restoreFolds(state.folded)
+        ..restoreViewAnchor(state.anchorBlock, state.anchorOffset);
       return;
     }
     final position = _scrollPosition();
@@ -366,88 +400,22 @@ class _WpEditorViewMemoryState extends ConsumerState<WpEditorViewMemory> {
   }
 
   // ---------------------------------------------------------------------------
-  // Zoom and announcements
+  // Announcements
   // ---------------------------------------------------------------------------
-
-  void _zoom(int direction) => _setZoom(
-    direction == 0 ? 1.0 : EditorViewState.stepZoom(_state.zoom, direction),
-  );
-
-  void _setZoom(double zoom) {
-    if (zoom == _state.zoom) return;
-    setState(() => _state = _state.copyWith(zoom: zoom));
-    _queueSave();
-    _say(L10n.of(context).editorTextSizeAnnouncement(_percent(zoom)));
-  }
-
-  static int _percent(double zoom) => (zoom * 100).round();
 
   void _announcePosition(EditorViewState state) {
     final text = widget.text();
     final paragraph =
         EditorViewState.paragraphAt(text, state.selectionExtent) + 1;
     final total = EditorViewState.paragraphCount(text);
-    final l10n = L10n.of(context);
-    _say(
-      state.isDefaultZoom
-          ? l10n.editorPositionRestored(paragraph, total)
-          : '${l10n.editorPositionRestored(paragraph, total)} '
-                '${l10n.editorTextSizeAnnouncement(_percent(state.zoom))}',
-    );
+    _say(L10n.of(context).editorPositionRestored(paragraph, total));
   }
 
   void _say(String message) =>
       announce(View.of(context), message, Directionality.of(context));
 
   @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final base = media.textScaler;
-    final zoom = _state.zoom;
-    final Widget child = _state.isDefaultZoom
-        ? widget.child
-        : MediaQuery(
-            data: media.copyWith(textScaler: _ZoomScaler(base, zoom)),
-            child: widget.child,
-          );
-    final l10n = L10n.of(context);
-    return CallbackShortcuts(
-      bindings: {
-        for (final key in [
-          LogicalKeyboardKey.equal,
-          LogicalKeyboardKey.add,
-          LogicalKeyboardKey.numpadAdd,
-        ]) ...{
-          commandActivator(key): () => _zoom(1),
-          commandActivator(key, shift: true): () => _zoom(1),
-        },
-        commandActivator(LogicalKeyboardKey.minus): () => _zoom(-1),
-        commandActivator(LogicalKeyboardKey.numpadSubtract): () => _zoom(-1),
-        commandActivator(LogicalKeyboardKey.digit0): () => _zoom(0),
-        commandActivator(LogicalKeyboardKey.numpad0): () => _zoom(0),
-      },
-      child: Stack(
-        // The parent's constraints as they are: a fixed editor area (notes,
-        // snippets) or a text that grows in a scrolling page (recordings).
-        fit: StackFit.passthrough,
-        children: [
-          child,
-          if (!_state.isDefaultZoom)
-            PositionedDirectional(
-              top: WpSpacing.xs,
-              end: WpSpacing.md,
-              child: WpButton(
-                testId: '${widget.testIdPrefix}-zoom-reset',
-                label: l10n.editorTextSizeReset(_percent(zoom)),
-                variant: WpButtonVariant.ghost,
-                size: WpButtonSize.dense,
-                onPressed: () => _zoom(0),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _TextGeometry {
@@ -461,27 +429,4 @@ class _TextGeometry {
   final double viewTop;
   final int Function(double y) positionAt;
   final double Function(int offset) caretTop;
-}
-
-/// The entry's text size on top of the system's: the system scaling stays
-/// in force, the entry's factor multiplies it.
-class _ZoomScaler extends TextScaler {
-  const _ZoomScaler(this.base, this.zoom);
-
-  final TextScaler base;
-  final double zoom;
-
-  @override
-  double scale(double fontSize) => base.scale(fontSize) * zoom;
-
-  @override
-  // ignore: deprecated_member_use -- TextScaler still requires this override.
-  double get textScaleFactor => base.scale(16) / 16 * zoom;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _ZoomScaler && other.base == base && other.zoom == zoom;
-
-  @override
-  int get hashCode => Object.hash(base, zoom);
 }

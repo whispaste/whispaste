@@ -5,7 +5,10 @@ import 'package:dio/dio.dart';
 
 import 'download_tls_failure.dart';
 import 'http_model_fetcher.dart'
-    show DownloadChecksumException, DownloadLengthException;
+    show
+        DownloadChecksumException,
+        DownloadLengthException,
+        DownloadWrongResponseException;
 
 /// Why a model download failed, as far as the user can act on it. The raw
 /// exception text goes to the log only; the UI maps this to a sentence.
@@ -19,7 +22,8 @@ enum DownloadErrorKind {
   /// retrying helps.
   network,
 
-  /// The file arrived but failed its size or hash check and was removed.
+  /// The file arrived but failed its size or hash check and was removed, or
+  /// every source answered with something else (a web page, another file).
   checksum,
 
   /// The file could not be written (disk full, no permission).
@@ -51,7 +55,9 @@ DownloadErrorKind classifyDownloadError(Object error) {
     return DownloadErrorKind.network;
   }
   if (error is FileSystemException) return DownloadErrorKind.storage;
-  if (error is DownloadChecksumException || error is DownloadLengthException) {
+  if (error is DownloadChecksumException ||
+      error is DownloadLengthException ||
+      error is DownloadWrongResponseException) {
     return DownloadErrorKind.checksum;
   }
   if (error is SocketException) return DownloadErrorKind.offline;
@@ -60,3 +66,17 @@ DownloadErrorKind classifyDownloadError(Object error) {
   }
   return DownloadErrorKind.unknown;
 }
+
+/// Whether a failed download is caused by the user's connection rather than
+/// by the app: no network, a lost or stalled transfer, a server error or a
+/// TLS failure. The UI already offers a retry for these, so they are logged
+/// as warnings and stay out of Sentry (rule 2026-10-27: offline is an
+/// expected state). A full disk, a failed hash check or anything unknown
+/// keeps its error level.
+bool isConnectionDownloadFailure(Object error) =>
+    switch (classifyDownloadError(error)) {
+      DownloadErrorKind.offline ||
+      DownloadErrorKind.network ||
+      DownloadErrorKind.tls => true,
+      _ => false,
+    };

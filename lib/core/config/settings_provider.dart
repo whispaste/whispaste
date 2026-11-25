@@ -419,6 +419,12 @@ class AppSettings {
   /// Whether the overlay shows the quiet-microphone notice card (overlay F2).
   bool get overlayQuietHint => overlay.overlayQuietHint;
 
+  /// Whether the recording pill always shows its key hints (overlay E).
+  bool get overlayKeyHintsAlways => overlay.overlayKeyHintsAlways;
+
+  /// Whether captures leave the overlay out (overlay F, macOS and Windows).
+  bool get overlayHideFromCapture => overlay.overlayHideFromCapture;
+
   /// Resolved model ID — falls back to `whisper-medium` if empty.
   ///
   /// **Whisper-only.** This also resolves Whisper model *paths* (preflight,
@@ -441,7 +447,8 @@ class AppSettings {
     return switch (onDeviceEngine) {
       OnDeviceEngine.parakeet => parakeetModelId,
       OnDeviceEngine.system => systemSpeechModelId,
-      OnDeviceEngine.whisper => effectiveModelId,
+      // The `user-…` id of an own model: random, never a path or address.
+      OnDeviceEngine.whisper || OnDeviceEngine.userModel => effectiveModelId,
     };
   }
 
@@ -479,8 +486,9 @@ class AppSettings {
   );
 
   /// Existing installs (onboarding finished before the threshold setting
-  /// existed) keep the former fixed 1000 ms; new installs take the 250 ms
-  /// default. A stored value always wins.
+  /// existed) keep the former fixed 1000 ms; new installs take the 400 ms
+  /// default. A stored value wins (see `_readHoldOrTapThresholdMs` for the
+  /// former 250 ms default).
   static AudioInputSettings _withLegacyHoldOrTapThreshold(
     AudioInputSettings audio,
     Map<String, String> values,
@@ -804,6 +812,8 @@ class AppSettings {
     bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
     bool? overlayQuietHint,
+    bool? overlayKeyHintsAlways,
+    bool? overlayHideFromCapture,
     String? openAiApiKey,
     String? deepgramApiKey,
     String? cloudSttProvider,
@@ -897,6 +907,8 @@ class AppSettings {
         floatingButtonIdleCapsule: floatingButtonIdleCapsule,
         overlayShowLiveTranscript: overlayShowLiveTranscript,
         overlayQuietHint: overlayQuietHint,
+        overlayKeyHintsAlways: overlayKeyHintsAlways,
+        overlayHideFromCapture: overlayHideFromCapture,
       ),
       cloudProvider: cloudProvider.copyWith(
         openAiApiKey: openAiApiKey,
@@ -1174,7 +1186,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
         final current = state.value;
         if (current == null) return;
         try {
-          final merged = await _mergeSecureKeys(current, secureStore);
+          final keys = await secureStore.readAllApiKeys();
+          final merged = _withSecureKeys(current, keys);
           if (state.value == current && merged != current) {
             state = AsyncData(merged);
           }
@@ -1363,10 +1376,17 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       try {
         await _migrateApiKeys(values, secureStore, db);
         await _removeGroqKeyOnce(values, secureStore, db);
-        final merged = await _mergeSecureKeys(
-          state.value ?? settings,
-          secureStore,
+        final keys = await secureStore.readAllApiKeys();
+        // Storage names only, never values: a support log then shows whether
+        // a key missing after a restart was read at all (GitHub #164).
+        _log.info(
+          'API keys loaded at start: '
+          '${keys.isEmpty ? 'none' : keys.keys.join(', ')}',
         );
+        // Merged into the settings as they are after the read, never a
+        // snapshot from before it: a start-up recovery (own model #1789, GPU
+        // crash) that changed the settings meanwhile stays in effect.
+        final merged = _withSecureKeys(state.value ?? settings, keys);
         if (state.value != merged) {
           state = AsyncData(merged);
         }
@@ -1861,7 +1881,15 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     try {
       await _persistChange(current, updated);
     } catch (e, st) {
-      _log.error('Could not save settings', e, st);
+      // A locked or unreachable keyring (Linux) keeps an API key from being
+      // stored. The user sees the save failure below; for Sentry it is a
+      // session state, not a defect (it filled an issue in 1.5.2 with one
+      // event per keystroke in the key field).
+      if (isKeyringUnavailable(e)) {
+        _log.warning('Could not save settings: ${errorKind(e)}');
+      } else {
+        _log.error('Could not save settings', e, st);
+      }
       // Show what is stored, not the value that failed to save: the next
       // launch loads the stored one (UIA-SET-01).
       if (identical(state.value, updated)) state = AsyncData(current);
@@ -2105,25 +2133,20 @@ Future<void> _removeGroqKeyOnce(
 }
 
 /// Merge API keys from secure storage into [settings].
-Future<AppSettings> _mergeSecureKeys(
-  AppSettings settings,
-  SecureKeyStore secureStore,
-) async {
-  final keys = await secureStore.readAllApiKeys();
+AppSettings _withSecureKeys(AppSettings settings, Map<String, String> keys) {
   if (keys.isEmpty) return settings;
 
-  return settings
-      .copyWith(
-        openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
-        deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
-      )
-      .copyWithSections(
-        cloudProvider: settings.cloudProvider.copyWith(
-          customEndpointApiKey:
-              keys['wp_custom_endpoint_api_key'] ??
-              settings.cloudProvider.customEndpointApiKey,
-        ),
-      );
+  // One cloudProvider copy for all three keys: rebuilding it from the
+  // unmerged section would drop the OpenAI and Deepgram keys again.
+  final cloud = settings.cloudProvider;
+  return settings.copyWithSections(
+    cloudProvider: cloud.copyWith(
+      openAiApiKey: keys['wp_openai_api_key'] ?? cloud.openAiApiKey,
+      deepgramApiKey: keys['wp_deepgram_api_key'] ?? cloud.deepgramApiKey,
+      customEndpointApiKey:
+          keys['wp_custom_endpoint_api_key'] ?? cloud.customEndpointApiKey,
+    ),
+  );
 }
 
 /// Write changed API keys to secure storage.

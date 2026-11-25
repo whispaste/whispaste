@@ -4,6 +4,8 @@
 /// (`onboarding_contact_launcher.dart` is the UI).
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/app_info.dart';
@@ -21,8 +23,7 @@ enum OnboardingContactKind { idea, problem, question, other }
 const kOnboardingIdeaBoardUrl =
     'https://app.votepit.com/silvio-und-maik/whispaste';
 
-/// Whether the panel may send messages itself. On since the feedback API
-/// (`POST /v1/feedback`) takes a message without a star rating. Only tests
+/// Whether the panel may send messages itself via `POST /v1/contact`. Only tests
 /// turn it off, to check the fallback that shows the contact e-mail address.
 final onboardingContactSendEnabledProvider = Provider<bool>((ref) => true);
 
@@ -31,18 +32,6 @@ const kOnboardingContactMinLength = 10;
 
 /// The longest message the panel accepts.
 const kOnboardingContactMaxMessageLength = 4000;
-
-/// The server stores at most 1000 characters of `feedback_text`, the
-/// optional technical details included. The legacy feedback path keeps that
-/// limit until the website contact API takes over.
-const kOnboardingContactMaxTextLength = 1000;
-
-/// Room the technical details block may take on the legacy path.
-const kOnboardingContactDiagnosticsReserve = 120;
-
-/// The longest message the legacy feedback path can carry.
-const kOnboardingContactLegacyMessageLength =
-    kOnboardingContactMaxTextLength - kOnboardingContactDiagnosticsReserve;
 
 /// The server category for [kind]; `null` for the idea, which never sends.
 /// Same mapping as the feedback form (`feedbackCategoryFor`): question and
@@ -69,59 +58,44 @@ bool isAcceptableContactEmail(String email) {
 bool isSendableContactMessage(String message) =>
     message.trim().length >= kOnboardingContactMinLength;
 
-/// The technical details a message carries only after the opt-in: the
-/// onboarding step, the app version and the operating system. Nothing else.
-String onboardingContactDiagnostics({
-  required String stepId,
-  required String appVersion,
-  required String os,
-}) {
-  final block =
-      '--- diagnostics ---\n'
-      'Step $stepId · App $appVersion · OS $os';
-  return block.length > kOnboardingContactDiagnosticsReserve
-      ? block.substring(0, kOnboardingContactDiagnosticsReserve)
-      : block;
+/// [stepId] as the contact API takes it (`^[a-z_]{1,32}$`): the step enum
+/// name in snake case (`tryOut` → `try_out`), `null` when nothing is left.
+/// The API drops a value it does not accept without failing the message.
+String? contactStepId(String stepId) {
+  final snake = stepId
+      .replaceAllMapped(RegExp('[A-Z]'), (m) => '_${m[0]!.toLowerCase()}')
+      .replaceAll(RegExp('[^a-z_]'), '_');
+  final trimmed = snake.replaceAll(RegExp('^_+|_+\$'), '');
+  if (trimmed.isEmpty) return null;
+  return trimmed.length > 32 ? trimmed.substring(0, 32) : trimmed;
 }
 
-/// Builds what the legacy path sends for [kind]. Without [includeDiagnostics]
-/// the text is the message alone: no step, no OS. The quote consent is never
-/// given here (only praise in the feedback form can carry it), and there is
-/// no star rating. [appVersion], [deviceIdHash] and [locale] are the fields
-/// every feedback row carries.
-FeedbackPayload buildOnboardingContactPayload({
-  required OnboardingContactKind kind,
-  required String message,
-  required String email,
-  required bool includeDiagnostics,
-  required String stepId,
-  required String appVersion,
-  required String os,
-  required String deviceIdHash,
+/// Builds what the panel sends for [message]. Without the opt-in
+/// ([OnboardingContactMessage.includeDiagnostics]) the message goes out alone:
+/// no app version, no system, no step, no logs, and [readDiagnostics] is not
+/// called, so no log file is read. With it, version, system, step and the
+/// cleaned diagnostics attachment travel along. Never a rating or the quote
+/// consent.
+ContactPayload buildOnboardingContactPayload({
+  required OnboardingContactMessage message,
   required String locale,
+  required String installHash,
+  required String appVersion,
+  required String operatingSystem,
+  required String Function() readDiagnostics,
 }) {
-  final category = onboardingContactCategory(kind);
-  if (category == null) {
-    throw ArgumentError.value(kind, 'kind', 'ideas go to the board');
-  }
-  final trimmedEmail = email.trim();
-  var text = message.trim();
-  if (text.length > kOnboardingContactLegacyMessageLength) {
-    text = text.substring(0, kOnboardingContactLegacyMessageLength);
-  }
-  if (includeDiagnostics) {
-    text =
-        '$text\n\n'
-        '${onboardingContactDiagnostics(stepId: stepId, appVersion: appVersion, os: os)}';
-  }
-  return FeedbackPayload(
-    feedbackText: text,
-    category: category,
-    appVersion: appVersion,
-    deviceIdHash: deviceIdHash,
-    locale: locale,
-    contactEmail: trimmedEmail.isEmpty ? null : trimmedEmail,
-    contactLocale: trimmedEmail.isEmpty ? null : locale,
+  final withDiagnostics = message.includeDiagnostics;
+  return ContactPayload(
+    kind: message.kind.name,
+    message: message.message.trim(),
+    email: message.email.trim(),
+    lang: locale,
+    elapsedMs: message.elapsed.inMilliseconds,
+    installHash: installHash,
+    appVersion: withDiagnostics ? appVersion : null,
+    os: withDiagnostics ? contactOsName(operatingSystem) : null,
+    stepId: withDiagnostics ? contactStepId(message.stepId) : null,
+    diagnostics: withDiagnostics ? readDiagnostics() : null,
   );
 }
 
@@ -178,7 +152,7 @@ typedef OnboardingContactSender =
     Future<OnboardingContactOutcome> Function(OnboardingContactMessage);
 
 /// The sender the panel uses. This is the one place the transport is chosen:
-/// the legacy feedback path for now, the website contact API later.
+/// the contact API, with diagnostics sent separately from the message.
 final onboardingContactSenderProvider = Provider<OnboardingContactSender>((
   ref,
 ) {
@@ -187,20 +161,20 @@ final onboardingContactSenderProvider = Provider<OnboardingContactSender>((
       return OnboardingContactOutcome.unavailable;
     }
     try {
+      if (message.includeDiagnostics) {
+        ref.invalidate(feedbackDiagnosticAttachmentProvider);
+      }
       final payload = buildOnboardingContactPayload(
-        kind: message.kind,
-        message: message.message,
-        email: message.email,
-        includeDiagnostics: message.includeDiagnostics,
-        stepId: message.stepId,
-        appVersion: appVersion,
-        os: feedbackShortOs(),
-        deviceIdHash: readInstallId(),
+        message: message,
         locale: ref.read(localeProvider).languageCode,
+        installHash: consentTokenHash(readInstallId()),
+        appVersion: appVersion,
+        operatingSystem: Platform.operatingSystem,
+        readDiagnostics: () => ref.read(feedbackDiagnosticAttachmentProvider),
       );
       final result = await ref
           .read(feedbackSubmissionServiceProvider)
-          .submit(payload);
+          .submitContact(payload);
       return onboardingContactOutcome(result);
     } catch (_) {
       return OnboardingContactOutcome.retry;

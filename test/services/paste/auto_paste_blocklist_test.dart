@@ -230,7 +230,7 @@ void main() {
     // The example in the block-list field must name an app the rule really
     // blocks. The native X11 lookup reports the WM_CLASS instance name, so
     // GNOME Terminal is `gnome-terminal-server`, not `gnome-terminal`.
-    for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+    for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru', 'fr', 'it', 'zh']) {
       test(
         '$lang: every Linux placeholder entry blocks its own WM_CLASS name',
         () {

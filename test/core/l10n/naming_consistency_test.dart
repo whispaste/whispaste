@@ -52,6 +52,21 @@ void main() {
       'qualityTierBalancedLabel': 'Сбалансированный',
       'qualityTierPremiumLabel': 'Точный',
     },
+    'fr': {
+      'qualityTierCompactLabel': 'Rapide',
+      'qualityTierBalancedLabel': 'Équilibré',
+      'qualityTierPremiumLabel': 'Précis',
+    },
+    'it': {
+      'qualityTierCompactLabel': 'Veloce',
+      'qualityTierBalancedLabel': 'Bilanciato',
+      'qualityTierPremiumLabel': 'Preciso',
+    },
+    'zh': {
+      'qualityTierCompactLabel': '快速',
+      'qualityTierBalancedLabel': '均衡',
+      'qualityTierPremiumLabel': '精确',
+    },
   };
 
   group('quality tier vocabulary (NAM-01, NAM-11)', () {

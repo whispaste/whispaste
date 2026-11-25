@@ -2,7 +2,7 @@
 ///
 /// The overlay is not clickable per element, so the quick actions
 /// (shorten / improve / translate) are triggered by speaking exactly one
-/// keyword in any of the four UI locales (en/de/he/ru). Anything else is a
+/// keyword in any UI locale (en/de/he/ru/es/pt/fr/it/zh). Anything else is a
 /// free-form instruction passed to the engine together with the selection.
 library;
 
@@ -42,6 +42,12 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'más corto', 'acortar', 'acorta', 'hazlo más corto',
     // pt
     'encurtar', 'encurte', 'mais curto', 'deixe mais curto',
+    // fr
+    'plus court', 'raccourcir', 'raccourcis', 'rends-le plus court',
+    // it
+    'più breve', 'accorcia', 'accorciare', 'rendilo più breve',
+    // zh
+    '更短', '缩短', '短一点', '简短一点',
   },
   SelectionEditQuickAction.improve: {
     // en
@@ -56,6 +62,12 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'mejorar', 'mejora', 'mejóralo', 'hazlo mejor',
     // pt
     'melhorar', 'melhore', 'deixe melhor',
+    // fr
+    'améliorer', 'améliore', 'améliore-le',
+    // it
+    'migliora', 'migliorare', 'miglioralo',
+    // zh
+    '改进', '改善', '优化',
   },
   SelectionEditQuickAction.translate: {
     // en
@@ -70,10 +82,16 @@ const Map<SelectionEditQuickAction, Set<String>> _keywords = {
     'traducir', 'traduce', 'tradúcelo',
     // pt
     'traduzir', 'traduza',
+    // fr
+    'traduire', 'traduis', 'traduis-le',
+    // it
+    'traduci', 'tradurre', 'traducilo',
+    // zh
+    '翻译', '翻译一下',
   },
 };
 
-final RegExp _punctuation = RegExp(r'''[.,!?;:…"'«»„“”‚‘’()\[\]]''');
+final RegExp _punctuation = RegExp(r'''[.,!?;:…"'«»„“”‚‘’()\[\]。，！？：；、]''');
 final RegExp _whitespace = RegExp(r'\s+');
 
 String _normalize(String s) => s

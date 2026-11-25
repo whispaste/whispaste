@@ -5,9 +5,10 @@
  * `internal-notes` §4.2) as two cards with identical rows, followed directly by
  * the language grid (`#languages`, formerly its own section): one tile per
  * Whisper language, the Parakeet ones in colour — data from the app's own
- * lists via `src/data/stt-languages.ts`.
+ * lists via `src/data/stt-languages.ts`. The head carries the paper-cut
+ * illustration "on every computer" (#1595), the same image in every language.
  */
-import MotionHardware from './motion/MotionHardware.astro';
+import CutEveryComputer from './illustration/CutEveryComputer.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { PARAKEET_LANGUAGES, WHISPER_LANGUAGES, languageName } from '../data/stt-languages';
 import { t, localePath, currentLocale, pathForSlug } from '../scripts/i18n.ts';
@@ -49,7 +50,7 @@ const tiles = WHISPER_LANGUAGES.map((code) => ({
       <SectionEyebrow key="engines.label" />
       <h2 class="section-title" data-i18n="engines.title">{t(lang, "engines.title")}</h2>
       <p class="wp-lead mt-4" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
-      <div class="wp-head-art" aria-hidden="true"><MotionHardware /></div>
+      <div class="wp-head-art" aria-hidden="true"><CutEveryComputer /></div>
     </div>
 
     <div class="engine-grid">

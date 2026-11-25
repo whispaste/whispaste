@@ -1,0 +1,4 @@
+/* Permission reasons shown by macOS (Info.plist keys), per app language. */
+"NSMicrophoneUsageDescription" = "WhisPaste 需要访问麦克风，才能把你的语音转成文字。";
+"NSAppleEventsUsageDescription" = "当常规方式不可用时，WhisPaste 可以借此把听写的文字粘贴到其他应用中，并在你听写时暂停“音乐”或 Spotify。";
+"NSContactsUsageDescription" = "WhisPaste 仅在你于应用中同意后读取联系人的姓名和公司，以便听写正确拼写它们。这些信息仅保留在这台 Mac 上。";

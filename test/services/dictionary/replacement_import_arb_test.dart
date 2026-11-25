@@ -8,7 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-const _languages = ['de', 'en', 'es', 'he', 'pt', 'ru'];
+const _languages = ['de', 'en', 'es', 'he', 'pt', 'ru', 'fr', 'it', 'zh'];
 
 Map<String, dynamic> _arb(String language) =>
     jsonDecode(File('lib/core/l10n/app_$language.arb').readAsStringSync())

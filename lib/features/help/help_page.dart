@@ -147,21 +147,13 @@ class _HelpPageState extends ConsumerState<HelpPage> {
       ),
       child: KeyedSubtree(
         key: ValueKey('handbook-$_handbookEpoch'),
-        child: UserManualView(
-          initialSlug: _chapterSlug,
-          initialQuery: _query,
-          leading: const _ContactCard(),
-        ),
+        child: UserManualView(initialSlug: _chapterSlug, initialQuery: _query),
       ),
     ),
     HelpTab.intro => const _Scrolling(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ContactCard(),
-          SizedBox(height: WpSpacing.lg),
-          OnboardingReviewSection(),
-        ],
+        children: [OnboardingReviewSection()],
       ),
     ),
     HelpTab.feedback => const _Scrolling(child: _FeedbackContactSection()),
@@ -186,8 +178,6 @@ class _HelpPageState extends ConsumerState<HelpPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _ContactCard(),
-          const SizedBox(height: WpSpacing.lg),
           const _DiagnosticsSection(),
           const SizedBox(height: WpSpacing.lg),
           WpSettingsGroup(
@@ -227,54 +217,6 @@ class _HelpPageState extends ConsumerState<HelpPage> {
       ),
     ),
   };
-}
-
-/// The contact card on top of the Help page: one plain route into the contact
-/// form. The card, its button and the Hilfe menu entry "Kontakt aufnehmen…"
-/// share one screen reader name; the menu entry opens Help › Feedback &
-/// contact, which lists every way to reach the team (#395). Ideas link to the
-/// public board, because they are collected there in public.
-class _ContactCard extends ConsumerWidget {
-  const _ContactCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = L10n.of(context);
-    return Semantics(
-      identifier: 'help-contact-card',
-      container: true,
-      explicitChildNodes: true,
-      label: l10n.helpContactHeading,
-      child: WpSettingsGroup(
-        heading: l10n.helpContactHeading,
-        children: [
-          WpSettingsRow(
-            rowId: 'help-contact',
-            title: l10n.helpContactBody,
-            trailing: WpButton(
-              testId: 'help-contact-button',
-              label: l10n.helpContactAction,
-              variant: WpButtonVariant.primary,
-              icon: LucideIcons.mail,
-              onPressed: () {
-                ref.read(feedbackPresetTypeProvider.notifier).set(null);
-                ref.read(activePageProvider.notifier).setPage('feedback');
-              },
-            ),
-          ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: WpTextLink(
-              label: l10n.helpContactIdeasLink,
-              kind: WpLinkKind.web,
-              testID: 'help-contact-ideas-link',
-              onPressed: () => openExternalUrl(context, kVotepitBoardUrl),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// The Feedback & contact tab: the feedback form, a problem report, ideas

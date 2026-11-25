@@ -55,6 +55,8 @@ import 'automation_api_snippet_routes.dart';
 import 'automation_api_status_routes.dart';
 import 'automation_api_token_store.dart';
 import 'automation_api_transcribe_routes.dart';
+import 'automation_write_jobs.dart';
+import 'automation_write_routes.dart';
 import 'multiline_paste_confirmation.dart';
 import 'automation_snippet_render.dart';
 
@@ -75,6 +77,7 @@ class AutomationApiState {
     this.port,
     this.requestedPort,
     this.token,
+    this.writeToken,
   });
 
   final AutomationApiRunState runState;
@@ -92,6 +95,19 @@ class AutomationApiState {
   /// visible across a stop/start cycle so settings can still show/copy it
   /// while the server is off.
   final String? token;
+
+  /// The write-scope token (#255) while writing is switched on; null
+  /// otherwise. Switching writing off deletes it.
+  final String? writeToken;
+
+  /// Same state with another [writeToken].
+  AutomationApiState withWriteToken(String? writeToken) => AutomationApiState(
+    runState: runState,
+    port: port,
+    requestedPort: requestedPort,
+    token: token,
+    writeToken: writeToken,
+  );
 
   bool get isRunning => runState == AutomationApiRunState.running;
 }
@@ -175,6 +191,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       _serialized(() => _syncWithSettingsSerialized(settings));
 
   Future<void> _syncWithSettingsSerialized(AppSettings settings) async {
+    await _syncWriteScope(settings);
     final shouldRun = settings.automationApi.enabled;
     _log.info(
       'syncWithSettings: shouldRun=$shouldRun currentRunState=${state.runState} '
@@ -207,6 +224,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     final handler = buildAutomationApiHandler(
       currentToken: () =>
           withSecureTrigger('automation api request', tokenStore.readToken),
+      currentWriteToken: _currentWriteToken,
       routeGroups: [
         dictationTriggerRoutes(
           triggerDictation:
@@ -237,6 +255,13 @@ class AutomationApiController extends Notifier<AutomationApiState> {
           renderSnippet: _renderSnippet,
         ),
         automationTranscribeRoutes(transcribe: _transcribeWav),
+        automationWriteRoutes(
+          start: (request) => ref
+              .read(automationWriteJobsProvider.notifier)
+              .start(request.instruction, limits: request.limits),
+          lookup: (id) =>
+              ref.read(automationWriteJobsProvider.notifier).lookup(id),
+        ),
       ],
     );
 
@@ -260,6 +285,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
           port: boundPort,
           requestedPort: targetPort,
           token: token,
+          writeToken: state.writeToken,
         );
         _log.info('_start: bound port $boundPort (requested $targetPort)');
         return;
@@ -275,6 +301,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       runState: AutomationApiRunState.error,
       requestedPort: targetPort,
       token: token,
+      writeToken: state.writeToken,
     );
     _log.warning(
       '_start: exhausted all $kAutomationApiPortFallbackAttempts fallback '
@@ -314,6 +341,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
         port: state.port,
         requestedPort: state.requestedPort,
         token: token,
+        writeToken: state.writeToken,
       );
     } on Object catch (e) {
       _log.warning('Automation token after consent unavailable: $e');
@@ -329,6 +357,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     state = AutomationApiState(
       runState: AutomationApiRunState.stopped,
       token: state.token,
+      writeToken: state.writeToken,
     );
   }
 
@@ -587,8 +616,84 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       port: state.port,
       requestedPort: state.requestedPort,
       token: token,
+      writeToken: state.writeToken,
     );
     return token;
+  }
+
+  /// Generates a fresh write token. The old one stops working on the next
+  /// request, and an open write job is stopped before it pastes (D22).
+  Future<String> regenerateWriteToken() async {
+    ref.read(automationWriteJobsProvider.notifier).revokeAll();
+    final token = await ref
+        .read(automationWriteTokenStoreProvider)
+        .regenerate();
+    state = state.withWriteToken(token);
+    return token;
+  }
+
+  /// Last seen write switch, so the token is deleted only when the switch
+  /// goes from on to off (not on every start, which would touch the key
+  /// store needlessly).
+  bool? _lastWriteEnabled;
+
+  /// Keeps the write token in line with the write switch. Writing only works
+  /// while the API runs and the switch is on; anything else stops an open
+  /// write job before it pastes. The middleware reads the switch on every
+  /// request too, so a request right after switching off is already refused.
+  Future<void> _syncWriteScope(AppSettings settings) async {
+    final api = settings.automationApi;
+    final writeEnabled = api.writeEnabled;
+    if (!api.enabled || !writeEnabled) {
+      ref.read(automationWriteJobsProvider.notifier).revokeAll();
+    }
+    final wasEnabled = _lastWriteEnabled;
+    _lastWriteEnabled = writeEnabled;
+    if (!writeEnabled) {
+      if (wasEnabled == true) {
+        _log.info('Write scope switched off: write token deleted');
+        state = state.withWriteToken(null);
+        try {
+          await withSecureTrigger(
+            'automation write off',
+            ref.read(automationWriteTokenStoreProvider).revoke,
+          );
+        } on Object catch (e) {
+          // The switch alone already refuses the token (see
+          // [_currentWriteToken]); a stale entry only waits for the next try.
+          _log.warning('Write token not deleted: ${e.runtimeType}');
+        }
+      }
+      return;
+    }
+    // While the API is off nothing can use the token, so the key store is
+    // not touched for it.
+    if (!api.enabled || state.writeToken != null) return;
+    final store = ref.read(automationWriteTokenStoreProvider);
+    try {
+      final token = await withSecureTrigger(
+        'automation write token',
+        () async => await store.readToken() ?? await store.regenerate(),
+      );
+      state = state.withWriteToken(token);
+    } on Object catch (e) {
+      // Held back before the data-key explanation or a locked keyring:
+      // requests get 503 until the token can be read.
+      _log.warning('Write token unavailable: ${e.runtimeType}');
+    }
+  }
+
+  /// The write token a request must carry, or null while writing is off.
+  Future<String?> _currentWriteToken() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (!settings.automationApi.enabled ||
+        !settings.automationApi.writeEnabled) {
+      return null;
+    }
+    return withSecureTrigger(
+      'automation write request',
+      ref.read(automationWriteTokenStoreProvider).readToken,
+    );
   }
 }
 

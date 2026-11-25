@@ -20,7 +20,7 @@ import os.log
 ///   menu bar, clamped to the screen.
 ///
 /// Channels: `com.whispaste.tray_panel` (main engine: `toggle`, `update`,
-/// `hide`, `destroy`; events `onAction`, `onDismissed`,
+/// `hide`, `destroy`, `nameStatusItem`; events `onAction`, `onDismissed`,
 /// `onRenderEngineDiagnostic`) and `com.whispaste.tray_panel_render` (panel
 /// engine: `ready`, `action`, `cancel`, `reportError`; to it `setContent`,
 /// `panelHidden`).
@@ -89,6 +89,9 @@ class TrayPanelHost: NSObject, NSWindowDelegate {
     case "destroy":
       teardown()
       result(nil)
+    case "nameStatusItem":
+      let label = ((call.arguments as? [String: Any])?["label"] as? String) ?? "WhisPaste"
+      result(["named": nameStatusItems(label)])
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -218,12 +221,14 @@ class TrayPanelHost: NSObject, NSWindowDelegate {
     }
     renderBootStartedAt = DispatchTime.now()
     let engine = FlutterEngine(name: "tray_panel", project: nil)
+    SystemMotionHost.attach(engine.binaryMessenger)
     let didRun = engine.run(withEntrypoint: "trayPanelMain")
     guard didRun else {
       renderEngine = engine
       return
     }
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+    RenderEngineAccessibility.replayToNewEngine()
     vc.backgroundColor = .clear
     let renderCh = FlutterMethodChannel(
       name: "com.whispaste.tray_panel_render",
@@ -307,6 +312,38 @@ class TrayPanelHost: NSObject, NSWindowDelegate {
       }
     }
     return kr == KERN_SUCCESS ? Double(info.resident_size) / 1_048_576 : -1
+  }
+
+  // MARK: - Status item name
+
+  /// Gives the menu bar icon an accessible name (#1926). tray_manager creates
+  /// the NSStatusItem without one and puts the state only into the tooltip,
+  /// so VoiceOver announced "status menu" and Voice Control had no name to
+  /// target. AppKit lists no status items, but each one lives in its own
+  /// NSStatusBarWindow; the plugin's item is the button that hosts its
+  /// `TrayIcon` view. The tooltip keeps the state (AXHelp). Returns how many
+  /// buttons were named.
+  private func nameStatusItems(_ label: String) -> Int {
+    var named = 0
+    for window in NSApp.windows
+    where String(describing: type(of: window)).contains("StatusBarWindow") {
+      guard let content = window.contentView else { continue }
+      for button in Self.buttons(in: content)
+      where button.subviews.contains(where: {
+        String(describing: type(of: $0)).contains("TrayIcon")
+      }) {
+        button.setAccessibilityLabel(label)
+        named += 1
+      }
+    }
+    return named
+  }
+
+  private static func buttons(in view: NSView) -> [NSButton] {
+    var found: [NSButton] = []
+    if let button = view as? NSButton { found.append(button) }
+    for child in view.subviews { found.append(contentsOf: buttons(in: child)) }
+    return found
   }
 
   // MARK: - NSWindowDelegate

@@ -11,7 +11,9 @@ import '../../core/config/settings_provider.dart';
 import '../../core/config/settings_sections.dart' show CloudProviderSettings;
 import '../audio/import/pcm_decoder.dart';
 import '../audio/pcm16_pause_finder.dart';
+import '../audio/upload_audio_encoder.dart';
 import '../audio/wav_header_repair.dart';
+import '../dictionary/term_budget.dart';
 import '../stt/transcript_hallucination_filter.dart';
 import 'cloud_request.dart';
 import 'cloud_session_breaker.dart';
@@ -61,10 +63,16 @@ class WavUploadSlice {
     this.parts,
     this.length, {
     this.overlapsPrevious = false,
+    this.samples,
   });
 
   final List<Uint8List> parts;
   final int length;
+
+  /// The raw 16 kHz mono samples of this slice (a view, no copy), or null when
+  /// the audio is not in the canonical layout. Only these are compressed for
+  /// the upload ([UploadAudioEncoder]).
+  final Uint8List? samples;
 
   /// True when this slice starts with audio the previous slice already ends
   /// with (its boundary was a hard cut), so the text seam needs de-duplication.
@@ -88,7 +96,11 @@ List<WavUploadSlice> splitWavForUpload(List<int> wavBytes) {
   final wav = wavBytes is Uint8List ? wavBytes : Uint8List.fromList(wavBytes);
   if (wav.length <= kOpenAiMaxUploadBytes) {
     return [
-      WavUploadSlice([wav], wav.length),
+      WavUploadSlice(
+        [wav],
+        wav.length,
+        samples: canonicalPcm16MonoSamples(wav),
+      ),
     ];
   }
   final pcmLength = wav.length - 44;
@@ -126,6 +138,7 @@ WavUploadSlice _sliceOf(
     [wavHeaderPcm16Mono(length), samples],
     44 + length,
     overlapsPrevious: overlapsPrevious,
+    samples: samples,
   );
 }
 
@@ -143,11 +156,17 @@ String joinSliceTexts(List<String> texts, List<WavUploadSlice> slices) =>
 /// The carry is at most 200 characters (about 40 to 60 tokens, cut at a word
 /// start; see [kContinuityContextChars]). It sits at the end of the prompt, so
 /// it is the part a truncation of an overlong vocabulary would keep last.
-String openAiPrompt(String? vocabulary, String? carry) => [vocabulary, carry]
-    .whereType<String>()
-    .map((part) => part.trim())
-    .where((part) => part.isNotEmpty)
-    .join(' ');
+///
+/// The vocabulary is cut to whole leading terms within an estimated budget
+/// ([vocabularyForCloudPrompt], #1969): whisper-1 and Whisper-based own
+/// servers read only the last 224 tokens, so an overlong list would lose its
+/// FRONT, the most used terms.
+String openAiPrompt(String? vocabulary, String? carry) =>
+    [if (vocabulary != null) vocabularyForCloudPrompt(vocabulary), carry]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .join(' ');
 
 /// Calls OpenAI's speech-to-text API (`/v1/audio/transcriptions`, model
 /// `gpt-transcribe`; see ADR 0005).
@@ -157,6 +176,10 @@ String openAiPrompt(String? vocabulary, String? carry) => [vocabulary, carry]
 /// is retried on its own (see [retryCloudRequest]), and a failure that
 /// survives the retries reports the finished slices in
 /// [TranscriberException.completedParts].
+///
+/// The slices are cut from the WAV as before; each one goes up to OpenAI as
+/// Opus/WebM ([uploadAudioEncoderProvider], #177) and falls back to WAV when
+/// the encoder is missing or fails. The own endpoint always receives WAV.
 class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
   OpenAiTranscriber({
     required this.ref,
@@ -275,16 +298,26 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
     if (sliced && onSliceDone != null) {
       await onSliceDone(List.unmodifiable(texts), slices.length);
     }
+    // The next slice is encoded while the current one is transcribed, so only
+    // the first slice waits for its encoding.
+    Future<EncodedUpload?>? nextCompressed;
     for (var i = texts.length; i < slices.length; i++) {
       // The previous slice's stored text is the continuity context. A looping
       // slice carries nothing (see continuity_guard.dart). Stored texts are the
       // cleaned ones, so a retry derives the same context from the manifest.
       final carry = i > 0 ? continuityCarryFor(texts[i - 1]) : null;
+      // Encoded once per slice, so the retries resend the same body.
+      final compressed =
+          await (nextCompressed ?? _compressed(target, slices[i]));
+      nextCompressed = i + 1 < slices.length
+          ? _compressed(target, slices[i + 1])
+          : null;
       try {
         final text = await retryCloudRequest(
           () => _transcribeUpload(
             target,
             slices[i],
+            compressed,
             language: language,
             carry: carry,
           ),
@@ -313,15 +346,36 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
     return joinSliceTexts(texts, slices);
   }
 
+  /// The Opus/WebM copy of [slice] for OpenAI, or null to send the WAV. The
+  /// own endpoint always gets WAV: a self-hosted server (whisper.cpp, LAN) may
+  /// decode only WAV, and its upload is not the bottleneck.
+  Future<EncodedUpload?> _compressed(
+    _UploadTarget target,
+    WavUploadSlice slice,
+  ) async {
+    final samples = slice.samples;
+    if (target.custom || samples == null) return null;
+    try {
+      return await ref.read(uploadAudioEncoderProvider).encode([
+        samples,
+      ], samples.length);
+    } on Object {
+      // A prefetch may outlive a failed run; it must never throw unawaited.
+      return null;
+    }
+  }
+
   Future<String> _transcribeUpload(
     _UploadTarget target,
-    WavUploadSlice slice, {
+    WavUploadSlice slice,
+    EncodedUpload? compressed, {
     String? language,
     String? carry,
   }) async {
     final request = _uploadRequest(
       target,
       slice,
+      compressed,
       language: language,
       carry: carry,
     );
@@ -330,6 +384,8 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
 
     final CloudSttResponse response;
     try {
+      // The timeout keeps the WAV size: it also covers the server's work,
+      // which grows with the audio length, not with the compressed body.
       response = await sendCloudSttRequest(
         request,
         timeout: cloudRequestTimeout(slice.length),
@@ -367,8 +423,8 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
         }
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final text = (json['text'] as String? ?? '').trim();
-        // Same silence artefacts the on-device path drops (stock phrases,
-        // a lone sound annotation); empty reads as a blank recording.
+        // Only sound annotations are unconditionally non-speech; stock
+        // phrases need the audio evidence supplied by the orchestrator.
         return isNonSpeechTranscript(text) ? '' : text;
       case 401:
         throw const TranscriberException(
@@ -397,7 +453,8 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
 
   http.MultipartRequest _uploadRequest(
     _UploadTarget target,
-    WavUploadSlice slice, {
+    WavUploadSlice slice,
+    EncodedUpload? compressed, {
     String? language,
     String? carry,
   }) {
@@ -405,19 +462,34 @@ class OpenAiTranscriber implements Transcriber, ResumableTranscriber {
       ..fields['model'] = target.model
       ..fields['response_format'] = 'json'
       ..files.add(
-        http.MultipartFile(
-          'file',
-          Stream<List<int>>.fromIterable(slice.parts),
-          slice.length,
-          filename: 'audio.wav',
-        ),
+        compressed != null
+            ? http.MultipartFile.fromBytes(
+                'file',
+                compressed.bytes,
+                filename: compressed.filename,
+              )
+            : http.MultipartFile(
+                'file',
+                Stream<List<int>>.fromIterable(slice.parts),
+                slice.length,
+                filename: 'audio.wav',
+              ),
       );
 
-    // gpt-transcribe takes the array `languages` instead of `language`, and
-    // the API rejects a request that carries both. The app sends one code, so
-    // the single `languages[]` entry is the whole array.
-    if (language != null && language.isNotEmpty && language != 'auto') {
-      request.fields['languages[]'] = language;
+    // MultipartRequest.fields is a map; repeated array fields must be parts.
+    final expected =
+        language != null && language.isNotEmpty && language != 'auto'
+        ? [language]
+        : target.custom
+        ? const <String>[]
+        : ref.read(settingsProvider).value?.stt.autoDetectLanguages ??
+              const <String>[];
+    if (expected.length == 1) {
+      request.fields['languages[]'] = expected.single;
+    } else {
+      for (final code in expected) {
+        request.files.add(http.MultipartFile.fromString('languages[]', code));
+      }
     }
 
     // Custom Vocabulary (settings_sections.dart::SttSettings.customVocabulary)

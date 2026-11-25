@@ -11,6 +11,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import 'wp_count_badge.dart';
 import 'wp_focus_ring.dart';
 import 'wp_icon_button.dart';
 
@@ -75,6 +76,29 @@ class WpFilterMenuButton extends StatefulWidget {
 class _WpFilterMenuButtonState extends State<WpFilterMenuButton> {
   final MenuController _controller = MenuController();
 
+  /// The panel's own focus target. A pointer opens the popover without
+  /// moving focus, so Escape and the arrow keys went to whatever had focus
+  /// before (the sidebar) and the popover ignored them (#1845). Opening
+  /// moves focus into the panel, as opening by keyboard already did.
+  final FocusNode _panelFocus = FocusNode(
+    debugLabel: 'WpFilterMenuButton.panel',
+    skipTraversal: true,
+  );
+
+  @override
+  void dispose() {
+    _panelFocus.dispose();
+    super.dispose();
+  }
+
+  void _focusPanel() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.isOpen && !_panelFocus.hasFocus) {
+        _panelFocus.requestFocus();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -82,6 +106,7 @@ class _WpFilterMenuButtonState extends State<WpFilterMenuButton> {
     final id = widget.screenId;
     return MenuAnchor(
       controller: _controller,
+      onOpen: _focusPanel,
       alignmentOffset: const Offset(0, WpSpacing.xxs),
       style: MenuStyle(
         backgroundColor: WidgetStatePropertyAll(WpColors.floatingSurface),
@@ -90,70 +115,44 @@ class _WpFilterMenuButtonState extends State<WpFilterMenuButton> {
         ),
       ),
       menuChildren: [
-        Semantics(
-          identifier: '$id-filter-panel',
-          container: true,
-          explicitChildNodes: true,
-          child: SizedBox(
-            width: WpFilterMenuButton.panelWidth,
-            child: Padding(
-              padding: const EdgeInsets.all(WpSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < widget.sections.length; i++) ...[
-                    if (i > 0) const SizedBox(height: WpSpacing.sm),
-                    _Section(screenId: id, section: widget.sections[i]),
+        Focus(
+          focusNode: _panelFocus,
+          child: Semantics(
+            identifier: '$id-filter-panel',
+            container: true,
+            explicitChildNodes: true,
+            child: SizedBox(
+              width: WpFilterMenuButton.panelWidth,
+              child: Padding(
+                padding: const EdgeInsets.all(WpSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < widget.sections.length; i++) ...[
+                      if (i > 0) const SizedBox(height: WpSpacing.sm),
+                      _Section(screenId: id, section: widget.sections[i]),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
       ],
-      builder: (context, controller, _) => Stack(
-        clipBehavior: Clip.none,
-        children: [
-          WpIconButton(
-            icon: LucideIcons.listFilter,
-            tooltip: l10n.collectionFilterMenu,
-            semanticsLabel: count == 0
-                ? l10n.collectionFilterMenu
-                : l10n.collectionFilterMenuActive(count),
-            testId: '$id-filter-menu',
-            color: count > 0 ? WpColors.accent : null,
-            onPressed: () =>
-                controller.isOpen ? controller.close() : controller.open(),
-          ),
-          if (count > 0)
-            PositionedDirectional(
-              top: -WpSpacing.xxs,
-              end: -WpSpacing.xxs,
-              child: ExcludeSemantics(
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 16),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: WpSpacing.xxs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: WpColors.accentBadgeFill,
-                    borderRadius: WpRadius.borderFull,
-                    border: Border.all(color: WpColors.accentBorder30),
-                  ),
-                  child: Text(
-                    '$count',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      fontWeight: FontWeight.w600,
-                      color: WpColors.accent,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+      builder: (context, controller, _) => WpCountBadge(
+        count: count,
+        child: WpIconButton(
+          icon: LucideIcons.listFilter,
+          tooltip: l10n.collectionFilterMenu,
+          semanticsLabel: count == 0
+              ? l10n.collectionFilterMenu
+              : l10n.collectionFilterMenuActive(count),
+          testId: '$id-filter-menu',
+          color: count > 0 ? WpColors.accent : null,
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
   }
@@ -284,6 +283,9 @@ class _RemoveIconState extends State<_RemoveIcon> {
       identifier: widget.testId,
       label: widget.semanticLabel,
       button: true,
+      // excludeSemantics drops the InkWell's own tap action, so the node
+      // carries it itself: VoiceOver, Voice Control and UIA can press it.
+      onTap: widget.onTap,
       excludeSemantics: true,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,

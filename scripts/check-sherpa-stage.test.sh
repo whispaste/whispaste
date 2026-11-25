@@ -106,6 +106,28 @@ expect "reference pin differing from the staged library warns, passes (GS-013)" 
 expect "stage without any reference pin passes (GS-013)" pass "" \
   "$(make_fixture pinnone "$PIN_TAG" "$PIN_COMMIT" 1.13.4 "$PIN_TAG" "$PIN_COMMIT" 1 1)"
 
+# Provider-aware consumers must reject old stages and a missing DirectML DLL.
+provider_fixture="$(make_fixture providers "$PIN_TAG" "$PIN_COMMIT" 1.13.4 "$PIN_TAG" "$PIN_COMMIT" 1 1)"
+cp "$HERE/sherpa-provider.patch" "$provider_fixture/repo/scripts/"
+expect "old stage without provider patch fails" fail "provider patch" "$provider_fixture"
+printf 'provider-patch: %s\n' "$(sha256_of "$HERE/sherpa-provider.patch")" >> "$provider_fixture/stage/BUILD_INFO"
+expect "macOS without CoreML metadata fails" fail "must support CoreML" "$provider_fixture"
+printf 'providers: cpu coreml\n' >> "$provider_fixture/stage/BUILD_INFO"
+expect "CoreML stage without ORT fails" fail "include libonnxruntime.dylib" "$provider_fixture"
+printf 'fixture ort\n' > "$provider_fixture/stage/libonnxruntime.dylib"
+printf 'sha256 libonnxruntime.dylib %s\n' "$(sha256_of "$provider_fixture/stage/libonnxruntime.dylib")" >> "$provider_fixture/stage/BUILD_INFO"
+expect "CoreML stage with current patch passes" pass "" "$provider_fixture"
+mv "$provider_fixture/stage/libsherpa-onnx-c-api.dylib" "$provider_fixture/stage/sherpa-onnx-c-api.dll"
+mv "$provider_fixture/stage/libonnxruntime.dylib" "$provider_fixture/stage/onnxruntime.dll"
+sed -e 's/libonnxruntime.dylib/onnxruntime.dll/g' -e 's/libsherpa-onnx-c-api.dylib/sherpa-onnx-c-api.dll/g' -e 's/providers: cpu coreml/providers: cpu directml/' "$provider_fixture/stage/BUILD_INFO" > "$provider_fixture/info"
+mv "$provider_fixture/info" "$provider_fixture/stage/BUILD_INFO"
+expect "DirectML stage without runtime DLL fails" fail "must include DirectML.dll" "$provider_fixture"
+printf 'fixture directml\n' > "$provider_fixture/stage/DirectML.dll"
+printf 'sha256 DirectML.dll %s\n' "$(sha256_of "$provider_fixture/stage/DirectML.dll")" >> "$provider_fixture/stage/BUILD_INFO"
+expect "DirectML stage with runtime DLL passes" pass "" "$provider_fixture"
+printf 'tampered\n' >> "$provider_fixture/stage/DirectML.dll"
+expect "changed DirectML DLL fails" fail "changed after staging" "$provider_fixture"
+
 if [[ $fail -ne 0 ]]; then
   echo "check-sherpa-stage.test: FAILED" >&2
   exit 1

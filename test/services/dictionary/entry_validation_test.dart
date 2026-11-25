@@ -71,5 +71,13 @@ void main() {
         expect(checkReplacementDraft(['iphone'], 'iPhone'), isNull);
       },
     );
+
+    test('a term entry (trigger = replacement) is allowed with Similar '
+        '(#1969)', () {
+      expect(
+        checkReplacementDraft(['Kubernetes'], 'Kubernetes', similar: true),
+        isNull,
+      );
+    });
   });
 }

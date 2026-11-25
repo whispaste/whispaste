@@ -1,16 +1,63 @@
 #include "x11_button_watcher.h"
 
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/extensions/XInput2.h>
+#include <X11/keysym.h>
 #include <cerrno>
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
+#include <gtk/gtk.h>
 #include <poll.h>
 #include <unistd.h>
 
+#include <string>
+
+#include "undo_shortcut.h"
+
 namespace {
 constexpr double kNever = 1e9;
+
+// Name of the input device [device_id], to tell synthetic keys apart.
+std::string DeviceName(Display* display, int device_id) {
+  int count = 0;
+  XIDeviceInfo* info = XIQueryDevice(display, device_id, &count);
+  std::string name =
+      info != nullptr && count > 0 && info[0].name != nullptr ? info[0].name
+                                                              : "";
+  if (info != nullptr) XIFreeDeviceInfo(info);
+  return name;
+}
+
+// Whether the raw key press is the undo shortcut within the watch (#2078),
+// read on the watcher's own connection. Only the answer leaves this function.
+bool IsUndoShortcutPress(Display* display, const XIRawEvent* raw,
+                         int64_t now_ns, int64_t until_ns) {
+  if (until_ns == 0 || now_ns > until_ns) return false;
+  XkbStateRec state;
+  if (XkbGetState(display, XkbUseCoreKbd, &state) != Success) return false;
+  const KeySym sym = XkbKeycodeToKeysym(
+      display, static_cast<KeyCode>(raw->detail), state.group, 0);
+  const bool repeat = (raw->flags & XIKeyRepeat) != 0;
+  // The device name costs a round trip: asked only for a Ctrl+Z.
+  return CountsAsUndoShortcut(now_ns, until_ns, sym == XK_z, state.mods,
+                              repeat, false) &&
+         !IsSyntheticKeyDevice(DeviceName(display, raw->sourceid));
+}
 }  // namespace
+
+bool X11ButtonWatcher::WatchUndoShortcut(int seconds) {
+  const bool previous = shortcut_seen_.exchange(false);
+  shortcut_until_ns_.store(seconds > 0 && running() && watch_keys_
+                               ? NowNs() + int64_t{seconds} * 1000000000
+                               : 0);
+  return previous;
+}
+
+bool X11ButtonWatcher::TakeUndoShortcut() {
+  shortcut_until_ns_.store(0);
+  return shortcut_seen_.exchange(false);
+}
 
 X11ButtonWatcher::~X11ButtonWatcher() { Stop(); }
 
@@ -34,6 +81,8 @@ void X11ButtonWatcher::Stop() {
   last_button_ns_.store(0);
   last_foreign_button_ns_.store(0);
   pending_clicks_.store(0);
+  shortcut_until_ns_.store(0);
+  shortcut_seen_.store(false);
 }
 
 // static
@@ -107,7 +156,14 @@ bool X11ButtonWatcher::Start() {
           continue;
         }
         if (cookie->evtype == XI_RawKeyPress) {
-          last_key_ns_.store(NowNs());
+          const int64_t now = NowNs();
+          last_key_ns_.store(now);
+          if (IsUndoShortcutPress(display,
+                                  static_cast<XIRawEvent*>(cookie->data), now,
+                                  shortcut_until_ns_.load())) {
+            // Whether a WhisPaste window has the focus is a GTK question.
+            g_idle_add(OnUndoShortcutOnMainThread, this);
+          }
         } else if (cookie->evtype == XI_RawButtonPress) {
           // Scroll wheel steps (buttons 4-7) count as clicks too: more input
           // only makes the undo take the safe clipboard path.
@@ -152,5 +208,22 @@ gboolean X11ButtonWatcher::OnButtonOnMainThread(gpointer user_data) {
   if (self->pending_clicks_.exchange(0) > 0 && self->on_click_cb_ != nullptr) {
     self->on_click_cb_(self->on_click_user_data_);
   }
+  return G_SOURCE_REMOVE;
+}
+
+// static
+gboolean X11ButtonWatcher::OnUndoShortcutOnMainThread(gpointer user_data) {
+  auto* self = static_cast<X11ButtonWatcher*>(user_data);
+  // Taken or disarmed in between: nothing to count.
+  if (self->shortcut_until_ns_.load() == 0) return G_SOURCE_REMOVE;
+  // Ctrl+Z in a WhisPaste window (history, settings) is not an undo of the
+  // pasted text.
+  bool own_focus = false;
+  GList* windows = gtk_window_list_toplevels();
+  for (GList* it = windows; it != nullptr; it = it->next) {
+    if (gtk_window_is_active(GTK_WINDOW(it->data))) own_focus = true;
+  }
+  g_list_free(windows);
+  if (!own_focus) self->shortcut_seen_.store(true);
   return G_SOURCE_REMOVE;
 }

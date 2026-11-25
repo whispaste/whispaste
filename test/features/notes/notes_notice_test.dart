@@ -5,7 +5,6 @@ library;
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,12 +17,16 @@ import 'package:whispaste/features/history/data/export_service.dart';
 import 'package:whispaste/features/notes/data/note_asset_store.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
+import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/services/notes/notes_exporter.dart';
 
 import '../../fixtures/test_helpers.dart';
 import '../../test_helpers/pump_until.dart';
 
 Finder _notice(String id) => find.byKey(ValueKey('page-notice-notes-$id'));
+
+/// A short confirmation stands in the notice bar at the bottom (#1903).
+Finder _confirmation(String id) => find.byKey(ValueKey('notice-bar-notes-$id'));
 
 void main() {
   late Directory appData;
@@ -36,7 +39,7 @@ void main() {
 
   setUp(() {
     appData = Directory.systemTemp.createTempSync('wp450-notice-');
-    db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    db = openInMemoryTestDatabase();
   });
 
   tearDown(() async {
@@ -56,6 +59,7 @@ void main() {
       makeTestable(
         const NotesPage(),
         db: db,
+        noticeBar: true,
         overrides: [
           noteAssetStoreProvider.overrideWithValue(
             NoteAssetStore(appDataDirPath: appData.path),
@@ -91,6 +95,7 @@ void main() {
       makeTestable(
         const NotesPage(),
         db: db,
+        noticeBar: true,
         overrides: [
           noteAssetStoreProvider.overrideWithValue(
             NoteAssetStore(appDataDirPath: appData.path),
@@ -159,23 +164,74 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('a snippet from a note confirms at the editor', (tester) async {
+  testWidgets('a snippet from a note confirms in the notice bar', (
+    tester,
+  ) async {
     await openNote(tester, 'Snippet body');
     await pickMenuEntry(tester, 'notes-editor-menu-snippet');
     // The snippet is written asynchronously. Yield to the event loop until the
     // confirmation shows; bounded, and no wall-clock wait.
     for (
       var i = 0;
-      i < 1000 && _notice('snippet-created').evaluate().isEmpty;
+      i < 1000 && _confirmation('snippet-created').evaluate().isEmpty;
       i++
     ) {
       await tester.runAsync(() => Future<void>.delayed(Duration.zero));
       await tester.pump();
     }
 
-    expect(_notice('snippet-created'), findsOneWidget);
+    expect(_confirmation('snippet-created'), findsOneWidget);
+    expect(_notice('snippet-created'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets(
+    'the toolbar saves a snippet, confirms it and refreshes the snippet list',
+    (tester) async {
+      await openNote(tester, 'Toolbar body');
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(NotesPage)),
+      );
+      // The list is already loaded, as after a visit to the Textbausteine
+      // page or an opened insert chooser: it must not stay stale (#664).
+      final before = await tester.runAsync(
+        () => container.read(snippetsProvider.future),
+      );
+      expect(before, isEmpty);
+
+      // On a narrow panel the button sits under "More" (#1845).
+      final saveSnippet = find.bySemanticsIdentifier(
+        'notes-editor-toolbar-save-snippet',
+      );
+      if (saveSnippet.evaluate().isEmpty) {
+        await tester.tap(
+          find.bySemanticsIdentifier('notes-editor-toolbar-more'),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('notes-editor-toolbar-more-save-snippet')),
+        );
+      } else {
+        await tester.tap(saveSnippet);
+      }
+      await tester.pump();
+      for (
+        var i = 0;
+        i < 1000 && _confirmation('snippet-created').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        await tester.pump();
+      }
+      expect(_confirmation('snippet-created'), findsOneWidget);
+
+      final after = await tester.runAsync(
+        () => container.read(snippetsProvider.future),
+      );
+      expect(after!.map((s) => s.body), ['Toolbar body']);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('a refused image file is reported at the editor', (tester) async {
     await openNote(tester, 'Drop-Test');

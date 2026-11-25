@@ -10,12 +10,17 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart'
     show BehaviorSettings;
 import 'package:whispaste/core/telemetry/onboarding_telemetry_buffer.dart';
+import 'package:whispaste/services/activation_milestones.dart';
+import 'package:whispaste/services/audio/import/audio_import_providers.dart';
+import 'package:whispaste/services/audio/import/audio_import_queue.dart'
+    show ImportStatus;
 import 'package:whispaste/services/engine_recommendation.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/model_hardware_telemetry.dart';
 import 'package:whispaste/services/speech_recommendation.dart';
 import 'package:whispaste/services/telemetry_model_buckets.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_gpu_policy.dart';
 
 AppSettings _settings({
   String provider = 'On Device',
@@ -101,6 +106,30 @@ void main() {
       expect(telemetryModelId(_settings(provider: 'OpenAI')), 'cloud');
       expect(telemetryModelId(_settings(engine: 'parakeet')), 'parakeet');
       expect(telemetryModelId(_settings(model: 'whisper-small')), 'small');
+    });
+
+    test('Apple engine is system, own models are other (#1791)', () {
+      expect(telemetryModelId(_settings(engine: 'system')), 'system');
+      expect(
+        telemetryModelId(
+          _settings(engine: 'user_model', model: 'user-1234abcd'),
+        ),
+        'other',
+      );
+      expect(
+        telemetryBackend(
+          settings: _settings(engine: 'user_model', model: 'user-1234abcd'),
+          optimalBackend: 'cuda',
+        ),
+        'cpu',
+      );
+      expect(
+        telemetryBackend(
+          settings: _settings(engine: 'system'),
+          optimalBackend: 'metal',
+        ),
+        'system',
+      );
     });
   });
 
@@ -249,6 +278,27 @@ void main() {
       },
     );
 
+    test(
+      'completed Parakeet runs report the selected provider and CPU retry',
+      () {
+        for (final entry in {
+          ParakeetBackend.sherpaCpu: 'cpu',
+          ParakeetBackend.sherpaCoreml: 'coreml',
+          ParakeetBackend.sherpaDirectml: 'directml',
+          ParakeetBackend.gpu: 'vulkan',
+        }.entries) {
+          expect(
+            telemetryBackend(
+              settings: _settings(engine: 'parakeet'),
+              optimalBackend: 'vulkan',
+              actualParakeetBackend: entry.key,
+            ),
+            entry.value,
+          );
+        }
+      },
+    );
+
     test('Parakeet stays on cpu when the GPU setting is disabled', () {
       expect(
         telemetryBackend(
@@ -378,6 +428,52 @@ void main() {
       });
       final prefs = await SharedPreferences.getInstance();
       expect(readOnboardingCompletedOn(prefs), DateTime(2026, 10, 1));
+    });
+  });
+
+  group('conversion telemetry names', () {
+    test('smart mode run name: fixed ids, backend and outcome', () {
+      expect(
+        smartModeRunTelemetryName(
+          modeId: 'cleanup',
+          provider: SmartModeProviderType.local,
+          fellBack: false,
+        ),
+        'cleanup|local|ok',
+      );
+      expect(
+        smartModeRunTelemetryName(
+          modeId: 'custom',
+          provider: SmartModeProviderType.custom,
+          fellBack: true,
+        ),
+        'custom|own_server|fail',
+      );
+      expect(
+        smartModeRunTelemetryName(
+          modeId: 'translate',
+          provider: SmartModeProviderType.openAI,
+          fellBack: false,
+        ),
+        'translate|cloud|ok',
+      );
+    });
+
+    test('import kind comes from the extension, outcome from the status', () {
+      expect(importTelemetryKind('talk.MP4'), 'video');
+      expect(importTelemetryKind('memo.m4a'), 'audio');
+      expect(importTelemetryOutcome(ImportStatus.done), 'ok');
+      expect(importTelemetryOutcome(ImportStatus.failed), 'fail');
+      expect(importTelemetryOutcome(ImportStatus.cancelled), isNull);
+    });
+
+    test('activation fires each threshold once, never backfills', () {
+      expect(newlyReachedMilestones(count: 1, alreadyReached: {}), [1]);
+      expect(newlyReachedMilestones(count: 5, alreadyReached: {1}), [5]);
+      expect(newlyReachedMilestones(count: 6, alreadyReached: {1, 5}), isEmpty);
+      expect(newlyReachedMilestones(count: 100, alreadyReached: {1, 5, 25}), [
+        100,
+      ]);
     });
   });
 }

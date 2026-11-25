@@ -1,4 +1,4 @@
-/// Tests for [DictionaryPage]: the three tabs, the live replacement test
+/// Tests for [DictionaryPage]: the shared workflow, the live replacement test
 /// field, the empty suggestions state, the CSV review page, and the test IDs
 /// the UI tests address the page by.
 library;
@@ -10,7 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/tokens.dart';
+import 'package:whispaste/features/dictionary/correction_learning_log.dart';
 import 'package:whispaste/features/dictionary/dictionary_csv_preview_page.dart';
+import 'package:whispaste/widgets/section.dart';
 import 'package:whispaste/features/dictionary/dictionary_page.dart';
 import 'package:whispaste/features/dictionary/widgets/dictionary_terms_list.dart';
 import 'package:whispaste/services/dictionary/replacement_csv.dart';
@@ -50,27 +53,27 @@ void main() {
   }
 
   group('DictionaryPage', () {
-    testWidgets('shows the three tabs with the terms tab first', (
+    testWidgets('is one list of replacements with one search (#1969)', (
       tester,
     ) async {
       await pumpPage(tester);
 
-      expect(find.text(l10n.dictionaryTabTerms), findsOneWidget);
-      expect(find.text(l10n.dictionaryTabReplacements), findsOneWidget);
+      // No term section and no replacements heading any more.
+      expect(find.text(l10n.dictionaryTabTerms), findsNothing);
+      expect(find.text(l10n.dictionaryTabReplacements), findsNothing);
+      expect(find.byKey(const ValueKey('dictionary-term-row-0')), findsNothing);
       expect(find.text(l10n.dictionaryTabSuggestions), findsOneWidget);
       expect(find.byType(DictionaryTermsList), findsOneWidget);
+      expect(find.byType(WpSearchField), findsOneWidget);
     });
 
-    testWidgets('switching to replacements shows the CSV actions', (
-      tester,
-    ) async {
+    testWidgets('common menu contains the CSV actions', (tester) async {
       await pumpPage(tester);
 
-      await tester.tap(find.text(l10n.dictionaryTabReplacements));
       await tester.pumpAndSettle();
 
       // CSV import/export and the try-it dialog sit behind the ⋯ menu.
-      await tester.tap(find.byKey(const ValueKey('replacements-more')));
+      await tester.tap(find.byKey(const ValueKey('dictionary-more')));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('dictionary-csv-import')),
@@ -90,11 +93,10 @@ void main() {
       tester,
     ) async {
       await pumpPage(tester);
-      await tester.tap(find.text(l10n.dictionaryTabReplacements));
       await tester.pumpAndSettle();
 
       // The try-it dialog opens from the ⋯ menu.
-      await tester.tap(find.byKey(const ValueKey('replacements-more')));
+      await tester.tap(find.byKey(const ValueKey('dictionary-more')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('dictionary-test-open')));
       await tester.pumpAndSettle();
@@ -108,12 +110,11 @@ void main() {
       expect(find.textContaining(l10n.dictionaryTestNoChange), findsOneWidget);
     });
 
-    testWidgets('suggestions tab shows the empty state without candidates', (
+    testWidgets('shows the empty suggestions state without candidates', (
       tester,
     ) async {
       await pumpPage(tester);
 
-      await tester.tap(find.text(l10n.dictionaryTabSuggestions));
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.dictionarySuggestionsEmpty), findsOneWidget);
@@ -123,7 +124,7 @@ void main() {
       );
     });
 
-    testWidgets('replacements tab: Escape clears the search', (tester) async {
+    testWidgets('Escape clears the shared search', (tester) async {
       final db = HistoryDatabase.forTesting(NativeDatabase.memory());
       await tester.runAsync(
         () => db.upsertReplacementWithTriggers(
@@ -142,7 +143,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.dictionaryTabReplacements));
       await tester.pumpAndSettle();
 
       final search = find.descendant(
@@ -154,8 +154,8 @@ void main() {
       // Precondition: the filter really produced the no-results state, so the
       // Escape below is what clears it and not a list that never filtered.
       expect(
-        find.byKey(const ValueKey('replacements-search-clear')),
-        findsOneWidget,
+        find.byKey(const ValueKey('replacements-row-seed')),
+        findsNothing,
         reason: 'the search must have emptied the list before Escape',
       );
 
@@ -171,6 +171,43 @@ void main() {
         isEmpty,
       );
     });
+  });
+
+  testWidgets('toolbar reopens a learning log that was collapsed', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    bool? expanded() => tester
+        .widget<Semantics>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Semantics &&
+                w.properties.identifier == 'dictionary-learning-log',
+          ),
+        )
+        .properties
+        .expanded;
+    final open = find.byKey(const ValueKey('dictionary-log-open'));
+    final log = find.byType(CorrectionLearningLog);
+    final before = tester.element(log);
+    await tester.tap(open);
+    await tester.pump();
+    // #1969: opens in place, animated, not by a remount that pops it open.
+    expect(tester.element(log), same(before));
+    await tester.pumpAndSettle();
+    expect(expanded(), isTrue);
+    expect(
+      tester.widget<WpSection>(find.byType(WpSection).last).padding.top,
+      WpSpacing.xl,
+    );
+    final heading = find.text(l10n.dictionaryLogTitle).last;
+    await tester.ensureVisible(heading);
+    await tester.tap(heading);
+    await tester.pumpAndSettle();
+    expect(expanded(), isFalse);
+    await tester.tap(open);
+    await tester.pumpAndSettle();
+    expect(expanded(), isTrue);
   });
 
   group('DictionaryCsvPreviewPage', () {

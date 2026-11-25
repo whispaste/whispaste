@@ -23,7 +23,12 @@ class WpRowCheckbox extends StatelessWidget {
     required this.onChanged,
     this.semanticsLabel,
     this.inline = false,
+    this.tristate = false,
   });
+
+  /// True for the "select all" box of a selection bar (#1858): a null
+  /// [value] draws the dash of a partial selection.
+  final bool tristate;
 
   /// True for a box that sits inside a line of text — a checklist item of a
   /// rendered note or transcript (#643). Same 20 px box and styling, but the
@@ -36,7 +41,8 @@ class WpRowCheckbox extends StatelessWidget {
   /// Slot width of an [inline] box: the 20 px box plus room before the text.
   static const double inlineExtent = 28;
 
-  final bool value;
+  /// Checked state; null only with [tristate] (partially selected).
+  final bool? value;
 
   /// Screen-reader name of the box, e.g. the term or event the row lists.
   /// Without it the box is announced as an unnamed checkbox.
@@ -60,7 +66,8 @@ class WpRowCheckbox extends StatelessWidget {
     final box = Transform.scale(
       scale: boxSize / _materialBox,
       child: Checkbox(
-        value: value,
+        value: tristate ? value : (value ?? false),
+        tristate: tristate,
         semanticLabel: semanticsLabel,
         onChanged: (_) => onChanged(),
         activeColor: WpColors.accent,

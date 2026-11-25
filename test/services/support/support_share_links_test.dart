@@ -101,4 +101,80 @@ void main() {
       );
     }
   });
+
+  group('Mastodon (#2185)', () {
+    test('posts text and link to the given instance', () {
+      final uri = buildSupportShareUri(
+        SupportShareTarget.mastodon,
+        text: _text,
+        mastodonInstance: 'chaos.social',
+      );
+
+      expect(uri.host, 'chaos.social');
+      expect(uri.path, '/share');
+      expect(uri.queryParameters['text'], '$_text $kWebsiteUrl');
+    });
+
+    test('reads the instance from what people type', () {
+      expect(mastodonInstanceHost('mastodon.social'), 'mastodon.social');
+      expect(
+        mastodonInstanceHost(' https://Chaos.Social/@me '),
+        'chaos.social',
+      );
+      expect(mastodonInstanceHost('@me@troet.cafe'), 'troet.cafe');
+      expect(mastodonInstanceHost(''), isNull);
+      expect(mastodonInstanceHost('not a host'), isNull);
+      expect(mastodonInstanceHost('localhost'), isNull);
+    });
+  });
+
+  group('campaign marker (#2185)', () {
+    test('the website gets the Matomo campaign with the page language', () {
+      final url = withShareCampaign(
+        websiteLocalizedHomeUrl('fr'),
+        channel: 'linkedin',
+        languageCode: 'fr',
+      );
+      final uri = Uri.parse(url);
+
+      expect(uri.path, '/fr/');
+      expect(uri.queryParameters, {
+        'mtm_campaign': 'app-share-linkedin',
+        'mtm_kwd': 'fr',
+      });
+    });
+
+    test('store listings get their own store campaign parameter', () {
+      final ms = Uri.parse(
+        withShareCampaign(
+          kMicrosoftStoreListingUrl,
+          channel: 'x',
+          languageCode: 'de',
+        ),
+      );
+      final mac = Uri.parse(
+        withShareCampaign(
+          kMacAppStoreListingUrl,
+          channel: 'email',
+          languageCode: 'de',
+        ),
+      );
+
+      expect(ms.queryParameters, {'cid': 'app-share-x'});
+      expect(mac.queryParameters, {'ct': 'app-share-email'});
+    });
+
+    test('any other link stays as it is', () {
+      expect(
+        withShareCampaign(kGitHubRepoUrl, channel: 'x', languageCode: 'de'),
+        kGitHubRepoUrl,
+      );
+    });
+
+    test('the website home follows the eight site languages', () {
+      expect(websiteLocalizedHomeUrl('de'), '$kWebsiteUrl/');
+      expect(websiteLocalizedHomeUrl('zh'), '$kWebsiteUrl/zh/');
+      expect(websiteLocalizedHomeUrl('he'), '$kWebsiteUrl/en/');
+    });
+  });
 }

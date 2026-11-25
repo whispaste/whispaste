@@ -346,7 +346,9 @@ class _LoadFailingEngine implements WhisperEngine {
   }) async {
     trace?.add('transcribe');
     if (failTranscribe) throw StateError('warmup inference failed');
-    return 'ok';
+    // Not a bare "ok": on the silent test WAV a lone "ok" counts as invented
+    // on silence and is dropped (#2013).
+    return 'ok cpu';
   }
 
   @override
@@ -608,7 +610,11 @@ void main() {
         language: 'auto',
       );
 
-      expect(text, 'ok', reason: 'the retry must be served by the CPU engine');
+      expect(
+        text,
+        'ok cpu',
+        reason: 'the retry must be served by the CPU engine',
+      );
       expect(gpuEngine.crashes, 1);
       expect(
         cpuEngine.lastLoadedModelPath,
@@ -726,7 +732,7 @@ void main() {
         language: 'auto',
       );
 
-      expect(text, 'ok', reason: 'the CPU engine serves the run');
+      expect(text, 'ok cpu', reason: 'the CPU engine serves the run');
       expect(gpuEngine.lostFailures, 2, reason: 'one try, one after rebuild');
       expect(cpuEngine.lastLoadedModelPath, isNotNull);
       expect(container.read(localSttBundleProvider).cpuFallbackActive, isTrue);
@@ -1623,7 +1629,7 @@ void main() {
         gpuEngine.loseBackend();
         expect(
           await notifier.transcribeBytes(_validWav(), language: 'auto'),
-          'ok',
+          'ok cpu',
         );
         expect(
           container.read(localSttBundleProvider).cpuFallbackActive,
@@ -1736,8 +1742,8 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       hold.complete();
 
-      expect(await first, 'ok');
-      expect(await second, 'ok');
+      expect(await first, 'ok cpu');
+      expect(await second, 'ok cpu');
       expect(gpuEngine.lostFailures, 2, reason: 'only the first dictation');
     });
   });

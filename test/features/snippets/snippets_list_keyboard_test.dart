@@ -114,4 +114,12 @@ void main() {
       );
     }
   });
+
+  testWidgets('New puts the caret in the title field (#1845)', (tester) async {
+    await tester.pumpWidget(makeTestable(const SnippetsPage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(LucideIcons.plus));
+    await tester.pumpAndSettle();
+    expect(tester.widget<EditableText>(_titleField).focusNode.hasFocus, isTrue);
+  });
 }

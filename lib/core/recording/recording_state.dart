@@ -50,7 +50,18 @@ bool isDictationBusy(RecordingPhase phase) => switch (phase) {
 /// foreground app's selection, runs the instruction over it with the Smart
 /// Mode engine and pastes the result over the selection — no history entry,
 /// no snippet picker, no text transforms.
-enum RecordingTarget { clipboard, quickNote, templateField, selectionEdit }
+///
+/// [smartWrite] is the target of the Smart-Mode hotkey (ADR 0015 D9): the
+/// orchestrator reads the selection after the recording ends and routes to
+/// editing it (a selection exists) or to writing a draft from the instruction
+/// (none).
+enum RecordingTarget {
+  clipboard,
+  quickNote,
+  templateField,
+  selectionEdit,
+  smartWrite,
+}
 
 /// State of the local STT server subprocess.
 enum SttServerState { stopped, starting, ready, error }

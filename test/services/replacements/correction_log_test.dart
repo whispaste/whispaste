@@ -117,4 +117,34 @@ void main() {
       },
     );
   });
+
+  test('a correction an existing replacement covers still shows in the log '
+      '(#1969)', () async {
+    final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    const service = CorrectionLearningService();
+    await db.upsertReplacementWithTriggers(
+      id: 'existing',
+      triggers: const ['teh'],
+      replacement: 'the',
+      createdAt: DateTime(2026, 1, 1),
+      matchMode: 'exact',
+      fuzzyThreshold: null,
+      origin: 'manual',
+    );
+    final proposed = await service.recordSignal(
+      CorrectionSignal(
+        sourceText: 'teh meeting',
+        targetText: 'the meeting',
+        timestamp: DateTime(2026, 1, 2),
+        source: CorrectionSignalSource.manualEdit,
+      ),
+      db,
+    );
+
+    expect(proposed, 0);
+    final log = await service.log(db);
+    expect(log.single.reason, CorrectionLogReason.alreadyReplacement);
+    expect(await service.pendingCandidates(db), isEmpty);
+  });
 }

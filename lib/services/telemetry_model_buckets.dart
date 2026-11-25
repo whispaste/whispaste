@@ -7,12 +7,13 @@
 library;
 
 import '../core/config/settings_enums.dart'
-    show OnDeviceEngine, SttProviderType;
+    show OnDeviceEngine, SmartModeProviderType, SttProviderType;
 import '../core/config/settings_provider.dart' show AppSettings;
 import '../core/config/quality_tier.dart' show QualityTier;
 import 'engine_recommendation.dart' show EngineRecommendation;
 import 'hardware_info_service.dart' show GpuInfo, GpuVendor;
 import 'model_download_service.dart' show bestModelForTier;
+import 'stt_parakeet/parakeet_gpu_policy.dart' show ParakeetBackend;
 import 'stt_parakeet/parakeet_download_service.dart'
     show parakeetGpuWantedForSetting;
 
@@ -26,10 +27,14 @@ String whisperCatalogId(String modelId) => switch (modelId) {
 };
 
 /// The model a dictation or switch runs on: `small`, `medium`,
-/// `large-v3-turbo`, `parakeet`, or `cloud` for any cloud provider.
+/// `large-v3-turbo`, `parakeet`, `system` (Apple speech recognition), or
+/// `cloud` for any cloud provider. Own models outside the catalog get their
+/// key from `ownModelKey` (`model_telemetry_identity.dart`).
 String telemetryModelId(AppSettings settings) {
   if (settings.sttProviderType != SttProviderType.onDevice) return 'cloud';
   if (settings.onDeviceEngine == OnDeviceEngine.parakeet) return 'parakeet';
+  if (settings.onDeviceEngine == OnDeviceEngine.system) return 'system';
+  if (settings.onDeviceEngine == OnDeviceEngine.userModel) return 'other';
   return whisperCatalogId(settings.effectiveModelId);
 }
 
@@ -67,20 +72,34 @@ String? rtfBucket({required int? transcribeMs, required int audioMs}) {
   return 'gt3';
 }
 
-/// The compute backend a dictation ran on: `cpu`, `cuda`, `vulkan`, `metal`,
-/// or `none` for a cloud provider. Parakeet counts as GPU only when its GPU
-/// setting allows one. This is the detected backend, not a CPU fallback taken
-/// after a crash.
+/// Fixed backend categories: `cpu`, `cuda`, `vulkan`, `metal`, `coreml`,
+/// `directml`, `system` for Apple's engine, or `none` for cloud. Own
+/// sherpa-onnx models are `cpu`. Completed Parakeet dictations pass their
+/// actual backend, including CPU fallback. Without it (visit dimensions),
+/// this reports the detected backend subject to the GPU setting.
 String telemetryBackend({
   required AppSettings settings,
   required String? optimalBackend,
+  ParakeetBackend? actualParakeetBackend,
 }) {
   if (settings.sttProviderType != SttProviderType.onDevice) return 'none';
   final gpu = switch (optimalBackend) {
     'cuda' || 'metal' || 'vulkan' => optimalBackend!,
     _ => 'cpu',
   };
+  // Own sherpa-onnx models (#1789) run on the CPU; Apple's engine picks its
+  // own hardware, which WhisPaste does not see.
+  if (settings.onDeviceEngine == OnDeviceEngine.userModel) return 'cpu';
+  if (settings.onDeviceEngine == OnDeviceEngine.system) return 'system';
   if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+    if (actualParakeetBackend != null) {
+      return switch (actualParakeetBackend) {
+        ParakeetBackend.sherpaCpu => 'cpu',
+        ParakeetBackend.sherpaCoreml => 'coreml',
+        ParakeetBackend.sherpaDirectml => 'directml',
+        ParakeetBackend.gpu => gpu,
+      };
+    }
     return parakeetGpuWantedForSetting(settings.behavior.gpuAcceleration)
         ? gpu
         : 'cpu';
@@ -158,3 +177,21 @@ Map<String, String> modelHardwareDimensions({
 /// Maps a [QualityTier] to its catalog id, for the Settings tier pickers.
 String tierCatalogId(QualityTier tier) =>
     whisperCatalogId(bestModelForTier(tier).id);
+
+/// Name of the `smart_mode/run` counter: `<mode>|<backend>|<outcome>`.
+/// [modeId] is a built-in preset id or `custom`, never a user-given name.
+String smartModeRunTelemetryName({
+  required String modeId,
+  required SmartModeProviderType provider,
+  required bool fellBack,
+}) {
+  final backend = switch (provider) {
+    SmartModeProviderType.local => 'local',
+    SmartModeProviderType.custom => 'own_server',
+    SmartModeProviderType.openAI => 'cloud',
+  };
+  return '$modeId|$backend|${fellBack ? 'fail' : 'ok'}';
+}
+
+/// Activation thresholds (successful dictations) that fire `activation/dictations`.
+const activationMilestones = [1, 5, 25, 100];

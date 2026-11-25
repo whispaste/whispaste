@@ -23,6 +23,7 @@ class NoteTagField extends ConsumerStatefulWidget {
     required this.onRemove,
     required this.hintText,
     required this.searchHintText,
+    this.readOnly = false,
   });
 
   final List<Tag> tags;
@@ -30,6 +31,9 @@ class NoteTagField extends ConsumerStatefulWidget {
   final ValueChanged<String> onRemove;
   final String hintText;
   final String searchHintText;
+
+  /// Lists the tags without adding or removing any (trash, #656).
+  final bool readOnly;
 
   @override
   ConsumerState<NoteTagField> createState() => _NoteTagFieldState();
@@ -79,6 +83,7 @@ class _NoteTagFieldState extends ConsumerState<NoteTagField> {
       onRemove: widget.onRemove,
       hintText: widget.hintText,
       searchHintText: widget.searchHintText,
+      readOnly: widget.readOnly,
       suggestions: _suggestions.tags,
       suggestionCounts: _suggestions.counts,
       onSearchChanged: (q) {

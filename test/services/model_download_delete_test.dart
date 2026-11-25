@@ -26,7 +26,13 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('wp_delete_model_');
     sttDirOverride = tempDir.path;
-    File(p.join(tempDir.path, model.filename)).writeAsStringSync('weights');
+    // A sparse file of the pinned size: the installed check reads the size
+    // (#1513), so no real weights are written.
+    final raf = File(
+      p.join(tempDir.path, model.filename),
+    ).openSync(mode: FileMode.write);
+    raf.truncateSync(model.sizeBytes);
+    raf.closeSync();
   });
 
   tearDown(() async {

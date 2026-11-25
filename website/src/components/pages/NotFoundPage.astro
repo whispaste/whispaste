@@ -1,0 +1,41 @@
+---
+/**
+ * "Page not found" for every locale (#1913). GitHub Pages serves the root
+ * 404.html for any unknown address; its head script sends visitors whose
+ * path starts with a locale prefix (/en/…) on to that locale's copy
+ * (/en/404/), so outdated or mistyped links keep the visitor's language,
+ * the site navigation and a way to the download.
+ * noindex, no analytics, no contact widget (isPrivate), not in the sitemap.
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import { t, localePath, PREFIXED_LOCALES, type Locale } from '../../scripts/i18n.ts';
+
+interface Props {
+  readonly lang: Locale;
+  /** Root 404.html only: forward /<locale>/… addresses to /<locale>/404/. */
+  readonly localeRedirect?: boolean;
+}
+
+const { lang, localeRedirect = false } = Astro.props;
+const home = localePath(lang, '');
+const redirectJs = `(function(){var p=location.pathname,m=/^\\/(${PREFIXED_LOCALES.join('|')})(\\/|$)/.exec(p);if(m&&p!=='/'+m[1]+'/404/')location.replace('/'+m[1]+'/404/')})();`;
+---
+
+<SubpageLayout lang={lang} title={t(lang, 'notFound.metaTitle')} description={t(lang, 'notFound.lead')} isPrivate>
+  {localeRedirect && <script is:inline slot="head" set:html={redirectJs} />}
+  <PageHero
+    title={t(lang, 'notFound.title')}
+    titleKey="notFound.title"
+    lead={t(lang, 'notFound.lead')}
+    leadKey="notFound.lead"
+    eyebrow="404"
+    testid="not-found-hero"
+  >
+    <Fragment slot="actions">
+      <a href={home} class="wp-btn wp-btn--primary" data-testid="not-found-home">{t(lang, 'notFound.home')}</a>
+      <a href={localePath(lang, 'download')} class="wp-btn wp-btn--secondary" data-testid="not-found-download">{t(lang, 'notFound.download')}</a>
+      <a href={`${home}#faq`} class="wp-btn wp-btn--secondary" data-testid="not-found-faq">{t(lang, 'notFound.faq')}</a>
+    </Fragment>
+  </PageHero>
+</SubpageLayout>

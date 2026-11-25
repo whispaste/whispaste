@@ -134,4 +134,17 @@ void main() {
     expect(instructionText(tester), l10n.smartModeCustomPresetExampleBullets);
     expect(find.text(l10n.smartModeCustomPresetExampleMailLabel), findsNothing);
   });
+
+  testWidgets('a disabled Save says what is missing (#1845)', (tester) async {
+    await open(tester);
+    final needs = find.text(l10n.smartModeCustomPresetSaveNeeds);
+    expect(saveEnabled(tester), isFalse);
+    expect(needs, findsOneWidget);
+
+    await tester.enterText(field('name'), 'Mail');
+    await tester.enterText(field('instruction'), 'Write a polite mail.');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+    expect(needs, findsNothing);
+  });
 }

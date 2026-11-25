@@ -12,7 +12,6 @@
 /// registers is the production function [openQuickNoteInEditor].
 library;
 
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +29,7 @@ import 'package:whispaste/services/window_activation.dart';
 import 'package:whispaste/widgets/recording_behavior.dart';
 import 'package:whispaste/widgets/wp_text_field.dart' show WpScrollToEndSignal;
 
+import '../../fixtures/test_helpers.dart' show openInMemoryTestDatabase;
 import '../../test_helpers/pump_until.dart';
 
 /// The one line `_WpRecordingBehaviorState.initState` owns: register the
@@ -123,7 +123,7 @@ void main() {
   late int activations;
 
   setUp(() {
-    db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    db = openInMemoryTestDatabase();
     activations = 0;
   });
 

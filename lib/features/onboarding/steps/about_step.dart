@@ -212,10 +212,16 @@ class AboutStepState extends ConsumerState<AboutStep> {
 
     // Each chip keeps its 48-px tap surface, but the rows overlap by the
     // part of it that is empty air, so the pills sit as close as one cloud.
-    Widget chips(List<Widget> children) => Wrap(
-      spacing: WpSpacing.xs,
-      runSpacing: -WpSpacing.sm,
-      children: children,
+    // The overlap confuses reading-order traversal, which then skipped
+    // between rows; Tab follows the list order, the order the cloud is
+    // read in (#1845).
+    Widget chips(List<Widget> children) => FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Wrap(
+        spacing: WpSpacing.xs,
+        runSpacing: -WpSpacing.sm,
+        children: children,
+      ),
     );
 
     final sectionGap = compact ? WpSpacing.lg : WpSpacing.xxl;
@@ -237,22 +243,19 @@ class AboutStepState extends ConsumerState<AboutStep> {
             ),
             SizedBox(height: sectionGap),
             label(l10n.onboardingAboutNameLabel),
-            Semantics(
-              identifier: 'onboarding-about-name',
-              child: WpTextField(
-                controller: _name,
-                variant: WpTextFieldVariant.form,
-                semanticsLabel: l10n.onboardingAboutNameLabel,
-                hintText: l10n.onboardingAboutNameHint,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(
-                    kOnboardingFirstNameMaxLength,
-                  ),
-                ],
-                autocorrect: false,
-                onChanged: (_) => setState(() => _nameTouched = true),
-                onSubmitted: (_) => next(),
-              ),
+            WpTextField(
+              testId: 'onboarding-about-name',
+              controller: _name,
+              variant: WpTextFieldVariant.form,
+              semanticsLabel: l10n.onboardingAboutNameLabel,
+              hintText: l10n.onboardingAboutNameHint,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(kOnboardingFirstNameMaxLength),
+              ],
+              autocorrect: false,
+              autofillHints: const [AutofillHints.givenName],
+              onChanged: (_) => setState(() => _nameTouched = true),
+              onSubmitted: (_) => next(),
             ),
             SizedBox(height: compact ? WpSpacing.lg : WpSpacing.xl),
             label(
@@ -355,10 +358,16 @@ class AboutStepState extends ConsumerState<AboutStep> {
             ),
           ),
           // Why Next is grey, for everyone who sees it; the screen reader
-          // gets the same words as the button's hint.
-          if (!canContinue)
-            Padding(
-              padding: const EdgeInsets.only(top: WpSpacing.sm),
+          // gets the same words as the button's hint. Its line stays reserved
+          // once an answer is chosen: the column is centred, and a vanishing
+          // line moved Weiter by ~45 px under the pointer (#1845).
+          Padding(
+            padding: const EdgeInsets.only(top: WpSpacing.sm),
+            child: Visibility(
+              visible: !canContinue,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
               child: ExcludeSemantics(
                 child: Text(
                   l10n.onboardingAboutChooseHint,
@@ -367,6 +376,7 @@ class AboutStepState extends ConsumerState<AboutStep> {
                 ),
               ),
             ),
+          ),
         ],
       ),
     );

@@ -602,6 +602,7 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     // library, so `sidePanelMain` is declared in Dart's main.dart -- see
     // that file's doc comment, mirrors `floatingOverlayMain`.
     let engine = FlutterEngine(name: "side_panel", project: nil)
+    SystemMotionHost.attach(engine.binaryMessenger)
     let didRun = engine.run(withEntrypoint: "sidePanelMain")
     os_log("bootRenderEngine: engine.run(sidePanelMain) -> %{public}@", log: Self.logger, type: .info, didRun ? "true" : "false")
     guard didRun else {
@@ -610,6 +611,8 @@ class SidePanelHost: NSObject, NSWindowDelegate {
     }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+
+    RenderEngineAccessibility.replayToNewEngine()
     vc.backgroundColor = .clear
 
     let renderCh = FlutterMethodChannel(

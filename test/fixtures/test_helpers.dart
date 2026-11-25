@@ -16,6 +16,24 @@ import 'package:whispaste/services/desktop_paste/focused_target/linux_focused_ta
     show linuxFocusEnvProvider;
 import 'package:whispaste/widgets/wp_notice_bar.dart' show WpNoticeBar;
 
+/// Finds a labelled `WpTextField` by its semantics label.
+///
+/// Since #1500 the field announces its label followed by its placeholder in
+/// one merged node (`"Find in this text\n<hint>"`), so an exact
+/// `find.bySemanticsLabel(label)` no longer matches. Match the label as the
+/// start of the node's text instead.
+Finder findByFieldLabel(String label) =>
+    find.bySemanticsLabel(RegExp('^${RegExp.escape(label)}'));
+
+/// A fresh in-memory [HistoryDatabase] for widget tests and generators.
+///
+/// Streams close with their last listener: drift's default waits one
+/// event-loop turn, which a widget test reports as a pending timer once the
+/// tree is gone ("A Timer is still pending", #1988).
+HistoryDatabase openInMemoryTestDatabase() => HistoryDatabase.forTesting(
+  DatabaseConnection(NativeDatabase.memory(), closeStreamsSynchronously: true),
+);
+
 /// Wraps a widget in [ProviderScope] + [MaterialApp] for testing.
 ///
 /// Uses the real WhisPaste theme builder so tests exercise the actual
@@ -52,16 +70,7 @@ Widget makeTestable(
   return ProviderScope(
     overrides: [
       historyDatabaseProvider.overrideWith((ref) {
-        final resolved =
-            db ??
-            HistoryDatabase.forTesting(
-              // Streams close with their last listener: the default waits one
-              // event-loop turn, which a widget test reports as a pending timer.
-              DatabaseConnection(
-                NativeDatabase.memory(),
-                closeStreamsSynchronously: true,
-              ),
-            );
+        final resolved = db ?? openInMemoryTestDatabase();
         ref.onDispose(resolved.close);
         return resolved;
       }),
@@ -139,4 +148,22 @@ Future<void> tapNoteHeadAction(WidgetTester tester, String action) async {
     await tester.tap(find.byKey(ValueKey('notes-editor-menu-$action')));
   }
   await tester.pumpAndSettle();
+}
+
+/// Answers the hotkey plugin's channels with nothing, or removes the answer
+/// again when [on] is false. A journey that reaches a session key (Escape to
+/// cancel, the notice action key) would otherwise fail on the plugin's
+/// missing event stream: no global hotkey exists in the test host.
+void mockHotkeyPluginChannels({required bool on}) {
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  for (final name in const [
+    'dev.leanflutter.plugins/hotkey_manager',
+    'dev.leanflutter.plugins/hotkey_manager_event',
+  ]) {
+    messenger.setMockMethodCallHandler(
+      MethodChannel(name),
+      on ? (call) async => null : null,
+    );
+  }
 }

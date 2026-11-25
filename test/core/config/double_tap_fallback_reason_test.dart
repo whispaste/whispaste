@@ -10,7 +10,7 @@ import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 
 void main() {
-  for (final code in ['de', 'en', 'es', 'pt', 'he', 'ru']) {
+  for (final code in ['de', 'en', 'es', 'pt', 'he', 'ru', 'fr', 'it', 'zh']) {
     final l10n = lookupL10n(Locale(code));
 
     test('[$code] each OS has its own settings notice', () {

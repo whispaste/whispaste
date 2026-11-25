@@ -64,6 +64,34 @@ WP_SMART_MODE_API char* smart_mode_generate(
     const volatile int32_t* abort_flag
 );
 
+// Sampling values for one generation (#2204). Laid out for Dart FFI: plain
+// 32-bit fields only, never reordered; new fields go at the end.
+// A value that switches a sampler off keeps it out of the chain entirely, so
+// the WhisPaste default (min_p 0, penalty_repeat 1, penalty_present 0) runs
+// exactly the chain smart_mode_generate always ran.
+typedef struct smart_mode_sampling {
+  float temperature;       // 0 = always the most likely token
+  float top_p;             // 1 = off
+  int32_t top_k;           // <= 0 = off
+  float min_p;             // 0 = off
+  float penalty_repeat;    // 1 = off
+  int32_t penalty_last_n;  // tokens the penalties look back over, 0 = off
+  float penalty_present;   // 0 = off
+} smart_mode_sampling;
+
+// Like smart_mode_generate, with every sampling value from `sampling` (may
+// not be NULL). Chain in llama.cpp's own default order (common.h
+// `samplers`): penalties -> top_k -> top_p -> min_p -> temperature -> dist.
+// Added after the original surface: callers look it up optionally and fall
+// back to smart_mode_generate when an older shim lacks it.
+WP_SMART_MODE_API char* smart_mode_generate_sampled(
+    smart_mode_session* session,
+    const char* system_prompt,
+    const char* user_text,
+    const smart_mode_sampling* sampling,
+    const volatile int32_t* abort_flag
+);
+
 // Frees the model, context and templates of `session`. No-op on NULL.
 WP_SMART_MODE_API void smart_mode_unload(smart_mode_session* session);
 

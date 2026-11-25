@@ -35,6 +35,28 @@ void main() {
     test(
       'WAV everywhere, compressed formats only where a decoder reads them',
       () {
+        // Every desktop decodes the bundled video formats, MPEG-PS/VOB and
+        // MPEG-TS/M2TS included (#2186), and the compressed audio formats.
+        const desktop = [
+          'wav',
+          'mp4',
+          'mov',
+          'mkv',
+          'webm',
+          'mpeg',
+          'mpg',
+          'mpe',
+          'vob',
+          'ts',
+          'mts',
+          'm2ts',
+          'mp3',
+          'flac',
+          'm4a',
+          'aac',
+          'ogg',
+          'opus',
+        ];
         expect(
           supportedImportExtensions(
             isMacOS: false,
@@ -49,19 +71,7 @@ void main() {
             isLinux: false,
             isWindows: false,
           ),
-          [
-            'wav',
-            'mp4',
-            'mov',
-            'mkv',
-            'webm',
-            'mp3',
-            'flac',
-            'm4a',
-            'aac',
-            'ogg',
-            'opus',
-          ],
+          desktop,
         );
         // Linux: Ogg/Opus, FLAC, MP3, and M4A/AAC through GStreamer at runtime.
         expect(
@@ -70,19 +80,7 @@ void main() {
             isLinux: true,
             isWindows: false,
           ),
-          [
-            'wav',
-            'mp4',
-            'mov',
-            'mkv',
-            'webm',
-            'mp3',
-            'flac',
-            'm4a',
-            'aac',
-            'ogg',
-            'opus',
-          ],
+          desktop,
         );
         // Windows: Media Foundation reads MP3, FLAC and M4A/AAC; Ogg/Opus goes to libopusfile.
         expect(
@@ -91,19 +89,7 @@ void main() {
             isLinux: false,
             isWindows: true,
           ),
-          [
-            'wav',
-            'mp4',
-            'mov',
-            'mkv',
-            'webm',
-            'mp3',
-            'flac',
-            'm4a',
-            'aac',
-            'ogg',
-            'opus',
-          ],
+          desktop,
         );
       },
     );

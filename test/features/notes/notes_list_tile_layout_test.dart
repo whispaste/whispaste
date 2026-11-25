@@ -12,6 +12,7 @@ import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import '../../fixtures/test_helpers.dart';
 
 Note _note({required String content, required DateTime updatedAt}) => Note(
+  archived: false,
   id: 'n1',
   content: content,
   pinned: false,

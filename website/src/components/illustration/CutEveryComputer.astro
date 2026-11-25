@@ -1,0 +1,120 @@
+---
+/**
+ * Paper-cut illustration "on every computer" (design-tokens/illustration/
+ * STYLE.md, #1595): a laptop, a monitor on a stand and a second laptop on one
+ * line, each screen showing the cyan waveform pill, in front of one half
+ * circle; one amber dot. Section format 16:10, no text, no logos, no person.
+ *
+ * Three layers only (E1 half circle, E2 white screens, E3 pills), flat fills,
+ * every colour a `--wp-illustration-cut-*` token, so the motif adapts to the
+ * band it sits on. Motion comes from the motif alone: the pill bars breathe
+ * in a stagger. The resting state is the full waveform, which is what no-JS,
+ * `prefers-reduced-motion` and the visitor's pause switch show. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+
+// Bar heights as a share of the pill height, symmetric around the middle.
+const smallBars = [0.24, 0.42, 0.6, 0.78, 0.6, 0.42, 0.24];
+const bigBars = [0.2, 0.36, 0.54, 0.7, 0.84, 0.7, 0.54, 0.36, 0.2];
+
+interface Pill {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  bars: number[];
+}
+const pills: Pill[] = [
+  { cx: 355, cy: 625, w: 210, h: 92, bars: smallBars },
+  { cx: 800, cy: 530, w: 290, h: 124, bars: bigBars },
+  { cx: 1245, cy: 625, w: 210, h: 92, bars: smallBars },
+];
+
+function barsOf(p: Pill) {
+  const barW = p.h * 0.1;
+  const gap = p.h * 0.12;
+  const total = p.bars.length * barW + (p.bars.length - 1) * gap;
+  const x0 = p.cx - total / 2;
+  return p.bars.map((share, i) => {
+    const h = p.h * share;
+    return { x: x0 + i * (barW + gap), y: p.cy - h / 2, w: barW, h, i };
+  });
+}
+---
+
+<svg
+  class:list={['cut-every', className]}
+  viewBox="0 0 1600 1000"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="illustration-every-computer"
+>
+  <!-- ground: one flat field, edge to edge -->
+  <rect class="cut-ground" width="1600" height="1000" rx="56" />
+  <!-- E1: one half circle rising from the device line -->
+  <path class="cut-back" d="M330 780 A470 470 0 0 1 1270 780 Z" />
+
+  <!-- E2: devices (frame, white screen, base) -->
+  <rect class="cut-device" x="190" y="500" width="330" height="250" rx="20" />
+  <rect class="cut-carrier" x="212" y="522" width="286" height="206" rx="8" />
+  <rect class="cut-device" x="160" y="750" width="390" height="30" rx="15" />
+
+  <rect class="cut-device" x="580" y="360" width="440" height="340" rx="24" />
+  <rect class="cut-carrier" x="606" y="386" width="388" height="288" rx="10" />
+  <rect class="cut-device" x="770" y="700" width="60" height="56" />
+  <rect class="cut-device" x="700" y="750" width="200" height="30" rx="15" />
+
+  <rect class="cut-device" x="1080" y="500" width="330" height="250" rx="20" />
+  <rect class="cut-carrier" x="1102" y="522" width="286" height="206" rx="8" />
+  <rect class="cut-device" x="1050" y="750" width="390" height="30" rx="15" />
+
+  <!-- E3: one waveform pill per screen -->
+  {pills.map((p) => (
+    <g>
+      <rect class="cut-action" x={p.cx - p.w / 2} y={p.cy - p.h / 2} width={p.w} height={p.h} rx={p.h / 2} />
+      {barsOf(p).map((b) => (
+        <rect class="cut-bar" style={`--i:${b.i}`} x={b.x} y={b.y} width={b.w} height={b.h} rx={b.w / 2} />
+      ))}
+    </g>
+  ))}
+
+  <!-- D3: the one amber dot -->
+  <circle class="cut-mark" cx="1120" cy="330" r="16" />
+</svg>
+
+<style>
+  .cut-every {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .cut-ground { fill: var(--wp-illustration-cut-ground); }
+  .cut-back { fill: var(--wp-illustration-cut-back); }
+  .cut-device { fill: var(--wp-illustration-cut-device); }
+  .cut-carrier { fill: var(--wp-illustration-cut-carrier); }
+  .cut-action { fill: var(--wp-illustration-cut-action); }
+  .cut-bar {
+    fill: var(--wp-illustration-cut-on-action);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .cut-mark { fill: var(--wp-illustration-cut-mark); }
+
+  /* STYLE.md §10: the bars breathe in a stagger; durations and curve from
+     the motion tokens. Without the media query the bars stand still at full
+     height, the end state. */
+  @media (prefers-reduced-motion: no-preference) {
+    .cut-bar {
+      animation: cut-breathe var(--wp-duration-cinematic-slow) var(--wp-easing-in-out) infinite alternate;
+      animation-delay: calc(var(--i) * var(--wp-duration-stagger));
+    }
+  }
+  @keyframes cut-breathe {
+    from { transform: scaleY(1); }
+    to { transform: scaleY(0.55); }
+  }
+</style>

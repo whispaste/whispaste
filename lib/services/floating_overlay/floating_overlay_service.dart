@@ -69,6 +69,8 @@ import '../transcription/slice_progress.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
 import 'overlay_positioning.dart';
+import 'overlay_hide_rules.dart';
+import 'overlay_hint_learning.dart';
 import 'overlay_key_hints.dart';
 import 'overlay_render_recovery.dart';
 import 'overlay_shell_gate.dart';
@@ -354,6 +356,7 @@ class FloatingOverlayService
     ref.listen(transcriptionSliceProgressProvider, (_, _) {
       _onSliceProgressChanged();
     });
+    ref.listen(overlayHiddenUntilProvider, (_, _) => _onHiddenUntilChanged());
 
     final settings = ref.read(settingsProvider);
     settings.whenData((s) => _syncSettings(s));
@@ -465,6 +468,7 @@ class FloatingOverlayService
   /// key (Escape or F12, as chosen in Settings) closes it. A running dictation
   /// already owns that key for cancelling, so nothing is registered then.
   void _grabNoticeEscape(RecordingPhase phase) {
+    if (ref.read(dictationNoticeProvider)?.managesOwnKeys == true) return;
     // The button key only belongs to a card with a button and no dictation.
     unawaited(
       ref.read(hotkeyServiceProvider.notifier).unregisterNoticeActionKey(),
@@ -603,6 +607,8 @@ class FloatingOverlayService
   void _syncSettings(AppSettings s) {
     final c = controller;
     if (c == null) return;
+
+    _syncCaptureExclusion(c, s.overlayHideFromCapture);
 
     final active = s.effectiveOverlayMode == OverlayMode.floating;
     if (!active) {
@@ -1476,9 +1482,10 @@ class FloatingOverlayService
     OverlayNotice notice,
   ) {
     final message = ref.read(dictationNoticeProvider);
-    final actionKey = message == null
-        ? null
-        : _noticeActionKeyLabel(s, phase, message);
+    if (message?.managesOwnKeys == true) {
+      return '${l10n.smartWritePreviewInsertHint} · '
+          '${l10n.smartWritePreviewDiscardHint}';
+    }
     return noticeFooterFor(
       l10n: l10n,
       // Same rule as [_grabNoticeEscape]: a self-closing card without a
@@ -1490,9 +1497,6 @@ class FloatingOverlayService
             standing: _noticeStanding(),
           ),
       phase: noticeFooterPhaseFor(phase),
-      // Only a dictation message card carries buttons the action key runs.
-      actionKey: notice.kind == OverlayNoticeKind.message ? actionKey : null,
-      buttons: notice.actions.where((a) => !a.action.isClose).length,
       // Isolated so the keys keep their order inside right-to-left text.
       hotkey: ltrIsolate(_triggerLabel(s, l10n)),
       cancelKey: ltrIsolate(
@@ -1569,7 +1573,8 @@ class FloatingOverlayService
 
   /// Stop and cancel hints for the normal live recording pill, or null. The
   /// stop hint is the active dictation hotkey; the cancel hint is the cancel
-  /// key, shown only while its glyph is.
+  /// key, shown only while its glyph is. Each hint goes away once its key is
+  /// learned, unless "always show" is on (overlay E, [OverlayHintLearning]).
   OverlayKeyHints? _keyHintsFor(
     OverlaySizeVariant size,
     bool live,
@@ -1577,8 +1582,13 @@ class FloatingOverlayService
     L10n? l10n,
   ) {
     if (!OverlayKeyHints.showsFor(size: size, live: live)) return null;
-    final stop = _triggerLabel(s, l10n, compact: true);
-    final cancel = s.overlayAppearance.showCancel
+    final learned = ref
+        .read(overlayHintLearningProvider.notifier)
+        .visibility(s);
+    final stop = learned.showStop
+        ? _triggerLabel(s, l10n, compact: true)
+        : null;
+    final cancel = s.overlayAppearance.showCancel && learned.showCancel
         ? hotkeyKeyLabel(s.audioInput.cancelDictationKey, l10n: l10n)
         : null;
     return OverlayKeyHints.forRecording(
@@ -1594,9 +1604,14 @@ class FloatingOverlayService
   /// show/hide bookkeeping of the render-engine heartbeat in one place.
   void _pushToShell(
     FloatingOverlayController c,
-    FloatingOverlaySnapshot snapshot,
+    FloatingOverlaySnapshot frame,
     String failure,
   ) {
+    // "Eine Stunde ausblenden" (overlay F): a plain pill frame stays off
+    // screen; cards, errors and guidance still show.
+    final snapshot = frame.visible && _heldBack(frame)
+        ? _hiddenSnapshot(ref.read(settingsProvider).value)
+        : frame;
     final send = _shellGate.shouldSend(snapshot);
     if (snapshot.visible) {
       _markShellShown(c);
@@ -1710,23 +1725,71 @@ class FloatingOverlayService
     // the native shell needlessly resize on every hide (and could flash the
     // wrong size on the next show); keep the real setting so the panel size
     // never flips. Falls back to normal only if settings are unavailable.
-    final s = ref.read(settingsProvider).value;
-    final sizeVariant = s?.overlaySizeType.variant ?? OverlaySizeVariant.normal;
-    final hidden = FloatingOverlaySnapshot(
-      visible: false,
-      state: OverlayVisualState.recording,
-      size: sizeVariant,
-      background: s?.overlayBackgroundType ?? OverlayBackground.marine,
-      wave: s?.overlayWaveType ?? OverlayWave.cyan,
-      appearance: s?.overlayAppearance ?? OverlayAppearance.defaults,
-      label: '',
-    );
+    final hidden = _hiddenSnapshot(ref.read(settingsProvider).value);
 
-    _log.debug('Overlay hide (size=${sizeVariant.name})');
+    _log.debug('Overlay hide (size=${hidden.size.name})');
     // A `visible:false` snapshot orders the native shell off-screen
     // (macOS `orderOut`, Windows `SW_HIDE`, Linux `gtk_widget_hide`), so the
     // hidden window no longer intercepts mouse events.
     _pushToShell(c, hidden, 'Failed to hide overlay');
+  }
+
+  /// The off-screen frame. It keeps the configured size, so the panel size
+  /// never flips (see [_hideOverlay]); normal only without settings.
+  FloatingOverlaySnapshot _hiddenSnapshot(AppSettings? s) =>
+      FloatingOverlaySnapshot(
+        visible: false,
+        state: OverlayVisualState.recording,
+        size: s?.overlaySizeType.variant ?? OverlaySizeVariant.normal,
+        background: s?.overlayBackgroundType ?? OverlayBackground.marine,
+        wave: s?.overlayWaveType ?? OverlayWave.cyan,
+        appearance: s?.overlayAppearance ?? OverlayAppearance.defaults,
+        label: '',
+      );
+
+  // ── Hide rules (overlay F, #194) ──────────────────────────────────────────
+
+  /// Whether [frame] stays off screen because the pill is hidden for an hour.
+  bool _heldBack(FloatingOverlaySnapshot frame) => overlayFrameHeldBack(
+    hiddenUntil: ref.read(overlayHiddenUntilProvider),
+    now: ref.read(overlayHideClockProvider)(),
+    hasNotice: frame.notice != null,
+    isError: frame.state == OverlayVisualState.error,
+    guidance: _interactiveGuidanceActive,
+  );
+
+  /// The hide hour started or ended: the frame on screen follows at once
+  /// instead of with the next tick.
+  void _onHiddenUntilChanged() {
+    final s = ref.read(settingsProvider).value;
+    if (s == null || s.effectiveOverlayMode != OverlayMode.floating) return;
+    final phase = ref.read(recordingPhaseProvider);
+    if (phase != RecordingPhase.idle) {
+      _sendSnapshot(s, phase);
+    } else if (_shellShown && ref.read(overlayHiddenUntilProvider) != null) {
+      // An idle frame on screen (paste confirmation, pill hint) goes now;
+      // a standing card stays (see [_hideOverlay]).
+      _hideOverlay();
+    }
+  }
+
+  /// Last value of "hide from screen capture" sent to the shell; null before
+  /// the first send.
+  bool? _captureExcludedSent;
+
+  /// Sends "In Bildschirmfreigaben und Screenshots verbergen" to the shell
+  /// when it changed. The shell keeps the value and applies it to every
+  /// window it creates.
+  void _syncCaptureExclusion(FloatingOverlayController c, bool excluded) {
+    if (c is! OverlayCaptureExclusion) return;
+    if (_captureExcludedSent == excluded) return;
+    _captureExcludedSent = excluded;
+    (c as OverlayCaptureExclusion).setCaptureExcluded(excluded).catchError((
+      Object e,
+      StackTrace st,
+    ) {
+      _log.error('Failed to set overlay capture exclusion', e, st);
+    });
   }
 
   // ── Auto-hide ─────────────────────────────────────────────────────────────
@@ -1858,7 +1921,16 @@ class FloatingOverlayService
               checked: size == FloatingOverlaySize.nano,
             ),
             const AppCommand.separator(),
-            AppCommand(id: 'hide', labelKey: l10n.overlayContextHide),
+            // Overlay F: hiding for an hour is a pause; switching off is the
+            // old entry, now named for what it does.
+            AppCommand(
+              id: overlayMenuHideHour,
+              labelKey: l10n.overlayContextHideHour,
+            ),
+            AppCommand(
+              id: overlayMenuTurnOff,
+              labelKey: l10n.overlayContextTurnOff,
+            ),
           ], labelOf: (text) => text),
           appearance: nativeMenuAppearance(s.interface_.appearance),
         )
@@ -1914,8 +1986,13 @@ class FloatingOverlayService
       case OverlayContextMenuAction(action: final action):
         _onContextMenuAction(action);
 
-      case OverlayNoticeActionClicked(id: final id):
-        _onNoticeAction(id);
+      case OverlayNoticeActionClicked(id: final id, args: final args):
+        final edit = OverlayNoticeEditEvent.fromWire(id, args);
+        if (edit != null) {
+          _onNoticeEdit(edit);
+        } else {
+          _onNoticeAction(id);
+        }
 
       case OverlayRenderEngineDiagnostic(
         message: final message,
@@ -1940,6 +2017,15 @@ class FloatingOverlayService
     }
     final s = ref.read(settingsProvider).value;
     if (s != null) _sendSnapshot(s, phase);
+  }
+
+  /// What the edit field of the open card reports (#254): it goes to the
+  /// card's [DictationNotice.edit], which knows what the text belongs to.
+  /// A report for a card that is gone does nothing.
+  void _onNoticeEdit(OverlayNoticeEditEvent event) {
+    final edit = ref.read(dictationNoticeProvider)?.edit;
+    _log.debug('Overlay notice edit: ${event.id}');
+    edit?.handle(event);
   }
 
   /// A notice-card button (overlay F2). No action discards what was said:
@@ -2011,9 +2097,9 @@ class FloatingOverlayService
       case OverlayNoticeActionId.notice1 || OverlayNoticeActionId.notice2:
         final notice = ref.read(dictationNoticeProvider);
         final index = action == OverlayNoticeActionId.notice1 ? 0 : 1;
-        if (notice != null) {
+        if (notice != null && !notice.managesOwnKeys) {
           ref.read(dictationNoticeProvider.notifier).dismiss();
-        } else if (phase == RecordingPhase.idle) {
+        } else if (notice == null && phase == RecordingPhase.idle) {
           _hideOverlay(force: true);
         }
         if (notice != null && index < notice.actions.length) {
@@ -2173,8 +2259,13 @@ class FloatingOverlayService
               (s) => s.copyWith(overlaySize: FloatingOverlaySize.nano.value),
             );
 
-      case 'hide':
-        _log.debug('Context menu: hide overlay');
+      case overlayMenuHideHour:
+        // The overlay stays on; only the pill keeps off screen for an hour.
+        _log.info('Context menu: hide overlay for an hour');
+        ref.read(overlayHiddenUntilProvider.notifier).hideForAnHour();
+
+      case overlayMenuTurnOff:
+        _log.info('Context menu: turn overlay off');
         _hideOverlay();
         ref
             .read(settingsProvider.notifier)
@@ -2273,15 +2364,19 @@ class FloatingOverlayService
         l10n?.overlayRecordingQuickNote ?? 'Recording to note',
       RecordingTarget.selectionEdit =>
         l10n?.overlayRecordingSelectionEdit ?? 'Say what to change',
+      RecordingTarget.smartWrite =>
+        l10n?.overlayRecordingSmartWrite ?? 'Say what to write',
       RecordingTarget.clipboard => l10n?.overlayRecording ?? 'Recording',
     },
     // Edit selection stays in `transcribing` while the engine runs (a
     // failure must be able to reach `error`, which `refining` never
     // does — ADR 0009), so the label names the actual work.
-    RecordingPhase.transcribing =>
-      target == RecordingTarget.selectionEdit
-          ? (l10n?.overlayEditingSelection ?? 'Editing selection…')
-          : _transcribingLabel(l10n),
+    RecordingPhase.transcribing => switch (target) {
+      RecordingTarget.selectionEdit =>
+        l10n?.overlayEditingSelection ?? 'Editing selection…',
+      RecordingTarget.smartWrite => l10n?.overlayWritingDraft ?? 'Writing…',
+      _ => _transcribingLabel(l10n),
+    },
     RecordingPhase.refining => _refiningLabel(l10n, s),
     RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
     RecordingPhase.error => l10n?.overlayError ?? 'Error',
@@ -2394,6 +2489,7 @@ class FloatingOverlayService
       RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(l10n),
       RecordingTarget.selectionEdit =>
         l10n?.overlayTargetSelectionEdit ?? 'Edit selection',
+      RecordingTarget.smartWrite => l10n?.overlayTargetSmartWrite ?? 'Write',
       RecordingTarget.clipboard => null,
     };
     if (targetName == null) return timer;

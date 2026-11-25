@@ -11,11 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/data_key_access.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/data/encryption_preference.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/logging/crash_reporter.dart';
 import 'package:whispaste/core/logging/crash_reporting_consent.dart';
 import 'package:whispaste/features/settings/data_key/data_key_flows.dart';
 import 'package:whispaste/features/settings/sections/privacy_section.dart';
+import 'package:whispaste/services/app_restart_service.dart';
+import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/widgets/wp_dropdown.dart';
 
 import '../../../fixtures/test_helpers.dart';
@@ -336,6 +339,95 @@ void main() {
         expect(access.replacements, 1);
         expect(access.requests, 0);
       });
+    });
+  });
+
+  // The encryption switch (#1022): on by default, a change applies at the
+  // next start, and the row offers that restart.
+  group('encryption switch', () {
+    // Own folder: the switch writes its marker below the app data folder.
+    late Directory sandbox;
+    String? previousOverride;
+    setUp(() {
+      sandbox = Directory.systemTemp.createTempSync('wp_enc_switch_');
+      previousOverride = paths.appDataDirOverride;
+      paths.appDataDirOverride = sandbox.path;
+      resetEncryptionSessionForTesting();
+    });
+    tearDown(() {
+      paths.appDataDirOverride = previousOverride;
+      resetEncryptionSessionForTesting();
+      sandbox.deleteSync(recursive: true);
+    });
+
+    testWidgets('off, restart, back on: the whole click sequence', (
+      tester,
+    ) async {
+      var relaunches = 0;
+      final restart = AppRestartService(
+        isDictationBusy: () => false,
+        shutdown: () async {},
+        releaseInstanceLock: () async {},
+        macRelaunch: () async => relaunches++,
+        spawn: (_, _) async => relaunches++,
+        endProcess: () {},
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: PrivacySection()),
+          overrides: [
+            settingsProvider.overrideWith(FakeSettingsNotifier.new),
+            appRestartServiceProvider.overrideWithValue(restart),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final toggle = find.byKey(const ValueKey('privacy-encryption-toggle'));
+      final restartButton = find.byKey(
+        const ValueKey('privacy-encryption-restart'),
+      );
+      Text subtitle() => tester.widget<Text>(
+        find.byKey(const ValueKey('privacy-encryption-subtitle')),
+      );
+      final preference = EncryptionPreference(paths.appDataDir());
+
+      // Default on, nothing to restart.
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      expect(restartButton, findsNothing);
+      expect(subtitle().data, l10n.settingsEncryptionSubtitleOn);
+
+      // Off: saved for the next start, the restart is offered.
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(toggle).value, isFalse);
+      expect(preference.wanted, isFalse);
+      expect(preference.switchPending, isTrue);
+      expect(
+        subtitle().data,
+        '${l10n.settingsEncryptionSubtitleOff} '
+        '${l10n.settingsEncryptionRestartHint}',
+      );
+      expect(restartButton, findsOneWidget);
+      expect(
+        find.descendant(
+          of: restartButton,
+          matching: find.text(l10n.actionRestartApp),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(restartButton);
+      await tester.pumpAndSettle();
+      expect(relaunches, 1);
+
+      // Back on before the restart: the wish is taken back.
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      expect(preference.wanted, isTrue);
+      expect(restartButton, findsNothing);
     });
   });
 }

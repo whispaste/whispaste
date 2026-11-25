@@ -7,10 +7,16 @@ library;
 
 import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart'
-    show OverlayBackground, OverlaySizeVariant, OverlayThemeColors, OverlayWave;
+    show
+        OverlayBackground,
+        OverlayDesignSpec,
+        OverlaySizeVariant,
+        OverlayThemeColors,
+        OverlayWave;
 import 'floating_overlay_events.dart';
 import 'overlay_key_hints.dart';
 import 'overlay_notice.dart';
+import 'overlay_notice_layout.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
 enum OverlayVisualState { recording, transcribing, done, error }
@@ -175,6 +181,12 @@ class FloatingOverlaySnapshot {
     // The shells size their window from `size`; a notice card has its own
     // size class, the pill size travels on in `pillSize`.
     'size': notice != null ? 'notice' : size.name,
+    // Window height of a notice card, which grows with its content (#1845);
+    // the shells fall back to the smallest card without it.
+    if (notice case final card?)
+      'noticeHeight': OverlayDesignSpec.noticeWindowSizeFor(
+        overlayNoticeCardHeight(card, overlayNoticeSystemScaler),
+      ).height,
     'pillSize': size.name,
     'background': background.value,
     'wave': wave.value,
@@ -274,6 +286,18 @@ abstract interface class RenderEngineRecovery {
   /// Re-boots the render engine inside the existing shell. Fire-and-forget:
   /// the outcome is observed through the next [OverlayRenderFrame].
   Future<void> rebootRenderEngine();
+}
+
+/// A shell that can keep the overlay window out of screen sharing, screen
+/// recordings and screenshots (overlay F, #194): macOS through
+/// `NSWindow.sharingType = .none`, Windows through `SetWindowDisplayAffinity`
+/// with `WDA_EXCLUDEFROMCAPTURE`. Linux has no such switch (neither X11 nor
+/// the Wayland compositors offer one); its shell answers `false`, and
+/// Settings does not offer the option there.
+abstract interface class OverlayCaptureExclusion {
+  /// Keeps the overlay window out of captures ([excluded]) or lets captures
+  /// show it again. The shell keeps the value for windows it creates later.
+  Future<void> setCaptureExcluded(bool excluded);
 }
 
 /// Platform-agnostic interface for the native floating overlay window.

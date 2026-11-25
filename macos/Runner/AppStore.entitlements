@@ -8,11 +8,35 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- Local automation API (Settings > Advanced > Local automation API,
+	     AUTOMATION_API.md): off by default, listens on 127.0.0.1/::1 only.
+	     App Review asked for its purpose under 2.4.5(i) (1.5.2, 2026-11-21);
+	     the answer lives in fastlane/metadata/review_information/notes.txt. -->
 	<key>com.apple.security.network.server</key>
 	<true/>
 	<key>com.apple.security.files.user-selected.read-write</key>
 	<true/>
 	<key>com.apple.security.files.bookmarks.app-scope</key>
 	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+	<!-- Contact names for the dictionary (#2037): the Contacts framework
+	     needs this under the sandbox and the hardened runtime. Read only
+	     after the user's step in the app, names and company only. -->
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
+	<!-- Pause Music/Spotify while dictating (#1511): their published
+	     playback access groups, no temporary exception. -->
+	<key>com.apple.security.scripting-targets</key>
+	<dict>
+		<key>com.apple.Music</key>
+		<array>
+			<string>com.apple.Music.playback</string>
+		</array>
+		<key>com.spotify.client</key>
+		<array>
+			<string>com.spotify.playback</string>
+		</array>
+	</dict>
 </dict>
 </plist>

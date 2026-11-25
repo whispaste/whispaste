@@ -6,7 +6,7 @@ void main() {
     test('expands on hover where hover is supported', () {
       final supported = IdleCapsule.hoverSupported(
         isLinux: false,
-        isWayland: false,
+        nativeWayland: false,
       );
       expect(
         IdleCapsule.expands(hovered: true, hoverSupported: supported),
@@ -18,21 +18,24 @@ void main() {
       );
     });
 
-    test('stays at rest under Wayland, where no hover is tracked', () {
-      final supported = IdleCapsule.hoverSupported(
-        isLinux: true,
-        isWayland: true,
-      );
-      expect(supported, isFalse);
-      expect(
-        IdleCapsule.expands(hovered: true, hoverSupported: supported),
-        isFalse,
-      );
-    });
+    test(
+      'stays at rest on a native Wayland backend, where no hover is tracked',
+      () {
+        final supported = IdleCapsule.hoverSupported(
+          isLinux: true,
+          nativeWayland: true,
+        );
+        expect(supported, isFalse);
+        expect(
+          IdleCapsule.expands(hovered: true, hoverSupported: supported),
+          isFalse,
+        );
+      },
+    );
 
-    test('X11 on Linux keeps hover', () {
+    test('X11 or XWayland on Linux keeps hover', () {
       expect(
-        IdleCapsule.hoverSupported(isLinux: true, isWayland: false),
+        IdleCapsule.hoverSupported(isLinux: true, nativeWayland: false),
         isTrue,
       );
     });

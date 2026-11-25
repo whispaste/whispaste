@@ -66,6 +66,15 @@ class FloatingOverlayPanel: NSPanel {
     )
   }
 
-  override var canBecomeKey: Bool { false }
+  /// Whether the panel may take the keyboard. Only during an edit session of
+  /// the write preview (#254): the host turns it on while the card's edit
+  /// field is open and off again when the field goes. Outside of that the
+  /// overlay never takes focus from the target app.
+  var acceptsKeyboard = false
+
+  override var canBecomeKey: Bool { acceptsKeyboard }
   override var canBecomeMain: Bool { false }
+
+  /// Not a dialog: the overlay is a floating status window (#1923).
+  override func accessibilitySubrole() -> NSAccessibility.Subrole? { .floatingWindow }
 }

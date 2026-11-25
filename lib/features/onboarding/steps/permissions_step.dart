@@ -40,6 +40,7 @@ import '../onboarding_scene.dart';
 import '../onboarding_split_page.dart';
 import 'auto_paste_step.dart';
 import 'onboarding_headings.dart' show onboardingCompactText;
+import '../../../widgets/wp_row_divider.dart';
 
 /// Screen 3. The shell owns the navigation; [onNext] and [onBack] are called
 /// from the page's own actions.
@@ -307,16 +308,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
                 borderRadius: WpRadius.borderLg,
                 border: Border.all(color: WpColors.cardEdgeHighlight),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < rows.length; i++) ...[
-                    if (i > 0)
-                      Divider(height: 1, color: WpColors.cardEdgeHighlight),
-                    rows[i],
-                  ],
-                ],
-              ),
+              child: WpDividedColumn(children: rows),
             ),
           // Linux keeps the full insertion setup (portal, pkexec, command).
           if (_platform == TargetPlatform.linux) const AutoPasteStep(),

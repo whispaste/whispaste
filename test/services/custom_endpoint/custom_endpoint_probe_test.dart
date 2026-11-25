@@ -44,6 +44,23 @@ void main() {
     expect(probe.availableModels, ['qwen']);
   });
 
+  test(
+    'a name without tag matches its :latest entry (Ollama, #1957)',
+    () async {
+      final probe = await _probe(
+        (_) async => _models(['qwen3:latest', 'qwen2.5:0.5b']),
+        model: 'qwen3',
+      );
+      expect(probe.result, CustomEndpointProbeResult.connected);
+      expect(probe.modelVerified, isTrue);
+      final tagged = await _probe(
+        (_) async => _models(['qwen3:latest']),
+        model: 'qwen3:8b',
+      );
+      expect(tagged.result, CustomEndpointProbeResult.modelMissing);
+    },
+  );
+
   test('an empty model list is connected but not verified', () async {
     final probe = await _probe((_) async => _models([]));
     expect(probe.result, CustomEndpointProbeResult.connected);

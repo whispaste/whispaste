@@ -179,6 +179,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
@@ -223,8 +224,15 @@ class WpSearchField extends StatefulWidget {
     this.suffix,
     this.semanticsLabel,
     this.autofocus = false,
+    this.clearOnEscape = false,
     this.testId,
   });
+
+  /// Escape empties a non-empty query, like the clear button, and is handled;
+  /// on an empty field it passes on to the page. For page searches, so
+  /// Escape means the same on every list (#1845). Pickers and dialogs leave
+  /// it off: there Escape closes the whole surface.
+  final bool clearOnEscape;
 
   /// Stable test id (`<screen>-<element>`) of the field, for UI tests and the
   /// agent-driven checks. Null adds no semantics node.
@@ -349,6 +357,22 @@ class _WpSearchFieldState extends State<WpSearchField> {
     widget.onClear?.call();
   }
 
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (!widget.clearOnEscape ||
+        event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape ||
+        widget.controller.text.isEmpty ||
+        widget.controller.value.composing.isValid ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    _clear();
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -356,6 +380,10 @@ class _WpSearchFieldState extends State<WpSearchField> {
     final spec = _WpSearchFieldSpec.of(widget.variant);
     final clearLabel = widget.clearTooltip ?? l10n.actionClearSearch;
 
+    // IconButton exception (#1757): the clear control sits inside the
+    // field's decoration, and WpIconButton's own Semantics node would land
+    // in the field's MergeSemantics (crash note below). The name goes on the
+    // icon instead; allowlisted in wp_raw_component_guard_test.
     final Widget? clearButton = _hasText
         ? IconButton(
             icon: Icon(
@@ -403,7 +431,25 @@ class _WpSearchFieldState extends State<WpSearchField> {
       onSubmitted: widget.onSubmitted,
       style: TextStyle(fontSize: WpTypography.body, color: palette.textPrimary),
       decoration: InputDecoration(
-        hintText: widget.hintText,
+        // With a [semanticsLabel] the placeholder is visual only: the label
+        // names the field, also once text is typed and the hint is gone
+        // (#1916). Without one the hint stays the field's only name.
+        hintText: widget.semanticsLabel == null ? widget.hintText : null,
+        hint: widget.semanticsLabel == null
+            ? null
+            : ExcludeSemantics(
+                child: Text(
+                  widget.hintText,
+                  // Like `hintText` (`hintMaxLines` 1): one line, ellipsised.
+                  // Unbounded, a long placeholder in a narrow field wrapped
+                  // word by word and grew the field taller than the page.
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.merge(
+                    Theme.of(context).inputDecorationTheme.hintStyle,
+                  ),
+                ),
+              ),
         prefixIcon: Icon(
           LucideIcons.search,
           size: WpIconSize.sm,
@@ -462,6 +508,12 @@ class _WpSearchFieldState extends State<WpSearchField> {
         focusedBorder: InputBorder.none,
       ),
     );
+    field = Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onKey,
+      child: field,
+    );
 
     if (widget.semanticsLabel != null) {
       // `Semantics(label:)` alone, without a boundary, doesn't attach the
@@ -477,22 +529,11 @@ class _WpSearchFieldState extends State<WpSearchField> {
       // `toStringDeep()`'s "merge boundary", also blocks the upward merge
       // this fix started from.
       //
-      // The field's own `hintText` already lands on that merged node as its
-      // label — `InputDecoration.hintText` does that on its own once there's
-      // no separate `labelText`. Every current caller passes `semanticsLabel`
-      // as the hint's own wording minus its trailing ellipsis, so stacking a
-      // second `Semantics(label:)` here would announce the same sentence
-      // twice ("Search notes, Search notes…"). Only add an explicit label
-      // when it actually says something the hint doesn't — `MergeSemantics`
-      // alone still gets applied either way, since the boundary is what
-      // stops the upward merge, independent of whether the text differs.
-      final restatesHint =
-          widget.semanticsLabel!.trim() ==
-          widget.hintText.trim().replaceAll(RegExp('…+\$'), '').trim();
+      // The label is the field's whole name: the placeholder is kept out
+      // of the tree above, so it is neither announced twice nor lost when
+      // the hint disappears under typed text.
       field = MergeSemantics(
-        child: restatesHint
-            ? field
-            : Semantics(label: widget.semanticsLabel!, child: field),
+        child: Semantics(label: widget.semanticsLabel!, child: field),
       );
     }
 

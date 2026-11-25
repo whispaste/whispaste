@@ -46,6 +46,8 @@ abstract final class WpPalette {
   static const Color brandKofiHover = Color(0xFFF25427);
   static const Color brandSponsors = Color(0xFFEA4AAA);
   static const Color brandSponsorsHover = Color(0xFFDD3A9C);
+  static const Color brandYoutube = Color(0xFFFF0000);
+  static const Color brandYoutubeHover = Color(0xFFCC0000);
   static const Color red400 = Color(0xFFFF7B7B);
   static const Color red800 = Color(0xFFB42318);
   static const Color white = Color(0xFFFFFFFF);
@@ -472,6 +474,9 @@ abstract final class WpBrandTokens {
   static const Color brandSponsorsFill = Color(0xFFEA4AAA);
   static const Color brandSponsorsFillHover = Color(0xFFDD3A9C);
   static const Color brandSponsorsOnFill = Color(0xFF0B122A);
+  static const Color brandYoutubeFill = Color(0xFFFF0000);
+  static const Color brandYoutubeFillHover = Color(0xFFCC0000);
+  static const Color brandYoutubeOnFill = Color(0xFFFFFFFF);
 }
 
 abstract final class WpOnboardingTokens {

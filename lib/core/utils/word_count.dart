@@ -49,3 +49,10 @@ int computeWordCountFast(String text) {
   }
   return count;
 }
+
+/// Whether a saved text was reworked from its transcript: an [original]
+/// exists and differs from [text] beyond surrounding whitespace. Every
+/// dictation stores its cleaned original, so its mere presence says
+/// nothing (#1845).
+bool isReworked(String? original, String text) =>
+    original != null && original.trim() != text.trim();

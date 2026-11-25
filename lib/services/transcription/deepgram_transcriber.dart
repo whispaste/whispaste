@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config/secure_key_store.dart';
 import '../../core/config/settings_provider.dart';
+import '../audio/upload_audio_encoder.dart';
 import '../audio/wav_header_repair.dart';
 import '../stt/transcript_hallucination_filter.dart';
 import 'cloud_request.dart';
@@ -103,6 +105,9 @@ class DeepgramTranscriber implements Transcriber {
             ref.read(settingsProvider).value?.customVocabulary ?? '',
           )
         : const <String>[];
+    final expected =
+        ref.read(settingsProvider).value?.stt.autoDetectLanguages ??
+        const <String>[];
     final queryParams = <String, Object>{
       'model': _model,
       'smart_format': 'true',
@@ -113,14 +118,23 @@ class DeepgramTranscriber implements Transcriber {
       if (language != null && language.isNotEmpty && language != 'auto')
         'language': language
       else
-        'detect_language': 'true',
+        'detect_language': expected.isEmpty ? 'true' : expected,
     };
 
     final uri = Uri.parse(_baseEndpoint).replace(queryParameters: queryParams);
 
+    // A long recording goes up as Opus/WebM (#177), encoded once before the
+    // retries; without the encoder, or if it fails, the WAV goes up.
+    final samples = canonicalPcm16MonoSamples(wav);
+    final compressed = samples == null
+        ? null
+        : await ref.read(uploadAudioEncoderProvider).encode([
+            samples,
+          ], samples.length);
+
     // One request for the whole recording; a transient failure repeats it.
     final response = await retryCloudRequest(
-      () async => _checked(await _send(uri, key, wav)),
+      () async => _checked(await _send(uri, key, wav, compressed)),
       breaker: _breaker ?? ref.read(cloudSessionBreakerProvider),
       breakerTarget: cloudBreakerTarget(
         provider: 'deepgram',
@@ -141,8 +155,8 @@ class DeepgramTranscriber implements Transcriber {
         (alternatives?.firstOrNull as Map<String, dynamic>?)?['transcript']
             as String?;
     final text = (transcript ?? '').trim();
-    // Same silence artefacts the on-device path drops (stock phrases,
-    // a lone sound annotation); empty reads as a blank recording.
+    // Only sound annotations are unconditionally non-speech; stock
+    // phrases need the audio evidence supplied by the orchestrator.
     return isNonSpeechTranscript(text) ? '' : text;
   }
 
@@ -179,10 +193,15 @@ class DeepgramTranscriber implements Transcriber {
 
   /// Builds and sends the request once. Every attempt builds its own, because
   /// a request can only be sent once.
-  Future<CloudSttResponse> _send(Uri uri, String key, List<int> wav) async {
+  Future<CloudSttResponse> _send(
+    Uri uri,
+    String key,
+    Uint8List wav,
+    EncodedUpload? compressed,
+  ) async {
     final request = http.Request('POST', uri)
       ..headers['Authorization'] = 'Token $key'
-      ..headers['Content-Type'] = 'audio/wav'
+      ..headers['Content-Type'] = compressed?.mime ?? 'audio/wav'
       // Pass the bytes straight through instead of copying via
       // `List<int>.from()` first: the http package's `bodyBytes` setter
       // already skips its own copy when it receives a Uint8List (which is
@@ -194,11 +213,12 @@ class DeepgramTranscriber implements Transcriber {
       // isn't one. Measured ~120ms of synchronous main-isolate work (plus
       // the resulting GC pressure) for a 10MB / ~5min WAV clip, right before
       // the network send — on the Hotkey→Text critical path.
-      ..bodyBytes = wav;
+      ..bodyBytes = compressed?.bytes ?? wav;
 
     try {
       return await sendCloudSttRequest(
         request,
+        // Sized by the WAV: the server's work grows with the audio length.
         timeout: _timeout ?? cloudRequestTimeout(wav.length),
         client: _httpClient,
       );

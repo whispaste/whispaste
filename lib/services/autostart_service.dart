@@ -13,6 +13,7 @@ import '../core/logging/app_logger.dart';
 import 'autostart_backend.dart';
 import 'desktop_paste/linux_package_format.dart';
 import 'linux_autostart.dart';
+import 'windows_autostart.dart';
 import 'path_service.dart' show isLocalBuild;
 
 /// Production backend — delegates to the real `launch_at_startup` plugin. The
@@ -27,10 +28,18 @@ class _LaunchAtStartupBackend implements AutostartBackend {
   Future<bool> isEnabled() => launchAtStartup.isEnabled();
 
   @override
-  Future<void> enable() => launchAtStartup.enable();
+  Future<void> enable() async {
+    if (!await launchAtStartup.enable()) {
+      throw StateError('Autostart registration failed');
+    }
+  }
 
   @override
-  Future<void> disable() => launchAtStartup.disable();
+  Future<void> disable() async {
+    if (!await launchAtStartup.disable()) {
+      throw StateError('Autostart removal failed');
+    }
+  }
 
   @override
   Future<bool> requiresApproval() async {
@@ -71,6 +80,8 @@ class AutostartService extends Notifier<bool> {
             ).existsSync(),
           ),
         )
+      : Platform.isWindows
+      ? WindowsAutostartBackend(const _LaunchAtStartupBackend())
       : const _LaunchAtStartupBackend();
 
   @override
@@ -103,9 +114,11 @@ class AutostartService extends Notifier<bool> {
       // never rewrites or removes the release's entry. Linux writes its own
       // entry under the application ID (LinuxAutostartBackend).
       appName: isLocalBuild ? 'WhisPaste Dev' : 'WhisPaste',
-      appPath: Platform.resolvedExecutable,
-      // MSIX Store packages use a different startup mechanism.
-      packageName: 'com.whispaste.app',
+      appPath: Platform.isWindows
+          ? windowsAutostartExecutable(Platform.resolvedExecutable)
+          : Platform.resolvedExecutable,
+      // MSIX is handled by WindowsAutostartBackend's native StartupTask.
+      // Do not select the plugin's versioned-EXE shortcut implementation.
       args: ['--autostart'],
     );
   }

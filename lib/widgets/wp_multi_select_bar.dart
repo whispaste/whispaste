@@ -10,6 +10,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'page_shell.dart';
 import 'wp_button.dart';
+import 'wp_row_checkbox.dart';
 
 /// Horizontal padding inside the selection-count pill.
 const double _kCountPadX = WpSpacing.sm;
@@ -20,6 +21,15 @@ const double _kMoreButtonWidth = 48;
 /// Rounding headroom per measured slot, so a label that measures exactly
 /// at the edge is moved into the menu rather than clipped.
 const double _kFitSlack = 4;
+
+/// State of the bar's "select all" box (#1858): false with nothing selected,
+/// true when every row of the current (searched or filtered) list is, and
+/// null (the dash) for anything in between.
+bool? selectAllState(int selected, int? total) {
+  if (selected <= 0) return false;
+  if (total != null && selected >= total) return true;
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Multi-select action bar
@@ -43,6 +53,7 @@ class WpMultiSelectBar extends StatelessWidget {
     this.onRestore,
     this.onFavourite,
     this.onTag,
+    this.onMoveToFolder,
     this.favouriteLabel,
     this.favouriteIcon = LucideIcons.star,
     this.idPrefix = 'history-multiselect',
@@ -66,8 +77,11 @@ class WpMultiSelectBar extends StatelessWidget {
   /// the tap will do for the current selection.
   final VoidCallback? onFavourite;
 
-  /// Add a tag to the selection (Notizen, #655).
+  /// Add a tag to the selection (Notizen #655, Textbausteine #662).
   final VoidCallback? onTag;
+
+  /// File the selection into a folder (Notizen #659).
+  final VoidCallback? onMoveToFolder;
   final String? favouriteLabel;
   final IconData favouriteIcon;
 
@@ -124,6 +138,14 @@ class WpMultiSelectBar extends StatelessWidget {
           label: l10n.notesAddTag,
           onTap: onTag!,
         ),
+      if (onMoveToFolder != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'move',
+          icon: LucideIcons.folderInput,
+          label: l10n.notesMoveToFolder,
+          shortcutHint: formatHotkeyShortcut('ctrl+shift', 'm', l10n: l10n),
+          onTap: onMoveToFolder!,
+        ),
       if (onFavourite != null)
         _HistoryMultiSelectOverflowAction(
           id: 'favourite',
@@ -149,7 +171,15 @@ class WpMultiSelectBar extends StatelessWidget {
         ),
     ];
 
+    // Select mode is on but nothing is chosen yet: the bar already stands
+    // (no layout jump on the first pick), Select All works, and every action
+    // that needs a selection is greyed out with the reason as its tooltip.
+    final nothingSelected = selectedCount == 0;
+    final disabledReason = nothingSelected
+        ? l10n.multiSelectNothingSelected
+        : null;
     final countLabel = l10n.historyItemsSelected(selectedCount);
+    // The overflow menu keeps the worded toggle; the bar shows the box.
     final selectAllLabel = totalCount != null && selectedCount >= totalCount!
         ? l10n.historyDeselectAll
         : l10n.historySelectAll;
@@ -198,9 +228,9 @@ class WpMultiSelectBar extends StatelessWidget {
               _kFitSlack,
           selectAll: onSelectAll == null
               ? null
-              : WpSpacing.sm +
-                    textWidth(selectAllLabel, selectAllStyle) +
-                    WpSpacing.xs * 2 +
+              : WpRowCheckbox.extent +
+                    textWidth(l10n.historySelectAll, selectAllStyle) +
+                    WpSpacing.sm +
                     _kFitSlack,
           delete: onDelete == null
               ? null
@@ -230,6 +260,7 @@ class WpMultiSelectBar extends StatelessWidget {
               icon: LucideIcons.listChecks,
               label: selectAllLabel,
               onTap: onSelectAll!,
+              needsSelection: false,
             ),
           ...overflowActions,
           if (!fit.deleteOnBar && onDelete != null)
@@ -300,31 +331,43 @@ class WpMultiSelectBar extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Flexible(child: countPill),
+                    // The "select all" box leads the bar, above the rows'
+                    // own boxes, and reads none / some / all (#1858).
                     if (fit.selectAllOnBar) ...[
-                      const SizedBox(width: WpSpacing.sm),
-                      // Select All / Deselect All toggle
                       Flexible(
-                        child: InkWell(
-                          key: ValueKey('$idPrefix-select-all'),
-                          borderRadius: WpRadius.borderSm,
-                          onTap: onSelectAll,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WpSpacing.xs,
-                              vertical: WpSpacing.xxs,
-                            ),
-                            child: Text(
-                              selectAllLabel,
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                              softWrap: false,
-                              style: selectAllStyle,
-                            ),
+                        child: MergeSemantics(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              WpRowCheckbox(
+                                key: ValueKey('$idPrefix-select-all'),
+                                tristate: true,
+                                value: selectAllState(
+                                  selectedCount,
+                                  totalCount,
+                                ),
+                                semanticsLabel: l10n.historySelectAll,
+                                onChanged: onSelectAll!,
+                              ),
+                              Flexible(
+                                child: GestureDetector(
+                                  onTap: onSelectAll,
+                                  child: Text(
+                                    l10n.historySelectAll,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: selectAllStyle,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                      const SizedBox(width: WpSpacing.sm),
                     ],
+                    Flexible(child: countPill),
                   ],
                 ),
               ),
@@ -336,6 +379,9 @@ class WpMultiSelectBar extends StatelessWidget {
                     _HistoryMultiSelectMoreButton(
                       actions: menuActions,
                       idPrefix: idPrefix,
+                      // Select All may sit in the menu at narrow widths, so
+                      // the menu stays open then; its other rows grey out.
+                      disabledReason: disabledReason,
                     ),
                   if (fit.deleteOnBar)
                     WpMultiSelectAction(
@@ -343,7 +389,8 @@ class WpMultiSelectBar extends StatelessWidget {
                       icon: LucideIcons.trash2,
                       label: deleteLabel,
                       shortcutHint: deleteShortcut,
-                      onTap: onDelete!,
+                      onTap: nothingSelected ? null : onDelete!,
+                      disabledReason: disabledReason,
                       isDestructive: true,
                     ),
                   WpButton(
@@ -463,7 +510,11 @@ class _HistoryMultiSelectOverflowAction {
     this.shortcutHint,
     this.key,
     this.isDestructive = false,
+    this.needsSelection = true,
   });
+
+  /// False only for Select All: it works with nothing selected.
+  final bool needsSelection;
 
   /// Test key when the action keeps the ID it has on the bar (Delete,
   /// Select All moved into the menu); otherwise `<prefix>-more-<id>`.
@@ -484,9 +535,14 @@ class _HistoryMultiSelectMoreButton extends StatelessWidget {
   const _HistoryMultiSelectMoreButton({
     required this.actions,
     required this.idPrefix,
+    this.disabledReason,
   });
 
   final String idPrefix;
+
+  /// Set while nothing is selected: rows that need a selection are disabled,
+  /// and the button is too when no row is left to act on.
+  final String? disabledReason;
   final List<_HistoryMultiSelectOverflowAction> actions;
 
   @override
@@ -495,12 +551,20 @@ class _HistoryMultiSelectMoreButton extends StatelessWidget {
     final textMuted = WpColors.textMuted;
     final textSecondary = WpColors.textSecondary;
 
+    // Menu exception (#1757): this is the design system's own batch menu,
+    // not a feature call site. Its rows carry a destructive tone and a
+    // shortcut hint, which `showWpListMenu` rows (label, hint line, check
+    // mark) do not have. Allowlisted in wp_raw_component_guard_test.
+    final reason = disabledReason;
+    final anyEnabled =
+        reason == null || actions.any((action) => !action.needsSelection);
     return PopupMenuButton<VoidCallback>(
       key: ValueKey('$idPrefix-more'),
+      enabled: anyEnabled,
       icon: Icon(LucideIcons.ellipsis, size: WpIconSize.sm, color: textMuted),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      tooltip: l10n.historyMoreActions,
+      tooltip: anyEnabled ? l10n.historyMoreActions : reason,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
       onSelected: (onTap) => onTap(),
       itemBuilder: (_) => [
@@ -508,6 +572,7 @@ class _HistoryMultiSelectMoreButton extends StatelessWidget {
           PopupMenuItem<VoidCallback>(
             key: action.key ?? ValueKey('$idPrefix-more-${action.id}'),
             value: action.onTap,
+            enabled: reason == null || !action.needsSelection,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -553,12 +618,16 @@ class WpMultiSelectAction extends StatefulWidget {
     required this.label,
     required this.onTap,
     this.shortcutHint,
+    this.disabledReason,
     this.isDestructive = false,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+
+  /// Null disables the action; [disabledReason] then says why.
+  final VoidCallback? onTap;
+  final String? disabledReason;
   final String? shortcutHint;
   final bool isDestructive;
 
@@ -584,7 +653,17 @@ class _WpMultiSelectActionState extends State<WpMultiSelectAction> {
     final hoverColor = widget.isDestructive
         ? (WpColors.error)
         : (WpColors.textPrimary);
-    final color = _hovered ? hoverColor : textSecondary;
+    final enabled = widget.onTap != null;
+    final color = !enabled
+        ? WpColors.textMuted
+        : _hovered
+        ? hoverColor
+        : textSecondary;
+    final tooltip = !enabled && widget.disabledReason != null
+        ? widget.disabledReason!
+        : widget.shortcutHint != null
+        ? '${widget.label} (${widget.shortcutHint})'
+        : widget.label;
 
     // House idiom (`no_double_announcement_test.dart`, `wp_hero_button.dart`):
     // one tap target whose label is its own visible text → MergeSemantics plus
@@ -598,6 +677,7 @@ class _WpMultiSelectActionState extends State<WpMultiSelectAction> {
     return MergeSemantics(
       child: Semantics(
         button: true,
+        enabled: enabled,
         child: Padding(
           padding: const EdgeInsetsDirectional.only(
             end: WpMultiSelectAction._kRightGap,
@@ -606,9 +686,7 @@ class _WpMultiSelectActionState extends State<WpMultiSelectAction> {
             onEnter: (_) => setState(() => _hovered = true),
             onExit: (_) => setState(() => _hovered = false),
             child: Tooltip(
-              message: widget.shortcutHint != null
-                  ? '${widget.label} (${widget.shortcutHint})'
-                  : widget.label,
+              message: tooltip,
               child: InkWell(
                 borderRadius: WpRadius.borderSm,
                 onTap: widget.onTap,

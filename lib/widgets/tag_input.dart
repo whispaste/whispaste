@@ -1,6 +1,6 @@
 /// Compact inline tag editor — Notion-style.
 ///
-/// Tags display as removable accent-tinted pills in a single Wrap row.
+/// Tags use the shared category-tinted WpTagChip in a single Wrap row.
 /// An inline text field sits among the chips for immediate typing.
 /// Supports comma-separated entry, Enter to confirm, Backspace to
 /// remove last tag, and "+N more" collapse when many tags exist.
@@ -17,7 +17,7 @@ import '../core/data/database.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
-import 'wp_focus_ring.dart';
+import 'wp_tag_chip.dart';
 
 /// Maximum tags shown when not in add mode.
 const _kMaxVisibleTags = 5;
@@ -272,8 +272,8 @@ class WpTagInputState extends State<WpTagInput> {
             children: [
               if (widget.inlineLabel != null) widget.inlineLabel!,
               for (final tag in visibleTags)
-                _TagChip(
-                  tag: tag,
+                WpTagChip.editable(
+                  name: tag.name,
                   onRemove: widget.readOnly
                       ? null
                       : () => widget.onRemove(tag.id),
@@ -408,107 +408,6 @@ class WpTagInputState extends State<WpTagInput> {
         ),
         onChanged: _handleInputChanged,
         onSubmitted: _submit,
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tag chip — clean accent-tinted pill (no # prefix)
-// ---------------------------------------------------------------------------
-
-class _TagChip extends StatefulWidget {
-  const _TagChip({required this.tag, this.onRemove});
-
-  final Tag tag;
-  final VoidCallback? onRemove;
-
-  @override
-  State<_TagChip> createState() => _TagChipState();
-}
-
-class _TagChipState extends State<_TagChip> {
-  bool _isHovered = false;
-  final FocusNode _focusNode = FocusNode(debugLabel: 'TagChipRemove');
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = WpColors.accent;
-    final chipFill = WpColors.accentChipFill;
-    final chipFillHover = WpColors.accentChipFillHover;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: WpMotion.durationFor(context, WpMotion.fast),
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.xxs + 2,
-        ),
-        decoration: BoxDecoration(
-          color: _isHovered ? chipFillHover : chipFill,
-          borderRadius: WpRadius.borderFull,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.tag.name,
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                color: accent,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xxs),
-            if (widget.onRemove != null)
-              Semantics(
-                button: true,
-                label: L10n.of(
-                  context,
-                ).tagRemoveSemanticsLabel(widget.tag.name),
-                child: WpFocusRing(
-                  focusNode: _focusNode,
-                  radius: WpRadius.sm,
-                  child: InkWell(
-                    onTap: widget.onRemove,
-                    focusNode: _focusNode,
-                    borderRadius: WpRadius.borderFull,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    child: Padding(
-                      // 2px pad enlarges the remove icon's tap area without
-                      // inflating the compact chip height.
-                      padding: const EdgeInsets.all(2),
-                      child: AnimatedOpacity(
-                        // 0.6 at rest puts the glyph near 3:1 on the chip, the
-                        // only visible delete affordance on touch and keyboard (UIA-CMP-04).
-                        opacity: _isHovered ? 0.9 : 0.6,
-                        duration: WpMotion.durationFor(
-                          context,
-                          _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-                        ),
-                        child: Icon(
-                          LucideIcons.x,
-                          size: WpIconSize.xs,
-                          color: accent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

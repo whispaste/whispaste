@@ -46,6 +46,7 @@ Future<ProviderContainer> _pumpTab(
       locale: const Locale('en'),
       db: db,
       overrides: [settingsProvider.overrideWith(_FakeSettings.new)],
+      noticeBar: true,
     ),
   );
   await tester.pumpAndSettle();
@@ -104,19 +105,17 @@ void main() {
       find.byKey(const ValueKey('dictionary-suggestion-term-term1')),
     );
     await tester.pumpAndSettle();
-    expect(
-      container.read(settingsProvider).value!.stt.customVocabulary,
-      'Kubernetes',
-    );
+    // A term is the entry "Kubernetes → Kubernetes" (#1969).
+    Future<int> termEntries() async => (await tester.runAsync(
+      db.readAllReplacements,
+    ))!.where((r) => r.triggers.single == 'Kubernetes').length;
+    expect(await termEntries(), 1);
     expect(await container.read(learnedTermsProvider.future), {'kubernetes'});
     await tester.tap(
       find.byKey(const ValueKey('dictionary-suggestion-term-undo')),
     );
     await tester.pumpAndSettle();
-    expect(
-      container.read(settingsProvider).value!.stt.customVocabulary,
-      isEmpty,
-    );
+    expect(await termEntries(), 0);
     expect(
       find.byKey(const ValueKey('dictionary-suggestion-term-term1')),
       findsOneWidget,

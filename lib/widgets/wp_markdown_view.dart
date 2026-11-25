@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/text/entry_link.dart';
 import '../core/text/markdown_checklist.dart';
 import '../core/text/markdown_plain_text.dart';
 import '../core/theme/colors.dart';
@@ -333,7 +334,7 @@ final _blockMarker = RegExp(
   multiLine: true,
 );
 final _inlineMarker = RegExp(
-  r'\*\*\S|__\S|~~\S|==\S|`[^`]+`|(?<![\w*])\*[^\s*][^*]*\*|\[[^\]]+\]\([^)]*\)',
+  r'\*\*\S|__\S|~~\S|==\S|`[^`]+`|(?<![\w*])\*[^\s*][^*]*\*|\[[^\]]+\]\([^)]*\)|\[\[[a-z]+:',
 );
 final _fence = RegExp(r'^\s{0,3}(`{3,}|~{3,})');
 final _heading = RegExp(r'^\s{0,3}(#{1,6})(?:\s+(.*?))?(?:\s+#+)?\s*$');
@@ -506,6 +507,21 @@ final List<_InlineRule> _inlineRules = [
       ),
     ],
   ),
+  // A link to a note, recording or snippet (#660) shows its label, in the
+  // link colour; the id stays in the source. Followed from the editor's
+  // "Links" row, which names the current title.
+  _InlineRule(entryLinkPattern, (m, q) {
+    if (parseEntryLinkTarget(m.group(1)!) == null) {
+      return _highlighted(m.group(0)!, q);
+    }
+    final label = m.group(2)?.trim() ?? '';
+    return [
+      TextSpan(
+        style: TextStyle(color: WpColors.accent),
+        children: _highlighted(label.isEmpty ? m.group(1)! : label, q),
+      ),
+    ];
+  }),
   _InlineRule(
     RegExp(r'!?\[([^\]]+)\]\(([^)\s]*)(?:\s+"[^"]*")?\)'),
     (m, q) => [

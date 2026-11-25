@@ -34,7 +34,16 @@ void showDesktopShortcutToast({
           displayOverride: settings.hotkey.hotkeyKeyDisplay,
         ),
       ),
+      messageFor: (l10n) => l10n.desktopShortcutToast(
+        formatHotkeyKeycap(
+          settings.hotkeyModifiers,
+          settings.hotkeyKey,
+          l10n: l10n,
+          displayOverride: settings.hotkey.hotkeyKeyDisplay,
+        ),
+      ),
       actionLabel: l10n.pasteFailureOpenSettings,
+      actionLabelFor: (l10n) => l10n.pasteFailureOpenSettings,
       actionTestId: 'notice-desktop-shortcut-open',
       onAction: () {
         ref

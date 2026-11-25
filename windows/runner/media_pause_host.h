@@ -1,12 +1,17 @@
 // Pauses system media playback while WhisPaste records and resumes only the
 // sessions it paused itself (#563). Uses the Windows system media transport
-// controls (SMTC), the same sessions the volume flyout shows.
+// controls (SMTC), the same sessions the volume flyout shows. Ducking (#1511)
+// turns the Core Audio sessions of other apps down and back to their exact
+// previous volume.
 //
 // Channel "com.whispaste.media_pause" (contract mirrored in
 // lib/services/media_pause/media_pause_backends.dart):
 //   isAvailable    -> bool
 //   pauseIfPlaying -> "paused" | "nothing" | "unavailable"
 //   resumePaused   -> null
+//   duckAvailable  -> bool                       (#1511, Core Audio sessions)
+//   playingVolumes -> [{id, levels:[double]}]    audible foreign sessions
+//   setVolumes([{id, levels}]) -> null           skips ended sessions
 #ifndef RUNNER_MEDIA_PAUSE_HOST_H_
 #define RUNNER_MEDIA_PAUSE_HOST_H_
 

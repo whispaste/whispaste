@@ -169,7 +169,7 @@
   },
   "brand": {
     "$type": "color",
-    "$description": "Provider tiles on the support page (PayPal, Ko-fi, Buy Me a Coffee, GitHub Sponsors): fill, hover fill and ink per provider. Consumed by tool/design_tokens/generate_dart.dart as WpBrandTokens.",
+    "$description": "Provider tiles on the support page (PayPal, Ko-fi, Buy Me a Coffee, GitHub Sponsors) and the YouTube play button of the trailer frame in the Get involved block: fill, hover fill and ink per brand. Consumed by tool/design_tokens/generate_dart.dart as WpBrandTokens.",
     "paypal": {
       "fill": { "$value": "{color.brand.paypal}" },
       "fill-hover": { "$value": "{color.brand.paypal-hover}" },
@@ -189,6 +189,11 @@
       "fill": { "$value": "{color.brand.sponsors}" },
       "fill-hover": { "$value": "{color.brand.sponsors-hover}" },
       "on-fill": { "$value": "{color.navy.900}" }
+    },
+    "youtube": {
+      "fill": { "$value": "{color.brand.youtube}" },
+      "fill-hover": { "$value": "{color.brand.youtube-hover}" },
+      "on-fill": { "$value": "{color.white}" }
     }
   },
   "overlay": {

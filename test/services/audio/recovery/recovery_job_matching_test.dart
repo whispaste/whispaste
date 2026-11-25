@@ -23,6 +23,7 @@ class _FakeQueue extends AudioImportQueueNotifier {
   Future<ImportEnqueueResult> addFiles(
     List<String> paths, {
     String? sliceManifestPath,
+    ImportStartSource? source,
   }) async {
     final status = ownStatus;
     if (status != null) {

@@ -13,7 +13,10 @@ import 'floating_overlay_events.dart';
 class WindowsFloatingOverlayController
     extends MethodChannelPlatformHost<FloatingOverlayEvent>
     with FloatingOverlayControllerMixin
-    implements FloatingOverlayController, RenderEngineRecovery {
+    implements
+        FloatingOverlayController,
+        RenderEngineRecovery,
+        OverlayCaptureExclusion {
   static const _channelName = 'com.whispaste.floating_overlay';
 
   WindowsFloatingOverlayController() : super(_channelName);
@@ -43,4 +46,9 @@ class WindowsFloatingOverlayController
   /// see [FloatingOverlayService]).
   @override
   Future<void> rebootRenderEngine() => invokeMethod('rebootRenderEngine');
+
+  /// "In Bildschirmfreigaben und Screenshots verbergen" (overlay F).
+  @override
+  Future<void> setCaptureExcluded(bool excluded) =>
+      invokeMethod('setCaptureExcluded', {'excluded': excluded});
 }

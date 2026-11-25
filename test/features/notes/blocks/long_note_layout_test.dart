@@ -127,21 +127,30 @@ void main() {
       expect(index.anchorAt(index.offsetFor(anchor)).row, 40);
     });
 
-    test('zoom, width and text scale invalidate measurements', () {
-      final rows = rowsOf(5);
-      final index = HeightIndex()..ensureLayout(key, rows, 16);
-      index.measure(1, 99);
-      expect(index.ensureLayout(key, rows, 16), isFalse);
-      for (final changed in const [
-        LayoutKey(width: 601, textScale: 1, devicePixelRatio: 2),
-        LayoutKey(width: 601, textScale: 1.3, devicePixelRatio: 2),
-        LayoutKey(width: 601, textScale: 1.3, devicePixelRatio: 1),
-      ]) {
+    test(
+      'zoom, width, text scale and line spacing invalidate measurements',
+      () {
+        final rows = rowsOf(5);
+        final index = HeightIndex()..ensureLayout(key, rows, 16);
         index.measure(1, 99);
-        expect(index.ensureLayout(changed, rows, 16), isTrue);
-        expect(index.isMeasured(1), isFalse);
-      }
-    });
+        expect(index.ensureLayout(key, rows, 16), isFalse);
+        for (final changed in const [
+          LayoutKey(width: 601, textScale: 1, devicePixelRatio: 2),
+          LayoutKey(width: 601, textScale: 1.3, devicePixelRatio: 2),
+          LayoutKey(width: 601, textScale: 1.3, devicePixelRatio: 1),
+          LayoutKey(
+            width: 601,
+            textScale: 1.3,
+            devicePixelRatio: 1,
+            lineHeight: 2,
+          ),
+        ]) {
+          index.measure(1, 99);
+          expect(index.ensureLayout(changed, rows, 16), isTrue);
+          expect(index.isMeasured(1), isFalse);
+        }
+      },
+    );
 
     test('rebase keeps heights of unchanged rows at both ends', () {
       final old = rowsOf(10);

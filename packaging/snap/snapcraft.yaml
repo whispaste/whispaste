@@ -11,7 +11,7 @@
 # executable, `lib/` and `data/`, with every §3.1 build pitfall (sentry-native,
 # flutter_soloud Xiph, crashpad_handler chmod +x) already baked in.
 #
-# The `flutter` extension still wires up the GTK/GNOME runtime plumbing
+# The `gnome` extension still wires up the GTK/GNOME runtime plumbing
 # (GSettings, GDK pixbuf loaders, fontconfig, the desktop launchers) around the
 # staged bundle so the app starts cleanly under confinement.
 #
@@ -25,8 +25,8 @@
 # against the latest GitHub release before submitting/resubmitting.
 name: whispaste
 title: WhisPaste
-base: core24
-version: '1.5.1'
+base: core26  # Linux release libraries require GLIBC_2.43 (Ubuntu 26.04).
+version: '1.5.2'
 license: MIT
 website: https://whispaste.de/
 contact: https://github.com/whispaste/whispaste/issues
@@ -50,18 +50,15 @@ description: |
   - Text replacements for names and terms you use often
   - Import audio files; speakers in a conversation are separated locally
 
-  The speech model is downloaded on first use. For automatic pasting,
-  connect the uinput interface once:
-  `sudo snap connect whispaste:uinput`. Without it, WhisPaste copies the text
-  to the clipboard and you paste it yourself.
+  The speech model is downloaded on first use. Microphone access requires the
+  audio-record connection. Automatic pasting via uinput requires both the
+  interface connection and host permission to access /dev/uinput. If automatic
+  pasting is unavailable, copy the result and paste it into the target app.
 
 # Stable, store-submittable build (not a devel grade).
 grade: stable
-# Strict confinement keeps the snap store-auto-reviewable. The self-download of
-# the Sprachdienst (whisper-server) still works under strict confinement: the
-# app reads $XDG_CONFIG_HOME first (path_service.dart appDataDir), which snapd
-# remaps to $SNAP_USER_DATA/.config (writable AND exec-allowed — not mounted
-# noexec), so the downloaded binary is chmod +x'd and executed there.
+# uinput needs a Store installation declaration even under strict confinement.
+# Review request: https://forum.snapcraft.io/t/54267
 confinement: strict
 
 # GStreamer plugins staged by the runtime-libs part (M4A/AAC import). The
@@ -79,7 +76,7 @@ platforms:
 
 apps:
   whispaste:
-    # The flutter extension prepends the GTK/GNOME launcher wrappers.
+    # The gnome extension prepends the GTK/GNOME launcher wrappers.
     command: bin/whispaste
     extensions: [gnome]
     common-id: de.whispaste.app
@@ -100,7 +97,8 @@ apps:
       # Unlike the plugs above, snapd's `uinput` interface is NOT auto-connect —
       # even with this plug declared, a user installing outside the Snap Store
       # (or before a store auto-connect assertion is granted) must run
-      # `sudo snap connect whispaste:uinput` once themselves, or Auto-Paste falls
+      # `sudo snap connect whispaste:uinput` and have host /dev/uinput access.
+      # Without both, Auto-Paste falls
       # back to clipboard-only (CheckCapability() reports `permission_missing`).
       - uinput
       # ── Global Hotkey (internal-notes §2.5) ──────────────────────────────────────
@@ -114,8 +112,6 @@ apps:
       # The app fetches the whisper-server manifest + binary + ggml model at
       # first run (lib/services/whisper_server_*.dart) over the network.
       - network
-      # ── System tray / app indicator + notifications (libayatana-appindicator) ─
-      - desktop  # appindicator/StatusNotifier rides the desktop session bus
 
 parts:
   # Runtime shared libraries the bundle links against — mirrors the -dev packages
@@ -133,6 +129,8 @@ parts:
       - libxss1
       - libcurl4
       - libkeybinder-3.0-0
+      # Direct runner dependency for Ogg/Opus import (not in GNOME runtime).
+      - libopusfile0
       - liblzma5
       - zlib1g
       # parecord (recording) and pactl (microphone list), started by the
@@ -148,9 +146,9 @@ parts:
   # $SNAP/whispaste. Per-release: bump `source` to the tag's tarball asset.
   whispaste-bundle:
     plugin: dump
-    source: https://github.com/whispaste/whispaste/releases/download/v1.5.1/WhisPaste-1.5.1-linux-x64.tar.gz
+    source: https://github.com/whispaste/whispaste/releases/download/v1.5.2/WhisPaste-1.5.2-linux-x64.tar.gz
     source-type: tar
-    source-checksum: sha256/581dda93bc58206d18fed23521eebfb4b9a60a85b580f0aaf475090d07104679
+    source-checksum: sha256/5757076dc94418970c7275628c2bf86ba7cd1c97884186eb3d11abf10cfda215
     # The tarball root contains a file named `whispaste` alongside lib/ and
     # data/, so `organize: '*': whispaste/` collides with that file
     # (FileExistsError). Copy the pulled bundle into whispaste/ explicitly.

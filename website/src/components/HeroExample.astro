@@ -361,6 +361,7 @@ const steps = [
 <script>
   import { OverlayDemo, type OverlayDemoLang } from '../scripts/overlay-demo';
   import type { OverlayTheme } from '../scripts/overlay-mockup';
+  import { motionPaused, onMotionChange } from '../scripts/motion-pref';
 
   // Step player: 3 (the finished text) → 1 → 2 → 3 … while on screen. The
   // open step's progress bar times it; its end opens the next step. A click
@@ -412,8 +413,16 @@ const steps = [
     };
 
     figure.dataset.js = '';
-    if (!reducedMotion) figure.dataset.autoplay = '';
+    // The footer's "pause animations" switch (#1910) stops the step loop
+    // like a click does; switching back on resumes it.
+    if (!reducedMotion && !motionPaused()) figure.dataset.autoplay = '';
     activate(3);
+    onMotionChange((paused) => {
+      if (reducedMotion) return;
+      if (paused) delete figure.dataset.autoplay;
+      else figure.dataset.autoplay = '';
+      activate(step);
+    });
 
     figure.addEventListener('animationend', (e) => {
       if (!autoplay() || !(e.target instanceof HTMLElement) || !e.target.closest('.hx-progress')) return;

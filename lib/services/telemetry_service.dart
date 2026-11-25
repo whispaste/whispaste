@@ -20,10 +20,19 @@
 /// (transcribed text, audio, history, tags, notes, API keys, concrete hotkeys,
 /// file paths, cursor position, target app) is enforced structurally: the
 /// public API only accepts categories/actions/buckets, never free-form content.
+///
+/// **Wire discipline** (#1994): Matomo creates one visit per request when
+/// several requests of the same visitor arrive at the same moment (race in
+/// visit lookup; 2026-11-18: 325 of 802 app visits were such splinters). So
+/// queued hits are sent the way the official Matomo SDKs do it: collected
+/// per event-loop turn, packed into bulk requests of at most
+/// [kTelemetryBulkPageSize] entries in chronological order, and only one
+/// request of an instance is on the wire at a time. Same data, other
+/// packaging.
 library;
 
 import 'dart:async';
-import 'dart:convert' show utf8;
+import 'dart:convert' show jsonEncode, utf8;
 import 'dart:io';
 import 'dart:math';
 
@@ -39,6 +48,7 @@ import '../core/l10n/locale_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/telemetry/first_run_network_gate.dart';
 import '../core/telemetry/onboarding_telemetry_buffer.dart';
+import '../core/telemetry/onboarding_telemetry_prefs_store.dart';
 import 'deploy_channel_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'speech_recommendation.dart' show ramMBProvider;
@@ -144,6 +154,10 @@ enum TelemetrySendResult {
 
 bool _always() => true;
 
+/// Most hits per Matomo bulk request; the official Android and iOS SDKs use
+/// the same packet size.
+const int kTelemetryBulkPageSize = 20;
+
 final class TelemetryService {
   TelemetryService({
     required this.client,
@@ -173,6 +187,13 @@ final class TelemetryService {
 
   final List<Future<void>> _pending = [];
 
+  /// Hits recorded in the current event-loop turn, sent together.
+  final List<Map<String, String>> _queue = [];
+  bool _dispatchScheduled = false;
+
+  /// Tail of this instance's request chain: one request on the wire at a time.
+  Future<void> _wire = Future<void>.value();
+
   bool get _isConfigured => endpointUrl.isNotEmpty && siteId > 0;
 
   /// `false` while a first run's privacy choice is open
@@ -186,9 +207,7 @@ final class TelemetryService {
   /// Records a screen/page view (categorical path only).
   void trackPageView(String path) {
     if (!_shouldDispatch) return;
-    _pending.add(
-      _sendSafely({'url': 'app://whispaste$path', 'action_name': 'pageView'}),
-    );
+    _enqueue({'url': 'app://whispaste$path', 'action_name': 'pageView'});
   }
 
   /// Records an aggregated event. [category]/[action] are required categories;
@@ -203,17 +222,47 @@ final class TelemetryService {
     DateTime? at,
   }) {
     if (!_shouldDispatch) return;
-    _pending.add(
-      _sendSafely(
-        _eventBody(
-          category: category,
-          action: action,
-          name: name,
-          value: value,
-          at: at,
-        ),
+    _enqueue(
+      _eventBody(
+        category: category,
+        action: action,
+        name: name,
+        value: value,
+        at: at,
       ),
     );
+  }
+
+  /// Queues a hit; everything queued in the same event-loop turn (e.g. one
+  /// [TelemetrySessionAggregator.drainTo]) leaves in shared bulk requests.
+  void _enqueue(Map<String, String> body) {
+    _queue.add(body);
+    if (_dispatchScheduled) return;
+    _dispatchScheduled = true;
+    _pending.add(Future<void>.microtask(_dispatchQueue));
+  }
+
+  /// Puts every queued hit on this instance's wire, in order. Synchronous
+  /// up to the hand-over, so a direct send right after it ([sendEventNow],
+  /// the alive ping) queues behind the earlier hits.
+  Future<void> _dispatchQueue() {
+    _dispatchScheduled = false;
+    if (_queue.isEmpty) return Future<void>.value();
+    final hits = List.of(_queue);
+    _queue.clear();
+    return Future.wait([
+      for (var i = 0; i < hits.length; i += kTelemetryBulkPageSize)
+        _sendSafely(
+          hits.sublist(i, min(i + kTelemetryBulkPageSize, hits.length)),
+        ),
+    ]);
+  }
+
+  /// Runs [send] after every earlier request of this instance has finished.
+  Future<T> _serialized<T>(Future<T> Function() send) {
+    final result = _wire.then((_) => send());
+    _wire = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
   }
 
   /// Sends one event right away and reports whether the endpoint took it,
@@ -227,8 +276,11 @@ final class TelemetryService {
   }) async {
     if (!_shouldDispatch) return TelemetrySendResult.notAllowed;
     try {
-      final response = await _send(
-        _eventBody(category: category, action: action, name: name, at: at),
+      _pending.add(_dispatchQueue());
+      final response = await _serialized(
+        () => _send(
+          _eventBody(category: category, action: action, name: name, at: at),
+        ),
       );
       final ok = response.statusCode >= 200 && response.statusCode < 300;
       return ok ? TelemetrySendResult.sent : TelemetrySendResult.failed;
@@ -281,14 +333,18 @@ final class TelemetryService {
     if (!_shouldDispatch) return;
     final today = _now().toUtc().toIso8601String().substring(0, 10);
     if (prefs.getString(_aliveLastPingDateKey) == today) return;
-    await _sendSafely({'url': 'app://whispaste/alive', 'action_name': 'alive'});
+    _pending.add(_dispatchQueue());
+    await _sendSafely([
+      {'url': 'app://whispaste/alive', 'action_name': 'alive'},
+    ]);
     await prefs.setString(_aliveLastPingDateKey, today);
   }
 
   Future<void> flush() async {
-    if (_pending.isNotEmpty) {
-      await Future.wait(_pending, eagerError: false);
+    while (_pending.isNotEmpty) {
+      final batch = List.of(_pending);
       _pending.clear();
+      await Future.wait(batch, eagerError: false);
     }
   }
 
@@ -297,9 +353,11 @@ final class TelemetryService {
   /// never surface as an unhandled async error — telemetry must not crash the
   /// app (see FLUTTER_WHISPASTE-B2: an orphaned request's DNS failure was
   /// reported to Sentry as fatal because it was never awaited by anything).
-  Future<void> _sendSafely(Map<String, String> body) async {
+  Future<void> _sendSafely(List<Map<String, String>> packet) async {
     try {
-      await _send(body);
+      await _serialized(
+        () => packet.length == 1 ? _send(packet.single) : _sendBulk(packet),
+      );
     } catch (e) {
       _log.debug('telemetry request failed (non-fatal): $e');
     }
@@ -313,16 +371,32 @@ final class TelemetryService {
     return client.post(
       url,
       headers: {'User-Agent': 'WhisPaste'},
-      body: {
-        ...body,
-        ...dimensions,
-        '_id': _sessionVisitorId,
-        'apiv': '1',
-        'send_image': '0',
-        'rand': _now().microsecondsSinceEpoch.toString(),
-      },
+      body: _hitParams(body),
     );
   }
+
+  /// Matomo bulk tracking: one POST, JSON `{"requests": ["?idsite=…", …]}`,
+  /// processed in order on the server, so all hits join one visit.
+  Future<http.Response> _sendBulk(List<Map<String, String>> packet) {
+    final requests = [
+      for (final body in packet)
+        '?${Uri(queryParameters: {'idsite': '$siteId', 'rec': '1', ..._hitParams(body)}).query}',
+    ];
+    return client.post(
+      Uri.parse('$endpointUrl/matomo.php'),
+      headers: {'User-Agent': 'WhisPaste', 'Content-Type': 'application/json'},
+      body: jsonEncode({'requests': requests}),
+    );
+  }
+
+  Map<String, String> _hitParams(Map<String, String> body) => {
+    ...body,
+    ...dimensions,
+    '_id': _sessionVisitorId,
+    'apiv': '1',
+    'send_image': '0',
+    'rand': _now().microsecondsSinceEpoch.toString(),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -507,9 +581,11 @@ final firstRunNetworkGateProvider = Provider<FirstRunNetworkGate>((ref) {
 
 /// Onboarding telemetry hold (decision 5a). Events wait here until the privacy choice; the sender goes
 /// through [telemetryProvider] so the consent gate still applies, with
-/// each event keeping its original time.
+/// each event keeping its original time. A local copy in SharedPreferences
+/// carries the held events across a restart before the choice (GR-033).
 final onboardingTelemetryBufferProvider = Provider<OnboardingTelemetryBuffer>(
   (ref) => OnboardingTelemetryBuffer(
+    store: SharedPrefsOnboardingTelemetryStore(),
     send: (event) {
       try {
         ref

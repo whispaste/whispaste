@@ -126,6 +126,22 @@ void main() {
       SemanticsRole.tab,
     );
     expect(find.bySemanticsIdentifier('tabs-overview'), findsOneWidget);
+    // macOS and Windows read only the flags (#1918): a tab must be a button
+    // with a press action and a selected state, not static text.
+    final overview = tester.getSemantics(
+      find.bySemanticsIdentifier('tabs-overview'),
+    );
+    expect(overview.flagsCollection.isButton, isTrue);
+    expect(overview.flagsCollection.isSelected, ui.Tristate.isTrue);
+    expect(
+      overview.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+      isTrue,
+    );
+    final details = tester.getSemantics(
+      find.bySemanticsIdentifier('tabs-details'),
+    );
+    expect(details.flagsCollection.isButton, isTrue);
+    expect(details.flagsCollection.isSelected, ui.Tristate.isFalse);
     expect(
       find.byWidgetPredicate(
         (w) => w is Semantics && w.properties.role == SemanticsRole.tabBar,

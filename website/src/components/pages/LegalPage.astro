@@ -148,6 +148,14 @@ import PageSheet from "../PageSheet.astro";
   .legal-toc a:hover {
     color: var(--color-brand-cyan);
   }
+  /* GR-044: from 1280px the rail reaches to about 58px from the edge, the
+     contact launcher (ContactWidget.astro) to about 80px. The inset keeps
+     every TOC link left of the launcher, stuck or scrolling. */
+  @media (min-width: 1280px) {
+    .legal-toc {
+      padding-inline-end: 2rem;
+    }
+  }
   /* Below the split breakpoint the TOC would only repeat the text after it. */
   @media (max-width: 1279px) {
     .legal-toc {

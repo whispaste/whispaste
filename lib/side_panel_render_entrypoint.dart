@@ -28,6 +28,7 @@ import 'package:flutter/widgets.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/persisted_appearance.dart';
@@ -67,7 +68,7 @@ Future<void> runSidePanelEngine() async {
   // would fall back to English.
   await initializeDateFormatting();
   debugPrint('[side-panel-engine] runSidePanelEngine booted');
-  runApp(const SidePanelRenderApp());
+  runApp(const SystemMotionScope(child: SidePanelRenderApp()));
 }
 
 /// The side panel engine's root widget. Public only so a test can pump it

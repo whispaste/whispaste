@@ -15,6 +15,7 @@ import WebVitals from "../components/WebVitals.astro";
 import ContactWidget from "../components/ContactWidget.astro";
 import { EXTRA_DOWNLOAD_EXTENSIONS } from "../scripts/download-tracking.ts";
 import { APPLY_CARRIED_REFERRER_JS } from "../scripts/referrer-carry.ts";
+import { APPLY_MOTION_PREF_JS } from "../scripts/motion-pref.ts";
 
 interface Props {
   title?: string;
@@ -171,6 +172,8 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
       Schema (SoftwareApplication, FAQPage, HowTo, BreadcrumbList) steht.
     */}
     <OrganizationSchema locale={lang} />
+    {/* Visitor paused animations (footer switch, #1910): apply before first paint. */}
+    <script is:inline set:html={APPLY_MOTION_PREF_JS} />
     <script is:inline>
       (function(){
         var ua = navigator.userAgent;
@@ -246,7 +249,13 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
       import { downloadAnchor, type Os } from '../data/platforms.ts';
       import { installDownloadTracking } from '../scripts/download-tracking.ts';
       import { installFaqTracking } from '../scripts/faq-tracking.ts';
+      import { installFocusUnobscured } from '../scripts/focus-unobscured.ts';
+      import { installMotionToggle } from '../scripts/motion-pref.ts';
+      installMotionToggle();
       startMotionBudget();
+      // Focused elements never end up under the sticky download bar or the
+      // contact teaser (#1909, WCAG 2.4.11).
+      installFocusUnobscured();
       // Matomo event "Download / <channel> / <placement>" for every store or
       // release link, plus store campaign parameters (#1938).
       installDownloadTracking();

@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 /// The recording dock lives inside the content panel, under the page, so it
 /// floats over the content column only and never under the sidebar; the dock
 /// brings its own 12 px inset from the panel's edges.
+///
+/// Title band, sidebar and content panel are separate focus traversal groups
+/// (#1845): Tab walks the whole sidebar before it enters the page. Without
+/// the groups, reading order mixed both columns row by row, so focus jumped
+/// from a sidebar entry into the page and back.
 class WpAppShell extends StatelessWidget {
   const WpAppShell({
     super.key,
@@ -39,33 +44,47 @@ class WpAppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Visibility(visible: !focusMode, maintainState: true, child: titleBar),
-        Expanded(
-          child: Row(
-            children: [
-              Visibility(
-                visible: !focusMode,
-                maintainState: true,
-                child: sidebar,
-              ),
-              Expanded(
-                child: Container(
-                  decoration: contentDecoration,
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      Expanded(child: content),
-                      dock,
-                    ],
+    // Fixed region order (#1845): title band, sidebar, page, dock. Inside a
+    // region the reading order applies. Without the outer order the dock,
+    // pinned under the page, sorted between page controls that scroll below
+    // it, so Tab kept jumping into the dock and back.
+    return FocusTraversalGroup(
+      policy: WidgetOrderTraversalPolicy(),
+      child: Column(
+        children: [
+          Visibility(
+            visible: !focusMode,
+            maintainState: true,
+            child: FocusTraversalGroup(child: titleBar),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Visibility(
+                  visible: !focusMode,
+                  maintainState: true,
+                  child: FocusTraversalGroup(child: sidebar),
+                ),
+                Expanded(
+                  child: FocusTraversalGroup(
+                    policy: WidgetOrderTraversalPolicy(),
+                    child: Container(
+                      decoration: contentDecoration,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          Expanded(child: FocusTraversalGroup(child: content)),
+                          FocusTraversalGroup(child: dock),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

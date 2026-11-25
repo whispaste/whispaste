@@ -53,6 +53,8 @@ const String kFeedbackConsentTextVersion = 'feedback-quote-v2';
 /// explanation joined by a newline. Never edit an existing entry. A changed
 /// consent text gets a new version, a new entry here and the new version in
 /// the server allowlist (guard test in feedback_consent_text_version_test).
+/// A new app language only adds its hash to the current version: no text a
+/// user already saw changes (fr/it/zh in feedback-quote-v2, #1951).
 const Map<String, Map<String, String>> kFeedbackConsentTextHashes = {
   'feedback-quote-v1': {
     'de': 'd1d22cc59d894df88ef99dbe59762c1d7d09dd719d9b84c601fad82e741d5bb5',
@@ -69,6 +71,9 @@ const Map<String, Map<String, String>> kFeedbackConsentTextHashes = {
     'he': '068180d1bc015ab88d0ebd946ac7d304eb793dadced035f79eac78c1ee6174ea',
     'pt': '7b29be82f25975c775ece4c469afc7b57d0be07fb36c57ea0a9eb08b1042b053',
     'ru': '11aca92a26b2f0e099aec437b410f08c9bc518dbe32a69f33cd5d76d584ec80d',
+    'fr': 'f72a82753ce2bed94a6ae0bb1f331d7b12829b675e877e00e846424182d3229e',
+    'it': 'c352c795c5e060f82593418f0d80ccdd616093ddcbc03f72e6b9f23e4a2f1de3',
+    'zh': '9e73d05f1933d609d98194e0c335bd65c7ad5e38ac3c26c7fddd8debf5e6142a',
   },
 };
 
@@ -185,6 +190,8 @@ final class ContactPayload {
     this.rating,
     this.appVersion,
     this.os,
+    this.diagnostics,
+    this.stepId,
     this.publishConsent = false,
     this.withdrawTokenHash,
   });
@@ -208,9 +215,32 @@ final class ContactPayload {
   final String? appVersion;
   final String? os;
 
+  /// The opt-in diagnostics attachment (system summary and cleaned log
+  /// lines, at most 64 KiB); `null` without the tick.
+  final String? diagnostics;
+
+  /// The onboarding step the panel was opened on; only with the opt-in.
+  final String? stepId;
+
   /// Website quote opt-in, only for praise (decision 24).
   final bool publishConsent;
   final String? withdrawTokenHash;
+
+  /// The same message without the [diagnostics] attachment.
+  ContactPayload withoutDiagnostics() => ContactPayload(
+    kind: kind,
+    message: message,
+    lang: lang,
+    elapsedMs: elapsedMs,
+    installHash: installHash,
+    email: email,
+    rating: rating,
+    appVersion: appVersion,
+    os: os,
+    stepId: stepId,
+    publishConsent: publishConsent,
+    withdrawTokenHash: withdrawTokenHash,
+  );
 
   Map<String, Object?> toJson() {
     final publish =
@@ -227,6 +257,8 @@ final class ContactPayload {
       'rating': rating,
       if (appVersion != null) 'appVersion': appVersion,
       if (os != null) 'os': os,
+      if (diagnostics != null) 'diagnostics': diagnostics,
+      if (stepId != null) 'stepId': stepId,
       if (publish) ...{
         'publish_consent': true,
         'consent_text_version': kFeedbackConsentTextVersion,
@@ -471,7 +503,39 @@ final class FeedbackSubmissionService {
   /// 202 means the team inbox got it. 429 is the rate limit. Every other
   /// status is a [FeedbackServerError]; 5xx is reported to Sentry (mail or
   /// store down), 4xx is not, since a 422 names one field the user can fix.
+  ///
+  /// A server that refuses the diagnostics attachment (413 from an API
+  /// before whispaste-api 07324d5 with its 16 KiB body limit, or 422 naming
+  /// `diagnostics`) gets the message once more without it, so the attachment
+  /// never costs the message. An API that does not know the field ignores it.
   Future<FeedbackSubmissionResult> submitContact(ContactPayload payload) async {
+    final result = await _postContact(payload);
+    if (payload.diagnostics != null && _refusesDiagnostics(result)) {
+      _log.info('Contact diagnostics refused, sending the message without');
+      _emitBreadcrumb('diagnostics_refused', message: 'contact_submit');
+      return _postContact(payload.withoutDiagnostics());
+    }
+    return result;
+  }
+
+  static bool _refusesDiagnostics(FeedbackSubmissionResult result) =>
+      switch (result) {
+        FeedbackServerError(statusCode: 413) => true,
+        FeedbackServerError(statusCode: 422, :final body) =>
+          _problemField(body) == 'diagnostics',
+        _ => false,
+      };
+
+  static Object? _problemField(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map ? decoded['field'] : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  Future<FeedbackSubmissionResult> _postContact(ContactPayload payload) async {
     if (!isConfigured) {
       _emitBreadcrumb('skipped_not_configured', message: 'contact_submit');
       return const FeedbackSkippedNotConfigured();

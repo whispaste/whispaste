@@ -313,6 +313,33 @@ class ContentMetadataIndex {
         };
       });
 
+  /// The documents whose text holds at least one checklist item, for the
+  /// checklist rule of saved views (#658). Read from index rows like
+  /// [watchBacklinks]; a document not indexed yet counts once it is.
+  Stream<Set<ContentKey>> watchWithChecklist() => Stream.multi((sink) {
+    var cancelled = false;
+    Future<void> emit() async {
+      try {
+        final rows = await _db.customSelect('''
+          SELECT DISTINCT d.kind, d.id FROM content_metadata_documents d
+          JOIN content_metadata_cache c ON c.hash = d.hash
+          WHERE d.dirty = 0 AND json_valid(c.payload)
+            AND json_array_length(c.payload, '\$.checklists') > 0
+        ''').get();
+        if (!cancelled) sink.add(rows.map(_key).toSet());
+      } on Object catch (error, stack) {
+        if (!cancelled) sink.addError(error, stack);
+      }
+    }
+
+    final subscription = _changes.stream.listen((_) => unawaited(emit()));
+    unawaited(emit());
+    sink.onCancel = () {
+      cancelled = true;
+      return subscription.cancel();
+    };
+  });
+
   void _wake() {
     if (_closed || !_initialized) return;
     if (_running != null) {

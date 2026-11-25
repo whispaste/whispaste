@@ -12,19 +12,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/config/favorite_language_hotkeys.dart';
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/settings_sections.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/navigation/page_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/app_profiles/profile_hotkey_sync.dart'
+    show favoriteLanguageHotkeyRefusalsProvider;
 import '../../../services/hotkey_service.dart';
 import '../../../services/smart_mode/smart_mode_presets.dart';
 import '../../../services/smart_mode/smart_mode_text_model.dart';
 import '../../../services/snippet_picker/snippet_picker_controller.dart';
 import '../../../services/telemetry_service.dart';
+import '../../../services/tray_language_menu.dart' show languageMenuName;
 import '../../../widgets/hotkey_fallback_toast.dart' show hotkeyFallbackMessage;
 import '../../../widgets/hotkey_slow_tap_hint.dart';
 import '../../../widgets/wp_button.dart';
@@ -38,6 +43,7 @@ import '../smart_mode_hotkey_flow.dart';
 import '../snippet_picker_hotkey_flow.dart';
 import '../widgets/wayland_hotkey_notice.dart';
 import '../widgets/wp_settings_group.dart';
+import 'dictation_keys_block.dart';
 import 'linux_desktop_shortcut_block.dart';
 import 'smart_mode_section.dart'
     show
@@ -224,6 +230,8 @@ class _KeyboardShortcutSectionState
             // Modes of the recording hotkey: they also apply to Smart Mode.
             _HotkeyOperationRow(settings: settings),
             _DoubleTapRow(settings: settings),
+            // Extra dictation keys with a language of their own (#2055).
+            DictationKeysBlock(settings: settings),
             _OneShotHotkeyBlock(
               settings: settings,
               hotkey: languageCycleHotkey,
@@ -232,6 +240,7 @@ class _KeyboardShortcutSectionState
               subtitle: l10n.settingsLanguageCycleHotkeyHint,
               status: languageCycleHotkeyRegistrationStatusProvider,
             ),
+            _FavoriteLanguageHotkeysBlock(settings: settings),
             _OneShotHotkeyBlock(
               settings: settings,
               hotkey: repasteHotkey,
@@ -461,6 +470,230 @@ class _OneShotHotkeyBlockState extends ConsumerState<_OneShotHotkeyBlock>
   }
 }
 
+// ---------------------------------------------------------------------------
+// One hotkey per favorite language (#2137, GitHub #161)
+// ---------------------------------------------------------------------------
+
+/// One line per current favorite: its own combination, which switches the
+/// recognition language straight to it. No switch: a language with a key is
+/// on, "Remove" turns it off. Without favorites the row says where they come
+/// from and opens the language dialog with the stars.
+class _FavoriteLanguageHotkeysBlock extends ConsumerWidget {
+  const _FavoriteLanguageHotkeysBlock({required this.settings});
+
+  final AppSettings settings;
+
+  void _chooseFavorites(WidgetRef ref) {
+    // Favorites are set by star in the language dialog (#1610); the same
+    // jump as the "no favorites" notice of the cycle hotkey.
+    ref.read(settingsScrollTargetProvider.notifier).set('speech-language');
+    ref.read(settingsLanguageDialogRequestProvider.notifier).request();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final favorites = settings.stt.favoriteLanguages;
+    final refused = ref.watch(favoriteLanguageHotkeyRefusalsProvider);
+    final anyKey = activeFavoriteLanguageHotkeys(
+      favorites: favorites,
+      hotkeys: settings.stt.favoriteLanguageHotkeys,
+    ).isNotEmpty;
+    final waylandSession =
+        defaultTargetPlatform == TargetPlatform.linux &&
+        Platform.environment['XDG_SESSION_TYPE']?.toLowerCase() == 'wayland';
+
+    return _hotkeyBlock(
+      key: const ValueKey('shortcutBlock-favoriteLanguages'),
+      children: [
+        WpSettingsRow(
+          rowId: 'general-hotkey-favorite-languages',
+          title: l10n.settingsFavoriteLanguageHotkeysTitle,
+          subtitle: favorites.isEmpty
+              ? l10n.settingsFavoriteLanguageHotkeysEmpty
+              : l10n.settingsFavoriteLanguageHotkeysHint,
+          trailing: favorites.isEmpty
+              ? WpButton(
+                  key: const Key('favoriteLanguageHotkeysChooseFavorites'),
+                  label: l10n.settingsFavoriteLanguageHotkeysChooseFavorites,
+                  variant: WpButtonVariant.secondary,
+                  onPressed: () => _chooseFavorites(ref),
+                )
+              : const SizedBox.shrink(),
+        ),
+        for (final (index, code) in favorites.indexed)
+          _FavoriteLanguageHotkeyLine(
+            key: ValueKey('favoriteLanguageHotkeyLine-$code'),
+            settings: settings,
+            code: code,
+            position: index,
+            refused: refused.contains(code),
+          ),
+        if (anyKey && waylandSession)
+          HotkeyNotice(
+            noticeKey: const Key('favoriteLanguageHotkeysWaylandNotice'),
+            icon: LucideIcons.triangleAlert,
+            color: WpColors.warning,
+            text: l10n.settingsLanguageCycleHotkeyWaylandNotice,
+          ),
+      ],
+    );
+  }
+}
+
+class _FavoriteLanguageHotkeyLine extends ConsumerStatefulWidget {
+  const _FavoriteLanguageHotkeyLine({
+    super.key,
+    required this.settings,
+    required this.code,
+    required this.position,
+    required this.refused,
+  });
+
+  final AppSettings settings;
+  final String code;
+
+  /// Place in the favorites, for the suggested combination of a new key.
+  final int position;
+
+  /// The stored key does not work right now (see
+  /// `favoriteLanguageHotkeyRefusalsProvider`).
+  final bool refused;
+
+  @override
+  ConsumerState<_FavoriteLanguageHotkeyLine> createState() =>
+      _FavoriteLanguageHotkeyLineState();
+}
+
+class _FavoriteLanguageHotkeyLineState
+    extends ConsumerState<_FavoriteLanguageHotkeyLine>
+    with HotkeyCollisionNotice {
+  FavoriteLanguageHotkey? get _hotkey =>
+      widget.settings.stt.favoriteLanguageHotkeys[widget.code];
+
+  Future<void> _record() {
+    final current = _hotkey;
+    // A new key starts from the favorite's place (1 to 5) with Ctrl+Option
+    // on macOS (Cmd+Shift+3/4/5 are the system's screenshot keys) and
+    // Ctrl+Shift elsewhere; the user presses their own combination anyway.
+    final suggestedModifiers = defaultTargetPlatform == TargetPlatform.macOS
+        ? 'ctrl+alt'
+        : 'ctrl+shift';
+    return recordAndReport(
+      () => recordHotkey(
+        context: context,
+        ref: ref,
+        settings: widget.settings,
+        actionId: favoriteLanguageHotkeyActionId(widget.code),
+        initialKey: current?.key ?? '${widget.position + 1}',
+        initialDisplayKey: current?.keyDisplay ?? '',
+        initialModifiers: current?.modifiers ?? suggestedModifiers,
+        apply: (s, result) => s.copyWithSections(
+          stt: s.stt.copyWith(
+            favoriteLanguageHotkeys: withFavoriteLanguageHotkey(
+              s.stt.favoriteLanguageHotkeys,
+              widget.code,
+              FavoriteLanguageHotkey(
+                key: result.key,
+                keyDisplay: result.displayKey,
+                modifiers: result.modifiers,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _remove() {
+    clearHotkeyCollision();
+    return ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            stt: s.stt.copyWith(
+              favoriteLanguageHotkeys: withFavoriteLanguageHotkey(
+                s.stt.favoriteLanguageHotkeys,
+                widget.code,
+                null,
+              ),
+            ),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final tt = Theme.of(context).textTheme;
+    final hotkey = _hotkey;
+    final name = languageMenuName(widget.code);
+    final code = widget.code;
+    final changeLabel = hotkey == null
+        ? l10n.settingsFavoriteLanguageHotkeySet
+        : l10n.settingsChangeHotkey;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: _comboPadding,
+          child: Wrap(
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(name, style: tt.bodyMedium),
+              if (hotkey == null)
+                Text(
+                  l10n.settingsFavoriteLanguageHotkeyNone,
+                  style: tt.bodySmall?.copyWith(color: WpColors.textMuted),
+                )
+              else
+                HotkeyDisplay(
+                  hotkeyKey: hotkey.key,
+                  hotkeyModifiers: hotkey.modifiers,
+                  hotkeyKeyDisplay: hotkey.keyDisplay,
+                ),
+              WpButton(
+                key: Key('favoriteLanguageHotkeyChange-$code'),
+                label: changeLabel,
+                // The button text alone does not say which language.
+                semanticsLabel: '$changeLabel: $name',
+                variant: WpButtonVariant.secondary,
+                onPressed: () => unawaited(_record()),
+              ),
+              if (hotkey != null)
+                WpButton(
+                  key: Key('favoriteLanguageHotkeyRemove-$code'),
+                  label: l10n.settingsFavoriteLanguageHotkeyRemove,
+                  semanticsLabel:
+                      '${l10n.settingsFavoriteLanguageHotkeyRemove}: $name',
+                  variant: WpButtonVariant.ghost,
+                  onPressed: () => unawaited(_remove()),
+                ),
+            ],
+          ),
+        ),
+        if (collidingAction != null)
+          HotkeyNotice(
+            noticeKey: Key('favoriteLanguageHotkeyCollision-$code'),
+            icon: LucideIcons.circleAlert,
+            color: WpColors.error,
+            text: l10n.settingsLanguageCycleHotkeyCollision(collidingAction!),
+          ),
+        if (hotkey != null && widget.refused)
+          HotkeyNotice(
+            noticeKey: Key('favoriteLanguageHotkeyInactive-$code'),
+            icon: LucideIcons.triangleAlert,
+            color: WpColors.warning,
+            text: l10n.settingsFavoriteLanguageHotkeyInactive,
+          ),
+      ],
+    );
+  }
+}
+
 class _QuickNoteHotkeyBlock extends ConsumerStatefulWidget {
   const _QuickNoteHotkeyBlock({required this.settings});
 
@@ -575,6 +808,40 @@ class _QuickNoteHotkeyBlockState extends ConsumerState<_QuickNoteHotkeyBlock>
                     ),
                   ),
             ),
+          ),
+        ),
+        // Which note a dictation goes to (#661). Default the marked quick
+        // note, the behaviour before the choice existed.
+        WpSettingsRow(
+          rowId: 'general-quick-note-destination',
+          title: l10n.settingsQuickNoteDestination,
+          subtitle: l10n.settingsQuickNoteDestinationHint,
+          indent: true,
+          trailing: settingsDropdown(
+            context: context,
+            value: quickNote.destination.value,
+            items: QuickNoteDestination.values.map((d) => d.value).toList(),
+            labels: [
+              l10n.settingsQuickNoteDestinationMarkedNote,
+              l10n.settingsQuickNoteDestinationLastNote,
+              l10n.settingsQuickNoteDestinationNewNote,
+            ],
+            keyPrefix: 'quick-note-destination',
+            testId: 'quick-note-destination',
+            onChanged: (v) {
+              if (v == null) return;
+              unawaited(
+                ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        quickNoteHotkey: s.quickNoteHotkey.copyWith(
+                          destination: QuickNoteDestination.fromValue(v),
+                        ),
+                      ),
+                    ),
+              );
+            },
           ),
         ),
         // How each appended dictation is dated (#803). Default margin mark:

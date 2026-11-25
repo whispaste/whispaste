@@ -68,8 +68,11 @@ const paths = [
 </script>
 
 <style>
+  /* Explicit shrinkable columns: an implicit grid column grows to its
+     widest word and pushed the German page past 320 px (#1845). */
   .privacy-layout {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--wp-space-8);
   }
   .privacy-head {
@@ -78,6 +81,7 @@ const paths = [
 
   .privacy-paths {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--wp-space-5);
   }
   @media (min-width: 768px) {
@@ -105,7 +109,9 @@ const paths = [
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--wp-card-meta);
+    /* card-text, not card-meta: the muted tone falls under 4.5:1 on the
+       card over the section gradient (#1911). */
+    color: var(--wp-card-text);
     border: 1px solid var(--wp-border-strong);
   }
   .privacy-path--local .privacy-badge {

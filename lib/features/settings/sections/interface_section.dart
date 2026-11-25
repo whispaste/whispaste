@@ -7,7 +7,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/mutable_notice.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/config/settings_sections.dart' show InterfaceSettings;
 import '../../../core/first_steps/first_steps_notifier.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/l10n/locale_native_name.dart';
@@ -19,6 +21,7 @@ import '../../../services/review_prompt_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/wp_button.dart';
+import '../close_to_tray_labels.dart';
 import '../settings_widgets.dart';
 import '../widgets/wp_settings_group.dart';
 
@@ -88,6 +91,7 @@ class InterfaceGeneralSection extends ConsumerWidget {
         WpSettingsRow(
           rowId: 'general-autostart',
           title: l10n.settingsLaunchAtStartup,
+          subtitle: l10n.settingsLaunchAtStartupSubtitle,
           trailing: SharedWidthDropdown(
             labels: dropdownLabels,
             selectedLabel: switch (autostartValue) {
@@ -148,13 +152,17 @@ class InterfaceGeneralSection extends ConsumerWidget {
                 .updateSettings((s) => s.copyWith(showNotifications: v)),
           ),
         ),
+        // One row per notice switched off with "Don't show again" (#1852);
+        // nothing while none is.
+        for (final notice in mutedNoticesIn(settings.interface_))
+          MutedNoticeRestoreRow(notice: notice),
         WpSettingsRow(
           rowId: 'general-close-to-tray',
-          title: l10n.settingsCloseToTray,
-          subtitle: l10n.settingsCloseToTraySubtitle,
+          title: closeToTrayTitle(l10n),
+          subtitle: closeToTraySubtitle(l10n),
           switchNamesRow: true,
           trailing: settingsToggle(
-            label: l10n.settingsCloseToTray,
+            label: closeToTrayTitle(l10n),
             key: const ValueKey('interface-close-to-tray'),
             value: settings.closeToTray,
             onChanged: (v) => ref
@@ -235,6 +243,58 @@ class ReviewPromptRestoreRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The notices switched off in [settings] that this build knows, in the order
+/// of [MutableNotice.values]. Unknown ids (a newer version) are left out.
+List<MutableNotice> mutedNoticesIn(InterfaceSettings settings) => [
+  for (final notice in MutableNotice.values)
+    if (settings.isNoticeMuted(notice)) notice,
+];
+
+/// "Show again" for a notice switched off with "Don't show again" (#1852).
+class MutedNoticeRestoreRow extends ConsumerWidget {
+  const MutedNoticeRestoreRow({required this.notice, super.key});
+
+  final MutableNotice notice;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    // A literal row id per notice, so the settings search finds the row.
+    return switch (notice) {
+      MutableNotice.pasteUnconfirmed => _row(
+        ref,
+        l10n,
+        rowId: 'general-muted-notice-paste-unconfirmed',
+        title: l10n.mutedNoticePasteUnconfirmed,
+      ),
+    };
+  }
+
+  Widget _row(
+    WidgetRef ref,
+    L10n l10n, {
+    required String rowId,
+    required String title,
+  }) => WpSettingsRow(
+    rowId: rowId,
+    title: title,
+    subtitle: l10n.mutedNoticeSubtitle,
+    trailing: WpButton(
+      testId: 'interface-muted-notice-restore-${notice.id}',
+      label: l10n.mutedNoticeShowAgain,
+      semanticsLabel: '${l10n.mutedNoticeShowAgain}: $title',
+      variant: WpButtonVariant.secondary,
+      onPressed: () => ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.withNoticeMuted(notice, muted: false),
+            ),
+          ),
+    ),
+  );
 }
 
 /// "Neu anzeigen" for the "Erste Schritte" card: clears the dismissal and keeps

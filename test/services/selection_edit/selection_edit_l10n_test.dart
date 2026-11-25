@@ -42,7 +42,8 @@ void main() {
       test('every quick-action keyword the overlay hint names is '
           'recognized', () {
         final hint = l10n.overlaySelectionEditHint;
-        final list = hint.substring(hint.lastIndexOf(':') + 1);
+        // zh writes the full-width colon.
+        final list = hint.substring(hint.lastIndexOf(RegExp('[:：]')) + 1);
         final keywords = list.split('·').map((w) => w.trim()).toList();
         expect(keywords, hasLength(3), reason: hint);
         expect(keywords.map(selectionEditQuickActionFor).toSet(), {

@@ -248,15 +248,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Die Ziel-Notiz wird im Notizen-Bereich bestimmt — hier steht die
-      // Taste, nicht die Notiz. Ein Auswahlfeld wäre genau die Platzierung,
-      // die das Ticket ausschließt. Das einzige Auswahlfeld im Block ist die
-      // Zeitstempel-Art (#803), keine Notizauswahl.
+      // Taste, nicht die Notiz. Ein Auswahlfeld mit Notizen wäre genau die
+      // Platzierung, die das Ticket ausschließt. Im Block stehen nur zwei
+      // Auswahlfelder: die Zeitstempel-Art (#803) und das Ziel der Diktate
+      // als Art (markierte, zuletzt bearbeitete oder neue Notiz, #661), keine
+      // Notizauswahl.
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
           matching: find.byType(DropdownButton<String>),
         ),
-        findsOneWidget,
+        findsNWidgets(2),
       );
     });
 

@@ -12,7 +12,17 @@ void main() {
   test(
     'the shortcuts chapter explains the Esc cancel key in all languages',
     () async {
-      for (final code in ['de', 'en', 'es', 'pt', 'he', 'ru']) {
+      for (final code in [
+        'de',
+        'en',
+        'es',
+        'pt',
+        'he',
+        'ru',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         final l = await L10n.delegate.load(Locale(code));
         final text = l.manualC15S5B1('Esc', 'F12');
         expect(l.manualC15S5Heading, isNotEmpty, reason: code);

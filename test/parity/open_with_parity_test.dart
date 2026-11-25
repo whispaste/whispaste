@@ -51,12 +51,36 @@ void main() {
   });
 
   group('Windows', () {
-    test('NSIS adds the verb per audio type and removes it again', () {
+    test('NSIS registers the filtered Explorer command and removes it', () {
       final nsi = _read('installer/whispaste.nsi');
       Set<String> listed(String macro) => RegExp(
         '!insertmacro $macro "([a-z0-9]+)"',
       ).allMatches(nsi).map((m) => m.group(1)!).toSet();
-      expect(listed('WriteTranscribeVerb'), audioImportExtensions.toSet());
+      expect(listed('WriteTranscribeVerb'), isEmpty);
+      final shell = _read('windows/shell/explorer_command.cpp');
+      final extensions = RegExp(
+        r'L"\.([a-z0-9]+)"',
+      ).allMatches(shell).map((m) => m.group(1)!).toSet();
+      expect(extensions, {...audioImportExtensions, ...videoImportExtensions});
+      expect(shell, contains('ECS_ENABLED : ECS_HIDDEN'));
+      expect(
+        nsi,
+        contains(
+          '"ExplorerCommandHandler" "{65BDCC9F-C60E-4687-B18B-409A246E9715}"',
+        ),
+      );
+      expect(
+        nsi,
+        contains(
+          r'DeleteRegKey HKCU "Software\Classes\*\shell\WhisPaste.Transcribe"',
+        ),
+      );
+      expect(
+        nsi,
+        contains(
+          r'DeleteRegKey HKCU "Software\Classes\CLSID\{65BDCC9F-C60E-4687-B18B-409A246E9715}"',
+        ),
+      );
       expect(listed('DeleteTranscribeVerb'), audioImportExtensions.toSet());
       expect(
         nsi,
@@ -124,8 +148,9 @@ void main() {
         );
         final manual = (arb as Map<String, dynamic>)['manualC09S1B4'] as String;
         final verb = _reswVerb(dir == 'de-DE' ? 'de-DE' : 'en-US')!;
+        // French guillemets carry a no-break space inside (#1951).
         expect(
-          RegExp('[“«„]${RegExp.escape(verb)}[”»“]').hasMatch(manual),
+          RegExp('[“«„]\\s?${RegExp.escape(verb)}\\s?[”»“]').hasMatch(manual),
           isTrue,
           reason: 'manualC09S1B4 ($dir) must quote the installer verb "$verb"',
         );

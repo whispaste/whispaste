@@ -48,8 +48,10 @@ void main() {
     WidgetTester tester, {
     String vocabulary = '',
     List<(String, String)> replacements = const [],
+    bool samples = true,
   }) async {
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    if (!samples) await db.writeAppSettings({'replacementsSamplesSeeded': '1'});
     for (final (i, r) in replacements.indexed) {
       await db.upsertReplacementWithTriggers(
         id: 'r$i',
@@ -72,6 +74,7 @@ void main() {
           ),
         ],
         locale: const Locale('en'),
+        noticeBar: true,
       ),
     );
     await tester.pumpAndSettle();
@@ -92,9 +95,11 @@ void main() {
   testWidgets('the switch turns Enter into a replacement', (tester) async {
     final (settings, container) = await pump(tester);
 
+    // The switch only shows once the bar holds text (#1969).
+    await tester.enterText(find.byKey(bar), 'kubernets');
+    await tester.pumpAndSettle();
     await tester.tap(_id('dictionary-terms-misspelled-toggle'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(bar), 'kubernets');
     await tester.enterText(
       find.byKey(const ValueKey('dictionary-terms-right')),
       'Kubernetes',
@@ -123,7 +128,8 @@ void main() {
     await submit(tester, find.byKey(bar), 'Mfg');
 
     expect(settings.updates, isEmpty);
-    expect(find.text(l10n.dictionaryTermsConflictTrigger('Mfg')), findsOne);
+    // The trigger is already in the one list (#1969).
+    expect(find.text(l10n.dictionaryTermsDuplicate('Mfg')), findsOne);
   });
 
   testWidgets('a term over 60 characters is refused', (tester) async {
@@ -138,13 +144,16 @@ void main() {
   testWidgets('an example in the empty list fills the bar, Enter adds it', (
     tester,
   ) async {
-    final (settings, _) = await pump(tester);
+    final (_, container) = await pump(tester, samples: false);
 
     await tester.tap(_id('dictionary-terms-example-0'));
     await tester.pumpAndSettle();
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
-    expect(settings.updates.single.stt.customVocabulary, 'Kubernetes');
+    // A term is the entry "Kubernetes → Kubernetes" (#1969).
+    final entries = container.read(replacementsProvider).value!;
+    expect(entries.single.triggers, ['Kubernetes']);
+    expect(entries.single.replacement, 'Kubernetes');
   });
 }

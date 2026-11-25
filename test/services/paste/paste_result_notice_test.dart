@@ -2,10 +2,13 @@ import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/mutable_notice.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/floating_overlay/dictation_notice.dart';
 import 'package:whispaste/services/paste/paste_failure_notifier.dart';
+import 'package:whispaste/services/paste/paste_notice_mute.dart';
 import 'package:whispaste/services/paste/paste_result_notice.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
@@ -407,4 +410,113 @@ void main() {
       );
     });
   });
+
+  // #1852: "Don't show again" for uncertain notices only.
+  group('muted notices', () {
+    test('only an unconfirmed paste may be muted', () {
+      for (final outcome in PasteOutcome.values) {
+        final expected =
+            outcome == PasteOutcome.unconfirmed ||
+                outcome == PasteOutcome.unconfirmedRestored
+            ? MutableNotice.pasteUnconfirmed
+            : null;
+        expect(mutableNoticeForPaste(outcome), expected, reason: '$outcome');
+      }
+    });
+
+    late ProviderContainer container;
+    late RecordingSystemAttention attention;
+    late FakeNoticeSound sound;
+
+    Future<void> withMuted({required bool muted}) async {
+      final settings = AppSettings.defaults.copyWithSections(
+        interface_: AppSettings.defaults.interface_.withNoticeMuted(
+          MutableNotice.pasteUnconfirmed,
+          muted: muted,
+        ),
+      );
+      container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(() => _FixedSettings(settings)),
+          systemAttentionServiceProvider.overrideWith((ref) {
+            attention = RecordingSystemAttention(ref);
+            return attention;
+          }),
+          trayServiceProvider.overrideWith(FakeNoticeTray.new),
+          soundFeedbackProvider.overrideWith(() {
+            sound = FakeNoticeSound();
+            return sound;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      container.read(trayServiceProvider);
+      container.read(soundFeedbackProvider);
+    }
+
+    for (final outcome in [
+      PasteOutcome.unconfirmed,
+      PasteOutcome.unconfirmedRestored,
+    ]) {
+      test(
+        'a muted $outcome sends no card, no OS notice and no sound',
+        () async {
+          await withMuted(muted: true);
+          final fired = await container
+              .read(pasteResultReporterProvider)
+              .report(outcome);
+
+          expect(fired, isFalse);
+          expect(attention.requests, isEmpty);
+          expect(sound.playErrorCalls, 0);
+          expect(container.read(pasteFailureNotifierProvider), isNull);
+        },
+      );
+    }
+
+    test('a muted notice still lets a real failure through', () async {
+      await withMuted(muted: true);
+      final fired = await container
+          .read(pasteResultReporterProvider)
+          .report(PasteOutcome.failed);
+
+      expect(fired, isTrue);
+      expect(attention.requests, hasLength(1));
+      expect(sound.playErrorCalls, 1);
+    });
+
+    test('a direct card report of a muted outcome raises no card', () async {
+      await withMuted(muted: true);
+      container
+          .read(pasteFailureNotifierProvider.notifier)
+          .report(PasteOutcome.unconfirmedRestored);
+      expect(container.read(pasteFailureNotifierProvider), isNull);
+    });
+
+    test('shown again, the notice comes back', () async {
+      await withMuted(muted: false);
+      final fired = await container
+          .read(pasteResultReporterProvider)
+          .report(PasteOutcome.unconfirmed);
+
+      expect(fired, isTrue);
+      expect(attention.requests, hasLength(1));
+      expect(sound.playErrorCalls, 1);
+    });
+  });
+}
+
+class _FixedSettings extends SettingsNotifier {
+  _FixedSettings(this._initial);
+  final AppSettings _initial;
+
+  @override
+  Future<AppSettings> build() async => _initial;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    state = AsyncData(updater(state.value ?? _initial));
+  }
 }

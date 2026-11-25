@@ -103,11 +103,16 @@
 		<string>he</string>
 		<string>pt</string>
 		<string>ru</string>
+		<string>fr</string>
+		<string>it</string>
+		<string>zh-Hans</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>WhisPaste reads only the names and companies of your contacts, after you agree in the app, so that dictation spells them correctly. They stay on this Mac.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable.</string>
+	<string>WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable, and to pause Music or Spotify while you dictate.</string>
 	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
 	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
 	     URL below is the stable default for the first launch check; the Dart
@@ -124,7 +129,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
 	<!-- Export compliance: WhisPaste only ever talks HTTPS/TLS via the OS-provided
-	     networking stack (Sentry, Supabase, OpenAI, Deepgram, Sparkle appcast,
+	     networking stack (Sentry, WhisPaste API, OpenAI, Deepgram, Sparkle appcast,
 	     GitHub) — no proprietary or custom cryptography. That's exempt encryption,
 	     so this is `false` ("does NOT use non-exempt encryption"). Without this
 	     key, every single upload shows as "Missing Compliance" in App Store

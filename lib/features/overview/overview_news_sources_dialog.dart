@@ -139,22 +139,20 @@ class _NewsSourcesDialogState extends ConsumerState<_NewsSourcesDialog> {
               Expanded(
                 child: Directionality(
                   textDirection: TextDirection.ltr,
-                  child: Semantics(
-                    identifier: 'overview-news-source-field',
-                    child: WpTextField(
-                      key: const ValueKey('overview-news-source-field'),
-                      controller: _address,
-                      variant: WpTextFieldVariant.form,
-                      hintText: 'https://example.org/feed.xml',
-                      semanticsLabel: l10n.overviewNewsSourceField,
-                      autofocus: true,
-                      autocorrect: false,
-                      keyboardType: TextInputType.url,
-                      onChanged: (_) {
-                        if (_problem != null) setState(() => _problem = null);
-                      },
-                      onSubmitted: (v) => unawaited(_add(v)),
-                    ),
+                  child: WpTextField(
+                    testId: 'overview-news-source-field',
+                    key: const ValueKey('overview-news-source-field'),
+                    controller: _address,
+                    variant: WpTextFieldVariant.form,
+                    hintText: 'https://example.org/feed.xml',
+                    semanticsLabel: l10n.overviewNewsSourceField,
+                    autofocus: true,
+                    autocorrect: false,
+                    keyboardType: TextInputType.url,
+                    onChanged: (_) {
+                      if (_problem != null) setState(() => _problem = null);
+                    },
+                    onSubmitted: (v) => unawaited(_add(v)),
                   ),
                 ),
               ),

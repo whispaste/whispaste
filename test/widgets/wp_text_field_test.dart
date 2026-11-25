@@ -20,6 +20,7 @@ Widget _field({
   FocusNode? focusNode,
   String? hintText = 'Schreib etwas…',
   String? semanticsLabel,
+  String? testId,
 }) {
   final field = WpTextField(
     controller: controller,
@@ -27,6 +28,7 @@ Widget _field({
     focusNode: focusNode,
     hintText: hintText,
     semanticsLabel: semanticsLabel,
+    testId: testId,
   );
   // `bare` expands into the box it is given — a bounded one is part of its
   // contract, exactly as the Notes panel's `Expanded` provides.
@@ -59,6 +61,77 @@ void main() {
     );
 
     expect(find.bySemanticsLabel('Transkript bearbeiten'), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('semanticsLabel stays on the field, not on the ancestor node '
+      '(#1500)', (tester) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    final handle = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      makeTestable(
+        Semantics(
+          key: const ValueKey('host'),
+          container: true,
+          child: Column(
+            children: [
+              const Text('Nachbar'),
+              _field(
+                controller: controller,
+                variant: WpTextFieldVariant.form,
+                hintText: 'Richtige Schreibweise',
+                semanticsLabel: 'Richtige Schreibweise eingeben',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // The leak made the host a text field; macOS then hid its children.
+    final host = tester.getSemantics(find.byKey(const ValueKey('host')));
+    expect(host.getSemanticsData().flagsCollection.isTextField, isFalse);
+    expect(host.label, isNot(contains('Richtige Schreibweise eingeben')));
+    expect(
+      tester.getSemantics(find.byType(EditableText)),
+      matchesSemantics(
+        label: 'Richtige Schreibweise eingeben\nRichtige Schreibweise',
+        isTextField: true,
+        isFocusable: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+        hasFocusAction: true,
+      ),
+    );
+    handle.dispose();
+  });
+
+  // The labelled field is its own merged node since #1500; an identifier on
+  // a wrapper around it lands on an ancestor, and automation then finds a
+  // node that neither takes the focus nor holds the text (#2011).
+  testWidgets('testId sits on the labelled field itself', (tester) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    final handle = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      makeTestable(
+        _field(
+          controller: controller,
+          variant: WpTextFieldVariant.form,
+          hintText: 'Optional',
+          semanticsLabel: 'Vorname',
+          testId: 'screen-name',
+        ),
+      ),
+    );
+
+    final node = tester.getSemantics(find.byType(EditableText));
+    expect(node.getSemanticsData().identifier, 'screen-name');
+    expect(node.getSemanticsData().flagsCollection.isTextField, isTrue);
     handle.dispose();
   });
 

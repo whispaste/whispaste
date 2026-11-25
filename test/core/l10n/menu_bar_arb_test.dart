@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 
-const _locales = ['de', 'en', 'es', 'he', 'pt', 'ru'];
+const _locales = ['de', 'en', 'es', 'he', 'pt', 'ru', 'fr', 'it', 'zh'];
 
 Map<String, dynamic> _arb(String code) =>
     jsonDecode(File('lib/core/l10n/app_$code.arb').readAsStringSync())
@@ -49,7 +49,7 @@ void main() {
 
   test('non-English titles are translated, not copied from English', () {
     final en = _arb('en');
-    for (final code in ['de', 'es', 'he', 'pt', 'ru']) {
+    for (final code in ['de', 'es', 'he', 'pt', 'ru', 'fr', 'it', 'zh']) {
       final arb = _arb(code);
       for (final key in menuKeys) {
         if (key == 'menuBarAppQuit') continue; // contains the app name

@@ -41,6 +41,8 @@
   --wp-color-brand-kofi-hover: #F25427;
   --wp-color-brand-sponsors: #EA4AAA;
   --wp-color-brand-sponsors-hover: #DD3A9C;
+  --wp-color-brand-youtube: #FF0000;
+  --wp-color-brand-youtube-hover: #CC0000;
   --wp-color-red-400: #FF7B7B;
   --wp-color-red-800: #B42318;
   --wp-color-white: #FFFFFF;
@@ -453,6 +455,15 @@
   --wp-illustration-accent-fill: var(--wp-accent-fill);
   --wp-illustration-glow: var(--wp-accent-glow);
   --wp-illustration-highlight: var(--wp-highlight-default);
+  --wp-illustration-cut-ground: var(--wp-surface-card);
+  --wp-illustration-cut-back: var(--wp-surface-sunken);
+  --wp-illustration-cut-carrier: var(--wp-color-white);
+  --wp-illustration-cut-device: var(--wp-color-navy-900);
+  --wp-illustration-cut-line: var(--wp-text-muted);
+  --wp-illustration-cut-rest: var(--wp-color-glacier-300);
+  --wp-illustration-cut-action: var(--wp-color-cyan-400);
+  --wp-illustration-cut-on-action: var(--wp-text-on-action);
+  --wp-illustration-cut-mark: var(--wp-highlight-default);
   --wp-progress-track: var(--wp-border-subtle);
   --wp-progress-fill: var(--wp-accent-default);
   --wp-progress-height: 2px;

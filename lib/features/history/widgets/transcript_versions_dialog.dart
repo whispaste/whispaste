@@ -21,6 +21,7 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/version_compare_dialog.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../data/history_detail_provider.dart';
+import '../../../widgets/wp_row_divider.dart';
 
 final _log = AppLogger('TranscriptVersions');
 
@@ -108,7 +109,7 @@ class _TranscriptVersionsList extends ConsumerWidget {
                 identifier: 'history-version-list',
                 child: ListView.separated(
                   itemCount: list.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const WpRowDivider(),
                   itemBuilder: (context, index) =>
                       _VersionRow(entryId: entryId, version: list[index]),
                 ),

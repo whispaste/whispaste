@@ -20,6 +20,7 @@ import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_row_checkbox.dart';
 import '../../../widgets/wp_text_field.dart';
 import 'wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 /// Event order in the editor, matching [kAutomationHookEvents].
 const _eventOrder = ['transcript.finished', 'note.changed'];
@@ -69,11 +70,7 @@ class AutomationIntegrationsGroup extends ConsumerWidget {
         WpSettingsRow(
           rowId: 'automation-cli-mcp',
           title: l10n.automationIntegrationsCliTitle,
-          subtitle: l10n.automationIntegrationsCliSubtitle(
-            ltrIsolate('tool/whispaste.dart'),
-            ltrIsolate('WHISPASTE_API_TOKEN'),
-            ltrIsolate('mcp'),
-          ),
+          subtitle: l10n.automationIntegrationsCliSubtitle,
           trailing: const SizedBox.shrink(),
         ),
       ],
@@ -241,14 +238,12 @@ class _AutomationHooksEditorState
                               ],
                             ),
                           ),
-                          IconButton(
+                          WpIconButton.ghost(
                             key: ValueKey('automation-hook-remove-$i'),
+                            testId: 'automation-hook-remove-$i',
                             tooltip: l10n.automationHooksRemove,
                             onPressed: () => _remove(i),
-                            icon: const Icon(
-                              LucideIcons.trash2,
-                              size: WpIconSize.sm,
-                            ),
+                            icon: LucideIcons.trash2,
                           ),
                         ],
                       ),

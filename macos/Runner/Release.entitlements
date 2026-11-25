@@ -10,5 +10,10 @@
 	<true/>
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
+	<!-- Contact names for the dictionary (#2037): the Contacts framework
+	     needs this under the sandbox and the hardened runtime. Read only
+	     after the user's step in the app, names and company only. -->
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
 </dict>
 </plist>

@@ -193,13 +193,39 @@ class TextReplacements extends Table {
   /// each save, off the matching path; matching never reads it.
   IntColumn get usageCount => integer().withDefault(const Constant(0))();
 
-  /// Pinned as a favourite in the dictionary (schema v26). Display only.
+  /// Former dictionary favourite (schema v26). Unused since #2166: the star
+  /// only reordered the display. Kept because migrations are additive only.
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
 
   /// Place in the user's application order (schema v41, #1004): the cascade
   /// runs the rules in this order. `null` until the user first reorders;
   /// such rows follow all ordered ones in creation order.
   IntColumn get sortPosition => integer().nullable()();
+
+  /// The contact-name group that brought this entry in (schema v48, #2036),
+  /// a [ContactNameGroups] id. `null` for every other entry and for an
+  /// imported name the user has since edited: it then belongs to the user
+  /// and stays when the group is removed or refreshed.
+  TextColumn get importGroupId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A removable import of contact names (schema v48, #2036). One row per
+/// source the user agreed to read: [sourceKind] names the kind of source
+/// (`file` for a vCard or CSV file, later a system address book),
+/// [sourceLabel] what the user picked (a file name). [consentedAt] records
+/// the consent; revoking it deletes the row and the untouched names it
+/// brought in.
+@DataClassName('ContactNameGroup')
+class ContactNameGroups extends Table {
+  TextColumn get id => text()();
+  TextColumn get sourceKind => text()();
+  TextColumn get sourceLabel => text()();
+  DateTimeColumn get consentedAt => dateTime()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -335,9 +361,33 @@ class Notes extends Table {
   // (schema v35). Soft link, no foreign key: a deleted recording leaves a
   // dangling id that readers treat as "no link".
   TextColumn get sourceEntryId => text().nullable()();
+  // Archive (schema v45, #656): set aside, out of the active list, but not
+  // headed for deletion like [deletedAt]. Independent of [deletedAt]: a
+  // trashed archived note comes back archived when restored.
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  // Folder (schema v47, #659): the [NoteFolders] row the note sits in, NULL
+  // for the top level. Soft link, no foreign key: an id whose folder is gone
+  // reads as top level. Independent of trash and archive.
+  TextColumn get folderId => text().nullable()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Folders for notes (schema v47, #659). Optional: as long as no row exists,
+/// the notes area shows no folder at all. At most two levels: a folder with a
+/// [parentId] is a subfolder, and a subfolder never has children (enforced by
+/// the database methods, see `HistoryDatabase.createNoteFolder`). A note sits
+/// in at most one folder ([Notes.folderId]).
+@DataClassName('NoteFolder')
+class NoteFolders extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get parentId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -442,6 +492,18 @@ class NoteTags extends Table {
 
   @override
   Set<Column> get primaryKey => {noteId, tagId};
+}
+
+/// Many-to-many link between [Snippets] and [Tags] (schema v46, #662) —
+/// mirrors [NoteTags] and reuses the same [Tags] table, so a tag is shared
+/// between recordings, notes and Textbausteine and managed in one place.
+@DataClassName('SnippetTag')
+class SnippetTags extends Table {
+  TextColumn get snippetId => text().references(Snippets, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {snippetId, tagId};
 }
 
 /// Per-recording end-to-end hotkey→text latency — local-only performance KPI.

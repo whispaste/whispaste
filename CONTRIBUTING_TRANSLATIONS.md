@@ -158,7 +158,9 @@ Translation pull requests are checked for:
 
 ## Wanted languages
 
-Besides English, German, Hebrew and Russian, we would especially welcome
-Spanish, French, Italian, Brazilian Portuguese, Polish, Chinese (Simplified),
-Japanese, Korean, Turkish, Dutch and Ukrainian. Any other language is welcome
-too.
+WhisPaste ships English, German, French, Italian, Spanish, Brazilian
+Portuguese, Russian, Chinese (Simplified) and Hebrew. The French, Italian and
+Chinese texts are new and not yet reviewed by native speakers, so corrections
+there are especially welcome. We would also welcome Polish, Japanese, Korean,
+Turkish, Dutch, Ukrainian and Chinese (Traditional). Any other language is
+welcome too.

@@ -21,13 +21,14 @@ import '../../core/navigation/page_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/replacements/correction_candidate_detector.dart';
 import '../../services/replacements/correction_learning_service.dart';
-import '../../services/dictionary/vocabulary_terms.dart';
 import '../../services/replacements/learn_correction_hotkey.dart';
 import '../../services/replacements/target_field_learning.dart'
     show masCorrectionHintVisible;
 import '../../widgets/empty_state.dart';
+import '../../widgets/wp_list_tile_surface.dart';
 import '../../core/accessibility/announce.dart';
 import '../../widgets/wp_page_notice.dart';
+import '../../widgets/wp_notice_bar.dart';
 import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_error_notice.dart';
@@ -36,7 +37,6 @@ import '../replacements/correction_cards.dart';
 import '../replacements/replacements_page.dart';
 import 'correction_learning_log.dart';
 import 'dictionary_notice.dart';
-import 'role_terms.dart' show mergeVocabulary;
 import 'term_store.dart';
 import '../../widgets/page_shell.dart' show WpPageFrame;
 
@@ -46,11 +46,14 @@ final _log = AppLogger('DictionarySuggestionsTab');
 /// the default text size, so the loading bars reserve the rows' space.
 const double _suggestionRowHeight = 93;
 
-/// How long the "rejected" notice offers its undo.
-const Duration _undoWindow = Duration(seconds: 6);
-
 class DictionarySuggestionsTab extends ConsumerStatefulWidget {
-  const DictionarySuggestionsTab({super.key});
+  const DictionarySuggestionsTab({
+    super.key,
+    this.embedded = false,
+    this.query = '',
+  });
+  final bool embedded;
+  final String query;
 
   @override
   ConsumerState<DictionarySuggestionsTab> createState() =>
@@ -81,40 +84,58 @@ class _DictionarySuggestionsTabState
         ) ??
         true;
     final candidates = ref.watch(pendingCorrectionCandidatesProvider);
-    final items = candidates.value ?? const <CorrectionCandidate>[];
+    final items = (candidates.value ?? const <CorrectionCandidate>[])
+        .where(
+          (c) =>
+              c.displayText.toLowerCase().contains(widget.query.toLowerCase()),
+        )
+        .toList();
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpPageFrame.inset,
-        vertical: WpSpacing.lg,
-      ),
+    final content = ListView(
+      shrinkWrap: widget.embedded,
+      physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
+      padding: widget.embedded
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(
+              horizontal: WpPageFrame.inset,
+              vertical: WpSpacing.lg,
+            ),
       children: [
-        CorrectionLearningToggleCard(
-          enabled: enabled,
-          onChanged: (v) => ref
-              .read(settingsProvider.notifier)
-              .updateSettings(
-                (s) => s.copyWithSections(
-                  behavior: s.behavior.copyWith(correctionLearningEnabled: v),
+        if (!widget.embedded) ...[
+          CorrectionLearningToggleCard(
+            enabled: enabled,
+            onChanged: (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWithSections(
+                    behavior: s.behavior.copyWith(correctionLearningEnabled: v),
+                  ),
                 ),
-              ),
-        ),
-        const SizedBox(height: WpSpacing.md),
-        WpBanner(
-          tone: WpBannerTone.info,
-          message: l10n.dictionarySuggestionsHint(correctionCandidateThreshold),
-        ),
-        const SizedBox(height: WpSpacing.md),
-        // Mac App Store: other apps cannot be read, say once which ways
-        // still teach WhisPaste (#934).
-        if (masCorrectionHintVisible()) ...[
-          WpBanner(
-            key: const ValueKey('dictionary-mas-correction-hint'),
-            tone: WpBannerTone.info,
-            message: l10n.dictionaryMasCorrectionHint,
           ),
           const SizedBox(height: WpSpacing.md),
+          WpBanner(
+            tone: WpBannerTone.info,
+            message: l10n.dictionarySuggestionsHint(
+              correctionCandidateThreshold,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
+          // Mac App Store: other apps cannot be read, say once which ways
+          // still teach WhisPaste (#934).
+          if (masCorrectionHintVisible()) ...[
+            WpBanner(
+              key: const ValueKey('dictionary-mas-correction-hint'),
+              tone: WpBannerTone.info,
+              message: l10n.dictionaryMasCorrectionHint,
+            ),
+            const SizedBox(height: WpSpacing.md),
+          ],
         ],
+        if (widget.embedded && masCorrectionHintVisible())
+          Text(
+            l10n.dictionaryMasCorrectionHint,
+            key: const ValueKey('dictionary-mas-correction-hint'),
+          ),
         // A failed load is not "no suggestions": say so (UIA-DIC-02), with
         // a way to try again.
         if (candidates.hasError && !candidates.isLoading)
@@ -138,6 +159,12 @@ class _DictionarySuggestionsTabState
             count: 3,
             padding: EdgeInsets.zero,
             embedded: true,
+          )
+        else if (items.isEmpty && widget.embedded)
+          Text(
+            widget.query.isEmpty
+                ? l10n.dictionarySuggestionsEmpty
+                : l10n.searchNoMatches,
           )
         else if (items.isEmpty)
           WpEmptyState(
@@ -163,10 +190,13 @@ class _DictionarySuggestionsTabState
                 ),
             ],
           ),
-        const SizedBox(height: WpSpacing.lg),
-        const CorrectionLearningLog(),
+        if (!widget.embedded) ...[
+          const SizedBox(height: WpSpacing.lg),
+          const CorrectionLearningLog(),
+        ],
       ],
     );
+    return content;
   }
 
   Future<void> _decide(
@@ -186,12 +216,11 @@ class _DictionarySuggestionsTabState
         decisions: {candidate.id: decision},
         db: db,
         // The term is stored before the suggestion counts as accepted.
-        saveTerms: (terms) => saveDictionaryVocabulary(container, (stored) {
-          termAdded = !vocabularyTerms(stored).any(
-            (t) => t.toLowerCase() == candidate.targetText.trim().toLowerCase(),
-          );
-          return mergeVocabulary(stored, terms);
-        }),
+        // A term is the entry "term → term" (#1969); undo only removes one
+        // that this decision added.
+        saveTerms: (terms) async {
+          termAdded = (await addDictionaryTerms(container, terms)).isNotEmpty;
+        },
       );
       if (result.replacementsAdded > 0) {
         await ref.read(replacementsProvider.notifier).reload();
@@ -223,15 +252,7 @@ class _DictionarySuggestionsTabState
                     db: db,
                     removeTerm: (term) async {
                       if (!termAdded) return;
-                      await saveDictionaryVocabulary(
-                        container,
-                        (stored) => encodeVocabulary(
-                          vocabularyTerms(stored).where(
-                            (t) => t.toLowerCase() != term.trim().toLowerCase(),
-                          ),
-                          style: stored,
-                        ),
-                      );
+                      await removeDictionaryTerm(container, term);
                     },
                   );
                   container
@@ -291,21 +312,17 @@ class _DictionarySuggestionsTabState
   /// back on request.
   void _offerUndo(BuildContext context, CorrectionCandidate candidate) {
     final l10n = L10n.of(context);
-    showWpPageNotice(
+    // An undo stands in the notice bar at the bottom like every other
+    // short confirmation, so the suggestion list keeps its place (#1903).
+    showWpNotice(
       context,
-      page: dictionaryNoticePage,
-      notice: WpPageNotice(
+      WpNotice(
         id: 'suggestion-rejected',
+        kind: WpNoticeKind.undo,
         message: l10n.dictionarySuggestionRejected,
-        tone: WpBannerTone.info,
-        autoDismiss: _undoWindow,
-        action: (_) => WpButton(
-          testId: 'dictionary-suggestion-undo',
-          label: l10n.dictionarySuggestionUndo,
-          variant: WpButtonVariant.secondary,
-          size: WpButtonSize.dense,
-          onPressed: () => _restore(context, candidate),
-        ),
+        actionLabel: l10n.dictionarySuggestionUndo,
+        actionTestId: 'dictionary-suggestion-undo',
+        onAction: () => _restore(context, candidate),
       ),
     );
   }
@@ -359,8 +376,8 @@ class _SuggestionRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
+        WpListTileSurface(
+          variant: WpListTileVariant.panel,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -378,54 +395,64 @@ class _SuggestionRow extends StatelessWidget {
                     spacing: WpSpacing.buttonGap,
                     runSpacing: WpSpacing.xs,
                     children: [
-                      WpButton(
-                        key: ValueKey(
-                          'dictionary-suggestion-replace-${candidate.id}',
+                      Semantics(
+                        identifier:
+                            'dictionary-suggestion-replace-${candidate.id}',
+                        child: WpButton(
+                          key: ValueKey(
+                            'dictionary-suggestion-replace-${candidate.id}',
+                          ),
+                          label: l10n.dictionarySuggestionAsReplacement,
+                          semanticsLabel: l10n
+                              .dictionarySuggestionReplacementA11y(suggestion),
+                          variant: WpButtonVariant.secondary,
+                          onPressed: busy
+                              ? null
+                              : () => onDecide(CorrectionDecision.replacement),
                         ),
-                        label: l10n.dictionarySuggestionAsReplacement,
-                        semanticsLabel: l10n
-                            .dictionarySuggestionReplacementA11y(suggestion),
-                        variant: WpButtonVariant.secondary,
-                        onPressed: busy
-                            ? null
-                            : () => onDecide(CorrectionDecision.replacement),
                       ),
-                      WpButton(
-                        key: ValueKey(
-                          'dictionary-suggestion-term-${candidate.id}',
+                      Semantics(
+                        identifier:
+                            'dictionary-suggestion-term-${candidate.id}',
+                        child: WpButton(
+                          key: ValueKey(
+                            'dictionary-suggestion-term-${candidate.id}',
+                          ),
+                          label: l10n.dictionarySuggestionAsTerm,
+                          semanticsLabel: l10n.dictionarySuggestionTermA11y(
+                            suggestion,
+                          ),
+                          variant: WpButtonVariant.secondary,
+                          tone: WpButtonTone.neutral,
+                          onPressed: busy
+                              ? null
+                              : () => onDecide(CorrectionDecision.term),
                         ),
-                        label: l10n.dictionarySuggestionAsTerm,
-                        semanticsLabel: l10n.dictionarySuggestionTermA11y(
-                          suggestion,
-                        ),
-                        variant: WpButtonVariant.secondary,
-                        tone: WpButtonTone.neutral,
-                        onPressed: busy
-                            ? null
-                            : () => onDecide(CorrectionDecision.term),
                       ),
                     ],
                   ),
-                  WpButton(
-                    key: ValueKey(
-                      'dictionary-suggestion-reject-${candidate.id}',
+                  Semantics(
+                    identifier: 'dictionary-suggestion-reject-${candidate.id}',
+                    child: WpButton(
+                      key: ValueKey(
+                        'dictionary-suggestion-reject-${candidate.id}',
+                      ),
+                      label: l10n.dictionarySuggestionReject,
+                      semanticsLabel: l10n.dictionarySuggestionRejectA11y(
+                        suggestion,
+                      ),
+                      variant: WpButtonVariant.ghost,
+                      tone: WpButtonTone.neutral,
+                      onPressed: busy
+                          ? null
+                          : () => onDecide(CorrectionDecision.reject),
                     ),
-                    label: l10n.dictionarySuggestionReject,
-                    semanticsLabel: l10n.dictionarySuggestionRejectA11y(
-                      suggestion,
-                    ),
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: busy
-                        ? null
-                        : () => onDecide(CorrectionDecision.reject),
                   ),
                 ],
               ),
             ],
           ),
         ),
-        const Divider(height: 1, indent: WpSpacing.xs),
       ],
     );
   }

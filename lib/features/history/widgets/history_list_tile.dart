@@ -9,7 +9,6 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_app_icon.dart';
-import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_collection_list_item.dart';
 import '../../../widgets/wp_context_menu.dart';
 import '../../../widgets/wp_list_item_content.dart';
@@ -22,6 +21,7 @@ import 'package:whispaste/core/data/database.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import '../../../core/data/content_metadata_providers.dart';
+import '../../../widgets/wp_tag_chip.dart';
 
 // ---------------------------------------------------------------------------
 // History entry row — WhatsApp/ChatGPT/Discord-inspired
@@ -256,7 +256,7 @@ class _HistoryEntryRowState extends ConsumerState<HistoryEntryRow> {
       ),
       footer: _entryTags.isEmpty
           ? null
-          : _EntryTagChips(tags: _entryTags, onTagTap: widget.onTagTap),
+          : WpTagChipRow(names: _entryTags, onTagTap: widget.onTagTap),
       isFocused: widget.isFocused,
       isSelected: widget.isSelected,
       // Multi-select hides the row actions and the right-click menu: the
@@ -410,116 +410,5 @@ class _EntryMetaRow extends ConsumerWidget {
         ],
     ];
     return WpListItemMeta.segments(segments: segments, color: color);
-  }
-}
-
-class _EntryTagChips extends StatelessWidget {
-  const _EntryTagChips({required this.tags, this.onTagTap});
-
-  final List<String> tags;
-  final void Function(String tag)? onTagTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textMuted = WpColors.textMuted;
-    return Wrap(
-      spacing: 4,
-      runSpacing: 2,
-      children: [
-        for (final tag in tags.take(3))
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _EntryTagChipState.build
-          _EntryTagChip(
-            tag: tag,
-            slot: categorySlotForTag(tag),
-            onTap: onTagTap == null ? null : () => onTagTap!.call(tag),
-          ),
-        if (tags.length > 3)
-          Text(
-            '+${tags.length - 3}',
-            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
-          ),
-      ],
-    );
-  }
-}
-
-/// A tag chip, tinted in its tag's own category hue.
-///
-/// The hue is carried by the fill and the outline (*The Tint Ladder Rule*'s
-/// 12 % and 30 % rungs) but never by the label: eight hues behind a 10px word
-/// is eight contrast problems, and the tag's name already says which tag it is,
-/// so the color is a second, redundant channel rather than the carrier.
-class _EntryTagChip extends StatefulWidget {
-  const _EntryTagChip({
-    required this.tag,
-    required this.slot,
-    required this.onTap,
-  });
-
-  final String tag;
-  final WpCategorySlot slot;
-  final VoidCallback? onTap;
-
-  @override
-  State<_EntryTagChip> createState() => _EntryTagChipState();
-}
-
-class _EntryTagChipState extends State<_EntryTagChip> {
-  final FocusNode _focusNode = FocusNode(debugLabel: 'EntryTagChip');
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final chip = Container(
-      // Vertical 1 stays off-scale on purpose: the mini tag hugs its micro
-      // text; xxs would double the chip height.
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xxs,
-        vertical: 1,
-      ),
-      decoration: BoxDecoration(
-        color: widget.slot.chipFill(),
-        border: Border.all(color: widget.slot.chipBorder()),
-        borderRadius: WpRadius.borderSm,
-      ),
-      child: Text(
-        '#${widget.tag}',
-        style: TextStyle(
-          fontSize: WpTypography.caption,
-          color: WpColors.textSecondary,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-
-    if (widget.onTap == null) return chip;
-
-    return Semantics(
-      button: true,
-      label: '#${widget.tag}',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: WpFocusRing(
-          focusNode: _focusNode,
-          radius: WpRadius.sm,
-          child: InkWell(
-            onTap: widget.onTap,
-            focusNode: _focusNode,
-            borderRadius: WpRadius.borderSm,
-            // WpFocusRing owns all focus visuals — suppress InkWell's own.
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: chip,
-          ),
-        ),
-      ),
-    );
   }
 }

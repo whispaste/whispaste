@@ -207,17 +207,22 @@ void main() {
       _ignoreOverflowErrors();
       await _openTranscriptEditor(tester);
 
-      await _tapInView(tester, find.bySemanticsLabel(l10n.findReplaceToggle));
+      await _tapInView(
+        tester,
+        find.bySemanticsLabel(
+          l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(WpFindReplaceBar), findsOneWidget);
 
       // Focus has to sit in the find field: that is where the bar's
       // `FocusNode.onKeyEvent` gets first crack at the key, ahead of the
       // panel's ancestor `CallbackShortcuts`.
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceFindLabel));
+      await tester.tap(findByFieldLabel(l10n.findReplaceFindLabel));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.bySemanticsLabel(l10n.findReplaceFindLabel),
+        findByFieldLabel(l10n.findReplaceFindLabel),
         'the',
       );
       await tester.pumpAndSettle();

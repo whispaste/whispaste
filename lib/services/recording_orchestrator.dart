@@ -42,7 +42,7 @@ import 'audio/mic_warmup_probe.dart';
 import 'audio/signal_loss_detector.dart';
 import 'audio/user_audio_dirs.dart';
 import 'clipboard_history/app_clipboard.dart';
-import 'dictionary/vocabulary_terms.dart';
+import 'dictionary/contact_terms.dart';
 import 'floating_overlay/dictation_notice.dart'
     show dictationNoticeStands, dismissStaleDictationNotices;
 import 'floating_overlay/pill_hint.dart' show overlayShowsHints;
@@ -58,6 +58,7 @@ import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'replacements/target_field_learning.dart';
 import 'review_prompt_service.dart';
+import 'review_streak_provider.dart';
 import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
@@ -66,18 +67,24 @@ import 'smart_mode/smart_mode_ffi_engine.dart'
     show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
 import 'smart_mode/smart_mode_model_download_service.dart'
     show smartModeDownloadProvider;
+import 'user_models/user_model_use.dart' show smartModeLocalModelReadyProvider;
 import 'smart_mode/smart_mode_fact_guard.dart';
 import 'smart_mode/smart_mode_name_change_notice.dart';
 import 'smart_mode/smart_mode_undo_notice.dart';
+import 'smart_mode/smart_mode_openai_engine.dart' show SmartModeOpenAiEngine;
+import 'activation_milestones.dart';
 import 'smart_mode/smart_mode_output_guard.dart';
 import 'smart_mode/smart_mode_presets.dart';
 import 'smart_mode/smart_mode_text_model.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
+import 'dictation_quality_telemetry.dart';
+import 'model_hardware_telemetry.dart' show modelLifecycleTelemetryProvider;
 import 'telemetry_model_buckets.dart';
 import 'telemetry_service.dart';
 import 'hardware_info_service.dart' as hw;
 import 'paste/auto_send.dart';
+import 'paste/dictation_start.dart' show stripLeadingLineBlanks;
 import 'paste/dictation_start_probe.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paste_result_notice.dart';
@@ -86,7 +93,17 @@ import 'paste/paster.dart';
 import 'paste/repaste_service.dart';
 import 'selection_edit/selection_edit_preview.dart';
 import 'selection_edit/selection_edit_service.dart'
-    show selectionEditServiceProvider;
+    show
+        SelectionReadEmpty,
+        SelectionReadFailed,
+        SelectionReadOk,
+        selectionEditServiceProvider;
+import 'smart_mode/write/smart_write_preview.dart';
+import 'smart_mode/write/smart_write_environment.dart';
+import '../core/config/linux_keyring_lock_probe.dart';
+import 'smart_mode/write/smart_write_service.dart';
+import 'smart_mode/write/smart_write_snippet.dart' show SnippetRef;
+import '../features/snippets/snippets_page.dart' show snippetsProvider;
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'dictation_text_steps.dart';
@@ -100,6 +117,7 @@ import 'stt/inference_client_rejected.dart';
 import 'stt/native_call_guard.dart';
 import 'stt/on_device_engine_lifecycle.dart';
 import 'stt/stt_bundle.dart' show localSttBundleProvider;
+import 'stt/audio_silence_signal.dart';
 import 'stt/transcript_hygiene.dart';
 import 'stt/whisper/whisper_engine.dart';
 import 'stt/whisper/whisper_language_probe.dart';
@@ -107,7 +125,6 @@ import 'stt_parakeet/parakeet_download_service.dart'
     show parakeetGpuWantedForSetting;
 import 'stt_parakeet/parakeet_engine_notifier.dart' show parakeetEngineProvider;
 import 'stt_parakeet/parakeet_gpu_engine.dart';
-import 'stt_parakeet/parakeet_gpu_policy.dart' show ParakeetBackend;
 import 'stt_parakeet/parakeet_language_support.dart';
 import 'stt_engine_lifecycle_provider.dart';
 import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
@@ -350,7 +367,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// stop-to-text time excludes the speaking time (XP-6-09).
   DateTime? _recordingStoppedAtForLatencyKpi;
 
-  /// Mic-start trace of the most recent start (catchup ticket 19):
+  /// Mic-start trace of the most recent start:
   /// hotkey → phase change → paster primed → capture started → first real
   /// sample, logged at debug level once the first sample arrives.
   MicStartTrace? _micStartTrace;
@@ -447,6 +464,7 @@ class RecordingOrchestrator extends Notifier<void> {
     ref.onDispose(() => _cancelAmplitude(resetNoSignalHint: false));
     ref.listen(micSignalLostProvider, (_, lost) => _onMicSignalLost(lost));
     ref.listen(recordingProvider, _abandonStuckSession);
+    ref.listen(recordingProvider, _restoreRefinedWriteDraft);
 
     // Wire the state machine to the shared RecordingNotifier.
     // phaseReader reads the current phase without accessing protected state.
@@ -725,6 +743,17 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
+    // A draft that has used up its refinements waits for Enter or Esc
+    // (#250): the hotkey starts no fourth recording, the card already says
+    // so.
+    if (target == RecordingTarget.smartWrite &&
+        (ref.read(smartWritePreviewProvider)?.refineLimitReached ?? false)) {
+      _log.info('Write refine limit reached — no further recording');
+      ref.read(smartWritePreviewProvider.notifier).noteActivity();
+      _releaseStartLock();
+      return;
+    }
+
     // Written only after this call has won both guards, into a fresh session
     // that the pipeline keeps. A rejected start (e.g. one made while the
     // previous pipeline is still transcribing) must not overwrite the target
@@ -734,6 +763,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // the next recording only, as the Dock promises.
     final session = _session = _RecordingSession(
       target: target,
+      previousWriteDraft: target == RecordingTarget.smartWrite
+          ? ref.read(smartWritePreviewProvider)
+          : null,
       smartModeHotkeyPreset: forcedSmartModePreset,
       languageOverride: languageOverride,
       silenceTimeoutOverride: silenceTimeoutOverride,
@@ -757,7 +789,8 @@ class RecordingOrchestrator extends Notifier<void> {
       // Checked before the regular preflight so a missing Smart Mode
       // engine surfaces as a setup hint without recording anything — the
       // instruction would have nowhere to go.
-      if (target == RecordingTarget.selectionEdit &&
+      if ((target == RecordingTarget.selectionEdit ||
+              target == RecordingTarget.smartWrite) &&
           !await _passSelectionEditGate()) {
         return;
       }
@@ -789,6 +822,12 @@ class RecordingOrchestrator extends Notifier<void> {
       // Before the start closes the card: a held edit hotkey refines the
       // preview that still stands, anything else drops it (#589).
       _keepOrDropSelectionEditPreview(target);
+      // A waiting write draft is never inserted after a new start: its card
+      // and the Enter/Esc keys it holds go away with it (#248), so Enter
+      // inserts nothing while a refinement runs (#250). A refinement keeps
+      // the draft on the session until its answer replaces it.
+      session.pendingWriteDraft = session.previousWriteDraft;
+      ref.read(smartWritePreviewProvider.notifier).discard();
       // Transition state: idle → recording (generates sessionId).
       _stateMachine.transition(RecordingIntent.start);
       // A new dictation ends any pending name-change undo (DEV-165).
@@ -805,7 +844,11 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // No per-start telemetry: a recording's outcome is captured once at the
       // end via the aggregated pipeline-outcome counter (see
-      // _trackPipelineOutcome), keeping Matomo volume off the hot path.
+      // _trackPipelineOutcome), keeping Matomo volume off the hot path. The
+      // one exception is an in-memory counter for a quick repeat (#1791).
+      ref.read(dictationQualityTelemetryProvider).dictationStarted();
+      // A quick re-dictation breaks the run the rating dialog waits for.
+      ref.read(reviewStreakProvider.notifier).noteDictationStarted();
 
       // Notify the active on-device engine that a recording is active
       // (pauses its idle timer, if any).
@@ -848,6 +891,9 @@ class RecordingOrchestrator extends Notifier<void> {
       if (settings.sttProviderType.isLocal) {
         unawaited(_loadEngineAfterCapture(engineLifecycle, micTrace));
       }
+      // The own Smart Mode server loads its model on the first request; the
+      // recording is the lead time for that (#1957).
+      _warmUpCustomSmartMode(settings, session);
       unawaited(
         audioNotifier.firstSampleArrived?.then((_) {
           micTrace.mark(MicStartStage.firstSample);
@@ -1897,6 +1943,16 @@ class RecordingOrchestrator extends Notifier<void> {
     // ── Edit selection by voice ─────────────────────────────────────────
     // The transcript is an instruction, not text to insert: no Smart Mode
     // preset, snippet picker, history entry or text transforms.
+    if (session.target == RecordingTarget.smartWrite) {
+      return _finalizeSmartWrite(
+        sid: sid,
+        instruction: finalText,
+        settings: settings,
+        timing: timing,
+        factLanguageCode: _factGuardLanguage(settings, session),
+        session: session,
+      );
+    }
     if (session.target == RecordingTarget.selectionEdit) {
       return _finalizeSelectionEdit(
         sid: sid,
@@ -1928,7 +1984,10 @@ class RecordingOrchestrator extends Notifier<void> {
       finalText,
       languageCode: _resolveEffectiveLang(settings, session),
       applyReplacements: ref.read(recordingStoreProvider).applyReplacements,
-      terms: vocabularyTerms(settings.stt.customVocabulary),
+      terms: localVocabularyTerms(
+        settings.stt.customVocabulary,
+        ref.read(contactTermsProvider),
+      ),
     );
     if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
 
@@ -2169,7 +2228,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // The same outcome as a flag for subscribers (the "Erste Schritte" card).
       pasted: _pasteOutcomeThisPipeline == PasteOutcome.success,
     );
-    // Automation hooks (ticket / 8.3): fire-and-forget, never awaited, so a
+    // Automation hooks: fire-and-forget, never awaited, so a
     // slow or failing hook cannot delay the pipeline's own completion.
     unawaited(
       ref
@@ -2203,6 +2262,23 @@ class RecordingOrchestrator extends Notifier<void> {
     // unconfirmed paste (no receipt, e.g. Linux) is unknown: no prompt moment
     // either, but it is not counted as a failure and leaves the threshold
     // alone (GR-015).
+    // The run of good dictations for the rating dialog (#2185). A paste that
+    // can never be confirmed on this platform (no receipt bridge, e.g. Linux)
+    // says nothing bad about this dictation and counts as good, so the
+    // dialog has the same moment on every platform; an unconfirmed paste
+    // that raised a notice breaks the run like a failure.
+    final streak = ref.read(reviewStreakProvider.notifier);
+    final outcome = _pasteOutcomeThisPipeline;
+    if (outcome == PasteOutcome.unconfirmedNoBridge &&
+        !_pasteFailureSoundPlayedThisPipeline) {
+      streak.noteSuccess();
+    } else if ((outcome?.isUnconfirmed ?? false) ||
+        _pasteFailureSoundPlayedThisPipeline ||
+        _pasteNotConfirmedThisPipeline) {
+      streak.noteSetback();
+    } else {
+      streak.noteSuccess();
+    }
     if (_pasteOutcomeThisPipeline?.isUnconfirmed ?? false) {
       // Neither success nor failure: touch nothing.
     } else if (_pasteFailureSoundPlayedThisPipeline ||
@@ -2297,7 +2373,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// `modelDownloaded` is only known once the startup disk scan has run, so
   /// a hotkey pressed right after launch waits for that scan instead of
   /// misreporting an installed model as "not set up".
-  Future<String?> _selectionEditPreflight() async {
+  Future<String?> _selectionEditPreflight() =>
+      _smartEngineGate(write: _session.target == RecordingTarget.smartWrite);
+
+  /// Engine gate of a write job started over the automation API (#255): the
+  /// same checks as the hotkey's write route, without a recording session.
+  Future<String?> automationWritePreflight() => _smartEngineGate(write: true);
+
+  Future<String?> _smartEngineGate({required bool write}) async {
     if (ref.read(selectionEditServiceProvider) == null) {
       return 'selection_edit_unsupported';
     }
@@ -2321,9 +2404,17 @@ class RecordingOrchestrator extends Notifier<void> {
           '${_selectionEditScanTimeout.inSeconds}s — treating model as missing',
         ),
       );
-      engineReady = ref.read(smartModeDownloadProvider).modelDownloaded;
+      engineReady = ref.read(smartModeLocalModelReadyProvider);
     } else {
+      if (write &&
+          await ref.read(smartWriteKeyringProbeProvider)() !=
+              KeyringAvailability.usable) {
+        return 'smart_write_keyring_locked';
+      }
       engineReady = settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+      if (!engineReady && write) {
+        return 'smart_write_missing_key';
+      }
     }
     return engineReady ? null : 'selection_edit_no_engine';
   }
@@ -2351,6 +2442,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required _PipelineTiming timing,
     required String factLanguageCode,
     required _RecordingSession session,
+    String? knownSelection,
   }) async {
     final service = ref.read(selectionEditServiceProvider);
     if (service == null) {
@@ -2375,6 +2467,7 @@ class RecordingOrchestrator extends Notifier<void> {
       ),
       factLanguageCode: factLanguageCode,
       refining: refining,
+      knownSelection: knownSelection,
     );
     sw.stop();
     timing.clipboardMs = sw.elapsedMilliseconds;
@@ -2413,6 +2506,149 @@ class RecordingOrchestrator extends Notifier<void> {
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
     _oomHandler.reset();
     timing.outcome = 'ok';
+    return true;
+  }
+
+  /// The active snippets as write bases (#252). Unreadable or slow storage
+  /// means "no snippets": the write run then goes on freely.
+  Future<List<SnippetRef>> _writeSnippets() async {
+    try {
+      final items = await ref
+          .read(snippetsProvider.future)
+          .timeout(const Duration(seconds: 2));
+      return [
+        for (final item in items)
+          SnippetRef(id: item.id, title: item.title, body: item.body),
+      ];
+    } on Object catch (error) {
+      _log.info('Snippets for writing unavailable (${error.runtimeType})');
+      return const [];
+    }
+  }
+
+  /// Smart Mode "write" (#248, ADR 0015 D9): the transcript is an instruction.
+  /// The selection decides the route: text marked → edit selection (the
+  /// already read text is reused), nothing marked → a new draft that waits in
+  /// the preview until Enter pastes it or Esc drops it. When the selection
+  /// cannot be told ("unknown") nothing is written blindly. No history entry,
+  /// no raw-transcript fallback; logs carry lengths and durations only.
+  Future<bool> _finalizeSmartWrite({
+    required String sid,
+    required String instruction,
+    required AppSettings settings,
+    required _PipelineTiming timing,
+    required String factLanguageCode,
+    required _RecordingSession session,
+  }) async {
+    final editService = ref.read(selectionEditServiceProvider);
+    if (editService == null) {
+      timing.outcome = 'selection_edit_unsupported';
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'selection_edit_unsupported',
+      );
+      return false;
+    }
+    final latency = Stopwatch()..start();
+    final selection = session.previousWriteDraft == null
+        ? await editService.readSelection()
+        : const SelectionReadEmpty();
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
+    switch (selection) {
+      case SelectionReadOk():
+        _log.info('[$sid] Write routed to edit selection');
+        if (selection.clipboardNotRestored) {
+          ref.read(smartWriteNoticeProvider.notifier).clipboardNotRestored();
+        }
+        return _finalizeSelectionEdit(
+          sid: sid,
+          instruction: instruction,
+          settings: settings,
+          timing: timing,
+          factLanguageCode: factLanguageCode,
+          session: session,
+          knownSelection: selection.text,
+        );
+      case SelectionReadFailed():
+        _log.info('[$sid] Write: selection unknown, nothing written');
+        timing.outcome = 'smart_write_selection_unknown';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'smart_write_selection_unknown',
+        );
+        return false;
+      case SelectionReadEmpty():
+        break;
+    }
+
+    if (session.previousWriteDraft == null) {
+      ref.read(smartWriteNoticeProvider.notifier).noSelection();
+    }
+    final outcome = await ref
+        .read(smartWriteServiceProvider)
+        .write(
+          instruction: instruction,
+          previousDraft: session.previousWriteDraft?.text,
+          // A fresh write may be based on a snippet (#252); a revision keeps
+          // working on its draft.
+          snippets: session.previousWriteDraft == null
+              ? await _writeSnippets()
+              : const [],
+        );
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
+    final failure = outcome.failure;
+    final draft = outcome.text;
+    if (failure != null || draft == null) {
+      final previous = session.previousWriteDraft;
+      if (previous != null) {
+        session.pendingWriteDraft = null;
+        _stateMachine.transition(
+          RecordingIntent.complete,
+          transcript: previous.text,
+        );
+        await ref
+            .read(smartWritePreviewProvider.notifier)
+            .offer(
+              previous.text,
+              previous: previous,
+              errorCode: failure?.errorCode ?? 'smart_write_failed',
+            );
+        timing.outcome = failure?.errorCode ?? 'smart_write_failed';
+        return false;
+      }
+      timing.outcome = failure?.errorCode ?? 'smart_write_failed';
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: failure?.errorCode ?? 'smart_write_failed',
+      );
+      return false;
+    }
+
+    await _persistHotkeyLatencyIfPending(sid);
+    // Cleared before the phase goes idle, so the restore listener never
+    // re-offers the old draft ahead of the answer (#250).
+    final refined = session.previousWriteDraft;
+    session.pendingWriteDraft = null;
+    _stateMachine.transition(RecordingIntent.complete, transcript: draft);
+    await ref
+        .read(smartWritePreviewProvider.notifier)
+        .offer(
+          draft,
+          previous: refined,
+          snippetTitle: outcome.snippetTitle,
+          snippetMissed: outcome.snippetMissed,
+          rounds: refined == null ? 0 : refined.rounds + 1,
+        );
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    _oomHandler.reset();
+    timing.outcome = 'ok';
+    // Only the duration: the text itself never reaches the log.
+    _log.info(
+      '[$sid] Write preview ready after ${latency.elapsedMilliseconds}ms '
+      '(selection read + engine)',
+    );
     return true;
   }
 
@@ -2528,8 +2764,36 @@ class RecordingOrchestrator extends Notifier<void> {
       languageCode,
       customInstruction: customInstruction,
     );
+    _countSmartModeRun(preset, settings, custom: customInstruction != null);
     if (result == rawText) return (text: rawText, input: null, applied: false);
     return (text: result, input: rawText, applied: true);
+  }
+
+  /// Counts one finished Smart Mode run as `smart_mode/run`, named
+  /// `<mode>|<backend>|<outcome>`: the built-in preset id or `custom` (never
+  /// the user's name or instruction), `local|own_server|cloud`, and `ok` or
+  /// `fail` (any fallback to the raw transcript, recorded by
+  /// [_recordSmartModeFallback] during this run). A cancelled dictation never
+  /// reaches this point, so there is no `cancel` outcome.
+  void _countSmartModeRun(
+    SmartModePreset preset,
+    AppSettings settings, {
+    required bool custom,
+  }) {
+    if (!ref.mounted) return;
+    ref
+        .read(telemetrySessionAggregatorProvider)
+        .count(
+          category: 'smart_mode',
+          action: 'run',
+          name: smartModeRunTelemetryName(
+            modeId: custom ? 'custom' : preset.name,
+            provider: SmartModeProviderType.fromValue(
+              settings.smartMode.provider,
+            ),
+            fellBack: _smartModeFallbackThisPipeline != null,
+          ),
+        );
   }
 
   /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
@@ -2558,8 +2822,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // installed model even if one exists — a missing/invalid API key or a
     // network failure surfaces as the same silent-fallback path below, via
     // the engine itself throwing.
-    if (provider.isLocal &&
-        !ref.read(smartModeDownloadProvider).modelDownloaded) {
+    if (provider.isLocal && !ref.read(smartModeLocalModelReadyProvider)) {
       _log.info(
         '[$sid] Smart Mode $preset selected but model not downloaded — '
         'falling back to raw transcript',
@@ -2657,7 +2920,16 @@ class RecordingOrchestrator extends Notifier<void> {
         // Really stop the generation the pipeline just gave up on, instead
         // of letting it burn CPU/GPU in the background.
         unawaited(engine.cancel());
-        _recordSmartModeFallback(SmartModeFallbackReason.timedOut);
+        // The own server is often still loading its model then; its message
+        // says so (#1957).
+        if (provider == SmartModeProviderType.custom) {
+          _recordSmartModeFallback(
+            SmartModeFallbackReason.customEndpoint,
+            errorCode: 'smart_mode_custom_timeout',
+          );
+        } else {
+          _recordSmartModeFallback(SmartModeFallbackReason.timedOut);
+        }
         return rawText;
       case FailedWith(:final error):
         _log.warning('[$sid] Smart Mode $preset failed: $error');
@@ -2667,7 +2939,18 @@ class RecordingOrchestrator extends Notifier<void> {
         if (errorCode.startsWith('smart_mode_custom_')) {
           _recordSmartModeFallback(
             SmartModeFallbackReason.customEndpoint,
-            customEndpointCode: errorCode,
+            errorCode: errorCode,
+          );
+          return rawText;
+        }
+        // An OpenAI request that was answered with an error names its class
+        // too (#2116): key rejected, no access to the model, quota, network.
+        // A missing key stays below, as a missing text model.
+        if (errorCode.startsWith('smart_mode_openai_') &&
+            errorCode != 'smart_mode_openai_api_key_missing') {
+          _recordSmartModeFallback(
+            SmartModeFallbackReason.openAi,
+            errorCode: errorCode,
           );
           return rawText;
         }
@@ -2679,9 +2962,7 @@ class RecordingOrchestrator extends Notifier<void> {
               localEngineAvailable: ref.read(
                 smartModeLocalEngineAvailableProvider,
               ),
-              modelDownloaded: ref
-                  .read(smartModeDownloadProvider)
-                  .modelDownloaded,
+              modelDownloaded: ref.read(smartModeLocalModelReadyProvider),
               openAiApiKey: settings.cloudProvider.openAiApiKey,
               // Without this an own endpoint that is set up is reported as
               // a missing text model after an unexpected failure (W-M3).
@@ -2704,10 +2985,10 @@ class RecordingOrchestrator extends Notifier<void> {
   /// sent after the paste step by [_flushSmartModeFallbackNotice].
   void _recordSmartModeFallback(
     SmartModeFallbackReason reason, {
-    String? customEndpointCode,
+    String? errorCode,
   }) {
     _smartModeFallbackThisPipeline = reason;
-    _smartModeFallbackCodeThisPipeline = customEndpointCode;
+    _smartModeFallbackCodeThisPipeline = errorCode;
   }
 
   /// Fires the OS notification for a Smart Mode fallback (ticket 02) once the
@@ -2736,7 +3017,7 @@ class RecordingOrchestrator extends Notifier<void> {
               l10n,
               reason: reason,
               delivery: delivery,
-              customEndpointCode: customCode,
+              errorCode: customCode,
             ),
           ),
     );
@@ -2878,7 +3159,8 @@ class RecordingOrchestrator extends Notifier<void> {
     // the app that was frontmost at hotkey time.
     final capturesTarget =
         target == RecordingTarget.clipboard ||
-        target == RecordingTarget.selectionEdit;
+        target == RecordingTarget.selectionEdit ||
+        target == RecordingTarget.smartWrite;
     // A manual profile needs no target, so it names the run on every target
     // (quick notes included) and only skips the language when one is forced.
     final manualProfile =
@@ -3023,8 +3305,7 @@ class RecordingOrchestrator extends Notifier<void> {
         gpuWanted: parakeetGpuWantedForSetting(
           settings.behavior.gpuAcceleration,
         ),
-        gpuActive:
-            ref.read(parakeetEngineProvider).backend == ParakeetBackend.gpu,
+        gpuActive: ref.read(parakeetEngineProvider).backend.usesGpu,
       );
       processing = resolved.processing;
       fellBack = resolved.fellBack;
@@ -3064,11 +3345,27 @@ class RecordingOrchestrator extends Notifier<void> {
     final agg = ref.read(telemetrySessionAggregatorProvider);
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
     final model = telemetryModelId(settings);
+    final quality = ref.read(dictationQualityTelemetryProvider);
+    final context = quality.contextFor(settings);
     agg.count(
       category: 'pipeline',
       action: timing.outcome == 'ok' ? 'success' : 'fail',
       name: '$model|${timing.outcome}',
     );
+    // A failed dictation breaks the run the rating dialog waits for.
+    if (reviewStreakBrokenBy(timing.outcome)) {
+      ref.read(reviewStreakProvider.notifier).noteSetback();
+    }
+    if (timing.outcome == 'ok') {
+      unawaited(
+        countActivationDictation(
+          ref,
+          report:
+              settings.privacy.shareUsageStats &&
+              settings.onboarding.onboardingCompleted,
+        ),
+      );
+    }
     agg.count(
       category: 'pipeline',
       action: 'latency',
@@ -3081,16 +3378,33 @@ class RecordingOrchestrator extends Notifier<void> {
       audioMs: timing.audioMs ?? 0,
     );
     if (timing.outcome == 'ok' && rtf != null) {
-      final backend = telemetryBackend(
-        settings: settings,
-        optimalBackend: ref.read(hw.gpuInfoProvider).value?.optimalBackend,
-      );
       agg.count(
         category: 'pipeline',
         action: 'rtf',
-        name: '$model|$backend|$rtf',
+        name: '$model|${context.backend}|$rtf',
       );
     }
+    // Model quality per dictation (#1791): model, device class, result and
+    // speed class in one counter, so a model can be judged per device.
+    quality.countOutcome(context, ok: timing.outcome == 'ok', rtf: rtf);
+  }
+
+  /// The model key of a dictation with [settings], own models included.
+  String _telemetryModelKey(AppSettings settings) =>
+      ref.read(dictationQualityTelemetryProvider).contextFor(settings).modelKey;
+
+  /// Notes a paste into another app for the quick-repeat and undo counters.
+  void _rememberPaste(AppSettings settings) {
+    if (!ref.mounted) return;
+    final quality = ref.read(dictationQualityTelemetryProvider);
+    // The native undo shortcut watch (#2078) only runs with usage sharing on
+    // and the first-run privacy choice made; only auto-pastes get here.
+    quality.rememberPaste(
+      quality.contextFor(settings),
+      watchShortcut:
+          settings.privacy.shareUsageStats &&
+          !ref.read(onboardingTelemetryBufferProvider).isPending,
+    );
   }
 
   /// Coarse latency bucket (whole seconds, capped) so no precise timing leaks.
@@ -3149,7 +3463,40 @@ class RecordingOrchestrator extends Notifier<void> {
     // stopRecording).
     _stopInFlight = false;
     _clearPasteTarget();
+    // Esc while writing (#248): the draft is dropped, so stop its generation
+    // instead of letting it run up to the write timeout.
+    if (_session.target == RecordingTarget.smartWrite) {
+      unawaited(ref.read(smartWriteServiceProvider).cancel());
+    }
     _log.info('Cancel requested during $phase — result will be discarded');
+  }
+
+  /// A refinement that ends without an answer (Esc, a recording or
+  /// transcription error, the stuck guard) brings the last draft back into
+  /// the preview (#250): only a successful answer replaces it.
+  void _restoreRefinedWriteDraft(
+    RecordingState? previous,
+    RecordingState next,
+  ) {
+    if (next.phase != RecordingPhase.idle &&
+        next.phase != RecordingPhase.error) {
+      return;
+    }
+    final draft = _session.pendingWriteDraft;
+    if (draft == null) return;
+    _session.pendingWriteDraft = null;
+    _log.info('Refinement ended without an answer — last draft restored');
+    unawaited(
+      ref
+          .read(smartWritePreviewProvider.notifier)
+          .offer(
+            draft.text,
+            previous: draft,
+            errorCode: next.phase == RecordingPhase.error
+                ? next.errorMessage
+                : null,
+          ),
+    );
   }
 
   /// The stuck guard failed a transcribing session: from here on that session
@@ -3172,7 +3519,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Settles what an abandoned session leaves behind, without touching the
   /// phase, the clipboard or the paste target of a newer recording. A late
-  /// text goes to history, or is dropped with saving off; without a text the
+  /// text goes to history, or is dropped with saving off under a quiet notice
+  /// (#487: no silent text loss, the text itself stays unsaved); without a
+  /// text the
   /// audio is parked for a retry. Selection edits and the onboarding practice
   /// step only make sense in the moment, so they leave nothing. Returns
   /// whether [wavPath] must survive the cleanup.
@@ -3184,6 +3533,7 @@ class RecordingOrchestrator extends Notifier<void> {
     _PipelineTiming timing,
   ) async {
     if (session.target == RecordingTarget.selectionEdit ||
+        session.target == RecordingTarget.smartWrite ||
         sandboxTranscriptSink != null) {
       return false;
     }
@@ -3198,7 +3548,7 @@ class RecordingOrchestrator extends Notifier<void> {
           completedParts: inFlight.completedSliceParts,
         );
       }
-      await _saveAbandonedTranscript(
+      final dropped = await _saveAbandonedTranscript(
         sid,
         transcript,
         wavPath,
@@ -3206,6 +3556,11 @@ class RecordingOrchestrator extends Notifier<void> {
         inFlight,
         timing,
       );
+      if (dropped) {
+        ref
+            .read(recordingInfoProvider.notifier)
+            .show('info_late_dictation_discarded');
+      }
     }
     if (inFlight.savedToHistory) {
       ref
@@ -3217,7 +3572,8 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Writes the raw [transcript] of an abandoned session to history. Text steps
   /// run; Smart Mode and snippets do not, as the user is no longer waiting.
-  Future<void> _saveAbandonedTranscript(
+  /// Returns true when a non-empty text was dropped because saving is off.
+  Future<bool> _saveAbandonedTranscript(
     String sid,
     String transcript,
     String wavPath,
@@ -3226,14 +3582,18 @@ class RecordingOrchestrator extends Notifier<void> {
     _PipelineTiming timing,
   ) async {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    if (!settings.history.saveHistory || transcript.trim().isEmpty) return;
+    if (transcript.trim().isEmpty) return false;
+    if (!settings.history.saveHistory) return true;
     try {
       final cleaned = _cleanupTranscriptWhitespace(sid, transcript);
       final text = await _textSteps(settings).apply(
         cleaned,
         languageCode: _resolveEffectiveLang(settings, session),
         applyReplacements: ref.read(recordingStoreProvider).applyReplacements,
-        terms: vocabularyTerms(settings.stt.customVocabulary),
+        terms: localVocabularyTerms(
+          settings.stt.customVocabulary,
+          ref.read(contactTermsProvider),
+        ),
       );
       final input = await _buildHistoryInput(
         text,
@@ -3257,6 +3617,7 @@ class RecordingOrchestrator extends Notifier<void> {
     } on Object catch (e) {
       _log.error('[$sid] Late text not saved: ${e.runtimeType}');
     }
+    return false;
   }
 
   Future<bool> applyOomModelFallback(String modelId) async {
@@ -3265,6 +3626,7 @@ class RecordingOrchestrator extends Notifier<void> {
       return false;
     }
 
+    final fromKey = _telemetryModelKey(settings);
     await ref
         .read(settingsProvider.notifier)
         .updateSettings(
@@ -3273,6 +3635,7 @@ class RecordingOrchestrator extends Notifier<void> {
             sttModel: modelId,
           ),
         );
+    _countModelFallback(fromKey: fromKey, toKey: whisperCatalogId(modelId));
     ref.read(oomRecoveryPendingProvider.notifier).clear();
     ref.read(onDeviceEngineLifecycleProvider).stop();
     return true;
@@ -3283,6 +3646,7 @@ class RecordingOrchestrator extends Notifier<void> {
     final provider = _preferredCloudProvider(settings);
     if (provider == null) return null;
 
+    final fromKey = _telemetryModelKey(settings);
     await ref.read(settingsProvider.notifier).updateSettings((s) {
       return s.copyWith(
         sttProvider: provider.value,
@@ -3294,10 +3658,24 @@ class RecordingOrchestrator extends Notifier<void> {
     } catch (e) {
       _log.debug('telemetry failed: $e');
     }
+    _countModelFallback(fromKey: fromKey, toKey: 'cloud');
     _oomHandler.reset();
     ref.read(oomRecoveryPendingProvider.notifier).clear();
     ref.read(onDeviceEngineLifecycleProvider).stop();
     return provider;
+  }
+
+  /// `model/fallback` after a memory failure (#1791): the user moved from
+  /// [fromKey] to a smaller checked model or to the cloud.
+  void _countModelFallback({required String fromKey, required String toKey}) {
+    if (!ref.mounted) return;
+    try {
+      ref
+          .read(modelLifecycleTelemetryProvider)
+          .fallback(fromKey: fromKey, toKey: toKey, reason: 'oom');
+    } catch (e) {
+      _log.debug('model telemetry skipped: $e');
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -4572,6 +4950,25 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
+  /// Asks the user's own Smart Mode server to load its model while the user
+  /// still speaks, when this recording may run Smart Mode there (#1957). The
+  /// engine decides whether a request is due; it never throws.
+  void _warmUpCustomSmartMode(AppSettings settings, _RecordingSession session) {
+    if (SmartModeProviderType.fromValue(settings.smartMode.provider) !=
+        SmartModeProviderType.custom) {
+      return;
+    }
+    final mayRun =
+        session.smartModeHotkeyPreset != null ||
+        session.target == RecordingTarget.smartWrite ||
+        settings.smartMode.activeCustomPreset != null ||
+        smartModePresetFromSettingsValue(settings.smartMode.standardPreset) !=
+            SmartModePreset.off;
+    if (!mayRun) return;
+    final engine = ref.read(smartModeEngineProvider);
+    if (engine is SmartModeOpenAiEngine) unawaited(engine.warmUp());
+  }
+
   /// Best-effort pre-warm: starts the STT server so the first dictation is
   /// instant. Runs in the background — failures are silently logged.
   Future<void> _prewarmStt() async {
@@ -4690,6 +5087,7 @@ class RecordingOrchestrator extends Notifier<void> {
         ref
             .read(telemetrySessionAggregatorProvider)
             .count(category: 'insertion', action: 'auto_paste');
+        _rememberPaste(settings);
         return;
       case AfterTranscriptionAction.clipboardAndPaste:
         await _copyTranscriptToClipboard(transcript);
@@ -4697,6 +5095,7 @@ class RecordingOrchestrator extends Notifier<void> {
         ref
             .read(telemetrySessionAggregatorProvider)
             .count(category: 'insertion', action: 'auto_paste');
+        _rememberPaste(settings);
         return;
     }
   }
@@ -4743,17 +5142,19 @@ class RecordingOrchestrator extends Notifier<void> {
     await quickNoteEditorFlush?.call();
 
     final db = ref.read(historyDatabaseProvider);
-    var note = await db.getQuickNote();
-    if (note == null) {
-      note = await db.createNote();
-      await db.setQuickNote(note.id);
-    }
+    final quickNoteSettings =
+        (ref.read(settingsProvider).value ?? AppSettings.defaults)
+            .quickNoteHotkey;
+    // #661: the destination is resolved only now, with the transcript in
+    // hand, so the hotkey path up to the text never waits on it.
+    final note = await _quickNoteDestinationNote(
+      db,
+      quickNoteSettings.destination,
+    );
 
     // #803: date the dictation per the timestamp style — a line in the text,
     // a margin mark in `note_appends`, or both. Never a history entry.
-    final style = (ref.read(settingsProvider).value ?? AppSettings.defaults)
-        .quickNoteHotkey
-        .timestampStyle;
+    final style = quickNoteSettings.timestampStyle;
     final appendedAt = clock.now();
     String? stampLine;
     if (style.writesTextLine) {
@@ -4778,17 +5179,38 @@ class RecordingOrchestrator extends Notifier<void> {
       await db.updateNoteContent(note.id, newContent);
     }
 
-    // Recorded whether or not a live editor took the text: the mark belongs
-    // to the note, not to the write path.
-    if (style.recordsMarginMark) {
-      await db.addNoteAppend(
-        noteId: note.id,
-        appendedAt: appendedAt,
-        anchor: quickNoteAppendAnchor(transcript),
-      );
-    }
+    // Recorded for every style and whether or not a live editor took the
+    // text: the row is what makes the note recognisable as one with
+    // quick-note dictations (list mark, saved views, #661). The editor shows
+    // it as a margin mark only when the style asks for one.
+    await db.addNoteAppend(
+      noteId: note.id,
+      appendedAt: appendedAt,
+      anchor: quickNoteAppendAnchor(transcript),
+    );
 
     onQuickNoteAppended?.call(note.id);
+  }
+
+  /// The note [destination] names. The marked quick note (default) is
+  /// created and marked on the first dictation; "last note" and "new note"
+  /// leave the mark alone and create a plain note when they need one.
+  Future<Note> _quickNoteDestinationNote(
+    HistoryDatabase db,
+    QuickNoteDestination destination,
+  ) async {
+    switch (destination) {
+      case QuickNoteDestination.markedNote:
+        final marked = await db.getQuickNote();
+        if (marked != null) return marked;
+        final note = await db.createNote();
+        await db.setQuickNote(note.id);
+        return note.copyWith(isQuickNote: true);
+      case QuickNoteDestination.lastNote:
+        return await db.getLastEditedNote() ?? await db.createNote();
+      case QuickNoteDestination.newNote:
+        return db.createNote();
+    }
   }
 
   /// Logs an unconfirmed paste. [PasteOutcome.unconfirmedNoBridge] (no receipt
@@ -4849,7 +5271,10 @@ class RecordingOrchestrator extends Notifier<void> {
     }
     if (!primed) await paster.prime();
 
-    final inserted = await _fitToField(startProbe, transcript);
+    final inserted = await _fitToField(
+      startProbe,
+      stripLeadingLineBlanks(transcript),
+    );
     final outcome = await paster.paste(
       inserted,
       PasteOptions(
@@ -5017,7 +5442,15 @@ class _InFlightDictation {
 /// the target and overrides from here, never from the shared providers, which
 /// the next start overwrites.
 class _RecordingSession {
+  final SmartWriteDraft? previousWriteDraft;
+
+  /// The draft a running refinement may still have to bring back (#250):
+  /// set once the start dropped its preview, cleared once the answer or the
+  /// failure re-offered a draft.
+  SmartWriteDraft? pendingWriteDraft;
+
   _RecordingSession({
+    this.previousWriteDraft,
     this.target = RecordingTarget.clipboard,
     this.smartModeHotkeyPreset,
     this.languageOverride,
@@ -5102,7 +5535,9 @@ bool _isGermanLanguage(String languageCode) =>
 /// [wavPath] as well, so its worker does not hold a second copy of the
 /// recording (#1665). Any other adapter gets a plain call. The result passes through
 /// [applyTranscriptHygiene] for every engine, so the same rules apply to
-/// whisper, Parakeet and the cloud adapters.
+/// whisper, Parakeet and the cloud adapters. The audio's silence signal
+/// (#2013) goes with it, so text invented on a silent end is removed for
+/// every engine as well.
 Future<String> _transcribeOnce(
   Transcriber transcriber,
   List<int> wavBytes, {
@@ -5131,7 +5566,11 @@ Future<String> _transcribeOnce(
   } else {
     raw = await transcriber.transcribe(wavBytes, language: language);
   }
-  return applyTranscriptHygiene(raw);
+  if (raw.trim().isEmpty) return '';
+  return applyTranscriptHygiene(
+    raw,
+    silence: audioSilenceSignalOfWav(wavBytes),
+  );
 }
 
 /// Error code for a local engine failure that reached the orchestrator without

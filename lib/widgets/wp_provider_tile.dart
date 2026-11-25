@@ -98,6 +98,9 @@ class _WpProviderTileState extends State<WpProviderTile> {
   Widget build(BuildContext context) {
     final provider = widget.provider;
     final ts = Theme.of(context).textTheme;
+    // Brand exception (#1757): each provider paints its own brand fill, ink
+    // and logo (WpBrandTokens), which none of WpButton's tones may carry;
+    // allowlisted in wp_button_raw_material_guard_test.
     final button = FilledButton(
       focusNode: _focusNode,
       onPressed: widget.onPressed,

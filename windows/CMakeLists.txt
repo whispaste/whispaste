@@ -84,6 +84,9 @@ if(WP_SHERPA_DLLS)
   # A stale stage (pin or pubspec.lock moved without a rebuild) fails here.
   include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/check-sherpa-stage.cmake")
   wp_check_sherpa_stage("${WP_SHERPA_STAGE}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+  if(EXISTS "${WP_SHERPA_STAGE}/DirectML.dll")
+    list(APPEND WP_SHERPA_DLLS "${WP_SHERPA_STAGE}/DirectML.dll")
+  endif()
   list(FILTER PLUGIN_BUNDLED_LIBRARIES EXCLUDE REGEX "/(sherpa-onnx-c-api|onnxruntime)\\.dll$")
   list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_SHERPA_DLLS})
 else()
@@ -167,3 +170,6 @@ endif()
 
 # Local extraction of audio from video imports (#355).
 include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/video-decoder.cmake")
+
+# Explorer command shared by the Store package and classic installer.
+add_subdirectory("shell")

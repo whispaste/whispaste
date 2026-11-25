@@ -86,7 +86,7 @@ void main() {
     });
 
     test('falls back to English for an unsupported code', () async {
-      writeLocaleMirror('fr');
+      writeLocaleMirror('pl');
       final l10n = await resolvePersistedL10n();
       expect(l10n.localeName, 'en');
     });

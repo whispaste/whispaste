@@ -207,6 +207,7 @@ Widget buildRenderEngineRoot({
   ValueChanged<Offset>? onTapAt,
   required VoidCallback onPanStart,
   required VoidCallback onSecondaryOrLongPress,
+  RenderEngineSecondaryAction? secondaryAction,
   required Widget child,
 }) {
   // No Material/Scaffold and no background fill: the engine surface is
@@ -222,9 +223,28 @@ Widget buildRenderEngineRoot({
       onTapAt: onTapAt,
       onPanStart: onPanStart,
       onSecondaryOrLongPress: onSecondaryOrLongPress,
+      secondaryAction: secondaryAction,
       child: child,
     ),
   );
+}
+
+/// A second control painted inside a render engine surface, such as the
+/// overlay's cancel X (#1923). It gets a semantics node of its own over
+/// [rect], so assistive tech and voice control find and press it apart from
+/// the surface's main action. The pointer still reaches it through the
+/// layer's hit zones; this node only carries semantics.
+@immutable
+class RenderEngineSecondaryAction {
+  const RenderEngineSecondaryAction({
+    required this.rect,
+    required this.label,
+    required this.onTap,
+  });
+
+  final Rect rect;
+  final String label;
+  final VoidCallback onTap;
 }
 
 /// Keeps a hidden render surface presenting frames of real content.
@@ -322,6 +342,7 @@ class RenderEngineGestureLayer extends StatefulWidget {
     this.onTapAt,
     required this.onPanStart,
     required this.onSecondaryOrLongPress,
+    this.secondaryAction,
     required this.child,
   });
 
@@ -333,6 +354,10 @@ class RenderEngineGestureLayer extends StatefulWidget {
   final ValueChanged<Offset>? onTapAt;
   final VoidCallback onPanStart;
   final VoidCallback onSecondaryOrLongPress;
+
+  /// A painted control with its own semantics node, see
+  /// [RenderEngineSecondaryAction].
+  final RenderEngineSecondaryAction? secondaryAction;
   final Widget child;
 
   @override
@@ -346,9 +371,14 @@ class _RenderEngineGestureLayerState extends State<RenderEngineGestureLayer> {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    final secondary = widget.secondaryAction;
+    // The main action is pressable by assistive tech too (#1923): without
+    // onTap the node was a button nobody could press.
+    final layer = Semantics(
+      container: true,
       button: true,
       label: widget.semanticsLabel,
+      onTap: widget.onTap,
       child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (event) {
@@ -377,6 +407,25 @@ class _RenderEngineGestureLayerState extends State<RenderEngineGestureLayer> {
           child: widget.child,
         ),
       ),
+    );
+    if (secondary == null) return layer;
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        layer,
+        // An empty box takes no pointer, so clicks still reach the layer's
+        // hit zones; the node only names and exposes the control.
+        Positioned.fromRect(
+          rect: secondary.rect,
+          child: Semantics(
+            container: true,
+            button: true,
+            label: secondary.label,
+            onTap: secondary.onTap,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ],
     );
   }
 }

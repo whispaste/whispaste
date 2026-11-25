@@ -13,6 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/config/settings_labels.dart' show formatHotkeyShortcut;
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/l10n/locale_provider.dart';
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/app_commands/menu_bar_adapter.dart';
 import '../services/permissions/tcc_entry_reset_confirm.dart'
@@ -49,6 +50,12 @@ List<MenuBarNode> titleBarMenuNodes({
     MenuBarNode(
       id: WpMenuBarCommandIds.settings,
       label: '${l10n.menuBarAppSettings} ($settingsShortcut)',
+    ),
+    MenuBarNode(
+      id: WpMenuBarCommandIds.search,
+      label:
+          '${l10n.menuBarEditSearch} '
+          '(${formatHotkeyShortcut('ctrl', 'K', l10n: l10n, isMacOS: false)})',
     ),
     const MenuBarNode.separator(),
     MenuBarNode(
@@ -97,18 +104,26 @@ class _TitleBarMenuButtonState extends ConsumerState<WpTitleBarMenuButton> {
   /// on release, so Alt combinations do not open it.
   bool _altAlone = false;
 
+  bool _isHovered = false;
+
   @override
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _firstItemFocus.dispose();
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (mounted) setState(() {});
   }
 
   bool _onKeyEvent(KeyEvent event) {
@@ -117,7 +132,9 @@ class _TitleBarMenuButtonState extends ConsumerState<WpTitleBarMenuButton> {
     final isAlt =
         key == LogicalKeyboardKey.altLeft || key == LogicalKeyboardKey.altRight;
     if (event is KeyDownEvent) {
-      if (key == LogicalKeyboardKey.f10) {
+      // Shift+F10 is the context menu of the focused field (#670).
+      if (key == LogicalKeyboardKey.f10 &&
+          !HardwareKeyboard.instance.isShiftPressed) {
         _altAlone = false;
         _toggle();
         return true;
@@ -164,18 +181,31 @@ class _TitleBarMenuButtonState extends ConsumerState<WpTitleBarMenuButton> {
         button: true,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
           child: WpFocusRing(
             focusNode: _focusNode,
             radius: WpRadius.sm,
+            // The title bar sits on the frame (navy in Marine): the content
+            // accent would fall below 3:1 there (WCAG 1.4.11, #1845).
+            ringColor: WpColors.frame.accent,
             child: InkWell(
               key: const ValueKey('title-bar-menu-button'),
               focusNode: _focusNode,
               borderRadius: WpRadius.borderSm,
               onTap: _toggle,
-              child: const SizedBox(
+              child: SizedBox(
                 width: 40,
                 height: 32,
-                child: Icon(LucideIcons.menu, size: WpIconSize.sm),
+                // Same colours as the window buttons next to it; without an
+                // explicit colour the icon fell back to black on navy.
+                child: Icon(
+                  LucideIcons.menu,
+                  size: WpIconSize.sm,
+                  color: _isHovered || _focusNode.hasFocus
+                      ? WpColors.frame.textSecondary
+                      : WpColors.frame.textMuted,
+                ),
               ),
             ),
           ),

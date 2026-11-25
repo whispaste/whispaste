@@ -150,7 +150,7 @@ class OnboardingSplitPage extends StatelessWidget {
 /// two read as one block placed by [alignment]; when the window is too short
 /// or the text scaled up, only the copy scrolls and the way on stays in view
 /// (#70: at 1100 × 800 the "About you" page had pushed Next below the edge).
-class OnboardingCopyColumn extends StatelessWidget {
+class OnboardingCopyColumn extends StatefulWidget {
   const OnboardingCopyColumn({
     super.key,
     required this.copy,
@@ -167,7 +167,24 @@ class OnboardingCopyColumn extends StatelessWidget {
   final double maxWidth;
 
   @override
+  State<OnboardingCopyColumn> createState() => _OnboardingCopyColumnState();
+}
+
+class _OnboardingCopyColumnState extends State<OnboardingCopyColumn> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final copy = widget.copy;
+    final actions = widget.actions;
+    final insetStart = widget.insetStart;
+    final maxWidth = widget.maxWidth;
     Widget capped(Widget child) => Align(
       alignment: AlignmentDirectional.centerStart,
       child: ConstrainedBox(
@@ -178,21 +195,35 @@ class OnboardingCopyColumn extends StatelessWidget {
     // The full column width, so the scroll bar runs along the column's edge
     // and not over the copy.
     return Align(
-      alignment: alignment,
+      alignment: widget.alignment,
       child: SizedBox(
         width: double.infinity,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsetsDirectional.only(
-                  start: insetStart,
-                  end: WpSpacing.xl,
-                  top: WpSpacing.xl,
-                  bottom: actions == null ? WpSpacing.xl : 0,
+              // The thumb stays visible while the copy overflows, so text
+              // below the edge is announced before anyone scrolls (#1845:
+              // the privacy page hid its key choices without a cue). It
+              // replaces the fading default bar, never doubles it.
+              child: Scrollbar(
+                controller: _scroll,
+                thumbVisibility: true,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    controller: _scroll,
+                    padding: EdgeInsetsDirectional.only(
+                      start: insetStart,
+                      end: WpSpacing.xl,
+                      top: WpSpacing.xl,
+                      bottom: actions == null ? WpSpacing.xl : 0,
+                    ),
+                    child: capped(copy),
+                  ),
                 ),
-                child: capped(copy),
               ),
             ),
             if (actions != null)
@@ -202,7 +233,7 @@ class OnboardingCopyColumn extends StatelessWidget {
                   end: WpSpacing.xl,
                   bottom: WpSpacing.xl,
                 ),
-                child: capped(actions!),
+                child: capped(actions),
               ),
           ],
         ),

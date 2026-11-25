@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/models/bundled_model_catalog.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_gguf_model.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_gpu_policy.dart';
 
@@ -182,7 +183,7 @@ void main() {
       for (final f in parakeetGgufFiles.values) {
         expect(f.sha256, matches(RegExp(r'^[0-9a-f]{64}$')));
         expect(f.sizeBytes, greaterThan(100 * 1024 * 1024));
-        expect(f.url, contains(ParakeetGgufFile.revision));
+        expect(f.sources.first, contains(parakeetGgufRevision));
       }
     });
 

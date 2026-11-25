@@ -57,14 +57,14 @@ void main() {
     });
 
     testWidgets(
-      'on a Sparkle platform, the check opens the native foreground check, '
-      'never the channel-blind GitHub check',
+      'on a Sparkle platform, the check runs quietly so the result shows in '
+      'the app (#1881), never the channel-blind GitHub check',
       (tester) async {
         platformSupportsSparkle = () => true;
-        var foregroundCheckCalled = false;
+        var sparkleCheckCalled = false;
         bool? capturedInBackground;
         checkForUpdatesFn = ({inBackground}) async {
-          foregroundCheckCalled = true;
+          sparkleCheckCalled = true;
           capturedInBackground = inBackground;
         };
 
@@ -78,8 +78,12 @@ void main() {
         );
         await tester.pump();
 
-        expect(foregroundCheckCalled, isTrue);
-        expect(capturedInBackground, isFalse, reason: 'foreground, not silent');
+        expect(sparkleCheckCalled, isTrue);
+        expect(
+          capturedInBackground,
+          isTrue,
+          reason: 'quiet: no native "up to date" window (#1881)',
+        );
         expect(container.read(updateProvider).phase, UpdatePhase.idle);
       },
     );

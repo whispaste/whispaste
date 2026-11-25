@@ -8,7 +8,6 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/content_metadata_providers.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
@@ -32,6 +31,7 @@ List<Object> get _noTagOverrides => [
 Note _note({required String id, required String content, DateTime? deletedAt}) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: false,
@@ -159,7 +159,9 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 5));
   });
 
-  testWidgets('delete-forever flushes the pending autosave before deleting', (
+  // Replaces the old "delete-forever flushes the pending autosave" case: the
+  // trash is read-only since #656, so nothing can be pending there.
+  testWidgets('trashed note body is read-only and never autosaves', (
     tester,
   ) async {
     final notes = [
@@ -195,14 +197,10 @@ void main() {
     await tester.tap(find.text('Hello'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(_editorTextFields().first, 'Hello salvaged');
-    // No pump past the debounce — deleteForever's own flush must fire it.
-    await tester.pump();
+    final fields = _editorTextFields();
+    expect(fields, findsWidgets);
+    expect(tester.widget<TextField>(fields.first).readOnly, isTrue);
+    await tester.pump(const Duration(seconds: 3));
     expect(actions.saveCalls, isEmpty);
-
-    await tester.tap(find.byIcon(LucideIcons.trash2).last);
-    await tester.pump();
-
-    expect(actions.saveCalls, contains(('n1', 'Hello salvaged')));
   });
 }

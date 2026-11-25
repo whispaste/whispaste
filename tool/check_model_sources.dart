@@ -14,9 +14,11 @@
 // mismatch) or not start at all: catch it before a release, not from user
 // reports (2026-11-07). Exit code 1 on any failure, 0 otherwise.
 //
-// Usage: dart run tool/check_model_sources.dart [--full] [--hash-limit=N]
+// Usage: dart run tool/check_model_sources.dart [--catalog-only] [--full] [--hash-limit=N]
 //        [--manifest=tool/model_sources.json]
 //
+// --catalog-only reads the bundled catalog directly and excludes CUDA packs.
+// Dedicated opt-in job: .internal forge/workflows/model-sources.yml.
 // Runs in the lab's full suite (.internal forge/workflows/lab-full.yml) and in
 // scripts/premerge-main.sh before dev -> main. Needs `flutter pub get` (package:crypto).
 
@@ -25,12 +27,17 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart' as crypto;
 
+import 'package:whispaste/core/models/bundled_model_catalog.dart';
+
 Future<void> main(List<String> args) async {
   var full = false;
+  var catalogOnly = false;
   var hashLimit = 20 * 1024 * 1024;
   var manifestPath = 'tool/model_sources.json';
   for (final a in args) {
-    if (a == '--full') {
+    if (a == '--catalog-only') {
+      catalogOnly = true;
+    } else if (a == '--full') {
       full = true;
     } else if (a.startsWith('--hash-limit=')) {
       hashLimit = int.parse(a.split('=').last);
@@ -44,7 +51,22 @@ Future<void> main(List<String> args) async {
 
   final manifest =
       jsonDecode(File(manifestPath).readAsStringSync()) as Map<String, Object?>;
-  final files = (manifest['files']! as List).cast<Map<String, Object?>>();
+  final files = catalogOnly
+      ? [
+          for (final f in bundledModelCatalog.allFiles)
+            <String, Object?>{
+              'name': f.filename,
+              'size': f.sizeBytes,
+              'sha256': f.sha256,
+              'sources': f.sources,
+            },
+        ]
+      : (manifest['files']! as List).cast<Map<String, Object?>>();
+  final problems = bundledModelCatalog.validate();
+  if (problems.isNotEmpty) {
+    stderr.writeln(problems.join('\n'));
+    exit(1);
+  }
   final client = HttpClient()
     ..connectionTimeout = const Duration(seconds: 20)
     ..userAgent = 'whispaste-source-guard';

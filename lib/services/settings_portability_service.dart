@@ -27,7 +27,8 @@ import '../core/config/settings_sections.dart'
         HotkeySettings,
         migrateLegacyHotkeyTriggers,
         migrateLegacyOverlayStyle,
-        readInputGain;
+        readInputGain,
+        readMediaWhileRecording;
 import '../features/replacements/replacements_page.dart' show Replacement;
 import '../features/snippets/snippets_page.dart' show SnippetItem;
 import 'hotkey_trigger.dart' show doubleTapSupportedHere;
@@ -86,6 +87,10 @@ const Set<String> settingsPortabilityDenyList = {
   // above — whether this installation already showed the one-time hint,
   // not a preference to carry to another machine.
   'smart_mode_usage_hint_shown',
+  // One-time Smart Write migration notice: whether this installation already
+  // told its user about the moved preset binding. Seen-state, not a
+  // preference to carry to another machine.
+  'smart_write_migration_notice_shown',
   // Data-key explanation (#1071): whether this installation explained its
   // own data key before the key-store prompt. The key never leaves the
   // device, so neither does this.
@@ -112,6 +117,12 @@ const Set<String> settingsPortabilityDenyList = {
   'about_follow_up_done',
   // The dictionary's term suggestion follows the roles it was made for.
   'role_terms_done',
+  // The one-time step of this machine's hand-kept terms into replacements
+  // (#1969): its done flag and the kept original text. The terms themselves
+  // travel as replacements; importing the flag would skip the step for a
+  // machine whose own list was never taken over.
+  'stt_terms_migrated',
+  'stt_manual_vocabulary_archive',
   'onboarding_completed_in_version',
   // AudioInputSettings — gerätegebundener Mikrofonname.
   'microphone',
@@ -160,6 +171,12 @@ const Set<String> settingsPortabilityDenyList = {
   // export carries no acceptance, and an import must not grant one for this
   // machine, so the user is asked again before any CUDA download here.
   'cuda_eula_accepted',
+  // The user's own Smart Mode model (#1789): its file exists only on this
+  // machine (models/user/<id>/), so the id means nothing elsewhere.
+  'smart_mode_local_model',
+  // Sampling choice per text model (#2204): keyed by the same device-local
+  // model ids, so it stays with the models on this machine.
+  'smart_mode_model_sampling',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new
@@ -204,6 +221,8 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // map, so importing these two carries no secret.
   'automation_api_custom_port',
   'automation_api_enabled',
+  // The write scope (#255): exported as a preference, never imported.
+  'automation_api_write_enabled',
   // Loopback-only hook URLs and event choices: the user's own integration
   // config, no token or secret.
   'automation_hooks',
@@ -248,12 +267,18 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Double-tap switch (a3329ac94 moved it from onboarding to Settings): a
   // hotkey behavior preference like 'hotkey_double_tap_key' next to it.
   'hotkey_double_tap',
+  // Extra dictation keys with their own language (#2055): hotkey
+  // preferences like the main combination above.
+  'hotkey_extra_dictation_keys',
   'input_gain',
   // User-ordered microphone fallback list — a preference, travels with the
   // selected microphone.
   'microphone_priority',
-  // Pause media while recording (#563): a preference.
+  // Pause media while recording (#563): a preference. The older switch
+  // still travels so a file from an older build keeps its choice (#1511).
   'pause_media_while_recording',
+  // Off / pause / turn down while recording (#1511): a preference.
+  'media_while_recording',
   // ticket, 9.1: recording controls — preferences.
   'cancel_dictation_key',
   'launch_at_startup',
@@ -265,6 +290,12 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_show_live_transcript',
   // Overlay F2: the quiet-microphone notice card, a display preference.
   'overlay_quiet_hint',
+  // Overlay E: always show the key hints, a display preference. The learning
+  // counters themselves are device state and never travel.
+  'overlay_key_hints_always',
+  // Overlay F: leave the overlay out of screen captures, a display
+  // preference. The hide hour itself is memory only and never travels.
+  'overlay_hide_from_capture',
   'overlay_size',
   'overlay_start_position',
   'overlay_background',
@@ -289,8 +320,14 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'hold_or_tap',
   // Hold-or-Tap threshold (Automatisch): behavior preference, travels with it.
   'hold_or_tap_threshold_ms',
+  // #779: marks the threshold above as written after the 400 ms default;
+  // travels with it so an imported 250 stays the user's choice.
+  'hold_or_tap_threshold_rev',
   // #877: "Don't show again" on the short-press card, a display preference.
   'short_press_hint_hidden',
+  // #1852: notices switched off with "Don't show again", a display
+  // preference like 'short_press_hint_hidden' right above it.
+  'muted_notices',
   // Ticket 20: second, independently configurable hotkey — same portability
   // rationale as the existing 'hotkey_*' keys above.
   'quick_note_hotkey_enabled',
@@ -302,6 +339,8 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'quick_note_open_in_main_window',
   // How quick-note dictations are dated (#803): a display preference.
   'quick_note_timestamp_style',
+  // Which note quick-note dictations go to (#661): a behavior preference.
+  'quick_note_destination',
   // Paste cue switch (#1343); replaces the never-shown 'paste_sound'.
   'paste_cue_sound',
   // Fits the start of a dictation to the text before the caret (#401): a
@@ -384,11 +423,18 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'smart_mode_hotkey_target_language',
   'sound_set',
   'sound_volume',
+  // Spell check in the editors (#670): plain preferences. A dictionary tag
+  // missing on the target machine falls back to its language.
+  'spell_check_enabled',
+  'spell_check_language',
   'start_minimized',
   'stt_engine',
   // Favorite languages and the next-favorite-language hotkey (SW-01/SW-02):
   // plain user preferences, like the other stt_* keys.
+  // One hotkey per favorite language (#2137): portable like the cycle hotkey.
+  'stt_favorite_language_hotkeys',
   'stt_favorite_languages',
+  'stt_expected_languages',
   'stt_idle_timeout_minutes',
   'stt_language',
   'stt_language_cycle_hotkey_enabled',
@@ -484,7 +530,12 @@ SettingsExportBundle buildSettingsExportBundle({
       if (!settingsPortabilityDenyList.contains(entry.key))
         entry.key: entry.value,
   },
-  replacements: replacements,
+  // Contact names (#2036) stay on this device: they are third-party data
+  // taken over with a per-source consent, not portable settings.
+  replacements: [
+    for (final r in replacements)
+      if (r.importGroupId == null) r,
+  ],
   snippets: snippets,
 );
 
@@ -532,6 +583,14 @@ AppSettings mergeImportedSettings(
       !filteredImported.containsKey('auto_level')) {
     filteredImported['auto_level'] =
         '${readInputGain(filteredImported['input_gain']) == 1.0}';
+  }
+  // A file from before 'media_while_recording' (#1511) carries only the
+  // pause switch: its own value decides, not the current machine's mode.
+  if (filteredImported.containsKey('pause_media_while_recording') &&
+      !filteredImported.containsKey('media_while_recording')) {
+    filteredImported['media_while_recording'] = readMediaWhileRecording(
+      filteredImported,
+    ).name;
   }
   final merged = AppSettings.fromStorageMap({
     ...current.toStorageMap(),
@@ -606,6 +665,7 @@ const int settingsImportMaxEntries = 5000;
 /// choice in the settings UI, not a side effect of opening a file.
 const Set<String> settingsImportRefusedKeys = {
   'automation_api_enabled',
+  'automation_api_write_enabled',
   'automation_hooks',
 };
 

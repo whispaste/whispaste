@@ -63,7 +63,8 @@ class WpCollectionPage extends StatelessWidget {
   /// Receives the focus on Cmd/Ctrl+F.
   final FocusNode? searchFocusNode;
 
-  /// The batch action bar, or null while nothing is selected.
+  /// The batch action bar, or null while nothing is selected. It sits between
+  /// the toolbar and the list.
   final Widget? selectionBar;
 
   /// Status rows, page notices and banners, in this order, above the toolbar.
@@ -96,9 +97,11 @@ class WpCollectionPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ?selectionBar,
                     ...notices,
                     if (!hideToolbar) toolbar,
+                    // Directly above the list it acts on, not cut off from it
+                    // by the search row.
+                    ?selectionBar,
                   ],
                 ),
                 Expanded(
@@ -148,7 +151,13 @@ class WpCollectionToolbar extends StatelessWidget {
     this.status = const [],
     this.tools = const [],
     this.toolsOverflow,
+    this.framed = true,
+    this.searchActions = const [],
   });
+
+  /// The gap between two controls of the row. The dictionary, Notes and
+  /// Snippets share it, so no page sets its buttons flush (#1969).
+  static const double controlGap = WpSpacing.xs;
 
   /// Row width from which [tools] stand inline instead of [toolsOverflow].
   /// The search shares the row, so it keeps a usable width up to here.
@@ -194,6 +203,15 @@ class WpCollectionToolbar extends StatelessWidget {
   /// One button that stands in for [tools] on a narrow row.
   final Widget? toolsOverflow;
 
+  /// Actions on what is typed in the search, right next to it (dictionary:
+  /// "Often misspelled as …"). Pages pass them only while the search holds
+  /// text, so they never stand empty-handed on every page load (#1969).
+  final List<Widget> searchActions;
+
+  /// Whether the row brings the page's side inset. False inside a
+  /// `WpPageShell` header, which already has it (the dictionary).
+  final bool framed;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -201,10 +219,10 @@ class WpCollectionToolbar extends StatelessWidget {
       container: true,
       explicitChildNodes: true,
       child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(
-          WpPageFrame.inset,
+        padding: EdgeInsetsDirectional.fromSTEB(
+          framed ? WpPageFrame.inset : 0,
           WpSpacing.sm,
-          WpPageFrame.inset,
+          framed ? WpPageFrame.inset : 0,
           WpSpacing.sm,
         ),
         child: Column(
@@ -219,12 +237,13 @@ class WpCollectionToolbar extends StatelessWidget {
                 final trailingTools = [
                   if (inline) ...tools else ?toolsOverflow,
                 ];
-                const gap = SizedBox(width: WpSpacing.xs);
+                const gap = SizedBox(width: controlGap);
                 // Every control stands at `WpLayout.controlHeight`, so the
                 // row's default centring lands them on the same two edges.
                 return Row(
                   children: [
                     Expanded(child: search),
+                    for (final action in searchActions) ...[gap, action],
                     if (activeFilters.isNotEmpty) ...[
                       gap,
                       ConstrainedBox(
@@ -274,12 +293,12 @@ class WpCollectionToolbar extends StatelessWidget {
                     ],
                     for (final tool in trailingTools) ...[gap, tool],
                     for (var i = 0; i < addActions.length; i++) ...[
-                      SizedBox(width: i == 0 ? WpSpacing.sm : WpSpacing.xs),
+                      SizedBox(width: i == 0 ? WpSpacing.sm : controlGap),
                       addActions[i],
                     ],
                     if (primaryAction != null) ...[
                       SizedBox(
-                        width: addActions.isEmpty ? WpSpacing.sm : WpSpacing.xs,
+                        width: addActions.isEmpty ? WpSpacing.sm : controlGap,
                       ),
                       primaryAction!,
                     ],

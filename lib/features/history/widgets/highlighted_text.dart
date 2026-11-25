@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:whispaste/core/text/user_text_direction.dart';
 import 'package:whispaste/core/theme/colors.dart';
 
 import '../data/providers.dart';
@@ -9,6 +10,10 @@ import '../data/providers.dart';
 /// current [historySearchProvider] query using the design-system accent colour.
 ///
 /// Falls back to a plain [Text] when the query is empty (zero overhead).
+///
+/// The text is the user's own (titles, transcripts), so it takes its
+/// direction from its first strong letter, not from the UI language
+/// ([userTextDirection]).
 class HighlightedText extends ConsumerWidget {
   const HighlightedText({
     super.key,
@@ -26,6 +31,8 @@ class HighlightedText extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final query = ref.watch(historySearchProvider).trim();
+    final direction = userTextDirection(text);
+    final align = userTextAlign(context);
 
     if (query.isEmpty || text.isEmpty) {
       // Use zero-width space instead of empty string to prevent RenderParagraph null check crash
@@ -34,6 +41,8 @@ class HighlightedText extends ConsumerWidget {
         style: style,
         maxLines: maxLines,
         overflow: overflow,
+        textDirection: direction,
+        textAlign: align,
       );
     }
 
@@ -73,6 +82,8 @@ class HighlightedText extends ConsumerWidget {
       style: style,
       maxLines: maxLines,
       overflow: overflow,
+      textDirection: direction,
+      textAlign: align,
     );
   }
 }

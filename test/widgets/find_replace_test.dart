@@ -6,12 +6,18 @@
 /// all" takes the lot, an empty query does nothing at all).
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/widgets/find_replace.dart';
+import 'package:whispaste/core/data/content_metadata.dart';
+import 'package:whispaste/widgets/find_replace_bar.dart';
+import 'package:whispaste/widgets/find_reveal.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
+import 'package:whispaste/widgets/wp_text_editor.dart';
+import 'package:whispaste/widgets/wp_text_field.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -143,14 +149,17 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await tester.tap(
+        find.bySemanticsLabel(
+          l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
+        ),
+      );
       await tester.pumpAndSettle();
     }
 
-    Finder findField() =>
-        find.bySemanticsLabel(l10n.findReplaceFindLabel).first;
+    Finder findField() => findByFieldLabel(l10n.findReplaceFindLabel).first;
     Finder replaceField() =>
-        find.bySemanticsLabel(l10n.findReplaceReplaceLabel).first;
+        findByFieldLabel(l10n.findReplaceReplaceLabel).first;
 
     testWidgets('the bar is closed until the toolbar toggle is tapped', (
       tester,
@@ -162,11 +171,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel(l10n.findReplaceFindLabel), findsNothing);
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsNothing);
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
+      await tester.tap(
+        find.bySemanticsLabel(
+          l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
+        ),
+      );
       await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel(l10n.findReplaceFindLabel), findsOneWidget);
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsOneWidget);
     });
 
     testWidgets('typing a query highlights the matches and counts them', (
@@ -198,7 +211,11 @@ void main() {
       await tester.enterText(findField(), 'one');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceNext));
+      await tester.tap(
+        find.bySemanticsLabel(
+          l10n.findReplaceNext(WpFindReplaceBar.nextShortcutLabel),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(controller.activeFindIndex, 1);
       expect(
@@ -206,7 +223,13 @@ void main() {
         const TextSelection(baseOffset: 8, extentOffset: 11),
       );
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplacePrevious));
+      await tester.tap(
+        find.bySemanticsLabel(
+          l10n.findReplacePrevious(
+            WpFindReplaceBar.previousShortcutLabel(l10n),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(controller.activeFindIndex, 0);
     });
@@ -227,13 +250,100 @@ void main() {
       expect(controller.activeFindIndex, 0);
     });
 
+    // #1372: `autofocus` alone left the focus on the toggle (keyboard) or in
+    // the text (mouse), so typed letters never reached the find field.
+    bool findFieldFocused(WidgetTester tester) => tester
+        .widget<EditableText>(
+          find.descendant(of: findField(), matching: find.byType(EditableText)),
+        )
+        .focusNode
+        .hasFocus;
+
+    testWidgets('a tap on the toggle moves the caret from the text', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          Column(
+            children: [
+              WpMarkdownToolbar(controller: controller, focusNode: focusNode),
+              TextField(controller: controller, focusNode: focusNode),
+            ],
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      focusNode.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.bySemanticsLabel(
+          l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(findFieldFocused(tester), isTrue);
+    });
+
+    testWidgets('Enter on the toggle puts the caret into the find field', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          WpMarkdownToolbar(controller: controller, focusNode: focusNode),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester
+          .widget<InkWell>(
+            find.descendant(
+              of: find.bySemanticsIdentifier('editor-toolbar-find'),
+              matching: find.byType(InkWell),
+            ),
+          )
+          .focusNode!
+          .requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(findFieldFocused(tester), isTrue);
+    });
+
+    // #1372: the counter as a live region reached no screen reader on macOS;
+    // it is announced instead, once per change. announce() sends past
+    // SemanticsService on macOS, so only the other hosts can listen in.
+    testWidgets('the counter is read out once per change', (tester) async {
+      await pumpBar(tester);
+      tester.takeAnnouncements();
+      List<String> spoken() =>
+          tester.takeAnnouncements().map((a) => a.message).toList();
+      final listens = defaultTargetPlatform != TargetPlatform.macOS;
+
+      await tester.enterText(findField(), 'one');
+      await tester.pumpAndSettle();
+      if (listens) expect(spoken(), [l10n.findReplaceMatchCount(1, 3)]);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      if (listens) expect(spoken(), [l10n.findReplaceMatchCount(2, 3)]);
+
+      // Editing the text elsewhere without changing the count stays silent.
+      controller.text = '${controller.text} ';
+      await tester.pumpAndSettle();
+      if (listens) expect(spoken(), isEmpty);
+
+      await tester.enterText(findField(), 'zzz');
+      await tester.pumpAndSettle();
+      if (listens) expect(spoken(), [l10n.findReplaceNoMatches]);
+    });
+
     testWidgets('Escape closes the bar', (tester) async {
       await pumpBar(tester);
-      expect(find.bySemanticsLabel(l10n.findReplaceFindLabel), findsOneWidget);
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsOneWidget);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel(l10n.findReplaceFindLabel), findsNothing);
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsNothing);
       expect(
         controller.findMatches.isEmpty,
         isTrue,
@@ -268,7 +378,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.text, 'uno two uno two uno');
-      expect(find.text(l10n.findReplaceNoMatches), findsOneWidget);
+      // Right after replace all the counter says how many it swapped (#647).
+      expect(find.text(l10n.findReplaceReplacedCount(3)), findsOneWidget);
     });
 
     testWidgets('an empty find field leaves the text alone', (tester) async {
@@ -302,6 +413,300 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.findMatches.starts, [0]);
       expect(controller.activeFindIndex, 0);
+    });
+  });
+
+  group('seedFrom — the selection as a query (#647)', () {
+    String? seed(String text, int start, int end) => WpFindReplaceBar.seedFrom(
+      TextEditingController(text: text)
+        ..selection = TextSelection(baseOffset: start, extentOffset: end),
+    );
+
+    test('takes a one-line selection, trimmed', () {
+      expect(seed('say  teh  word', 4, 9), 'teh');
+    });
+
+    test('refuses collapsed, blank, multi-line and overlong selections', () {
+      expect(seed('one two', 3, 3), isNull);
+      expect(seed('one   two', 3, 6), isNull);
+      expect(seed('one\ntwo', 0, 7), isNull);
+      final long = 'x' * (WpFindReplaceBar.maxSeedLength + 1);
+      expect(seed(long, 0, long.length), isNull);
+    });
+  });
+
+  group('find shortcuts in the editor (#647)', () {
+    late WpFindHighlightController controller;
+    late FocusNode focusNode;
+    late L10n l10n;
+
+    setUpAll(() async {
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
+
+    setUp(() {
+      controller = WpFindHighlightController(text: 'teh one teh two teh');
+      focusNode = FocusNode();
+    });
+
+    tearDown(() {
+      controller.dispose();
+      focusNode.dispose();
+    });
+
+    Future<void> pumpEditor(WidgetTester tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          Material(
+            child: WpTextEditor(
+              testId: 'probe',
+              controller: controller,
+              focusNode: focusNode,
+              variant: WpTextFieldVariant.form,
+              minLines: 3,
+              maxLines: 8,
+              readView: const Text('read'),
+            ),
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      focusNode.requestFocus();
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey key, {
+      bool command = false,
+      bool shift = false,
+    }) async {
+      if (command) await tester.sendKeyDownEvent(primaryShortcutModifier);
+      if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(key);
+      if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      if (command) await tester.sendKeyUpEvent(primaryShortcutModifier);
+      await tester.pumpAndSettle();
+    }
+
+    Finder findField() => findByFieldLabel(l10n.findReplaceFindLabel);
+    String query(WidgetTester tester) => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: findField().first,
+            matching: find.byType(EditableText),
+          ),
+        )
+        .controller
+        .text;
+
+    testWidgets('Ctrl/Cmd+Shift+F opens the bar with the selection as query', (
+      tester,
+    ) async {
+      await pumpEditor(tester);
+      controller.selection = const TextSelection(
+        baseOffset: 8,
+        extentOffset: 11,
+      );
+      await tester.pump();
+
+      await chord(tester, LogicalKeyboardKey.keyF, command: true, shift: true);
+
+      expect(findField(), findsOneWidget);
+      expect(query(tester), 'teh');
+      expect(controller.findMatches.starts, [0, 8, 16]);
+      expect(
+        controller.activeFindIndex,
+        1,
+        reason: 'the hit at the selection, not the first one in the text',
+      );
+    });
+
+    testWidgets('Ctrl/Cmd+F is left to the list search', (tester) async {
+      await pumpEditor(tester);
+      await chord(tester, LogicalKeyboardKey.keyF, command: true);
+      expect(findField(), findsNothing);
+    });
+
+    testWidgets('F3 opens a closed bar, then F3 / Shift+F3 step', (
+      tester,
+    ) async {
+      await pumpEditor(tester);
+      controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 3,
+      );
+      await tester.pump();
+
+      await chord(tester, LogicalKeyboardKey.f3);
+      expect(findField(), findsOneWidget);
+      expect(controller.activeFindIndex, 0);
+
+      // From the find field …
+      await chord(tester, LogicalKeyboardKey.f3);
+      expect(controller.activeFindIndex, 1);
+      // … and from the text alike.
+      focusNode.requestFocus();
+      await tester.pump();
+      await chord(tester, LogicalKeyboardKey.f3);
+      expect(controller.activeFindIndex, 2);
+      await chord(tester, LogicalKeyboardKey.f3, shift: true);
+      expect(controller.activeFindIndex, 1);
+    });
+
+    testWidgets('replace all names the count and undoes in one step', (
+      tester,
+    ) async {
+      await pumpEditor(tester);
+      controller.selection = const TextSelection(
+        baseOffset: 0,
+        extentOffset: 3,
+      );
+      await chord(tester, LogicalKeyboardKey.keyF, command: true, shift: true);
+      tester.takeAnnouncements();
+      await tester.enterText(
+        findByFieldLabel(l10n.findReplaceReplaceLabel).first,
+        'the',
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel(l10n.findReplaceReplaceAllAction));
+      await tester.pumpAndSettle();
+
+      expect(controller.text, 'the one the two the');
+      expect(find.text(l10n.findReplaceReplacedCount(3)), findsOneWidget);
+      if (defaultTargetPlatform != TargetPlatform.macOS) {
+        expect(
+          tester.takeAnnouncements().map((a) => a.message),
+          contains(l10n.findReplaceReplacedCount(3)),
+        );
+      }
+
+      focusNode.requestFocus();
+      await tester.pump();
+      await chord(tester, LogicalKeyboardKey.keyZ, command: true);
+      expect(controller.text, 'teh one teh two teh');
+    });
+  });
+
+  group('a search hit opens at its matches (#653)', () {
+    const note = (kind: ContentKind.note, id: 'n1');
+    final t0 = DateTime(2026, 11, 23, 12);
+
+    tearDown(WpFindReveal.clear);
+
+    test('the request goes to its own entry, once, and expires', () {
+      WpFindReveal.request(note, 'teh', anchor: 8, now: t0);
+      expect(
+        WpFindReveal.take((kind: ContentKind.note, id: 'n2'), now: t0),
+        isNull,
+      );
+      expect(
+        WpFindReveal.take((kind: ContentKind.snippet, id: 'n1'), now: t0),
+        isNull,
+      );
+      expect(WpFindReveal.take(note, now: t0), (query: 'teh', anchor: 8));
+      expect(WpFindReveal.take(note, now: t0), isNull, reason: 'taken once');
+
+      WpFindReveal.request(note, 'teh', now: t0);
+      expect(
+        WpFindReveal.take(note, now: t0.add(const Duration(seconds: 6))),
+        isNull,
+        reason: 'a stale search never comes back',
+      );
+      expect(WpFindReveal.take(note, now: t0), isNull);
+
+      // A recording matches in either version; a blank match asks nothing.
+      const recording = (kind: ContentKind.recording, id: 'r1');
+      WpFindReveal.request(recording, 'x', now: t0);
+      expect(
+        WpFindReveal.take((
+          kind: ContentKind.recordingEdited,
+          id: 'r1',
+        ), now: t0),
+        isNotNull,
+      );
+      WpFindReveal.request(recording, '  ', now: t0);
+      expect(WpFindReveal.take(recording, now: t0), isNull);
+    });
+
+    testWidgets('the editor of the entry tints every match, selects the one '
+        'at the anchor and keeps the caret in the text', (tester) async {
+      final controller = WpFindHighlightController(text: 'teh one teh two teh');
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+      final l10n = await L10n.delegate.load(const Locale('en'));
+
+      WpFindReveal.request(note, 'teh', anchor: 8);
+      await tester.pumpWidget(
+        makeTestable(
+          Material(
+            child: WpTextEditor(
+              testId: 'probe',
+              controller: controller,
+              focusNode: focusNode,
+              variant: WpTextFieldVariant.form,
+              minLines: 3,
+              maxLines: 8,
+              readView: const Text('read'),
+              viewMemory: note,
+            ),
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsOneWidget);
+      expect(controller.findMatches.starts, [0, 8, 16]);
+      expect(controller.activeFindIndex, 1);
+      expect(
+        controller.selection,
+        const TextSelection(baseOffset: 8, extentOffset: 11),
+      );
+      expect(focusNode.hasFocus, isTrue, reason: 'typing goes on at the hit');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+      await tester.pumpAndSettle();
+      expect(controller.activeFindIndex, 2);
+      expect(
+        controller.selection,
+        const TextSelection(baseOffset: 16, extentOffset: 19),
+        reason: 'stepping from the text moves the caret along',
+      );
+      expect(focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('a request for another entry leaves the bar closed', (
+      tester,
+    ) async {
+      final controller = WpFindHighlightController(text: 'teh one');
+      final focusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(focusNode.dispose);
+      final l10n = await L10n.delegate.load(const Locale('en'));
+
+      WpFindReveal.request((kind: ContentKind.note, id: 'other'), 'teh');
+      await tester.pumpWidget(
+        makeTestable(
+          Material(
+            child: WpTextEditor(
+              testId: 'probe',
+              controller: controller,
+              focusNode: focusNode,
+              variant: WpTextFieldVariant.form,
+              minLines: 3,
+              maxLines: 8,
+              readView: const Text('read'),
+              viewMemory: note,
+            ),
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(findByFieldLabel(l10n.findReplaceFindLabel), findsNothing);
     });
   });
 }

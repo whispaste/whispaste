@@ -13,6 +13,7 @@ import '../../../core/config/settings_sections.dart' show CloudProviderSettings;
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/custom_endpoint/custom_endpoint_models.dart';
 import '../../../services/custom_endpoint/custom_endpoint_probe.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
@@ -27,6 +28,14 @@ typedef CustomEndpointProbeFn =
     Future<CustomEndpointProbe> Function({
       required Uri base,
       required String model,
+      String? apiKey,
+    });
+
+/// Loads the model list ("Modelle laden"). Injected so widget tests never
+/// reach a network.
+typedef CustomEndpointModelsFn =
+    Future<CustomEndpointModelList> Function({
+      required Uri base,
       String? apiKey,
     });
 
@@ -90,13 +99,47 @@ String customEndpointProbeText(
   CustomEndpointProbeResult.serverError => l10n.customEndpointProbeServerError,
 };
 
+/// The line under "Modelle laden" after a request: how many models were found,
+/// or why there is no list. Every failure keeps free typing open (#1790).
+String customEndpointModelsText(L10n l10n, CustomEndpointModelList list) =>
+    switch (list.result) {
+      CustomEndpointModelListResult.loaded =>
+        list.needsV1
+            ? l10n.customEndpointModelsLoadedNeedsV1
+            : l10n.customEndpointModelsLoaded(list.models.length),
+      CustomEndpointModelListResult.empty => l10n.customEndpointModelsEmpty,
+      CustomEndpointModelListResult.unreachable =>
+        l10n.customEndpointModelsUnreachable,
+      CustomEndpointModelListResult.unauthorized =>
+        l10n.customEndpointModelsUnauthorized,
+      CustomEndpointModelListResult.noList => l10n.customEndpointModelsNoList,
+      CustomEndpointModelListResult.serverError =>
+        l10n.customEndpointModelsServerError,
+    };
+
+/// Whether the outcome line reads as a problem (error colour): no answer, no
+/// list, a refused key, a server error, or names that need the `/v1` address.
+bool customEndpointModelsIsProblem(CustomEndpointModelList list) =>
+    list.needsV1 ||
+    (list.result != CustomEndpointModelListResult.loaded &&
+        list.result != CustomEndpointModelListResult.empty);
+
 class CustomEndpointRows extends ConsumerStatefulWidget {
-  const CustomEndpointRows({super.key, required this.scope, this.probe});
+  const CustomEndpointRows({
+    super.key,
+    required this.scope,
+    this.probe,
+    this.loadModels,
+  });
 
   final CustomEndpointScope scope;
 
   /// Connection test. Null in the app (the real probe runs); tests inject one.
   final CustomEndpointProbeFn? probe;
+
+  /// Model list request. Null in the app (the real request runs); tests
+  /// inject one.
+  final CustomEndpointModelsFn? loadModels;
 
   @override
   ConsumerState<CustomEndpointRows> createState() => _CustomEndpointRowsState();
@@ -109,6 +152,9 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
   bool _showKey = false;
   bool _testing = false;
   CustomEndpointProbe? _probe;
+  bool _loadingModels = false;
+  CustomEndpointModelList? _models;
+  int _modelsRequest = 0;
 
   @override
   void dispose() {
@@ -134,8 +180,33 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
             ),
           ),
         );
-    // A changed address or model makes the last test result stale.
-    if (_probe != null) setState(() => _probe = null);
+    // A changed address or model makes the last test result stale; a changed
+    // address or key makes the model list stale.
+    final listStale = (url != null || key != null) && _models != null;
+    if (_probe != null || listStale) {
+      setState(() {
+        _probe = null;
+        if (listStale) _models = null;
+      });
+    }
+  }
+
+  Future<void> _loadModels(CloudProviderSettings cloud) async {
+    final uri = checkCustomEndpointUrl(cloud.customEndpointUrl).uri;
+    if (uri == null) return;
+    final key = cloud.customEndpointApiKey.trim();
+    final request = ++_modelsRequest;
+    setState(() {
+      _loadingModels = true;
+      _models = null;
+    });
+    final run = widget.loadModels ?? _defaultLoadModels;
+    final result = await run(base: uri, apiKey: key.isEmpty ? null : key);
+    if (!mounted || request != _modelsRequest) return;
+    setState(() {
+      _loadingModels = false;
+      _models = result;
+    });
   }
 
   Future<void> _runTest(CloudProviderSettings cloud, String model) async {
@@ -160,8 +231,136 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
     });
   }
 
+  /// A choice of well-known local servers under the address field (#1957).
+  /// Picking one only fills in its usual address on this device; the field
+  /// stays free for any other address. The choice shows the server whose
+  /// address is entered, so it needs no setting of its own.
+  Widget _serverPresetBlock(
+    BuildContext context,
+    L10n l10n,
+    CloudProviderSettings cloud,
+    String prefix,
+  ) {
+    final selected = customEndpointServerPresetFor(cloud.customEndpointUrl);
+    final hint = l10n.customEndpointServerPick;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xs,
+      ),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: Semantics(
+          label: hint,
+          child: settingsDropdown(
+            context: context,
+            value: selected?.name,
+            items: [for (final p in kCustomEndpointServerPresets) p.name],
+            hint: hint,
+            keyPrefix: '$prefix-server-picker',
+            testId: '$prefix-server-picker',
+            onChanged: (name) {
+              for (final p in kCustomEndpointServerPresets) {
+                if (p.name == name) _setField(url: p.url);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "Modelle laden" under the model field, the picker once names arrived,
+  /// and one line with the outcome. The text field above stays the source of
+  /// the model name: picking only fills it in.
+  Widget _modelsBlock(
+    BuildContext context,
+    L10n l10n,
+    CloudProviderSettings cloud,
+    String model,
+    String prefix,
+    bool urlValid,
+  ) {
+    final list = _models;
+    final names = list?.models ?? const <String>[];
+    final pickLabel = l10n.customEndpointModelsPickLabel;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: WpSpacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              WpButton(
+                testId: '$prefix-models-load-button',
+                label: l10n.customEndpointModelsLoadAction,
+                variant: WpButtonVariant.secondary,
+                isLoading: _loadingModels,
+                onPressed: urlValid && !_loadingModels
+                    ? () => _loadModels(cloud)
+                    : null,
+                disabledTooltip: l10n.customEndpointModelsLoadDisabledHint,
+              ),
+              if (names.isNotEmpty)
+                Semantics(
+                  label: pickLabel,
+                  child: settingsDropdown(
+                    context: context,
+                    value: names.contains(model.trim()) ? model.trim() : null,
+                    items: names,
+                    hint: l10n.customEndpointModelsPickHint,
+                    keyPrefix: '$prefix-models-picker',
+                    testId: '$prefix-models-picker',
+                    onChanged: (v) {
+                      if (v != null) _setField(model: v);
+                    },
+                  ),
+                ),
+            ],
+          ),
+          if (list != null)
+            Padding(
+              padding: const EdgeInsets.only(top: WpSpacing.xs),
+              child: Semantics(
+                identifier: '$prefix-models-result',
+                liveRegion: true,
+                child: Text(
+                  key: ValueKey('$prefix-models-result'),
+                  customEndpointModelsText(l10n, list),
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: customEndpointModelsIsProblem(list)
+                        ? WpColors.error
+                        : WpColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(settingsProvider, (previous, next) {
+      final before = previous?.value?.cloudProvider;
+      final after = next.value?.cloudProvider;
+      if (before?.customEndpointUrl != after?.customEndpointUrl ||
+          before?.customEndpointApiKey != after?.customEndpointApiKey) {
+        setState(() {
+          _modelsRequest++;
+          _models = null;
+          _loadingModels = false;
+        });
+      }
+    });
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final cloud = settings.cloudProvider;
@@ -191,12 +390,13 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
             child: settingsTextField(
               context: context,
               controller: _urlCtrl,
-              hintText: 'http://localhost:1234/v1',
+              hintText: 'http://127.0.0.1:11434/v1',
               semanticLabel: l10n.customEndpointUrlTitle,
               onChanged: (v) => _setField(url: v),
             ),
           ),
         ),
+        _serverPresetBlock(context, l10n, cloud, prefix),
         if (problem != null)
           settingsInlineNotice(context: context, message: problem)
         else if (check.isValid && customEndpointPlainHttpOnLan(check.uri!))
@@ -257,6 +457,7 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
             ),
           ),
         ),
+        _modelsBlock(context, l10n, cloud, model, prefix, check.isValid),
         WpSettingsRow(
           rowId: '$prefix-test',
           title: l10n.customEndpointTestTitle,
@@ -294,6 +495,12 @@ class _CustomEndpointRowsState extends ConsumerState<CustomEndpointRows> {
     );
   }
 }
+
+/// The real model list request with the app's own short timeout.
+Future<CustomEndpointModelList> _defaultLoadModels({
+  required Uri base,
+  String? apiKey,
+}) => loadCustomEndpointModels(base: base, apiKey: apiKey);
 
 /// The real probe: `GET /models` with the app's own short timeout.
 Future<CustomEndpointProbe> _defaultProbe({

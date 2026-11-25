@@ -38,6 +38,8 @@ int? onDeviceRamEstimateMB({
       (parakeetModelTotalBytes + _bytesPerMB - 1) ~/ _bytesPerMB,
     // Apple's engine runs in the system's process, not in ours: no estimate.
     OnDeviceEngine.system => null,
+    // An own model (#1789): its needs are unknown, so no estimate.
+    OnDeviceEngine.userModel => null,
   };
 }
 

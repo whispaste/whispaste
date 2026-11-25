@@ -269,24 +269,22 @@ class _RestoreDialogState extends ConsumerState<_RestoreDialog> {
         // Codes are Latin letters and digits: always left to right.
         Directionality(
           textDirection: TextDirection.ltr,
-          child: Semantics(
-            identifier: 'data-key-restore-code',
-            child: WpTextField(
-              key: const ValueKey('data-key-restore-code'),
-              controller: _code,
-              variant: WpTextFieldVariant.form,
-              hintText: l10n.dataKeyRestoreCodeLabel,
-              semanticsLabel: l10n.dataKeyRestoreCodeLabel,
-              autocorrect: false,
-              onChanged: (_) {
-                if (_file == null && _error == null) return;
-                setState(() {
-                  _file = null;
-                  _fileName = null;
-                  _error = null;
-                });
-              },
-            ),
+          child: WpTextField(
+            testId: 'data-key-restore-code',
+            key: const ValueKey('data-key-restore-code'),
+            controller: _code,
+            variant: WpTextFieldVariant.form,
+            hintText: l10n.dataKeyRestoreCodeLabel,
+            semanticsLabel: l10n.dataKeyRestoreCodeLabel,
+            autocorrect: false,
+            onChanged: (_) {
+              if (_file == null && _error == null) return;
+              setState(() {
+                _file = null;
+                _fileName = null;
+                _error = null;
+              });
+            },
           ),
         ),
         const SizedBox(height: WpSpacing.md),

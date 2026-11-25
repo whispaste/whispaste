@@ -30,6 +30,7 @@ List<Object> get _noTagOverrides => [
 Note _note({required String id, bool isQuickNote = false}) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: '',
     pinned: false,

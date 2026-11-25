@@ -25,6 +25,7 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -278,6 +279,38 @@ void main() {
             handles.settings.state.value!.onboarding.onboardingCompleted,
             isTrue,
           );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('Escape nach dem Sprung von Ausprobieren zu Auto-Paste '
+          'führt zurück zu Ausprobieren, nicht weiter zurück', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        try {
+          final tryOut = buildOnboardingStepIds().indexOf(
+            OnboardingStepId.tryOut,
+          );
+          await _pumpOverlay(
+            tester,
+            initialSettings: AppSettings.defaults.copyWithSections(
+              onboarding: AppSettings.defaults.onboarding.copyWith(
+                onboardingCurrentStep: tryOut,
+              ),
+            ),
+          );
+          expect(find.byType(TestRecordingStep), findsOneWidget);
+          final paste = find.byKey(
+            const ValueKey<String>('onboarding-tryout-paste-action'),
+          );
+          await tester.ensureVisible(paste);
+          await tester.tap(paste);
+          await tester.pumpAndSettle();
+          expect(find.byType(TestRecordingStep), findsNothing);
+
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(find.byType(TestRecordingStep), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }

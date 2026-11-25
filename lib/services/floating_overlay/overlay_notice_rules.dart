@@ -6,7 +6,6 @@ library;
 import 'dart:async';
 
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/l10n/ltr_isolate.dart';
 import '../../core/recording/recording_state.dart'
     show RecordingPhase, isDictationBusy;
 import '../audio_service.dart' show RecordingStartFailure;
@@ -211,26 +210,21 @@ enum NoticeFooterPhase {
 /// The footer line of a card (#781): only the keys that work while it stands
 /// in [phase] (#984). [holdsCancelKey] matters only when no dictation runs:
 /// a self-closing card without a button leaves the cancel key to the target
-/// app, so its footer names only the hotkey. With an [actionKey] (held only
-/// when no dictation runs) the footer first names the way to the card's
-/// [buttons] (#816): one press runs the first, two quick presses the second.
+/// app, so its footer names only the hotkey. The keys of the card's buttons
+/// stand on the buttons themselves; the footer names only the keys no button
+/// shows (#1845: repeating them made the line too long to read).
 String noticeFooterFor({
   required L10n l10n,
   required NoticeFooterPhase phase,
   required String hotkey,
   required String cancelKey,
   bool holdsCancelKey = true,
-  String? actionKey,
-  int buttons = 0,
 }) => switch (phase) {
   NoticeFooterPhase.recording => l10n.overlayNoticeFooterDictating(
     hotkey,
     cancelKey,
   ),
   NoticeFooterPhase.processing => l10n.overlayNoticeFooterProcessing(cancelKey),
-  NoticeFooterPhase.idle when actionKey != null && buttons > 0 =>
-    '${buttons > 1 ? l10n.overlayNoticeFooterTwoButtons(ltrIsolate(actionKey), ltrIsolate('2× $actionKey')) : l10n.overlayNoticeFooterOneButton(ltrIsolate(actionKey))}'
-        ' · ${l10n.overlayNoticeFooterIdle(hotkey, cancelKey)}',
   NoticeFooterPhase.idle =>
     holdsCancelKey
         ? l10n.overlayNoticeFooterIdle(hotkey, cancelKey)

@@ -14,6 +14,7 @@ void main() {
     tester,
   ) async {
     final note = Note(
+      archived: false,
       id: 'n1',
       content: 'Eine Notiz',
       createdAt: DateTime(2026, 4, 14, 10, 30),

@@ -29,7 +29,9 @@ import 'floating_button/floating_button_support.dart';
 import 'hotkey_chain.dart';
 import 'hotkey_key_resolver.dart';
 import 'hotkey_trigger.dart';
+import 'dictation_key_plan.dart';
 import 'profile_hotkey_plan.dart';
+import '../core/config/favorite_language_hotkeys.dart';
 import 'input_monitoring_offer.dart';
 import 'permissions/input_monitoring_status.dart'
     show inputMonitoringAccessProvider;
@@ -576,9 +578,33 @@ class HotkeyService extends Notifier<void> {
   /// profile's id. The profile is applied persistently by the caller.
   void Function(String profileId)? onProfileHotkeyPressed;
 
-  /// Profile hotkeys currently registered: action id to the combination's
-  /// signature (see [ProfileHotkeyEntry.signature]).
-  final Map<String, String> _profileRegistrations = {};
+  /// Fired when the hotkey of one favorite language is pressed (#2137), with
+  /// the language code. The bootstrap switches the language to it. One-shot.
+  void Function(String languageCode)? onFavoriteLanguageHotkeyPressed;
+
+  /// Hotkeys of a list that changes at run time (profiles, favorite
+  /// languages) currently registered: action id to the combination's
+  /// signature (see [canonicalHotkeyCombo]). The action id's prefix tells
+  /// which list a hotkey belongs to.
+  final Map<String, String> _dynamicRegistrations = {};
+
+  /// Callback fired when an extra dictation key (#2055) is pressed, with the
+  /// key's id. The caller resolves its language and Smart Mode choice.
+  void Function(String keyId)? onDictationKeyPressed;
+
+  /// Callback fired when an extra dictation key is released, with its id.
+  /// Arrives where [dictationKeysSupportKeyUp] holds.
+  void Function(String keyId)? onDictationKeyReleased;
+
+  /// Extra dictation keys currently registered: action id to the
+  /// combination's signature (see [DictationKeyEntry.signature]).
+  final Map<String, DictationKeyEntry> _dictationKeyRegistrations = {};
+
+  /// The action whose press armed the shared [_monitor]'s release watch last.
+  /// The native watch is generic (it snapshots whichever key is held at the
+  /// arm), so its key-up belongs to that action. The global action is the
+  /// default; an extra dictation key takes it only for its own press.
+  String _monitorReleaseOwner = _globalActionId;
 
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
@@ -662,6 +688,9 @@ class HotkeyService extends Notifier<void> {
     onRepasteHotkeyPressed = null;
     onLearnCorrectionHotkeyPressed = null;
     onProfileHotkeyPressed = null;
+    onFavoriteLanguageHotkeyPressed = null;
+    onDictationKeyPressed = null;
+    onDictationKeyReleased = null;
     onSmartModeHotkeyPressed = null;
     onSmartModeHotkeyReleased = null;
     onSelectionEditHotkeyPressed = null;
@@ -724,6 +753,18 @@ class HotkeyService extends Notifier<void> {
   /// global action alone. A hold on them must therefore use this flag, not
   /// [supportsKeyUp], or its release never arrives on Windows/Linux.
   bool get optionalActionsSupportKeyUp => _registrar.supportsKeyUp;
+
+  /// Whether the extra dictation keys (#2055) get key-up, so they hold and
+  /// double-tap like the main hotkey. macOS: from the registrar. Windows and
+  /// Linux X11: from the shared [_monitor], whose release watch snapshots
+  /// whichever key is held when a press arms it. Not on Wayland, where the
+  /// portal reports the release of the main hotkey only: the keys toggle
+  /// there.
+  bool get dictationKeysSupportKeyUp {
+    if (_registrar.supportsKeyUp) return true;
+    if (!_monitor.supportsKeyUp) return false;
+    return linuxSessionTypeFrom(_environment) != LinuxSessionType.wayland;
+  }
 
   /// Whether push-to-talk rests solely on the experimental Linux key-up
   /// monitor (catchup/09) — the settings UI marks the option then.
@@ -1363,6 +1404,16 @@ class HotkeyService extends Notifier<void> {
   /// the hint explains the "Tap or hold" option. The release itself is handled
   /// as before.
   void _onMonitorKeyUp(Duration? pressed) {
+    final owner = _monitorReleaseOwner;
+    if (owner != _globalActionId) {
+      // The release of an extra dictation key's press (#2055). Without a
+      // held press of that key, the event is the global one as before.
+      _monitorReleaseOwner = _globalActionId;
+      if (_stateFor(owner).keyHeld) {
+        _handleKeyUp(owner, 'DictationKey');
+        return;
+      }
+    }
     final wasHeld = _stateFor(_globalActionId).keyHeld;
     _handleKeyUp(_globalActionId, 'Global');
     if (wasHeld && pressed != null && pressed <= shortPressMaxDuration) {
@@ -1876,14 +1927,15 @@ class HotkeyService extends Notifier<void> {
   /// pairing, driven off `recordingPhaseProvider`, and skips it entirely
   /// while an interactive-snippet sequence is active (that sequence owns
   /// Escape itself via [registerInteractiveSnippetKeys]).
-  Future<void> registerCancelDictationKey({
+  /// Returns false if the grab failed or this session ended while registering.
+  Future<bool> registerCancelDictationKey({
     required VoidCallback onCancel,
     LogicalKeyboardKey key = LogicalKeyboardKey.escape,
   }) async {
-    if (!_isDesktop) return;
+    if (!_isDesktop) return false;
     final epoch = ++_cancelDictationEpoch;
     await _unregisterAction(_cancelDictationActionId, stopMonitor: false);
-    if (epoch != _cancelDictationEpoch) return;
+    if (epoch != _cancelDictationEpoch) return false;
     _onCancelDictation = onCancel;
     await _registerSessionKeyGeneric(
       _cancelDictationActionId,
@@ -1892,6 +1944,8 @@ class HotkeyService extends Notifier<void> {
       epoch,
       () => epoch == _cancelDictationEpoch,
     );
+    return epoch == _cancelDictationEpoch &&
+        _stateFor(_cancelDictationActionId).registeredHotKey != null;
   }
 
   /// Removes the cancel-dictation Escape registration (see
@@ -1906,14 +1960,15 @@ class HotkeyService extends Notifier<void> {
   /// (#585). Same system-wide-grab contract as [registerCancelDictationKey]:
   /// `FloatingOverlayService` pairs it with [unregisterNoticeActionKey] and
   /// holds it only while the card stands.
-  Future<void> registerNoticeActionKey({
+  /// Returns false if the grab failed or this session ended while registering.
+  Future<bool> registerNoticeActionKey({
     required VoidCallback onPressed,
     required LogicalKeyboardKey key,
   }) async {
-    if (!_isDesktop) return;
+    if (!_isDesktop) return false;
     final epoch = ++_noticeActionEpoch;
     await _unregisterAction(_noticeActionActionId, stopMonitor: false);
-    if (epoch != _noticeActionEpoch) return;
+    if (epoch != _noticeActionEpoch) return false;
     _onNoticeAction = onPressed;
     await _registerSessionKeyGeneric(
       _noticeActionActionId,
@@ -1922,6 +1977,8 @@ class HotkeyService extends Notifier<void> {
       epoch,
       () => epoch == _noticeActionEpoch,
     );
+    return epoch == _noticeActionEpoch &&
+        _stateFor(_noticeActionActionId).registeredHotKey != null;
   }
 
   /// Removes the notice-action key. Safe to call when nothing is registered.
@@ -1977,13 +2034,18 @@ class HotkeyService extends Notifier<void> {
     try {
       await _registrar.register(
         hotKey,
-        keyDownHandler: (_) =>
-            _handleKeyDown(actionId, label, fromRegistrar: true),
+        keyDownHandler: (_) {
+          if (stillCurrent()) {
+            _handleKeyDown(actionId, label, fromRegistrar: true);
+          }
+        },
         // Where key-up is available (macOS registrar), clear the held state
         // so a quick successive press within the auto-repeat window is not
         // swallowed as OS key-repeat.
         keyUpHandler: _registrar.supportsKeyUp
-            ? (_) => _handleKeyUp(actionId, label)
+            ? (_) {
+                if (stillCurrent()) _handleKeyUp(actionId, label);
+              }
             : null,
       );
       if (!stillCurrent()) {
@@ -2210,6 +2272,7 @@ class HotkeyService extends Notifier<void> {
         await _registerSelectionEditFromSettings(settings);
       }
     }
+    await _reregisterDictationKeys();
     return true;
   }
 
@@ -2715,7 +2778,9 @@ class HotkeyService extends Notifier<void> {
       // now and reports its release; Linux arms its watch the same way. Both
       // answer whether the key is still held. macOS needs no watch because
       // the hotkey registrar delivers the release itself (#39).
-      // Only the global action uses the shared monitor.
+      // The extra dictation keys borrow the shared monitor for their own
+      // press only; the global press takes it back here.
+      _monitorReleaseOwner = _globalActionId;
       final armed = _monitor.armRelease(
         modifiers: state.registeredHotKey?.modifiers ?? const [],
       );
@@ -2755,6 +2820,24 @@ class HotkeyService extends Notifier<void> {
             ? null
             : () => profile(actionId.substring(_profileActionPrefix.length)),
       );
+    } else if (actionId.startsWith(kFavoriteLanguageHotkeyActionPrefix)) {
+      // No perf mark: switching the language starts no recording.
+      final language = onFavoriteLanguageHotkeyPressed;
+      _dispatch(
+        label,
+        language == null
+            ? null
+            : () => language(
+                actionId.substring(kFavoriteLanguageHotkeyActionPrefix.length),
+              ),
+      );
+    } else if (actionId.startsWith(kDictationKeyActionPrefix)) {
+      // Drives the recording overlay like the main hotkey: same t₀ stamp.
+      PerfMarkers.instance.markHotkeyPressed();
+      final keyId = actionId.substring(kDictationKeyActionPrefix.length);
+      final pressed = onDictationKeyPressed;
+      _dispatch(label, pressed == null ? null : () => pressed(keyId));
+      _armDictationKeyRelease(actionId, now);
     } else if (actionId == _smartModeActionId) {
       // Same t₀ stamp rationale as the quick-note action — this action also
       // drives the recording overlay.
@@ -2936,6 +3019,11 @@ class HotkeyService extends Notifier<void> {
       _stopHeldProbe();
       _signalDictationActivity((c) => c.released());
       _dispatch(label, onHotkeyReleased);
+    } else if (actionId.startsWith(kDictationKeyActionPrefix)) {
+      _stopDictationKeyProbe();
+      final keyId = actionId.substring(kDictationKeyActionPrefix.length);
+      final released = onDictationKeyReleased;
+      _dispatch(label, released == null ? null : () => released(keyId));
     } else if (actionId == _smartModeActionId) {
       _dispatch(label, onSmartModeHotkeyReleased);
     } else if (actionId == _selectionEditActionId) {
@@ -2980,25 +3068,81 @@ class HotkeyService extends Notifier<void> {
   Future<Set<String>> syncProfileHotkeys(
     List<ProfileHotkeyEntry> entries,
   ) async {
+    final refused = await _syncDynamicHotkeys(
+      prefix: _profileActionPrefix,
+      label: 'Profile',
+      entries: [
+        for (final entry in entries)
+          (
+            actionId: entry.actionId,
+            key: entry.key,
+            modifiers: entry.modifiers,
+          ),
+      ],
+    );
+    return {
+      for (final actionId in refused)
+        actionId.substring(_profileActionPrefix.length),
+    };
+  }
+
+  /// Makes the registered favorite-language hotkeys (#2137) match [entries],
+  /// the same way as [syncProfileHotkeys]. Returns the language codes the OS
+  /// refused.
+  Future<Set<String>> syncFavoriteLanguageHotkeys(
+    List<({String code, String key, String modifiers})> entries,
+  ) async {
+    final refused = await _syncDynamicHotkeys(
+      prefix: kFavoriteLanguageHotkeyActionPrefix,
+      label: 'Favorite-language',
+      entries: [
+        for (final entry in entries)
+          (
+            actionId: favoriteLanguageHotkeyActionId(entry.code),
+            key: entry.key,
+            modifiers: entry.modifiers,
+          ),
+      ],
+    );
+    return {
+      for (final actionId in refused)
+        actionId.substring(kFavoriteLanguageHotkeyActionPrefix.length),
+    };
+  }
+
+  /// The shared part of the syncs above: only action ids with [prefix] are
+  /// touched. Returns the action ids the OS refused.
+  Future<Set<String>> _syncDynamicHotkeys({
+    required String prefix,
+    required String label,
+    required List<({String actionId, String key, String modifiers})> entries,
+  }) async {
     if (!_isDesktop) return const {};
     final wanted = {for (final entry in entries) entry.actionId: entry};
-    for (final actionId in _profileRegistrations.keys.toList()) {
+    for (final actionId in _dynamicRegistrations.keys.toList()) {
+      if (!actionId.startsWith(prefix)) continue;
       final target = wanted[actionId];
       if (target != null &&
-          _profileRegistrations[actionId] == target.signature) {
+          _dynamicRegistrations[actionId] ==
+              canonicalHotkeyCombo(target.key, target.modifiers)) {
         continue;
       }
-      await _unregisterProfileAction(actionId);
+      await _unregisterDynamicAction(actionId);
     }
     final refused = <String>{};
     for (final entry in entries) {
-      if (_profileRegistrations.containsKey(entry.actionId)) continue;
-      if (!await _registerProfileHotkey(entry)) refused.add(entry.profileId);
+      if (_dynamicRegistrations.containsKey(entry.actionId)) continue;
+      if (!await _registerDynamicHotkey(entry, label)) {
+        refused.add(entry.actionId);
+      }
     }
     return refused;
   }
 
-  Future<bool> _registerProfileHotkey(ProfileHotkeyEntry entry) async {
+  Future<bool> _registerDynamicHotkey(
+    ({String actionId, String key, String modifiers}) entry,
+    String label,
+  ) async {
     try {
       final hotKey = HotKey(
         key: resolveKey(entry.key),
@@ -3008,26 +3152,193 @@ class HotkeyService extends Notifier<void> {
       await _registrar.register(
         hotKey,
         keyDownHandler: (_) =>
-            _handleKeyDown(entry.actionId, 'Profile', fromRegistrar: true),
+            _handleKeyDown(entry.actionId, label, fromRegistrar: true),
       );
-      _profileRegistrations[entry.actionId] = entry.signature;
-      _log.info('Profile hotkey registered: ${entry.profileId}');
+      _dynamicRegistrations[entry.actionId] = canonicalHotkeyCombo(
+        entry.key,
+        entry.modifiers,
+      );
+      _log.info('$label hotkey registered: ${entry.actionId}');
       return true;
     } on Object catch (e) {
       _stateFor(entry.actionId).registeredHotKey = null;
-      _log.warning('Profile hotkey refused for ${entry.profileId}: $e');
+      _log.warning('$label hotkey refused for ${entry.actionId}: $e');
       return false;
     }
   }
 
-  Future<void> _unregisterProfileAction(String actionId) async {
+  Future<void> _unregisterDynamicAction(String actionId) async {
     await _unregisterAction(actionId, stopMonitor: false);
-    _profileRegistrations.remove(actionId);
+    _dynamicRegistrations.remove(actionId);
     _actionStates.remove(actionId);
+  }
+
+  // ── Extra dictation keys (#2055) ───────────────────────────────────────
+
+  /// Makes the registered extra dictation keys match [entries]. A key whose
+  /// combination is unchanged stays registered, so calling this again with
+  /// the same entries registers nothing; a removed or changed entry is
+  /// unregistered first. Returns the key ids the OS refused. With no entries
+  /// (the default) nothing is registered and the main hotkey is untouched.
+  Future<Set<String>> syncDictationKeys(List<DictationKeyEntry> entries) async {
+    if (!_isDesktop) return const {};
+    final wanted = {for (final entry in entries) entry.actionId: entry};
+    for (final actionId in _dictationKeyRegistrations.keys.toList()) {
+      final target = wanted[actionId];
+      if (target != null &&
+          _dictationKeyRegistrations[actionId]!.signature == target.signature) {
+        continue;
+      }
+      await _unregisterDictationKey(actionId);
+    }
+    final refused = <String>{};
+    for (final entry in entries) {
+      if (_dictationKeyRegistrations.containsKey(entry.actionId)) continue;
+      if (!await _registerDictationKey(entry)) refused.add(entry.keyId);
+    }
+    _setDictationKeysRefused(refused);
+    return refused;
+  }
+
+  Future<bool> _registerDictationKey(DictationKeyEntry entry) async {
+    try {
+      final hotKey = HotKey(
+        key: resolveKey(entry.key),
+        modifiers: resolveModifiers(entry.modifiers),
+      );
+      _stateFor(entry.actionId).registeredHotKey = hotKey;
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) =>
+            _handleKeyDown(entry.actionId, 'DictationKey', fromRegistrar: true),
+        keyUpHandler: _registrar.supportsKeyUp
+            ? (_) => _handleKeyUp(entry.actionId, 'DictationKey')
+            : null,
+      );
+      _dictationKeyRegistrations[entry.actionId] = entry;
+      _log.info('Dictation key registered: ${entry.keyId}');
+      return true;
+    } on Object catch (e) {
+      _stateFor(entry.actionId).registeredHotKey = null;
+      _log.warning('Dictation key refused for ${entry.keyId}: $e');
+      return false;
+    }
+  }
+
+  Future<void> _unregisterDictationKey(String actionId) async {
+    if (_monitorReleaseOwner == actionId) {
+      _monitorReleaseOwner = _globalActionId;
+      _stopDictationKeyProbe();
+    }
+    await _unregisterAction(actionId, stopMonitor: false);
+    _dictationKeyRegistrations.remove(actionId);
+    _actionStates.remove(actionId);
+  }
+
+  /// Registers the extra dictation keys again after a heal of the global
+  /// hotkey: the same cause (sleep, a stalled tap) can cost them too.
+  Future<void> _reregisterDictationKeys() async {
+    final entries = _dictationKeyRegistrations.values.toList();
+    if (entries.isEmpty) return;
+    for (final entry in entries) {
+      await _unregisterDictationKey(entry.actionId);
+    }
+    final refused = <String>{};
+    for (final entry in entries) {
+      if (!await _registerDictationKey(entry)) refused.add(entry.keyId);
+    }
+    _setDictationKeysRefused(refused);
+  }
+
+  void _setDictationKeysRefused(Set<String> refused) {
+    try {
+      ref.read(dictationKeysRefusedByOsProvider.notifier).set(refused);
+    } on Object catch (e) {
+      _log.debug('dictation key status dropped: $e');
+    }
+  }
+
+  /// Arms the release watch for an extra dictation key's press where only the
+  /// shared [_monitor] reports key-up (Windows, Linux X11). macOS gets the
+  /// release from the registrar. A press that is already over at the arm (an
+  /// on-screen keyboard click) ends at once, like the global one.
+  void _armDictationKeyRelease(String actionId, DateTime now) {
+    final state = _stateFor(actionId);
+    if (_registrar.supportsKeyUp) {
+      _startDictationKeyProbe(actionId, state.pressStartedAt);
+      return;
+    }
+    if (!dictationKeysSupportKeyUp) return;
+    _monitorReleaseOwner = actionId;
+    final armed = _monitor.armRelease(
+      modifiers: state.registeredHotKey?.modifiers ?? const [],
+    );
+    unawaited(
+      armed.then((held) {
+        if (held) {
+          _startDictationKeyProbe(actionId, state.pressStartedAt);
+          return;
+        }
+        if (state.keyHeld && state.lastKeyDownAt == now) {
+          _log.info('Dictation key already released at arm time');
+          _handleKeyUp(actionId, 'DictationKey');
+        }
+      }),
+    );
+  }
+
+  Timer? _dictationKeyProbe;
+  bool _dictationKeyProbeBusy = false;
+
+  /// The lost-release check of the global hotkey (#774) for an extra
+  /// dictation key's press: when the hardware says "up" while the press
+  /// still counts as held, the press ends like a normal release. Hosts that
+  /// cannot tell leave it to the release event.
+  void _startDictationKeyProbe(String actionId, DateTime? press) {
+    final macKeyCode = _macKeyCode(
+      _stateFor(actionId).registeredHotKey?.physicalKey,
+    );
+    final viaMonitor = !_registrar.supportsKeyUp && _monitor.supportsKeyUp;
+    final viaModifierHost =
+        _registrar.supportsKeyUp &&
+        _modifierMonitor.supportsHeld &&
+        macKeyCode != null;
+    if (!viaMonitor && !viaModifierHost) return;
+    _stopDictationKeyProbe();
+    _dictationKeyProbe = Timer.periodic(kHotkeyHeldProbeInterval, (_) async {
+      final state = _stateFor(actionId);
+      if (!state.keyHeld || state.pressStartedAt != press) {
+        _stopDictationKeyProbe();
+        return;
+      }
+      if (_dictationKeyProbeBusy) return;
+      _dictationKeyProbeBusy = true;
+      try {
+        final held = viaMonitor
+            ? await _monitor.isHeld()
+            : await _modifierMonitor.isHeld(keyCode: macKeyCode);
+        if (held == false && state.keyHeld && state.pressStartedAt == press) {
+          _log.warning('Dictation key release was lost; ending the press');
+          _handleKeyUp(actionId, 'DictationKey');
+        }
+      } finally {
+        _dictationKeyProbeBusy = false;
+      }
+    });
+  }
+
+  void _stopDictationKeyProbe() {
+    _dictationKeyProbe?.cancel();
+    _dictationKeyProbe = null;
+    _dictationKeyProbeBusy = false;
   }
 
   Future<void> _destroy() async {
     _stopHeldProbe();
+    _stopDictationKeyProbe();
+    for (final actionId in _dictationKeyRegistrations.keys.toList()) {
+      await _unregisterDictationKey(actionId);
+    }
     _healTimer?.cancel();
     _healTimer = null;
     _unwatchObserver();
@@ -3036,8 +3347,8 @@ class HotkeyService extends Notifier<void> {
     _globalChain.close();
     _modifierOnlyChain.close();
     _registrar.dispose();
-    for (final actionId in _profileRegistrations.keys.toList()) {
-      await _unregisterProfileAction(actionId);
+    for (final actionId in _dynamicRegistrations.keys.toList()) {
+      await _unregisterDynamicAction(actionId);
     }
     if (_initialized) {
       await _unregisterAction(_globalActionId, stopMonitor: true);
@@ -3095,6 +3406,24 @@ class HotkeyService extends Notifier<void> {
 final hotkeyServiceProvider = NotifierProvider<HotkeyService, void>(
   HotkeyService.new,
 );
+
+/// Extra dictation keys (#2055) the operating system refused to register
+/// (another app holds the combination). In memory only; Settings shows a
+/// notice at each refused key.
+class DictationKeysRefusedByOsController extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  void set(Set<String> ids) {
+    if (setEquals(ids, state)) return;
+    state = Set.unmodifiable(ids);
+  }
+}
+
+final dictationKeysRefusedByOsProvider =
+    NotifierProvider<DictationKeysRefusedByOsController, Set<String>>(
+      DictationKeysRefusedByOsController.new,
+    );
 
 /// What the dictation hotkey is doing right now, for the onboarding demo
 /// (Onboarding v6, V05): [held] while the key is down, [presses] counts the

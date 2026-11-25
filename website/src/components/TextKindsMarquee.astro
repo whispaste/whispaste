@@ -269,6 +269,7 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
 </style>
 
 <script>
+  import { motionPaused, onMotionChange } from '../scripts/motion-pref';
   // Conveyor: the track moves left at a steady pace and wraps by one set of
   // fields (it holds two). A field counts as pasted once its centre has
   // passed the pill; fields re-entering on the right are empty again.
@@ -321,7 +322,8 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     const run = (on: boolean): void => {
       cancelAnimationFrame(raf);
       last = 0;
-      if (on) raf = requestAnimationFrame(frame);
+      // The footer's "pause animations" switch holds the band still (#1910).
+      if (on && !motionPaused()) raf = requestAnimationFrame(frame);
     };
     measure();
     paint();
@@ -339,5 +341,6 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
       run(inView);
     }).observe(band);
     document.addEventListener('visibilitychange', () => run(inView && !document.hidden));
+    onMotionChange(() => run(inView && !document.hidden));
   }
 </script>

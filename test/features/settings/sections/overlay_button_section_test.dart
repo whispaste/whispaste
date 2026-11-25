@@ -36,6 +36,8 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
 import 'package:whispaste/services/floating_button/floating_button_support.dart';
+import 'package:whispaste/services/floating_overlay/overlay_hide_rules.dart'
+    show overlayCaptureExclusionApplies;
 import 'package:whispaste/services/floating_button/floating_button_support_provider.dart';
 import 'package:whispaste/features/settings/widgets/wp_settings_group.dart'
     show WpSettingsGroup, settingsRowKey;
@@ -44,6 +46,7 @@ import 'package:whispaste/features/settings/widgets/overlay_theme_swatches.dart'
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 import 'package:whispaste/widgets/overlay_preview.dart';
+import 'package:whispaste/widgets/wp_row_divider.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -465,10 +468,15 @@ void main() {
         // … in its own card: preview, shared colours and overlay options are
         // three WpSettingsGroup cards, each with its heading above the card.
         // Within the options card the group draws one rule between each pair
-        // of its ten rows (quiet hint, start, size, transcript, form, wave
-        // style, fluid, timer, cancel, opacity), so nine rules there.
+        // of its rows (start, size, transcript, quiet hint, key hints, form,
+        // wave style, fluid, timer, cancel, opacity), plus the
+        // hide-from-capture row of overlay F where the system offers it
+        // (macOS, Windows).
+        final captureRow = overlayCaptureExclusionApplies(defaultTargetPlatform)
+            ? 1
+            : 0;
         expect(find.byType(WpSettingsGroup), findsNWidgets(3));
-        expect(find.byType(Divider), findsNWidgets(10));
+        expect(find.byType(WpRowDivider), findsNWidgets(11 + captureRow));
       },
       variant: TargetPlatformVariant.desktop(),
     );
@@ -608,6 +616,12 @@ void main() {
                 reason: '$id should ignore pointers only while off',
               );
             }
+
+            // #1845: the locked ring switch looks disabled, not ON.
+            final ring = tester.widget<Switch>(
+              find.byKey(const ValueKey('floating-button-ring-toggle')),
+            );
+            expect(ring.onChanged == null, !shown);
 
             // The switch itself is never dimmed or blocked.
             final toggle = find.byKey(

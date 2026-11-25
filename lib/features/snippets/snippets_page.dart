@@ -3,6 +3,7 @@ import '../../core/search/search_ranker.dart';
 
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -18,11 +19,14 @@ import '../../core/sorting/list_sort_preference.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../services/snippet_picker/snippet_picker_controller.dart';
 import '../../services/snippets/interactive_snippet_composer.dart';
+import '../../services/snippets/snippet_file.dart';
+import 'snippet_import_actions.dart';
 import '../../services/snippets/snippets_exporter.dart';
 import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/config/command_shortcut.dart';
+import '../../core/utils/focus_helpers.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/wp_collection_list_pane.dart';
 import '../../widgets/wp_collection_page.dart';
@@ -39,11 +43,11 @@ import '../../widgets/wp_row_action.dart';
 import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/markdown_toolbar.dart';
+import '../../widgets/wp_text_editor.dart';
 import '../../widgets/list_reveal.dart';
 import '../../widgets/searchable_list_page.dart';
 import '../../widgets/wp_notice_bar.dart';
 import '../../widgets/wp_accent_badge.dart';
-import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_filter_chip.dart';
 import '../../widgets/wp_icon_button.dart';
@@ -55,12 +59,17 @@ import '../../core/navigation/page_state.dart';
 import 'package:whispaste/core/data/database.dart';
 
 import '../../widgets/wp_copy_feedback.dart';
+import '../../widgets/wp_tag_chip.dart';
+import '../notes/widgets/note_tag_field.dart';
+import '../notes/widgets/notes_bulk_tag_dialog.dart';
 import 'snippet_draft.dart';
+import 'snippet_filters.dart';
 import 'snippet_item.dart';
 import 'widgets/snippet_detail_panel.dart';
 import 'widgets/snippet_editor.dart';
 import 'widgets/snippet_insert_dialog.dart';
 
+export 'snippet_filters.dart';
 export 'snippet_item.dart';
 
 // ---------------------------------------------------------------------------
@@ -102,6 +111,28 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
     );
     await reload();
     return id;
+  }
+
+  /// Writes the snippets of a file import in one transaction (#665): a write
+  /// without id becomes a new snippet, one with id replaces that snippet's
+  /// content. Returns the ids written, in order.
+  Future<List<String>> importSnippets(List<SnippetImportWrite> writes) async {
+    if (writes.isEmpty) return const [];
+    final items = [
+      for (final w in writes)
+        (
+          id: w.id ?? generateV4Uuid(),
+          title: w.title,
+          body: w.body,
+          kind: w.kind,
+          fields: w.fields,
+        ),
+    ];
+    await ref
+        .read(historyDatabaseProvider)
+        .importSnippets(items, createdAt: DateTime.now());
+    await reload();
+    return [for (final i in items) i.id];
   }
 
   /// Counts one insertion of snippet [id] (copy on the page) and reloads, so
@@ -163,6 +194,60 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
       await db.setSnippetFavorite(id, favorite: value);
     }
     await reload();
+  }
+
+  /// Adds tag [name] to snippet [id] (#662), creating the tag when it does
+  /// not exist yet — the same shared tags as on notes and recordings. A
+  /// blank name changes nothing. Not an edit: "changed" keeps its time.
+  /// The list follows through [allSnippetTagsProvider], no reload needed.
+  Future<void> addTag(String id, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final db = ref.read(historyDatabaseProvider);
+    final tag = await db.createTag(trimmed);
+    await db.tagSnippet(id, tag.id);
+  }
+
+  /// Takes tag [tagId] off snippet [id]; the tag itself stays.
+  Future<void> removeTag(String id, String tagId) =>
+      ref.read(historyDatabaseProvider).untagSnippet(id, tagId);
+
+  /// Adds tag [name] to every snippet of [ids]. Returns the tag id and the
+  /// snippets that did not carry it before — exactly what the undo
+  /// ([removeTagFromMany]) takes away again. `null` for a blank name.
+  Future<({String tagId, List<String> added})?> addTagToMany(
+    List<String> ids,
+    String name,
+  ) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final db = ref.read(historyDatabaseProvider);
+    final tag = await db.createTag(trimmed);
+    final carried = await db.readAllSnippetTags();
+    final added = <String>[];
+    for (final id in ids) {
+      if (carried[id]?.any((t) => t.id == tag.id) ?? false) continue;
+      await db.tagSnippet(id, tag.id);
+      added.add(id);
+    }
+    return (tagId: tag.id, added: added);
+  }
+
+  /// Takes tag [tagId] off every snippet of [ids].
+  Future<void> removeTagFromMany(List<String> ids, String tagId) async {
+    final db = ref.read(historyDatabaseProvider);
+    for (final id in ids) {
+      await db.untagSnippet(id, tagId);
+    }
+  }
+
+  /// Gives snippet [to] every tag of snippet [from] (a duplicate keeps the
+  /// original's tags, as a duplicated note does).
+  Future<void> copyTags({required String from, required String to}) async {
+    final db = ref.read(historyDatabaseProvider);
+    for (final tag in await db.tagsForSnippet(from)) {
+      await db.tagSnippet(to, tag.id);
+    }
   }
 
   /// Permanently removes the given trashed snippets. Returns how many went.
@@ -245,16 +330,25 @@ Future<void> insertSnippetAtCursor({
 }) async {
   final items = await ref.read(snippetsProvider.future);
   if (!context.mounted) return;
+  // Focus comes back from the chooser: the caret stays where it was (cancel)
+  // or right after the inserted text, not at the end of the text. Marked
+  // before the dialog opens, because the route may hand focus back itself.
+  WpTextEditor.keepCaretOnNextFocus(controller);
   final picked = await pickSnippetForInsert(context, items);
   if (picked == null) {
     focusNode.requestFocus();
-    return;
+  } else {
+    WpMarkdownFormatting(
+      controller: controller,
+      focusNode: focusNode,
+    ).insertText(picked.body);
+    unawaited(ref.read(snippetsProvider.notifier).recordUse(picked.id));
   }
-  WpMarkdownFormatting(
-    controller: controller,
-    focusNode: focusNode,
-  ).insertText(picked.body);
-  unawaited(ref.read(snippetsProvider.notifier).recordUse(picked.id));
+  // The focus change runs in a microtask; after the frame the mark is spent
+  // or was never needed.
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => WpTextEditor.clearKeepCaret(controller),
+  );
 }
 
 final snippetsProvider =
@@ -290,19 +384,47 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     _container = ProviderScope.containerOf(context, listen: false);
   }
 
-  /// Shows the trash instead of the active snippets. Page-local on purpose:
-  /// leaving the page lands on the active list again.
-  bool _trashView = false;
+  /// Active list, favourites only, or the trash (#662). Page-local on
+  /// purpose: leaving the page lands on the active list again.
+  SnippetsView _view = SnippetsView.active;
 
-  void _showTrash(bool value) {
-    if (_trashView == value) return;
+  bool get _trashView => _view == SnippetsView.trash;
+
+  /// The tags the list is narrowed to: a snippet must carry all of them.
+  /// Not remembered, like the notes' tag filter: a filter that outlives the
+  /// session hides snippets the user forgot about.
+  Set<String> _tagFilter = const {};
+
+  void _showView(SnippetsView view) {
+    if (_view == view) return;
+    final enteringOrLeavingTrash =
+        view == SnippetsView.trash || _view == SnippetsView.trash;
     setState(() {
-      _trashView = value;
-      _openId = null;
-      _newSessionId = null;
-      _leaveSelection();
+      _view = view;
+      // Favourites are a narrower look at the same list: the open snippet
+      // and a running selection stay. The trash is another storage.
+      if (enteringOrLeavingTrash) {
+        _openId = null;
+        _newSessionId = null;
+        _leaveSelection();
+      }
     });
   }
+
+  void _showTrash(bool value) =>
+      _showView(value ? SnippetsView.trash : SnippetsView.active);
+
+  void _toggleTagFilter(String tagId) => setState(() {
+    final next = {..._tagFilter};
+    if (!next.remove(tagId)) next.add(tagId);
+    _tagFilter = next;
+  });
+
+  /// Clears favourites-only and every tag, back to the whole active list.
+  void _resetFilters() => setState(() {
+    _tagFilter = const {};
+    if (_view == SnippetsView.favourites) _view = SnippetsView.active;
+  });
 
   /// Id of the snippet shown in the detail beside the list, or null.
   String? _openId;
@@ -363,7 +485,11 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
   void _leaveSelection() {
     _selecting = false;
     _selected.clear();
+    _rangeAnchorId = null;
   }
+
+  /// The row a Shift+click range starts from (the last row marked by hand).
+  String? _rangeAnchorId;
 
   void _toggleSelect(SnippetItem s) {
     // The unsaved new-snippet row is no snippet yet: nothing to select.
@@ -371,6 +497,34 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     setState(() {
       _selecting = true;
       if (!_selected.remove(s.id)) _selected.add(s.id);
+      _rangeAnchorId = s.id;
+    });
+  }
+
+  /// Shift+click (#1858): marks every visible row between the range anchor
+  /// and [s], as in the recordings and notes lists.
+  void _selectRange(SnippetItem s) {
+    final ids = [for (final v in _visible) v.id];
+    final to = ids.indexOf(s.id);
+    if (to < 0) return;
+    var from = _rangeAnchorId == null ? -1 : ids.indexOf(_rangeAnchorId!);
+    if (from < 0) from = to;
+    final start = from < to ? from : to;
+    final end = from < to ? to : from;
+    setState(() {
+      _selecting = true;
+      _selected.addAll(ids.sublist(start, end + 1));
+      _rangeAnchorId ??= s.id;
+    });
+  }
+
+  /// Ctrl/Cmd+A (#1858): marks every snippet the list shows (the current
+  /// search included) and opens the selection mode. Not in the trash.
+  void _selectAllVisible() {
+    if (_trashView || _visible.isEmpty) return;
+    setState(() {
+      _selecting = true;
+      _selected.addAll(_visible.map((s) => s.id));
     });
   }
 
@@ -423,9 +577,10 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       isArchiveView: false,
       onSelectAll: _toggleSelectAll,
       onCancelSelection: () => setState(_leaveSelection),
-      onDelete: has ? _trashSelected : null,
-      onExport: has ? _exportSelected : null,
-      onFavourite: has ? () => _starSelected(!allStarred) : null,
+      onDelete: _trashSelected,
+      onExport: _exportSelected,
+      onTag: _tagSelected,
+      onFavourite: () => _starSelected(!allStarred),
       favouriteLabel: allStarred
           ? l10n.snippetsBulkUnstar
           : l10n.snippetsBulkStar,
@@ -487,18 +642,91 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     );
   }
 
+  /// Asks for a tag and adds it to every marked snippet, as on Notizen.
+  /// Undo takes it only from the snippets that did not carry it before.
+  Future<void> _tagSelected() async {
+    final ids = [for (final s in _chosen) s.id];
+    if (ids.isEmpty) return;
+    final l10n = L10n.of(context);
+    final name = await showNotesBulkTagDialog(
+      context,
+      count: ids.length,
+      title: l10n.snippetsBulkTagTitle(ids.length),
+      idPrefix: 'snippets-bulk-tag',
+    );
+    if (name == null || !mounted) return;
+    final notifier = ref.read(snippetsProvider.notifier);
+    final ({String tagId, List<String> added})? result;
+    try {
+      result = await notifier.addTagToMany(ids, name);
+    } catch (_) {
+      _writeFailed('bulk-failed', l10n.snippetsBulkFailed);
+      return;
+    }
+    if (result == null || !mounted) return;
+    setState(_leaveSelection);
+    showWpNotice(
+      context,
+      WpNotice(
+        id: 'snippets-tagged',
+        kind: WpNoticeKind.undo,
+        message: l10n.snippetsBulkTagged(ids.length, name.trim().toLowerCase()),
+        actionLabel: l10n.snippetsUndo,
+        actionTestId: 'snippets-undo',
+        onAction: () async {
+          try {
+            await notifier.removeTagFromMany(result!.added, result.tagId);
+          } catch (_) {
+            _writeFailed('bulk-failed', l10n.snippetsBulkFailed);
+          }
+        },
+      ),
+    );
+  }
+
+  static SnippetExportRow _exportRow(SnippetItem s) => (
+    id: s.id,
+    title: s.title,
+    body: s.body,
+    kind: s.kind,
+    fields: s.fields,
+    changedAt: s.updatedAt ?? s.createdAt,
+  );
+
   Future<void> _exportSelected() async {
-    final rows = [
-      for (final s in _chosen)
-        (
-          id: s.id,
-          title: s.title,
-          body: s.body,
-          changedAt: s.updatedAt ?? s.createdAt,
-        ),
-    ];
+    final rows = [for (final s in _chosen) _exportRow(s)];
     final done = await const SnippetsExporter().exportSnippets(context, rows);
     if (done && mounted) setState(_leaveSelection);
+  }
+
+  /// Exports one snippet from its context menu (#665), without entering the
+  /// selection mode.
+  Future<void> _exportOne(SnippetItem s) async {
+    await const SnippetsExporter().exportSnippets(context, [_exportRow(s)]);
+  }
+
+  /// A file dropped on the page imports like the toolbar button (#665).
+  /// The first Markdown or JSON file of the drop counts; the trash view
+  /// takes no imports.
+  void _onDropDone(DropDoneDetails details, {required bool inTrash}) {
+    if (inTrash) return;
+    for (final item in details.files) {
+      if (isSnippetImportFileName(item.name)) {
+        unawaited(importSnippetsFile(context, ref, file: item));
+        return;
+      }
+    }
+    if (details.files.isNotEmpty) {
+      showWpPageNotice(
+        context,
+        page: _noticePage,
+        notice: WpPageNotice(
+          id: 'snippets-import-refused',
+          message: L10n.of(context).snippetsImportRefusedFormat,
+          nextStep: L10n.of(context).snippetsImportNextPickFile,
+        ),
+      );
+    }
   }
 
   /// A tap on a row: with Ctrl/Cmd held, or while selecting, it marks the row;
@@ -506,6 +734,11 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
   void _onRowTap(SnippetItem s) {
     final keys = HardwareKeyboard.instance;
     if (s.id != kNewSnippetDraftKey &&
+        !_trashView &&
+        keys.isShiftPressed &&
+        (_selecting || _rangeAnchorId != null)) {
+      _selectRange(s);
+    } else if (s.id != kNewSnippetDraftKey &&
         (_selecting || keys.isControlPressed || keys.isMetaPressed)) {
       _toggleSelect(s);
     } else {
@@ -536,7 +769,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     // Not offered by this list; the title is the list's own name for it.
     ListSortField.title ||
     ListSortField.trigger ||
-    ListSortField.result => l10n.listSortFieldTitle,
+    ListSortField.result ||
+    ListSortField.order => l10n.listSortFieldTitle,
   };
 
   /// Search, keyboard cursor and bare keys of the list (#1498): the same
@@ -547,6 +781,28 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
   void initState() {
     super.initState();
     _selection.addListener(_onSelectionChanged);
+    // A search hit that navigated here (#628) is already set when the page
+    // mounts, so `ref.listen` in build() would never see it change.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyOpenTarget());
+  }
+
+  /// Consumes a pending jump to one snippet ([snippetsOpenTargetProvider])
+  /// and shows it beside the active list, with the list search cleared so
+  /// its row is visible.
+  void _applyOpenTarget() {
+    if (!mounted) return;
+    final id = ref.read(snippetsOpenTargetProvider);
+    if (id == null) return;
+    ref.read(snippetsOpenTargetProvider.notifier).set(null);
+    _selection.clearSearch();
+    setState(() {
+      // Filters cleared too, so the snippet's row is visible.
+      _view = SnippetsView.active;
+      _tagFilter = const {};
+      _leaveSelection();
+      if (_openId != id) _newSessionId = null;
+      _openId = id;
+    });
   }
 
   void _onSelectionChanged() {
@@ -561,10 +817,16 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     super.dispose();
   }
 
-  static List<SearchField> _searchFields(SnippetItem s) => [
-    SearchField(s.title, SearchWeight.title),
-    SearchField(s.body, SearchWeight.body),
-  ];
+  /// Title, tags (#662) and text, the notes' order of relevance.
+  static List<SearchField> Function(SnippetItem) _searchFields(
+    Map<String, List<Tag>> tagsBySnippetId,
+  ) =>
+      (s) => [
+        SearchField(s.title, SearchWeight.title),
+        if (tagsBySnippetId[s.id] case final tags? when tags.isNotEmpty)
+          SearchField(tags.map((t) => t.name).join(' '), SearchWeight.tag),
+        SearchField(s.body, SearchWeight.body),
+      ];
 
   /// A snippet row is 87 dp, not the single-line default (its body preview
   /// takes two lines) — measured, see `WpListSkeleton.rowHeight`.
@@ -615,6 +877,17 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
         !inTrash &&
         (_openId == kNewSnippetDraftKey ||
             draftIds.contains(kNewSnippetDraftKey));
+    final tagsBySnippetId =
+        ref.watch(allSnippetTagsProvider).value ?? const <String, List<Tag>>{};
+    final activeItems = ref.watch(snippetsProvider).value ?? const [];
+    // Only tags an active snippet carries are offered; a chosen tag that
+    // none carries any more stops filtering.
+    final tagsInUse = snippetTagsInUse(activeItems, tagsBySnippetId);
+    final tagFilter = _tagFilter.intersection({
+      for (final t in tagsInUse) t.id,
+    });
+    final favouritesOnly = _view == SnippetsView.favourites;
+    final filtering = !inTrash && (favouritesOnly || tagFilter.isNotEmpty);
     final asyncAll = inTrash
         ? trashAsync
         : sortAsync.isLoading && !sortAsync.hasValue
@@ -624,13 +897,20 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
               .whenData(
                 (items) => [
                   if (showNewDraft) _newDraftItem(l10n),
-                  ...favouritesFirst(sortListItems(items, sort)),
+                  ...favouritesFirst(
+                    filterSnippets(
+                      sortListItems(items, sort),
+                      favouritesOnly: favouritesOnly,
+                      tagIds: tagFilter,
+                      tagsBySnippetId: tagsBySnippetId,
+                    ),
+                  ),
                 ],
               );
 
     final all = asyncAll.value ?? const <SnippetItem>[];
     final visible = asyncAll.hasValue
-        ? _selection.filter(all, _searchFields)
+        ? _selection.filter(all, _searchFields(tagsBySnippetId))
         : const <SnippetItem>[];
     final cursorItem = _selection.cursorItem(visible);
     SnippetItem? open;
@@ -644,61 +924,85 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
         ? _selectionBar(context, visible)
         : null;
 
-    return CallbackShortcuts(
-      bindings: <ShortcutActivator, VoidCallback>{
-        commandActivator(LogicalKeyboardKey.keyN): _startNew,
-      },
-      child: Focus(
-        autofocus: true,
-        skipTraversal: true,
-        onKeyEvent: (_, event) => _selection.handleKey(
-          event,
-          visible: visible,
-          // Enter shows the snippet beside the list, in the trash too
-          // (restore sits on the detail's header and on the row).
-          onActivate: (s) =>
-              _selecting && !inTrash ? _toggleSelect(s) : _open(s),
-          onDelete: (s) => _deleteFromList(s, inTrash: inTrash),
-          onToggleSelect: inTrash ? null : _toggleSelect,
-          onEscape: _onEscape,
-        ),
-        child: WpCollectionPage(
-          screenId: 'snippets',
-          searchFocusNode: _selection.searchFocusNode,
-          selectionBar: selectionBar,
-          notices: const [WpPageNoticeSlot(page: _noticePage)],
-          toolbar: _toolbar(
-            l10n,
-            inTrash: inTrash,
-            hasSnippets: hasSnippets,
-            trashCount: trashCount,
-            sort: sort,
+    // A search hit may arrive while the page is already open.
+    ref.listen<String?>(snippetsOpenTargetProvider, (_, id) {
+      if (id != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _applyOpenTarget());
+      }
+    });
+    // Dropping a Markdown or JSON file imports it (#665).
+    return DropTarget(
+      onDragDone: (details) => _onDropDone(details, inTrash: inTrash),
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          commandActivator(LogicalKeyboardKey.keyN): _startNew,
+          commandActivator(LogicalKeyboardKey.keyA): () {
+            // In the search or the editor, Ctrl/Cmd+A selects the text.
+            if (isTextFieldFocused()) return;
+            _selectAllVisible();
+          },
+        },
+        child: Focus(
+          autofocus: true,
+          skipTraversal: true,
+          onKeyEvent: (_, event) => _selection.handleKey(
+            event,
+            visible: visible,
+            // Enter shows the snippet beside the list, in the trash too
+            // (restore sits on the detail's header and on the row).
+            onActivate: (s) =>
+                _selecting && !inTrash ? _toggleSelect(s) : _open(s),
+            onDelete: (s) => _deleteFromList(s, inTrash: inTrash),
+            onToggleSelect: inTrash ? null : _toggleSelect,
+            onEscape: _onEscape,
           ),
-          body: WpCollectionSplit<SnippetItem>(
-            selectedItem: open,
-            idOf: _detailId,
-            detailBuilder: (context, s) => _detail(s, inTrash: inTrash),
-            listBuilder: (context, _) => WpCollectionListPane<SnippetItem>(
-              storageKey: 'snippets-list',
-              copyTargetPrefix: 'snippet',
-              focusNode: _selection.listFocusNode,
-              focusedId: cursorItem?.id,
-              revealId: revealedId,
-              rows: [for (final s in visible) WpCollectionItemRow(s.id, s)],
-              itemBuilder: (context, s) => _row(
-                l10n,
+          child: WpCollectionPage(
+            screenId: 'snippets',
+            searchFocusNode: _selection.searchFocusNode,
+            selectionBar: selectionBar,
+            notices: const [WpPageNoticeSlot(page: _noticePage)],
+            toolbar: _toolbar(
+              l10n,
+              inTrash: inTrash,
+              hasSnippets: hasSnippets,
+              trashCount: trashCount,
+              sort: sort,
+              tagsInUse: tagsInUse,
+              tagFilter: tagFilter,
+            ),
+            body: WpCollectionSplit<SnippetItem>(
+              selectedItem: open,
+              idOf: _detailId,
+              detailBuilder: (context, s) => _detail(
                 s,
-                isCursor: s.id == cursorItem?.id,
                 inTrash: inTrash,
-                draftIds: draftIds,
+                tags: tagsBySnippetId[_storedIdOf(s)] ?? const [],
               ),
-              placeholder: _placeholder(
-                l10n,
-                asyncAll,
-                visible: visible,
-                inTrash: inTrash,
-                trashDays: trashDays,
-                trigger: trigger,
+              listBuilder: (context, _) => WpCollectionListPane<SnippetItem>(
+                storageKey: 'snippets-list',
+                copyTargetPrefix: 'snippet',
+                focusNode: _selection.listFocusNode,
+                focusedId: cursorItem?.id,
+                revealId: revealedId,
+                rows: [for (final s in visible) WpCollectionItemRow(s.id, s)],
+                itemBuilder: (context, s) => _row(
+                  l10n,
+                  s,
+                  isCursor: s.id == cursorItem?.id,
+                  inTrash: inTrash,
+                  draftIds: draftIds,
+                  tags: tagsBySnippetId[s.id] ?? const [],
+                ),
+                placeholder: _placeholder(
+                  l10n,
+                  asyncAll,
+                  visible: visible,
+                  inTrash: inTrash,
+                  trashDays: trashDays,
+                  trigger: trigger,
+                  filtering: filtering,
+                  hasSnippets: activeItems.isNotEmpty,
+                ),
               ),
             ),
           ),
@@ -716,6 +1020,8 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     required bool inTrash,
     required int trashDays,
     required String trigger,
+    required bool filtering,
+    required bool hasSnippets,
   }) {
     return asyncAll.when<Widget?>(
       loading: () => const WpListSkeleton(
@@ -730,12 +1036,28 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
         onAction: () => ref.invalidate(snippetsProvider),
       ),
       data: (all) {
+        // Favourites-only or a tag filter left nothing over (#662): say so
+        // and offer the way back, never the "no snippets yet" page.
+        if (all.isEmpty && filtering && hasSnippets) {
+          return WpEmptyState(
+            key: const ValueKey('snippets-filter-empty'),
+            icon: _view == SnippetsView.favourites
+                ? LucideIcons.star
+                : LucideIcons.tag,
+            title: l10n.snippetsFilterEmptyTitle,
+            hint: l10n.snippetsFilterEmptyHint,
+            actionLabel: l10n.snippetsFilterReset,
+            actionTestId: 'snippets-filter-reset',
+            onAction: _resetFilters,
+          );
+        }
         if (all.isEmpty) {
           // Like Recordings and Notes, the page explains itself here and
           // nowhere above the rows: once snippets exist, the list starts
           // right under the search (#1498).
           return WpEmptyState(
             icon: LucideIcons.notebookText,
+            motif: inTrash ? null : WpEmptyMotif.snippets,
             title: inTrash ? l10n.snippetsTrashEmpty : l10n.snippetsEmpty,
             hint: inTrash
                 ? l10n.snippetsTrashEmptyHint(trashDays)
@@ -782,12 +1104,16 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     required bool hasSnippets,
     required int trashCount,
     required ListSort sort,
+    required List<Tag> tagsInUse,
+    required Set<String> tagFilter,
   }) {
     final sortOptions = _sortOptions(l10n);
+    final favouritesOnly = _view == SnippetsView.favourites;
     return WpCollectionToolbar(
       screenId: 'snippets',
       search: WpSearchField(
         testId: 'snippets-search',
+        clearOnEscape: true,
         controller: _selection.searchController,
         focusNode: _selection.searchFocusNode,
         hintText: l10n.snippetsSearch,
@@ -812,8 +1138,15 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
               testId: 'snippets-filter-active',
               label: l10n.navSnippets,
               icon: LucideIcons.notebookText,
-              isActive: !inTrash,
-              onTap: () => _showTrash(false),
+              isActive: _view == SnippetsView.active,
+              onTap: () => _showView(SnippetsView.active),
+            ),
+            WpFilterChip(
+              testId: 'snippets-filter-favourites',
+              label: l10n.snippetsFilterFavourites,
+              icon: LucideIcons.star,
+              isActive: favouritesOnly,
+              onTap: () => _showView(SnippetsView.favourites),
             ),
             WpFilterChip(
               testId: 'snippets-filter-trash',
@@ -825,6 +1158,23 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
             ),
           ],
         ),
+        // The same tag filter as on Notizen (#662): a snippet must carry
+        // every chosen tag. The trash has no tags to filter by.
+        if (!inTrash && tagsInUse.isNotEmpty)
+          WpFilterSection(
+            id: 'tags',
+            label: l10n.notesTagFilterLabel,
+            children: [
+              for (final tag in tagsInUse)
+                WpFilterChip(
+                  testId: 'snippets-tag-filter-${tag.id}',
+                  label: tag.name,
+                  icon: LucideIcons.tag,
+                  isActive: tagFilter.contains(tag.id),
+                  onTap: () => _toggleTagFilter(tag.id),
+                ),
+            ],
+          ),
       ],
       activeFilters: [
         if (inTrash)
@@ -833,6 +1183,20 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
             label: l10n.snippetsTrash,
             onRemove: () => _showTrash(false),
           ),
+        if (favouritesOnly)
+          WpActiveFilter(
+            id: 'view',
+            label: l10n.snippetsFilterFavourites,
+            onRemove: () => _showView(SnippetsView.active),
+          ),
+        if (!inTrash)
+          for (final tag in tagsInUse)
+            if (tagFilter.contains(tag.id))
+              WpActiveFilter(
+                id: 'tag-${tag.id}',
+                label: '#${tag.name}',
+                onRemove: () => _toggleTagFilter(tag.id),
+              ),
       ],
       status: [
         if (inTrash && trashCount > 0)
@@ -869,6 +1233,13 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
             onReversedChanged: (reversed) =>
                 _chooseSort(ListSort(sort.field, reversed: reversed)),
           ),
+        if (!inTrash)
+          WpIconButton(
+            testId: 'snippets-import',
+            icon: LucideIcons.fileUp,
+            tooltip: l10n.snippetsImportAction,
+            onPressed: () => importSnippetsFile(context, ref),
+          ),
       ],
       // On a narrow row the tools fold into one button on the same row.
       toolsOverflow: inTrash
@@ -895,6 +1266,12 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
                       checked: option.value == sort.field,
                       onSelected: () => _chooseSort(ListSort(option.value)),
                     ),
+                  WpListMenuAction(
+                    itemKey: const ValueKey('snippets-import-menu'),
+                    label: l10n.snippetsImportAction,
+                    icon: LucideIcons.fileUp,
+                    onSelected: () => importSnippetsFile(context, ref),
+                  ),
                 ]),
               ),
             ),
@@ -946,11 +1323,13 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     required bool isCursor,
     required bool inTrash,
     required Set<String> draftIds,
+    List<Tag> tags = const [],
   }) {
     if (inTrash) {
       return _SnippetRow(
         key: ValueKey('snippets-trash-row-${s.id}'),
         snippet: s,
+        tags: tags,
         isCursor: isCursor,
         isOpen: s.id == _openId,
         onTap: () => _open(s),
@@ -1015,6 +1394,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     return _SnippetRow(
       key: ValueKey('snippets-row-$id'),
       snippet: s,
+      tags: tags,
       isCursor: isCursor,
       isHighlighted: id == highlightedId,
       isOpen: id == _openId,
@@ -1062,6 +1442,13 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           label: WpFavouriteStar.labelFor(l10n, isFavourite: s.isFavorite),
           onSelected: () => _toggleFavourite(s),
         ),
+        if (s.id != kNewSnippetDraftKey)
+          WpContextMenuEntry(
+            key: ValueKey('snippets-export-$id'),
+            icon: LucideIcons.fileDown,
+            label: l10n.actionExport,
+            onSelected: () => _exportOne(s),
+          ),
         WpContextMenuEntry(
           icon: LucideIcons.trash2,
           label: l10n.actionDelete,
@@ -1198,7 +1585,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
   /// overwritten.
   void _startNew([SnippetDraft? template]) {
     setState(() {
-      _trashView = false;
+      if (_view == SnippetsView.trash) _view = SnippetsView.active;
       _leaveSelection();
       _newTemplate = template;
       _newSessionId = null;
@@ -1224,7 +1611,63 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     if (_openId == kNewSnippetDraftKey) _closeDetail();
   }
 
-  Widget _detail(SnippetItem s, {required bool inTrash}) {
+  /// The stored snippet behind a detail: the created one while the new
+  /// editor stays open, null for a never stored new snippet.
+  String? _storedIdOf(SnippetItem s) =>
+      s.id == kNewSnippetDraftKey ? _newSessionId : s.id;
+
+  Future<void> _addTag(String id, String name) async {
+    final message = L10n.of(context).snippetsTagFailed;
+    try {
+      await ref.read(snippetsProvider.notifier).addTag(id, name);
+    } catch (_) {
+      _writeFailed('tag-failed', message);
+    }
+  }
+
+  Future<void> _removeTag(String id, String tagId) async {
+    final message = L10n.of(context).snippetsTagFailed;
+    try {
+      await ref.read(snippetsProvider.notifier).removeTag(id, tagId);
+    } catch (_) {
+      _writeFailed('tag-failed', message);
+    }
+  }
+
+  /// The tag field of the editor (#662): the notes' field with the same
+  /// suggestions of the shared tags. A new snippet gets it after its first
+  /// save, when there is a snippet to tag. Read-only in the trash.
+  Widget? _tagField(
+    L10n l10n,
+    SnippetItem s,
+    List<Tag> tags, {
+    bool readOnly = false,
+  }) {
+    final id = _storedIdOf(s);
+    if (id == null) return null;
+    return Semantics(
+      container: true,
+      identifier: 'snippets-editor-tags',
+      child: NoteTagField(
+        // Keyed per snippet: a half-typed tag must not ride along to the
+        // next snippet, where Enter would file it.
+        key: ValueKey('snippets-editor-tags-$id'),
+        tags: tags,
+        onAdd: (name) => unawaited(_addTag(id, name)),
+        onRemove: (tagId) => unawaited(_removeTag(id, tagId)),
+        hintText: l10n.notesAddTag,
+        searchHintText: l10n.notesTagPlaceholder,
+        readOnly: readOnly,
+      ),
+    );
+  }
+
+  Widget _detail(
+    SnippetItem s, {
+    required bool inTrash,
+    List<Tag> tags = const [],
+  }) {
+    final l10n = L10n.of(context);
     if (inTrash) {
       return SnippetDetailPanel(
         key: ValueKey('snippets-detail-${s.id}'),
@@ -1235,6 +1678,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           _restoreFromTrash(s);
         },
         onDeleteForever: () => _confirmDeleteForever(s),
+        tags: tags.isEmpty ? null : _tagField(l10n, s, tags, readOnly: true),
       );
     }
     // No read view, no edit mode (#1498): the snippet opens in its editor,
@@ -1252,6 +1696,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
       ),
       existing: isNew ? null : s,
       template: isNew ? _newTemplate : null,
+      tags: _tagField(l10n, s, tags),
       onSave: (draft) {
         // The created snippet once the first save of a new one is through.
         SnippetItem? current;
@@ -1300,6 +1745,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
           kind: item.kind,
           fields: item.fields,
         );
+    await ref.read(snippetsProvider.notifier).copyTags(from: item.id, to: id);
     if (!mounted) return;
     // Confirms at the original row and marks the copy in place; no scroll,
     // so the list stays where the pointer is.
@@ -1318,20 +1764,11 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage>
     );
   }
 
-  /// A done action without a way back: it shows below the page head and
-  /// closes itself.
+  /// A done action without a way back: it shows in the notice bar at the
+  /// bottom and closes itself, so the list keeps its place (#1903).
   void _confirm(String id, String message) {
     if (!mounted) return;
-    showWpPageNotice(
-      context,
-      page: _noticePage,
-      notice: WpPageNotice(
-        id: id,
-        message: message,
-        tone: WpBannerTone.info,
-        autoDismiss: const Duration(seconds: 6),
-      ),
-    );
+    showWpConfirmation(context, id: 'snippets-$id', message: message);
   }
 
   Future<void> _toggleFavourite(SnippetItem s) async {
@@ -1670,9 +2107,14 @@ class _SnippetRow extends ConsumerWidget {
     this.onDeleteKey,
     this.onDuplicate,
     this.isSelected = false,
+    this.tags = const [],
   });
 
   final SnippetItem snippet;
+
+  /// The snippet's tags by name (#662): informative pills in the footer, as
+  /// on a note row; filtering goes through the toolbar's tag filter.
+  final List<Tag> tags;
 
   /// The list's arrow cursor stands on this row. Reported to screen readers
   /// as selected, the same as a history row: the list's real focus sits on
@@ -1743,6 +2185,12 @@ class _SnippetRow extends ConsumerWidget {
                   ),
                 ),
               ],
+            ),
+      footer: tags.isEmpty
+          ? null
+          : WpTagChipRow(
+              key: ValueKey('snippets-tags-$id'),
+              names: [for (final t in tags) t.name],
             ),
       isFocused: isCursor,
       isHighlighted: isHighlighted,

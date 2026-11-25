@@ -5,6 +5,9 @@ import '../l10n/generated/app_localizations.dart';
 import 'recording_state.dart' show RecordingTarget;
 import '../../services/model_download_service.dart';
 import '../config/settings_enums.dart' show systemSpeechModelId;
+import '../../services/path_service.dart' show isUserModelId;
+import '../../services/user_models/user_model_store.dart'
+    show knownUserModelNames;
 import '../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
 
@@ -47,6 +50,7 @@ String doneMessageFor(
   if (target == RecordingTarget.selectionEdit) {
     return l10n.overlayDoneSelectionEdit;
   }
+  if (target == RecordingTarget.smartWrite) return l10n.overlayDoneSmartWrite;
   if (historyOnly) return l10n.overlayDoneNotPasted;
   if (copiedOnly) return l10n.overlayDoneCopiedOnly;
   if (pasteFailed) return l10n.overlayDonePasteFailed;
@@ -85,6 +89,10 @@ String sttTierLabel(QualityTier tier, L10n l10n) => switch (tier) {
 String displayNameForModel(String modelId, L10n l10n) {
   if (modelId == parakeetModelId) return sttParakeetFamilyName;
   if (modelId == systemSpeechModelId) return l10n.settingsSttEngineSystem;
+  // An own model (#1789): its name, or "own model" once it was removed.
+  if (isUserModelId(modelId)) {
+    return knownUserModelNames[modelId] ?? l10n.modelLibraryOwnModels;
+  }
 
   final tier = tierForModel(modelId);
   if (tier == null) return modelId;

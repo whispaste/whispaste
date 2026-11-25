@@ -3253,6 +3253,17 @@ class $TextReplacementsTable extends TextReplacements
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _importGroupIdMeta = const VerificationMeta(
+    'importGroupId',
+  );
+  @override
+  late final GeneratedColumn<String> importGroupId = GeneratedColumn<String>(
+    'import_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3266,6 +3277,7 @@ class $TextReplacementsTable extends TextReplacements
     usageCount,
     isFavorite,
     sortPosition,
+    importGroupId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3359,6 +3371,15 @@ class $TextReplacementsTable extends TextReplacements
         ),
       );
     }
+    if (data.containsKey('import_group_id')) {
+      context.handle(
+        _importGroupIdMeta,
+        importGroupId.isAcceptableOrUnknown(
+          data['import_group_id']!,
+          _importGroupIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3412,6 +3433,10 @@ class $TextReplacementsTable extends TextReplacements
         DriftSqlType.int,
         data['${effectivePrefix}sort_position'],
       ),
+      importGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}import_group_id'],
+      ),
     );
   }
 
@@ -3462,6 +3487,12 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
   /// runs the rules in this order. `null` until the user first reorders;
   /// such rows follow all ordered ones in creation order.
   final int? sortPosition;
+
+  /// The contact-name group that brought this entry in (schema v48, #2036),
+  /// a [ContactNameGroups] id. `null` for every other entry and for an
+  /// imported name the user has since edited: it then belongs to the user
+  /// and stays when the group is removed or refreshed.
+  final String? importGroupId;
   const TextReplacement({
     required this.id,
     required this.trigger,
@@ -3474,6 +3505,7 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     required this.usageCount,
     required this.isFavorite,
     this.sortPosition,
+    this.importGroupId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3494,6 +3526,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     map['is_favorite'] = Variable<bool>(isFavorite);
     if (!nullToAbsent || sortPosition != null) {
       map['sort_position'] = Variable<int>(sortPosition);
+    }
+    if (!nullToAbsent || importGroupId != null) {
+      map['import_group_id'] = Variable<String>(importGroupId);
     }
     return map;
   }
@@ -3517,6 +3552,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       sortPosition: sortPosition == null && nullToAbsent
           ? const Value.absent()
           : Value(sortPosition),
+      importGroupId: importGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(importGroupId),
     );
   }
 
@@ -3537,6 +3575,7 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       usageCount: serializer.fromJson<int>(json['usageCount']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
       sortPosition: serializer.fromJson<int?>(json['sortPosition']),
+      importGroupId: serializer.fromJson<String?>(json['importGroupId']),
     );
   }
   @override
@@ -3554,6 +3593,7 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       'usageCount': serializer.toJson<int>(usageCount),
       'isFavorite': serializer.toJson<bool>(isFavorite),
       'sortPosition': serializer.toJson<int?>(sortPosition),
+      'importGroupId': serializer.toJson<String?>(importGroupId),
     };
   }
 
@@ -3569,6 +3609,7 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     int? usageCount,
     bool? isFavorite,
     Value<int?> sortPosition = const Value.absent(),
+    Value<String?> importGroupId = const Value.absent(),
   }) => TextReplacement(
     id: id ?? this.id,
     trigger: trigger ?? this.trigger,
@@ -3583,6 +3624,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     usageCount: usageCount ?? this.usageCount,
     isFavorite: isFavorite ?? this.isFavorite,
     sortPosition: sortPosition.present ? sortPosition.value : this.sortPosition,
+    importGroupId: importGroupId.present
+        ? importGroupId.value
+        : this.importGroupId,
   );
   TextReplacement copyWithCompanion(TextReplacementsCompanion data) {
     return TextReplacement(
@@ -3607,6 +3651,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       sortPosition: data.sortPosition.present
           ? data.sortPosition.value
           : this.sortPosition,
+      importGroupId: data.importGroupId.present
+          ? data.importGroupId.value
+          : this.importGroupId,
     );
   }
 
@@ -3623,7 +3670,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ..write('origin: $origin, ')
           ..write('usageCount: $usageCount, ')
           ..write('isFavorite: $isFavorite, ')
-          ..write('sortPosition: $sortPosition')
+          ..write('sortPosition: $sortPosition, ')
+          ..write('importGroupId: $importGroupId')
           ..write(')'))
         .toString();
   }
@@ -3641,6 +3689,7 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     usageCount,
     isFavorite,
     sortPosition,
+    importGroupId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3656,7 +3705,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           other.origin == this.origin &&
           other.usageCount == this.usageCount &&
           other.isFavorite == this.isFavorite &&
-          other.sortPosition == this.sortPosition);
+          other.sortPosition == this.sortPosition &&
+          other.importGroupId == this.importGroupId);
 }
 
 class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
@@ -3671,6 +3721,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
   final Value<int> usageCount;
   final Value<bool> isFavorite;
   final Value<int?> sortPosition;
+  final Value<String?> importGroupId;
   final Value<int> rowid;
   const TextReplacementsCompanion({
     this.id = const Value.absent(),
@@ -3684,6 +3735,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     this.usageCount = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.sortPosition = const Value.absent(),
+    this.importGroupId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TextReplacementsCompanion.insert({
@@ -3698,6 +3750,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     this.usageCount = const Value.absent(),
     this.isFavorite = const Value.absent(),
     this.sortPosition = const Value.absent(),
+    this.importGroupId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        trigger = Value(trigger),
@@ -3715,6 +3768,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Expression<int>? usageCount,
     Expression<bool>? isFavorite,
     Expression<int>? sortPosition,
+    Expression<String>? importGroupId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3729,6 +3783,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       if (usageCount != null) 'usage_count': usageCount,
       if (isFavorite != null) 'is_favorite': isFavorite,
       if (sortPosition != null) 'sort_position': sortPosition,
+      if (importGroupId != null) 'import_group_id': importGroupId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3745,6 +3800,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Value<int>? usageCount,
     Value<bool>? isFavorite,
     Value<int?>? sortPosition,
+    Value<String?>? importGroupId,
     Value<int>? rowid,
   }) {
     return TextReplacementsCompanion(
@@ -3759,6 +3815,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       usageCount: usageCount ?? this.usageCount,
       isFavorite: isFavorite ?? this.isFavorite,
       sortPosition: sortPosition ?? this.sortPosition,
+      importGroupId: importGroupId ?? this.importGroupId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3799,6 +3856,9 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     if (sortPosition.present) {
       map['sort_position'] = Variable<int>(sortPosition.value);
     }
+    if (importGroupId.present) {
+      map['import_group_id'] = Variable<String>(importGroupId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3819,6 +3879,7 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
           ..write('usageCount: $usageCount, ')
           ..write('isFavorite: $isFavorite, ')
           ..write('sortPosition: $sortPosition, ')
+          ..write('importGroupId: $importGroupId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5983,6 +6044,32 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _archivedMeta = const VerificationMeta(
+    'archived',
+  );
+  @override
+  late final GeneratedColumn<bool> archived = GeneratedColumn<bool>(
+    'archived',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("archived" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _folderIdMeta = const VerificationMeta(
+    'folderId',
+  );
+  @override
+  late final GeneratedColumn<String> folderId = GeneratedColumn<String>(
+    'folder_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _deletedAtMeta = const VerificationMeta(
     'deletedAt',
   );
@@ -6025,6 +6112,8 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     pinned,
     isQuickNote,
     sourceEntryId,
+    archived,
+    folderId,
     deletedAt,
     createdAt,
     updatedAt,
@@ -6088,6 +6177,18 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         ),
       );
     }
+    if (data.containsKey('archived')) {
+      context.handle(
+        _archivedMeta,
+        archived.isAcceptableOrUnknown(data['archived']!, _archivedMeta),
+      );
+    }
+    if (data.containsKey('folder_id')) {
+      context.handle(
+        _folderIdMeta,
+        folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
+      );
+    }
     if (data.containsKey('deleted_at')) {
       context.handle(
         _deletedAtMeta,
@@ -6147,6 +6248,14 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}source_entry_id'],
       ),
+      archived: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}archived'],
+      )!,
+      folderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}folder_id'],
+      ),
       deletedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
@@ -6176,6 +6285,8 @@ class Note extends DataClass implements Insertable<Note> {
   final bool pinned;
   final bool isQuickNote;
   final String? sourceEntryId;
+  final bool archived;
+  final String? folderId;
   final DateTime? deletedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -6187,6 +6298,8 @@ class Note extends DataClass implements Insertable<Note> {
     required this.pinned,
     required this.isQuickNote,
     this.sourceEntryId,
+    required this.archived,
+    this.folderId,
     this.deletedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -6206,6 +6319,10 @@ class Note extends DataClass implements Insertable<Note> {
     map['is_quick_note'] = Variable<bool>(isQuickNote);
     if (!nullToAbsent || sourceEntryId != null) {
       map['source_entry_id'] = Variable<String>(sourceEntryId);
+    }
+    map['archived'] = Variable<bool>(archived);
+    if (!nullToAbsent || folderId != null) {
+      map['folder_id'] = Variable<String>(folderId);
     }
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
@@ -6230,6 +6347,10 @@ class Note extends DataClass implements Insertable<Note> {
       sourceEntryId: sourceEntryId == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceEntryId),
+      archived: Value(archived),
+      folderId: folderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(folderId),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
@@ -6251,6 +6372,8 @@ class Note extends DataClass implements Insertable<Note> {
       pinned: serializer.fromJson<bool>(json['pinned']),
       isQuickNote: serializer.fromJson<bool>(json['isQuickNote']),
       sourceEntryId: serializer.fromJson<String?>(json['sourceEntryId']),
+      archived: serializer.fromJson<bool>(json['archived']),
+      folderId: serializer.fromJson<String?>(json['folderId']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -6267,6 +6390,8 @@ class Note extends DataClass implements Insertable<Note> {
       'pinned': serializer.toJson<bool>(pinned),
       'isQuickNote': serializer.toJson<bool>(isQuickNote),
       'sourceEntryId': serializer.toJson<String?>(sourceEntryId),
+      'archived': serializer.toJson<bool>(archived),
+      'folderId': serializer.toJson<String?>(folderId),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -6281,6 +6406,8 @@ class Note extends DataClass implements Insertable<Note> {
     bool? pinned,
     bool? isQuickNote,
     Value<String?> sourceEntryId = const Value.absent(),
+    bool? archived,
+    Value<String?> folderId = const Value.absent(),
     Value<DateTime?> deletedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -6294,6 +6421,8 @@ class Note extends DataClass implements Insertable<Note> {
     sourceEntryId: sourceEntryId.present
         ? sourceEntryId.value
         : this.sourceEntryId,
+    archived: archived ?? this.archived,
+    folderId: folderId.present ? folderId.value : this.folderId,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -6311,6 +6440,8 @@ class Note extends DataClass implements Insertable<Note> {
       sourceEntryId: data.sourceEntryId.present
           ? data.sourceEntryId.value
           : this.sourceEntryId,
+      archived: data.archived.present ? data.archived.value : this.archived,
+      folderId: data.folderId.present ? data.folderId.value : this.folderId,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -6327,6 +6458,8 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('pinned: $pinned, ')
           ..write('isQuickNote: $isQuickNote, ')
           ..write('sourceEntryId: $sourceEntryId, ')
+          ..write('archived: $archived, ')
+          ..write('folderId: $folderId, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -6343,6 +6476,8 @@ class Note extends DataClass implements Insertable<Note> {
     pinned,
     isQuickNote,
     sourceEntryId,
+    archived,
+    folderId,
     deletedAt,
     createdAt,
     updatedAt,
@@ -6358,6 +6493,8 @@ class Note extends DataClass implements Insertable<Note> {
           other.pinned == this.pinned &&
           other.isQuickNote == this.isQuickNote &&
           other.sourceEntryId == this.sourceEntryId &&
+          other.archived == this.archived &&
+          other.folderId == this.folderId &&
           other.deletedAt == this.deletedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -6371,6 +6508,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<bool> pinned;
   final Value<bool> isQuickNote;
   final Value<String?> sourceEntryId;
+  final Value<bool> archived;
+  final Value<String?> folderId;
   final Value<DateTime?> deletedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -6383,6 +6522,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.pinned = const Value.absent(),
     this.isQuickNote = const Value.absent(),
     this.sourceEntryId = const Value.absent(),
+    this.archived = const Value.absent(),
+    this.folderId = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -6396,6 +6537,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.pinned = const Value.absent(),
     this.isQuickNote = const Value.absent(),
     this.sourceEntryId = const Value.absent(),
+    this.archived = const Value.absent(),
+    this.folderId = const Value.absent(),
     this.deletedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -6411,6 +6554,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<bool>? pinned,
     Expression<bool>? isQuickNote,
     Expression<String>? sourceEntryId,
+    Expression<bool>? archived,
+    Expression<String>? folderId,
     Expression<DateTime>? deletedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -6424,6 +6569,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (pinned != null) 'pinned': pinned,
       if (isQuickNote != null) 'is_quick_note': isQuickNote,
       if (sourceEntryId != null) 'source_entry_id': sourceEntryId,
+      if (archived != null) 'archived': archived,
+      if (folderId != null) 'folder_id': folderId,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -6439,6 +6586,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Value<bool>? pinned,
     Value<bool>? isQuickNote,
     Value<String?>? sourceEntryId,
+    Value<bool>? archived,
+    Value<String?>? folderId,
     Value<DateTime?>? deletedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -6452,6 +6601,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
       pinned: pinned ?? this.pinned,
       isQuickNote: isQuickNote ?? this.isQuickNote,
       sourceEntryId: sourceEntryId ?? this.sourceEntryId,
+      archived: archived ?? this.archived,
+      folderId: folderId ?? this.folderId,
       deletedAt: deletedAt ?? this.deletedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -6483,6 +6634,12 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (sourceEntryId.present) {
       map['source_entry_id'] = Variable<String>(sourceEntryId.value);
     }
+    if (archived.present) {
+      map['archived'] = Variable<bool>(archived.value);
+    }
+    if (folderId.present) {
+      map['folder_id'] = Variable<String>(folderId.value);
+    }
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
@@ -6508,6 +6665,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('pinned: $pinned, ')
           ..write('isQuickNote: $isQuickNote, ')
           ..write('sourceEntryId: $sourceEntryId, ')
+          ..write('archived: $archived, ')
+          ..write('folderId: $folderId, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -6724,6 +6883,965 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
     return (StringBuffer('NoteTagsCompanion(')
           ..write('noteId: $noteId, ')
           ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SnippetTagsTable extends SnippetTags
+    with TableInfo<$SnippetTagsTable, SnippetTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SnippetTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _snippetIdMeta = const VerificationMeta(
+    'snippetId',
+  );
+  @override
+  late final GeneratedColumn<String> snippetId = GeneratedColumn<String>(
+    'snippet_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES snippets (id)',
+    ),
+  );
+  static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
+  @override
+  late final GeneratedColumn<String> tagId = GeneratedColumn<String>(
+    'tag_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tags (id)',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [snippetId, tagId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'snippet_tags';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SnippetTag> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('snippet_id')) {
+      context.handle(
+        _snippetIdMeta,
+        snippetId.isAcceptableOrUnknown(data['snippet_id']!, _snippetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_snippetIdMeta);
+    }
+    if (data.containsKey('tag_id')) {
+      context.handle(
+        _tagIdMeta,
+        tagId.isAcceptableOrUnknown(data['tag_id']!, _tagIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {snippetId, tagId};
+  @override
+  SnippetTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SnippetTag(
+      snippetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}snippet_id'],
+      )!,
+      tagId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag_id'],
+      )!,
+    );
+  }
+
+  @override
+  $SnippetTagsTable createAlias(String alias) {
+    return $SnippetTagsTable(attachedDatabase, alias);
+  }
+}
+
+class SnippetTag extends DataClass implements Insertable<SnippetTag> {
+  final String snippetId;
+  final String tagId;
+  const SnippetTag({required this.snippetId, required this.tagId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['snippet_id'] = Variable<String>(snippetId);
+    map['tag_id'] = Variable<String>(tagId);
+    return map;
+  }
+
+  SnippetTagsCompanion toCompanion(bool nullToAbsent) {
+    return SnippetTagsCompanion(
+      snippetId: Value(snippetId),
+      tagId: Value(tagId),
+    );
+  }
+
+  factory SnippetTag.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SnippetTag(
+      snippetId: serializer.fromJson<String>(json['snippetId']),
+      tagId: serializer.fromJson<String>(json['tagId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'snippetId': serializer.toJson<String>(snippetId),
+      'tagId': serializer.toJson<String>(tagId),
+    };
+  }
+
+  SnippetTag copyWith({String? snippetId, String? tagId}) => SnippetTag(
+    snippetId: snippetId ?? this.snippetId,
+    tagId: tagId ?? this.tagId,
+  );
+  SnippetTag copyWithCompanion(SnippetTagsCompanion data) {
+    return SnippetTag(
+      snippetId: data.snippetId.present ? data.snippetId.value : this.snippetId,
+      tagId: data.tagId.present ? data.tagId.value : this.tagId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SnippetTag(')
+          ..write('snippetId: $snippetId, ')
+          ..write('tagId: $tagId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(snippetId, tagId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SnippetTag &&
+          other.snippetId == this.snippetId &&
+          other.tagId == this.tagId);
+}
+
+class SnippetTagsCompanion extends UpdateCompanion<SnippetTag> {
+  final Value<String> snippetId;
+  final Value<String> tagId;
+  final Value<int> rowid;
+  const SnippetTagsCompanion({
+    this.snippetId = const Value.absent(),
+    this.tagId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SnippetTagsCompanion.insert({
+    required String snippetId,
+    required String tagId,
+    this.rowid = const Value.absent(),
+  }) : snippetId = Value(snippetId),
+       tagId = Value(tagId);
+  static Insertable<SnippetTag> custom({
+    Expression<String>? snippetId,
+    Expression<String>? tagId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (snippetId != null) 'snippet_id': snippetId,
+      if (tagId != null) 'tag_id': tagId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SnippetTagsCompanion copyWith({
+    Value<String>? snippetId,
+    Value<String>? tagId,
+    Value<int>? rowid,
+  }) {
+    return SnippetTagsCompanion(
+      snippetId: snippetId ?? this.snippetId,
+      tagId: tagId ?? this.tagId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (snippetId.present) {
+      map['snippet_id'] = Variable<String>(snippetId.value);
+    }
+    if (tagId.present) {
+      map['tag_id'] = Variable<String>(tagId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SnippetTagsCompanion(')
+          ..write('snippetId: $snippetId, ')
+          ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NoteFoldersTable extends NoteFolders
+    with TableInfo<$NoteFoldersTable, NoteFolder> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NoteFoldersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, parentId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'note_folders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NoteFolder> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NoteFolder map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NoteFolder(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $NoteFoldersTable createAlias(String alias) {
+    return $NoteFoldersTable(attachedDatabase, alias);
+  }
+}
+
+class NoteFolder extends DataClass implements Insertable<NoteFolder> {
+  final String id;
+  final String name;
+  final String? parentId;
+  final DateTime createdAt;
+  const NoteFolder({
+    required this.id,
+    required this.name,
+    this.parentId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  NoteFoldersCompanion toCompanion(bool nullToAbsent) {
+    return NoteFoldersCompanion(
+      id: Value(id),
+      name: Value(name),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory NoteFolder.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NoteFolder(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'parentId': serializer.toJson<String?>(parentId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  NoteFolder copyWith({
+    String? id,
+    String? name,
+    Value<String?> parentId = const Value.absent(),
+    DateTime? createdAt,
+  }) => NoteFolder(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  NoteFolder copyWithCompanion(NoteFoldersCompanion data) {
+    return NoteFolder(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteFolder(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, parentId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NoteFolder &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.parentId == this.parentId &&
+          other.createdAt == this.createdAt);
+}
+
+class NoteFoldersCompanion extends UpdateCompanion<NoteFolder> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> parentId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const NoteFoldersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NoteFoldersCompanion.insert({
+    required String id,
+    required String name,
+    this.parentId = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<NoteFolder> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? parentId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (parentId != null) 'parent_id': parentId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NoteFoldersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? parentId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return NoteFoldersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteFoldersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ContactNameGroupsTable extends ContactNameGroups
+    with TableInfo<$ContactNameGroupsTable, ContactNameGroup> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContactNameGroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceKindMeta = const VerificationMeta(
+    'sourceKind',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKind = GeneratedColumn<String>(
+    'source_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceLabelMeta = const VerificationMeta(
+    'sourceLabel',
+  );
+  @override
+  late final GeneratedColumn<String> sourceLabel = GeneratedColumn<String>(
+    'source_label',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _consentedAtMeta = const VerificationMeta(
+    'consentedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> consentedAt = GeneratedColumn<DateTime>(
+    'consented_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sourceKind,
+    sourceLabel,
+    consentedAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'contact_name_groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ContactNameGroup> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('source_kind')) {
+      context.handle(
+        _sourceKindMeta,
+        sourceKind.isAcceptableOrUnknown(data['source_kind']!, _sourceKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKindMeta);
+    }
+    if (data.containsKey('source_label')) {
+      context.handle(
+        _sourceLabelMeta,
+        sourceLabel.isAcceptableOrUnknown(
+          data['source_label']!,
+          _sourceLabelMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceLabelMeta);
+    }
+    if (data.containsKey('consented_at')) {
+      context.handle(
+        _consentedAtMeta,
+        consentedAt.isAcceptableOrUnknown(
+          data['consented_at']!,
+          _consentedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_consentedAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ContactNameGroup map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ContactNameGroup(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sourceKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_kind'],
+      )!,
+      sourceLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_label'],
+      )!,
+      consentedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}consented_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ContactNameGroupsTable createAlias(String alias) {
+    return $ContactNameGroupsTable(attachedDatabase, alias);
+  }
+}
+
+class ContactNameGroup extends DataClass
+    implements Insertable<ContactNameGroup> {
+  final String id;
+  final String sourceKind;
+  final String sourceLabel;
+  final DateTime consentedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const ContactNameGroup({
+    required this.id,
+    required this.sourceKind,
+    required this.sourceLabel,
+    required this.consentedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['source_kind'] = Variable<String>(sourceKind);
+    map['source_label'] = Variable<String>(sourceLabel);
+    map['consented_at'] = Variable<DateTime>(consentedAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ContactNameGroupsCompanion toCompanion(bool nullToAbsent) {
+    return ContactNameGroupsCompanion(
+      id: Value(id),
+      sourceKind: Value(sourceKind),
+      sourceLabel: Value(sourceLabel),
+      consentedAt: Value(consentedAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ContactNameGroup.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ContactNameGroup(
+      id: serializer.fromJson<String>(json['id']),
+      sourceKind: serializer.fromJson<String>(json['sourceKind']),
+      sourceLabel: serializer.fromJson<String>(json['sourceLabel']),
+      consentedAt: serializer.fromJson<DateTime>(json['consentedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sourceKind': serializer.toJson<String>(sourceKind),
+      'sourceLabel': serializer.toJson<String>(sourceLabel),
+      'consentedAt': serializer.toJson<DateTime>(consentedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ContactNameGroup copyWith({
+    String? id,
+    String? sourceKind,
+    String? sourceLabel,
+    DateTime? consentedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => ContactNameGroup(
+    id: id ?? this.id,
+    sourceKind: sourceKind ?? this.sourceKind,
+    sourceLabel: sourceLabel ?? this.sourceLabel,
+    consentedAt: consentedAt ?? this.consentedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ContactNameGroup copyWithCompanion(ContactNameGroupsCompanion data) {
+    return ContactNameGroup(
+      id: data.id.present ? data.id.value : this.id,
+      sourceKind: data.sourceKind.present
+          ? data.sourceKind.value
+          : this.sourceKind,
+      sourceLabel: data.sourceLabel.present
+          ? data.sourceLabel.value
+          : this.sourceLabel,
+      consentedAt: data.consentedAt.present
+          ? data.consentedAt.value
+          : this.consentedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContactNameGroup(')
+          ..write('id: $id, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('consentedAt: $consentedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sourceKind,
+    sourceLabel,
+    consentedAt,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ContactNameGroup &&
+          other.id == this.id &&
+          other.sourceKind == this.sourceKind &&
+          other.sourceLabel == this.sourceLabel &&
+          other.consentedAt == this.consentedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ContactNameGroupsCompanion extends UpdateCompanion<ContactNameGroup> {
+  final Value<String> id;
+  final Value<String> sourceKind;
+  final Value<String> sourceLabel;
+  final Value<DateTime> consentedAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ContactNameGroupsCompanion({
+    this.id = const Value.absent(),
+    this.sourceKind = const Value.absent(),
+    this.sourceLabel = const Value.absent(),
+    this.consentedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ContactNameGroupsCompanion.insert({
+    required String id,
+    required String sourceKind,
+    required String sourceLabel,
+    required DateTime consentedAt,
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sourceKind = Value(sourceKind),
+       sourceLabel = Value(sourceLabel),
+       consentedAt = Value(consentedAt),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<ContactNameGroup> custom({
+    Expression<String>? id,
+    Expression<String>? sourceKind,
+    Expression<String>? sourceLabel,
+    Expression<DateTime>? consentedAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sourceKind != null) 'source_kind': sourceKind,
+      if (sourceLabel != null) 'source_label': sourceLabel,
+      if (consentedAt != null) 'consented_at': consentedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ContactNameGroupsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sourceKind,
+    Value<String>? sourceLabel,
+    Value<DateTime>? consentedAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ContactNameGroupsCompanion(
+      id: id ?? this.id,
+      sourceKind: sourceKind ?? this.sourceKind,
+      sourceLabel: sourceLabel ?? this.sourceLabel,
+      consentedAt: consentedAt ?? this.consentedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sourceKind.present) {
+      map['source_kind'] = Variable<String>(sourceKind.value);
+    }
+    if (sourceLabel.present) {
+      map['source_label'] = Variable<String>(sourceLabel.value);
+    }
+    if (consentedAt.present) {
+      map['consented_at'] = Variable<DateTime>(consentedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContactNameGroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('sourceLabel: $sourceLabel, ')
+          ..write('consentedAt: $consentedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9022,7 +10140,7 @@ class CorrectionObservationRow extends DataClass
   final String targetText;
   final int occurrenceCount;
 
-  /// `pending` / `accepted` / `rejected` — see [CorrectionObservationStatus]
+  /// `pending` / `accepted` / `acceptedTerm` / `rejected` — see [CorrectionObservationStatus]
   /// in `correction_candidate_detector.dart`. Text-backed like other
   /// enum-ish columns in this file (e.g. `TextReplacements.origin`).
   final String status;
@@ -10817,6 +11935,10 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $SnippetFieldsTable snippetFields = $SnippetFieldsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
+  late final $SnippetTagsTable snippetTags = $SnippetTagsTable(this);
+  late final $NoteFoldersTable noteFolders = $NoteFoldersTable(this);
+  late final $ContactNameGroupsTable contactNameGroups =
+      $ContactNameGroupsTable(this);
   late final $NoteVersionsTable noteVersions = $NoteVersionsTable(this);
   late final $EntryVersionsTable entryVersions = $EntryVersionsTable(this);
   late final $ReprocessedVersionsTable reprocessedVersions =
@@ -10847,6 +11969,9 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     snippetFields,
     notes,
     noteTags,
+    snippetTags,
+    noteFolders,
+    contactNameGroups,
     noteVersions,
     entryVersions,
     reprocessedVersions,
@@ -12870,6 +13995,7 @@ typedef $$TextReplacementsTableCreateCompanionBuilder =
       Value<int> usageCount,
       Value<bool> isFavorite,
       Value<int?> sortPosition,
+      Value<String?> importGroupId,
       Value<int> rowid,
     });
 typedef $$TextReplacementsTableUpdateCompanionBuilder =
@@ -12885,6 +14011,7 @@ typedef $$TextReplacementsTableUpdateCompanionBuilder =
       Value<int> usageCount,
       Value<bool> isFavorite,
       Value<int?> sortPosition,
+      Value<String?> importGroupId,
       Value<int> rowid,
     });
 
@@ -12992,6 +14119,11 @@ class $$TextReplacementsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get importGroupId => $composableBuilder(
+    column: $table.importGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> textReplacementTriggersRefs(
     Expression<bool> Function($$TextReplacementTriggersTableFilterComposer f) f,
   ) {
@@ -13082,6 +14214,11 @@ class $$TextReplacementsTableOrderingComposer
     column: $table.sortPosition,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get importGroupId => $composableBuilder(
+    column: $table.importGroupId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TextReplacementsTableAnnotationComposer
@@ -13133,6 +14270,11 @@ class $$TextReplacementsTableAnnotationComposer
 
   GeneratedColumn<int> get sortPosition => $composableBuilder(
     column: $table.sortPosition,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get importGroupId => $composableBuilder(
+    column: $table.importGroupId,
     builder: (column) => column,
   );
 
@@ -13205,6 +14347,7 @@ class $$TextReplacementsTableTableManager
                 Value<int> usageCount = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<int?> sortPosition = const Value.absent(),
+                Value<String?> importGroupId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion(
                 id: id,
@@ -13218,6 +14361,7 @@ class $$TextReplacementsTableTableManager
                 usageCount: usageCount,
                 isFavorite: isFavorite,
                 sortPosition: sortPosition,
+                importGroupId: importGroupId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -13233,6 +14377,7 @@ class $$TextReplacementsTableTableManager
                 Value<int> usageCount = const Value.absent(),
                 Value<bool> isFavorite = const Value.absent(),
                 Value<int?> sortPosition = const Value.absent(),
+                Value<String?> importGroupId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion.insert(
                 id: id,
@@ -13246,6 +14391,7 @@ class $$TextReplacementsTableTableManager
                 usageCount: usageCount,
                 isFavorite: isFavorite,
                 sortPosition: sortPosition,
+                importGroupId: importGroupId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -13666,6 +14812,24 @@ final class $$TagsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$SnippetTagsTable, List<SnippetTag>>
+  _snippetTagsRefsTable(_$HistoryDatabase db) => MultiTypedResultKey.fromTable(
+    db.snippetTags,
+    aliasName: 'tags__id__snippet_tags__tag_id',
+  );
+
+  $$SnippetTagsTableProcessedTableManager get snippetTagsRefs {
+    final manager = $$SnippetTagsTableTableManager(
+      $_db,
+      $_db.snippetTags,
+    ).filter((f) => f.tagId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_snippetTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TagsTableFilterComposer
@@ -13733,6 +14897,31 @@ class $$TagsTableFilterComposer
           }) => $$NoteTagsTableFilterComposer(
             $db: $db,
             $table: $db.noteTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> snippetTagsRefs(
+    Expression<bool> Function($$SnippetTagsTableFilterComposer f) f,
+  ) {
+    final $$SnippetTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.snippetTags,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -13835,6 +15024,31 @@ class $$TagsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> snippetTagsRefs<T extends Object>(
+    Expression<T> Function($$SnippetTagsTableAnnotationComposer a) f,
+  ) {
+    final $$SnippetTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetTags,
+      getReferencedColumn: (t) => t.tagId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.snippetTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TagsTableTableManager
@@ -13850,7 +15064,11 @@ class $$TagsTableTableManager
           $$TagsTableUpdateCompanionBuilder,
           (Tag, $$TagsTableReferences),
           Tag,
-          PrefetchHooks Function({bool entryTagsRefs, bool noteTagsRefs})
+          PrefetchHooks Function({
+            bool entryTagsRefs,
+            bool noteTagsRefs,
+            bool snippetTagsRefs,
+          })
         > {
   $$TagsTableTableManager(_$HistoryDatabase db, $TagsTable table)
     : super(
@@ -13894,12 +15112,17 @@ class $$TagsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({entryTagsRefs = false, noteTagsRefs = false}) {
+              ({
+                entryTagsRefs = false,
+                noteTagsRefs = false,
+                snippetTagsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (entryTagsRefs) db.entryTags,
                     if (noteTagsRefs) db.noteTags,
+                    if (snippetTagsRefs) db.snippetTags,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -13933,6 +15156,22 @@ class $$TagsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (snippetTagsRefs)
+                        await $_getPrefetchedData<Tag, $TagsTable, SnippetTag>(
+                          currentTable: table,
+                          referencedTable: $$TagsTableReferences
+                              ._snippetTagsRefsTable(db),
+                          managerFromTypedResult: (p0) => $$TagsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).snippetTagsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.tagId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -13953,7 +15192,11 @@ typedef $$TagsTableProcessedTableManager =
       $$TagsTableUpdateCompanionBuilder,
       (Tag, $$TagsTableReferences),
       Tag,
-      PrefetchHooks Function({bool entryTagsRefs, bool noteTagsRefs})
+      PrefetchHooks Function({
+        bool entryTagsRefs,
+        bool noteTagsRefs,
+        bool snippetTagsRefs,
+      })
     >;
 typedef $$EntryTagsTableCreateCompanionBuilder =
     EntryTagsCompanion Function({
@@ -14556,6 +15799,24 @@ final class $$SnippetsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$SnippetTagsTable, List<SnippetTag>>
+  _snippetTagsRefsTable(_$HistoryDatabase db) => MultiTypedResultKey.fromTable(
+    db.snippetTags,
+    aliasName: 'snippets__id__snippet_tags__snippet_id',
+  );
+
+  $$SnippetTagsTableProcessedTableManager get snippetTagsRefs {
+    final manager = $$SnippetTagsTableTableManager(
+      $_db,
+      $_db.snippetTags,
+    ).filter((f) => f.snippetId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_snippetTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SnippetsTableFilterComposer
@@ -14638,6 +15899,31 @@ class $$SnippetsTableFilterComposer
           }) => $$SnippetFieldsTableFilterComposer(
             $db: $db,
             $table: $db.snippetFields,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> snippetTagsRefs(
+    Expression<bool> Function($$SnippetTagsTableFilterComposer f) f,
+  ) {
+    final $$SnippetTagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetTags,
+      getReferencedColumn: (t) => t.snippetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetTagsTableFilterComposer(
+            $db: $db,
+            $table: $db.snippetTags,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -14785,6 +16071,31 @@ class $$SnippetsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> snippetTagsRefs<T extends Object>(
+    Expression<T> Function($$SnippetTagsTableAnnotationComposer a) f,
+  ) {
+    final $$SnippetTagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.snippetTags,
+      getReferencedColumn: (t) => t.snippetId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetTagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.snippetTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$SnippetsTableTableManager
@@ -14800,7 +16111,7 @@ class $$SnippetsTableTableManager
           $$SnippetsTableUpdateCompanionBuilder,
           (Snippet, $$SnippetsTableReferences),
           Snippet,
-          PrefetchHooks Function({bool snippetFieldsRefs})
+          PrefetchHooks Function({bool snippetFieldsRefs, bool snippetTagsRefs})
         > {
   $$SnippetsTableTableManager(_$HistoryDatabase db, $SnippetsTable table)
     : super(
@@ -14877,37 +16188,63 @@ class $$SnippetsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({snippetFieldsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (snippetFieldsRefs) db.snippetFields,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (snippetFieldsRefs)
-                    await $_getPrefetchedData<
-                      Snippet,
-                      $SnippetsTable,
-                      SnippetField
-                    >(
-                      currentTable: table,
-                      referencedTable: $$SnippetsTableReferences
-                          ._snippetFieldsRefsTable(db),
-                      managerFromTypedResult: (p0) => $$SnippetsTableReferences(
-                        db,
-                        table,
-                        p0,
-                      ).snippetFieldsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.snippetId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({snippetFieldsRefs = false, snippetTagsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (snippetFieldsRefs) db.snippetFields,
+                    if (snippetTagsRefs) db.snippetTags,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (snippetFieldsRefs)
+                        await $_getPrefetchedData<
+                          Snippet,
+                          $SnippetsTable,
+                          SnippetField
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SnippetsTableReferences
+                              ._snippetFieldsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SnippetsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).snippetFieldsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.snippetId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (snippetTagsRefs)
+                        await $_getPrefetchedData<
+                          Snippet,
+                          $SnippetsTable,
+                          SnippetTag
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SnippetsTableReferences
+                              ._snippetTagsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SnippetsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).snippetTagsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.snippetId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -14924,7 +16261,7 @@ typedef $$SnippetsTableProcessedTableManager =
       $$SnippetsTableUpdateCompanionBuilder,
       (Snippet, $$SnippetsTableReferences),
       Snippet,
-      PrefetchHooks Function({bool snippetFieldsRefs})
+      PrefetchHooks Function({bool snippetFieldsRefs, bool snippetTagsRefs})
     >;
 typedef $$SnippetFieldsTableCreateCompanionBuilder =
     SnippetFieldsCompanion Function({
@@ -15240,6 +16577,8 @@ typedef $$NotesTableCreateCompanionBuilder =
       Value<bool> pinned,
       Value<bool> isQuickNote,
       Value<String?> sourceEntryId,
+      Value<bool> archived,
+      Value<String?> folderId,
       Value<DateTime?> deletedAt,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -15254,6 +16593,8 @@ typedef $$NotesTableUpdateCompanionBuilder =
       Value<bool> pinned,
       Value<bool> isQuickNote,
       Value<String?> sourceEntryId,
+      Value<bool> archived,
+      Value<String?> folderId,
       Value<DateTime?> deletedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -15325,6 +16666,16 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<String> get sourceEntryId => $composableBuilder(
     column: $table.sourceEntryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get archived => $composableBuilder(
+    column: $table.archived,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get folderId => $composableBuilder(
+    column: $table.folderId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15413,6 +16764,16 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get archived => $composableBuilder(
+    column: $table.archived,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get folderId => $composableBuilder(
+    column: $table.folderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
@@ -15462,6 +16823,12 @@ class $$NotesTableAnnotationComposer
     column: $table.sourceEntryId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get archived =>
+      $composableBuilder(column: $table.archived, builder: (column) => column);
+
+  GeneratedColumn<String> get folderId =>
+      $composableBuilder(column: $table.folderId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
@@ -15533,6 +16900,8 @@ class $$NotesTableTableManager
                 Value<bool> pinned = const Value.absent(),
                 Value<bool> isQuickNote = const Value.absent(),
                 Value<String?> sourceEntryId = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
+                Value<String?> folderId = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -15545,6 +16914,8 @@ class $$NotesTableTableManager
                 pinned: pinned,
                 isQuickNote: isQuickNote,
                 sourceEntryId: sourceEntryId,
+                archived: archived,
+                folderId: folderId,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -15559,6 +16930,8 @@ class $$NotesTableTableManager
                 Value<bool> pinned = const Value.absent(),
                 Value<bool> isQuickNote = const Value.absent(),
                 Value<String?> sourceEntryId = const Value.absent(),
+                Value<bool> archived = const Value.absent(),
+                Value<String?> folderId = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -15571,6 +16944,8 @@ class $$NotesTableTableManager
                 pinned: pinned,
                 isQuickNote: isQuickNote,
                 sourceEntryId: sourceEntryId,
+                archived: archived,
+                folderId: folderId,
                 deletedAt: deletedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -15964,6 +17339,771 @@ typedef $$NoteTagsTableProcessedTableManager =
       (NoteTag, $$NoteTagsTableReferences),
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
+    >;
+typedef $$SnippetTagsTableCreateCompanionBuilder =
+    SnippetTagsCompanion Function({
+      required String snippetId,
+      required String tagId,
+      Value<int> rowid,
+    });
+typedef $$SnippetTagsTableUpdateCompanionBuilder =
+    SnippetTagsCompanion Function({
+      Value<String> snippetId,
+      Value<String> tagId,
+      Value<int> rowid,
+    });
+
+final class $$SnippetTagsTableReferences
+    extends BaseReferences<_$HistoryDatabase, $SnippetTagsTable, SnippetTag> {
+  $$SnippetTagsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $SnippetsTable _snippetIdTable(_$HistoryDatabase db) =>
+      db.snippets.createAlias('snippet_tags__snippet_id__snippets__id');
+
+  $$SnippetsTableProcessedTableManager get snippetId {
+    final $_column = $_itemColumn<String>('snippet_id')!;
+
+    final manager = $$SnippetsTableTableManager(
+      $_db,
+      $_db.snippets,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_snippetIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TagsTable _tagIdTable(_$HistoryDatabase db) =>
+      db.tags.createAlias('snippet_tags__tag_id__tags__id');
+
+  $$TagsTableProcessedTableManager get tagId {
+    final $_column = $_itemColumn<String>('tag_id')!;
+
+    final manager = $$TagsTableTableManager(
+      $_db,
+      $_db.tags,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_tagIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$SnippetTagsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $SnippetTagsTable> {
+  $$SnippetTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$SnippetsTableFilterComposer get snippetId {
+    final $$SnippetsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableFilterComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableFilterComposer get tagId {
+    final $$TagsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableFilterComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetTagsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $SnippetTagsTable> {
+  $$SnippetTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$SnippetsTableOrderingComposer get snippetId {
+    final $$SnippetsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableOrderingComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableOrderingComposer get tagId {
+    final $$TagsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableOrderingComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetTagsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $SnippetTagsTable> {
+  $$SnippetTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  $$SnippetsTableAnnotationComposer get snippetId {
+    final $$SnippetsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.snippetId,
+      referencedTable: $db.snippets,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SnippetsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.snippets,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TagsTableAnnotationComposer get tagId {
+    final $$TagsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.tagId,
+      referencedTable: $db.tags,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TagsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SnippetTagsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $SnippetTagsTable,
+          SnippetTag,
+          $$SnippetTagsTableFilterComposer,
+          $$SnippetTagsTableOrderingComposer,
+          $$SnippetTagsTableAnnotationComposer,
+          $$SnippetTagsTableCreateCompanionBuilder,
+          $$SnippetTagsTableUpdateCompanionBuilder,
+          (SnippetTag, $$SnippetTagsTableReferences),
+          SnippetTag,
+          PrefetchHooks Function({bool snippetId, bool tagId})
+        > {
+  $$SnippetTagsTableTableManager(_$HistoryDatabase db, $SnippetTagsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SnippetTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SnippetTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SnippetTagsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> snippetId = const Value.absent(),
+                Value<String> tagId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetTagsCompanion(
+                snippetId: snippetId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String snippetId,
+                required String tagId,
+                Value<int> rowid = const Value.absent(),
+              }) => SnippetTagsCompanion.insert(
+                snippetId: snippetId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SnippetTagsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({snippetId = false, tagId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (snippetId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.snippetId,
+                                referencedTable: $$SnippetTagsTableReferences
+                                    ._snippetIdTable(db),
+                                referencedColumn: $$SnippetTagsTableReferences
+                                    ._snippetIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (tagId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.tagId,
+                                referencedTable: $$SnippetTagsTableReferences
+                                    ._tagIdTable(db),
+                                referencedColumn: $$SnippetTagsTableReferences
+                                    ._tagIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SnippetTagsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $SnippetTagsTable,
+      SnippetTag,
+      $$SnippetTagsTableFilterComposer,
+      $$SnippetTagsTableOrderingComposer,
+      $$SnippetTagsTableAnnotationComposer,
+      $$SnippetTagsTableCreateCompanionBuilder,
+      $$SnippetTagsTableUpdateCompanionBuilder,
+      (SnippetTag, $$SnippetTagsTableReferences),
+      SnippetTag,
+      PrefetchHooks Function({bool snippetId, bool tagId})
+    >;
+typedef $$NoteFoldersTableCreateCompanionBuilder =
+    NoteFoldersCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> parentId,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$NoteFoldersTableUpdateCompanionBuilder =
+    NoteFoldersCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> parentId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$NoteFoldersTableFilterComposer
+    extends Composer<_$HistoryDatabase, $NoteFoldersTable> {
+  $$NoteFoldersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NoteFoldersTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $NoteFoldersTable> {
+  $$NoteFoldersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NoteFoldersTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $NoteFoldersTable> {
+  $$NoteFoldersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$NoteFoldersTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $NoteFoldersTable,
+          NoteFolder,
+          $$NoteFoldersTableFilterComposer,
+          $$NoteFoldersTableOrderingComposer,
+          $$NoteFoldersTableAnnotationComposer,
+          $$NoteFoldersTableCreateCompanionBuilder,
+          $$NoteFoldersTableUpdateCompanionBuilder,
+          (
+            NoteFolder,
+            BaseReferences<_$HistoryDatabase, $NoteFoldersTable, NoteFolder>,
+          ),
+          NoteFolder,
+          PrefetchHooks Function()
+        > {
+  $$NoteFoldersTableTableManager(_$HistoryDatabase db, $NoteFoldersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NoteFoldersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NoteFoldersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NoteFoldersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoteFoldersCompanion(
+                id: id,
+                name: name,
+                parentId: parentId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> parentId = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => NoteFoldersCompanion.insert(
+                id: id,
+                name: name,
+                parentId: parentId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NoteFoldersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $NoteFoldersTable,
+      NoteFolder,
+      $$NoteFoldersTableFilterComposer,
+      $$NoteFoldersTableOrderingComposer,
+      $$NoteFoldersTableAnnotationComposer,
+      $$NoteFoldersTableCreateCompanionBuilder,
+      $$NoteFoldersTableUpdateCompanionBuilder,
+      (
+        NoteFolder,
+        BaseReferences<_$HistoryDatabase, $NoteFoldersTable, NoteFolder>,
+      ),
+      NoteFolder,
+      PrefetchHooks Function()
+    >;
+typedef $$ContactNameGroupsTableCreateCompanionBuilder =
+    ContactNameGroupsCompanion Function({
+      required String id,
+      required String sourceKind,
+      required String sourceLabel,
+      required DateTime consentedAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ContactNameGroupsTableUpdateCompanionBuilder =
+    ContactNameGroupsCompanion Function({
+      Value<String> id,
+      Value<String> sourceKind,
+      Value<String> sourceLabel,
+      Value<DateTime> consentedAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ContactNameGroupsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $ContactNameGroupsTable> {
+  $$ContactNameGroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get consentedAt => $composableBuilder(
+    column: $table.consentedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ContactNameGroupsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $ContactNameGroupsTable> {
+  $$ContactNameGroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get consentedAt => $composableBuilder(
+    column: $table.consentedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ContactNameGroupsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $ContactNameGroupsTable> {
+  $$ContactNameGroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceLabel => $composableBuilder(
+    column: $table.sourceLabel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get consentedAt => $composableBuilder(
+    column: $table.consentedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ContactNameGroupsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $ContactNameGroupsTable,
+          ContactNameGroup,
+          $$ContactNameGroupsTableFilterComposer,
+          $$ContactNameGroupsTableOrderingComposer,
+          $$ContactNameGroupsTableAnnotationComposer,
+          $$ContactNameGroupsTableCreateCompanionBuilder,
+          $$ContactNameGroupsTableUpdateCompanionBuilder,
+          (
+            ContactNameGroup,
+            BaseReferences<
+              _$HistoryDatabase,
+              $ContactNameGroupsTable,
+              ContactNameGroup
+            >,
+          ),
+          ContactNameGroup,
+          PrefetchHooks Function()
+        > {
+  $$ContactNameGroupsTableTableManager(
+    _$HistoryDatabase db,
+    $ContactNameGroupsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContactNameGroupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContactNameGroupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContactNameGroupsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sourceKind = const Value.absent(),
+                Value<String> sourceLabel = const Value.absent(),
+                Value<DateTime> consentedAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ContactNameGroupsCompanion(
+                id: id,
+                sourceKind: sourceKind,
+                sourceLabel: sourceLabel,
+                consentedAt: consentedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sourceKind,
+                required String sourceLabel,
+                required DateTime consentedAt,
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ContactNameGroupsCompanion.insert(
+                id: id,
+                sourceKind: sourceKind,
+                sourceLabel: sourceLabel,
+                consentedAt: consentedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ContactNameGroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $ContactNameGroupsTable,
+      ContactNameGroup,
+      $$ContactNameGroupsTableFilterComposer,
+      $$ContactNameGroupsTableOrderingComposer,
+      $$ContactNameGroupsTableAnnotationComposer,
+      $$ContactNameGroupsTableCreateCompanionBuilder,
+      $$ContactNameGroupsTableUpdateCompanionBuilder,
+      (
+        ContactNameGroup,
+        BaseReferences<
+          _$HistoryDatabase,
+          $ContactNameGroupsTable,
+          ContactNameGroup
+        >,
+      ),
+      ContactNameGroup,
+      PrefetchHooks Function()
     >;
 typedef $$NoteVersionsTableCreateCompanionBuilder =
     NoteVersionsCompanion Function({
@@ -18108,6 +20248,12 @@ class $HistoryDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
+  $$SnippetTagsTableTableManager get snippetTags =>
+      $$SnippetTagsTableTableManager(_db, _db.snippetTags);
+  $$NoteFoldersTableTableManager get noteFolders =>
+      $$NoteFoldersTableTableManager(_db, _db.noteFolders);
+  $$ContactNameGroupsTableTableManager get contactNameGroups =>
+      $$ContactNameGroupsTableTableManager(_db, _db.contactNameGroups);
   $$NoteVersionsTableTableManager get noteVersions =>
       $$NoteVersionsTableTableManager(_db, _db.noteVersions);
   $$EntryVersionsTableTableManager get entryVersions =>

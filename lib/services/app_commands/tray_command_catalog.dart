@@ -37,6 +37,14 @@ abstract final class TrayCommandIds {
   /// is conditional, so the complete-tree guard cannot expect it.
   static const resumeOnboarding = 'resume_onboarding';
 
+  /// Shown only while the overlay is hidden for an hour (overlay F, #194).
+  /// Not in [all]: it is conditional.
+  static const overlayShowAgain = 'overlay_show_again';
+
+  /// Shown only while the overlay is switched off (overlay F, #194). Not in
+  /// [all]: it is conditional.
+  static const overlayTurnOn = 'overlay_turn_on';
+
   /// The fixed ids, for guards that check the tree is complete.
   static const all = [
     recentRecordings,
@@ -116,6 +124,7 @@ class TrayMenuState {
     this.historyLocked = false,
     this.coffeeAvailable = false,
     this.resumeOnboardingAvailable = false,
+    this.overlayRestore,
   });
 
   /// Whether a recording is running (drives the toggle label and status).
@@ -165,6 +174,11 @@ class TrayMenuState {
 
   /// Whether the first-run setup is paused, so the tray offers to resume it.
   final bool resumeOnboardingAvailable;
+
+  /// The way back to the overlay (overlay F): its id
+  /// ([TrayCommandIds.overlayShowAgain] or [TrayCommandIds.overlayTurnOn])
+  /// and its text, or null while the overlay shows normally.
+  final ({String id, String label})? overlayRestore;
 
   /// A PIN is set and the history has not been unlocked. The submenu then
   /// offers only the unlock entry, so locked text never reaches the menu.
@@ -239,6 +253,7 @@ List<AppCommand> buildTrayCommands(
   final smartModeCommands = state.smartModeCommands;
   final outputCommands = state.outputCommands;
   final profileCommands = state.profileCommands;
+  final overlayRestore = state.overlayRestore;
 
   return [
     if (action != null) ...[
@@ -256,6 +271,10 @@ List<AppCommand> buildTrayCommands(
         id: TrayCommandIds.resumeOnboarding,
         labelKey: 'trayResumeOnboarding',
       ),
+      const AppCommand.separator(),
+    ],
+    if (overlayRestore != null) ...[
+      AppCommand(id: overlayRestore.id, labelKey: overlayRestore.label),
       const AppCommand.separator(),
     ],
     AppCommand(

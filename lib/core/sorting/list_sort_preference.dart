@@ -32,8 +32,9 @@ abstract class ListSortPreferenceNotifier extends AsyncNotifier<ListSort> {
   }
 }
 
-/// Replacements: by first trigger, A–Z.
-const kReplacementsDefaultSort = ListSort(ListSortField.trigger);
+/// Replacements: the order the rules apply in, so a row can be dragged
+/// right where it is shown (#1969).
+const kReplacementsDefaultSort = ListSort(ListSortField.order);
 
 /// Snippets: by title, A–Z.
 const kSnippetsDefaultSort = ListSort(ListSortField.title);
@@ -47,6 +48,7 @@ class ReplacementsSortNotifier extends ListSortPreferenceNotifier {
 
   @override
   Set<ListSortField> get allowedFields => const {
+    ListSortField.order,
     ListSortField.trigger,
     ListSortField.result,
     ListSortField.added,

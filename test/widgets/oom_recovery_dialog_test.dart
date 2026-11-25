@@ -125,7 +125,17 @@ void main() {
     test(
       'every supported language fills the provider into the notice',
       () async {
-        for (final code in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+        for (final code in [
+          'de',
+          'en',
+          'es',
+          'he',
+          'pt',
+          'ru',
+          'fr',
+          'it',
+          'zh',
+        ]) {
           final l10n = await L10n.delegate.load(Locale(code));
           final text = l10n.oomRecoveryCloudNotice('Deepgram');
           expect(text, contains('Deepgram'), reason: code);

@@ -12,5 +12,25 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<key>com.apple.security.automation.apple-events</key>
+	<true/>
+	<!-- Contact names for the dictionary (#2037): the Contacts framework
+	     needs this under the sandbox and the hardened runtime. Read only
+	     after the user's step in the app, names and company only. -->
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
+	<!-- Pause Music/Spotify while dictating (#1511): their published
+	     playback access groups, no temporary exception. -->
+	<key>com.apple.security.scripting-targets</key>
+	<dict>
+		<key>com.apple.Music</key>
+		<array>
+			<string>com.apple.Music.playback</string>
+		</array>
+		<key>com.spotify.client</key>
+		<array>
+			<string>com.spotify.playback</string>
+		</array>
+	</dict>
 </dict>
 </plist>

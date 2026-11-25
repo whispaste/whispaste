@@ -209,14 +209,20 @@ Section "$(SEC_CORE_NAME)" SecCore
   WriteRegStr HKCU "Software\Classes\whispaste" "URL Protocol" ""
   WriteRegStr HKCU "Software\Classes\whispaste\shell\open\command" "" '"$INSTDIR\whispaste.exe" "%1"'
 
-  ; "Transcribe with WhisPaste" for every audio type the import reads.
-  !insertmacro WriteTranscribeVerb "wav"
-  !insertmacro WriteTranscribeVerb "mp3"
-  !insertmacro WriteTranscribeVerb "flac"
-  !insertmacro WriteTranscribeVerb "m4a"
-  !insertmacro WriteTranscribeVerb "aac"
-  !insertmacro WriteTranscribeVerb "ogg"
-  !insertmacro WriteTranscribeVerb "opus"
+  ; Replace the legacy per-extension verb, avoiding duplicate menu entries.
+  !insertmacro DeleteTranscribeVerb "wav"
+  !insertmacro DeleteTranscribeVerb "mp3"
+  !insertmacro DeleteTranscribeVerb "flac"
+  !insertmacro DeleteTranscribeVerb "m4a"
+  !insertmacro DeleteTranscribeVerb "aac"
+  !insertmacro DeleteTranscribeVerb "ogg"
+  !insertmacro DeleteTranscribeVerb "opus"
+
+  ; Explorer command (Store builds declare the same COM class in MSIX).
+  WriteRegStr HKCU "Software\Classes\CLSID\{65BDCC9F-C60E-4687-B18B-409A246E9715}\InprocServer32" "" "$INSTDIR\WhisPasteShell.dll"
+  WriteRegStr HKCU "Software\Classes\CLSID\{65BDCC9F-C60E-4687-B18B-409A246E9715}\InprocServer32" "ThreadingModel" "Apartment"
+  WriteRegStr HKCU "Software\Classes\*\shell\WhisPaste.Transcribe" "ExplorerCommandHandler" "{65BDCC9F-C60E-4687-B18B-409A246E9715}"
+  WriteRegStr HKCU "Software\Classes\*\shell\WhisPaste.Transcribe" "MultiSelectModel" "Player"
 
   ; Compute and store installed size
   ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
@@ -248,6 +254,7 @@ Section "Uninstall"
   ; Remove Flutter runtime directories
   RMDir /r "$INSTDIR\data"
   RMDir /r "$INSTDIR\resources"
+  RMDir /r "$INSTDIR\video-decoder"
 
   ; Remove top-level files (DLLs, exe, json, license)
   Delete "$INSTDIR\*.dll"
@@ -276,6 +283,9 @@ Section "Uninstall"
   !insertmacro DeleteTranscribeVerb "aac"
   !insertmacro DeleteTranscribeVerb "ogg"
   !insertmacro DeleteTranscribeVerb "opus"
+
+  DeleteRegKey HKCU "Software\Classes\*\shell\WhisPaste.Transcribe"
+  DeleteRegKey HKCU "Software\Classes\CLSID\{65BDCC9F-C60E-4687-B18B-409A246E9715}"
 
   ; Ask user whether to remove app data (models, history)
   ; Also kill AI subprocesses if running from app data directory

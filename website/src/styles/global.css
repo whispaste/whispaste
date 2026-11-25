@@ -458,6 +458,12 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Focus scrolling stops above the sticky download bar and the contact
+       teaser; scripts/focus-unobscured.ts keeps the height current (#1909,
+       WCAG 2.4.11). */
+    scroll-padding-bottom: var(--wp-fixed-bottom-cover, 0px);
+    /* Same room after the footer, so its last links can scroll above them. */
+    padding-bottom: var(--wp-fixed-bottom-cover, 0px);
     /* The one continuous wash the whole page sits on — same three stops and
        diagonal as the hero's own .hero-ambient-wash, `fixed` so it never
        moves as sections scroll past. This is what makes every section
@@ -484,6 +490,12 @@
        sichtbarste Einzelverbesserung an der Titel-Hierarchie, ohne einen
        einzigen Umbruch von Hand zu setzen (und damit i18n-fest). */
     text-wrap: balance;
+    /* Lange Komposita („Spracherkennung“) passen bei 320 px nicht in eine
+       Zeile der großen Titel und schoben die Seite in die Breite (#1845,
+       WCAG 1.4.10): nach Sprache trennen (lang am <html>), notfalls
+       umbrechen. */
+    hyphens: auto;
+    overflow-wrap: break-word;
   }
   /* Fließtext: pretty verhindert Schusterjungen am Absatzende, ohne wie
      balance die ganze Zeilenaufteilung umzurechnen (auf langen Absätzen

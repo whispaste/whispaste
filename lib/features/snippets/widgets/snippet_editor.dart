@@ -26,7 +26,11 @@ import '../../../widgets/wp_save_status.dart';
 import '../../../widgets/wp_text_editor.dart';
 import '../../../widgets/wp_head_actions.dart';
 import '../../../widgets/wp_text_field.dart';
+import '../../notes/data/note_title.dart';
 import '../snippet_draft.dart';
+import '../../links/entry_link_picker.dart' show pickEntryLinkText;
+import '../../links/entry_links_section.dart';
+import '../../../core/text/entry_link.dart' show EntryLinkKind;
 import '../snippet_item.dart';
 
 /// The one way to see, create and edit a snippet: the right-hand side of the
@@ -54,6 +58,7 @@ class SnippetEditor extends ConsumerStatefulWidget {
     this.onDuplicate,
     this.onDelete,
     this.onInsertSnippet,
+    this.tags,
   });
 
   /// Pause after the last change before the editor stores it.
@@ -90,6 +95,11 @@ class SnippetEditor extends ConsumerStatefulWidget {
   final void Function(TextEditingController controller, FocusNode focusNode)?
   onInsertSnippet;
 
+  /// The tag field (#662), the notes' one, built by the page that owns the
+  /// tags. It shares the body's tool row where the width allows, as in the
+  /// note editor. Null while a new snippet is not stored yet.
+  final Widget? tags;
+
   @override
   ConsumerState<SnippetEditor> createState() => _SnippetEditorState();
 }
@@ -119,6 +129,7 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
   late final WpFindHighlightController _bodyCtrl;
   late final TextUndoController _bodyUndo;
   final FocusNode _bodyFocus = FocusNode(debugLabel: 'snippetBody');
+  final FocusNode _titleFocus = FocusNode(debugLabel: 'snippetTitle');
 
   /// A pointer is down on the body: the focus it brings keeps the caret
   /// where the click put it. Focus by keyboard (Tab) lands at the text end.
@@ -217,6 +228,13 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
     super.initState();
     final existing = widget.existing;
     _id = existing?.id;
+    // A new snippet starts in its title. `autofocus` alone does not move the
+    // focus away from the New button that is still holding it (#1845).
+    if (existing == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _titleFocus.requestFocus();
+      });
+    }
     _saved = existing == null ? null : _draftOf(existing).stored;
     if (existing?.sourceNoteId case final noteId?) {
       unawaited(_loadSourceNoteTitle(noteId));
@@ -292,11 +310,13 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
   Future<void> _loadSourceNoteTitle(String noteId) async {
     final note = await ref.read(historyDatabaseProvider).getNote(noteId);
     if (!mounted || note == null) return;
+    // The name the notes list shows: an untitled note goes by its first
+    // line there, so the back-reference must too.
     final title = note.title?.trim() ?? '';
     setState(
-      () => _sourceNoteTitle = title.isEmpty
-          ? L10n.of(context).notesUntitled
-          : title,
+      () => _sourceNoteTitle = title.isNotEmpty
+          ? title
+          : deriveNoteTitle(note.content) ?? L10n.of(context).notesUntitled,
     );
   }
 
@@ -305,6 +325,7 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
 
   @override
   void dispose() {
+    _titleFocus.dispose();
     _autosave?.cancel();
     // Leaving with a valid change not stored yet (the page switched to
     // another snippet within the pause): store it now. No `ref` here, the
@@ -536,7 +557,16 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
         // line sits at the bottom edge instead of below the fold.
         child: WpEditorPane(
           head: _header(l10n),
-          notices: [?_invalidNotice(l10n)],
+          notices: [
+            ?_invalidNotice(l10n),
+            // Back after a jump, links to and from this snippet (#660).
+            if (id != null)
+              EntryLinksSection(
+                key: ValueKey('snippets-editor-links-$id'),
+                entry: (kind: ContentKind.snippet, id: id),
+                testId: 'snippets-editor',
+              ),
+          ],
           bodyMode: _isInteractive
               ? WpEditorPaneBody.scroll
               : WpEditorPaneBody.fill,
@@ -614,6 +644,7 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
           child: WpTextField(
             key: const ValueKey('snippets-title-field'),
             controller: _titleCtrl,
+            focusNode: _titleFocus,
             variant: WpTextFieldVariant.heading,
             semanticsLabel: l10n.snippetsTitleLabel,
             // An existing snippet opens where it was left, in its body (#678).
@@ -832,6 +863,15 @@ class _SnippetEditorState extends ConsumerState<SnippetEditor> {
       onSave: () => unawaited(_save()),
       saveStatus: _saveStatus,
       onInsertSnippet: widget.onInsertSnippet == null ? null : _insertSnippet,
+      toolbarTrailing: widget.tags,
+      // `[[` opens the link chooser (#660).
+      onPickLink: () => pickEntryLinkText(
+        context,
+        except: switch (widget.existing) {
+          final existing? => (kind: EntryLinkKind.snippet, id: existing.id),
+          null => null,
+        },
+      ),
       // A snippet not yet saved has no row to remember a place for (#678).
       viewMemory: switch (widget.existing) {
         final existing? => (kind: ContentKind.snippet, id: existing.id),

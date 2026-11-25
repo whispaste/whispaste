@@ -82,6 +82,12 @@ _Position _positionAfter(String before) {
   return _Position.insideSentence;
 }
 
+/// [text] without the blanks at the start of each line (#2088): recognition
+/// engines hand back a leading space, which sits visibly at the start of every
+/// line in fields like YouTube comments. Line breaks and the text stay.
+String stripLeadingLineBlanks(String text) =>
+    text.replaceAllMapped(RegExp(r'(^|\n)[ \t\u00A0]+'), (m) => m.group(1)!);
+
 /// [text] as it should go in behind [before]. [languageCode] is the dictation
 /// language (`de`, `en-US`, …); [protectedTerms] are dictionary terms, whose
 /// spelling never changes.

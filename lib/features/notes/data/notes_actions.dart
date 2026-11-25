@@ -13,6 +13,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/database.dart';
+import '../../../core/data/history_set_aside.dart';
 import '../../../core/data/note_asset_storage.dart';
 import '../../../core/data/note_version_limits.dart';
 import '../../../services/automation_api/automation_hook_dispatcher_provider.dart';
@@ -42,7 +43,8 @@ class NotesActions {
   /// the automation API's own writes are built without it (loop guard).
   final void Function(String noteId, String content)? onChanged;
 
-  Future<Note> create() => _db.createNote();
+  /// A new, empty note, inside [folderId] when given (#659).
+  Future<Note> create({String? folderId}) => _db.createNote(folderId: folderId);
 
   /// A new note with [content] that remembers recording [entryId] (issue
   /// #629). Fires [onChanged] like [save], so the automation event is the same.
@@ -79,6 +81,16 @@ class NotesActions {
 
   Future<void> restore(String noteId) => _db.restoreNote(noteId);
 
+  /// Files a note into the archive or takes it back out (#656). Restoring a
+  /// trashed note keeps this flag (UIA-HIS-06).
+  Future<void> setArchived(String noteId, {required bool archived}) =>
+      _db.setNoteArchived(noteId, archived: archived);
+
+  /// Files all [noteIds] into the archive or takes them back out at once
+  /// (multi-select, #656).
+  Future<int> setArchivedMany(List<String> noteIds, {required bool archived}) =>
+      _db.setNotesArchived(noteIds, archived: archived);
+
   /// Moves all [noteIds] to the trash at once (multi-select, #655).
   Future<int> moveManyToTrash(List<String> noteIds) =>
       _db.softDeleteNotes(noteIds);
@@ -90,6 +102,35 @@ class NotesActions {
   /// Pins (or unpins) all [noteIds] at once.
   Future<int> setPinnedMany(List<String> noteIds, {required bool pinned}) =>
       _db.setNotesPinned(noteIds, pinned: pinned);
+
+  /// Creates a note folder (#659); at most two levels, see
+  /// [HistoryDatabase.createNoteFolder].
+  Future<NoteFolder> createFolder(String name, {String? parentId}) =>
+      _db.createNoteFolder(name, parentId: parentId);
+
+  Future<void> renameFolder(String folderId, String name) =>
+      _db.renameNoteFolder(folderId, name);
+
+  /// Moves [noteIds] into [folderId] (top level when null); returns the
+  /// previous folders for [undoMoveToFolder].
+  Future<Map<String, String?>> moveToFolder(
+    List<String> noteIds,
+    String? folderId,
+  ) => _db.moveNotesToFolder(noteIds, folderId);
+
+  Future<void> undoMoveToFolder(Map<String, String?> previous) =>
+      _db.restoreNoteFolderIds(previous);
+
+  /// Deletes a folder and its subfolders; its notes go to the top level or,
+  /// with [trashNotes], to the trash. See [HistoryDatabase.deleteNoteFolder].
+  Future<List<String>> deleteFolder(
+    String folderId, {
+    required bool trashNotes,
+  }) => _db.deleteNoteFolder(folderId, trashNotes: trashNotes);
+
+  /// Notes outside the trash in a folder and its subfolders.
+  Future<int> countFolderNotes(String folderId) =>
+      _db.countNoteFolderNotes(folderId);
 
   /// Merges [noteIds] in order into one new note; the sources go to the
   /// trash. See [HistoryDatabase.mergeNotes].
@@ -257,9 +298,12 @@ class NotesActions {
 
   /// Removes image folders whose note no longer exists. Runs on page entry, so
   /// a crash or an "all data" delete never leaves images behind for good.
+  /// Pauses while a history is set aside after a lost key (#1023): its
+  /// notes still refer to their images.
   Future<void> sweepAssetFolders() async {
     final assets = _assets;
     if (assets == null) return;
+    if (hasSetAsideHistory(assets.appDataDirPath)) return;
     await assets.sweep(
       loadLiveNoteIds: _db.allNoteIds,
       loadLiveRelativePaths: _db.allNoteAssetPaths,

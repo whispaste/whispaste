@@ -18,6 +18,7 @@ Note _note(
   required DateTime created,
   required DateTime updated,
 }) => Note(
+  archived: false,
   id: id,
   content: content,
   title: title,
@@ -245,13 +246,6 @@ void main() {
       });
       return container;
     }
-
-    test('grouping is off by default and remembered', () async {
-      final container = open();
-      expect(await container.read(notesGroupByDateProvider.future), isFalse);
-      await container.read(notesGroupByDateProvider.notifier).choose(true);
-      expect(container.read(notesGroupByDateProvider).value, isTrue);
-    });
 
     test('the folded favourites are off by default and toggle', () async {
       final container = open();

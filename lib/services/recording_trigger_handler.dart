@@ -35,8 +35,9 @@ import '../core/logging/app_logger.dart';
 import 'hotkey_gesture_machine.dart';
 
 /// Hold-with-double-tap and double-tap-only: a press shorter than this is a
-/// tap of a possible pair; a longer press is no tap.
-const _minHoldMs = 100;
+/// tap of a possible pair; a longer press is no tap. 150 ms (#779): at 100 ms
+/// almost half of quick double taps had a first tap that counted as a hold.
+const _minHoldMs = 150;
 
 /// Longest press that still counts as a tap (not a hold) on a key with a
 /// double tap; the recording's start tone waits this long (#329).
@@ -137,8 +138,8 @@ class RecordingTriggerHandler {
 
   static final _log = AppLogger('RecordingTriggerHandler');
 
-  /// Default hold-or-tap threshold in ms (settings default: 250 ms).
-  static const defaultHoldOrTapThresholdMs = 250;
+  /// Default hold-or-tap threshold in ms (settings default: 400 ms).
+  static const defaultHoldOrTapThresholdMs = 400;
 
   static const holdOrTapThreshold = Duration(
     milliseconds: defaultHoldOrTapThresholdMs,

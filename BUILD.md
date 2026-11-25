@@ -530,7 +530,7 @@ Before opening a pull request, run the gates listed in [CONTRIBUTING.md](CONTRIB
 
 `bash scripts/check.sh prepush [dev]` and `push [dev]` run the protection-only hook without pushing. `commit` explicitly runs repo guards, format and analysis. The legacy `tests`, `full` and `pending-win` helpers are diagnostic commands, never called by a hook or a CI workflow; use the existing Lab workflows for automated suites and `labctl test <guest> -- <command>` only to reproduce a specific failure.
 
-**Where labctl is looked up (#460).** `scripts/check.sh`, `scripts/native-compile-check.sh`, `scripts/release.sh` and the stage wrappers `scripts/release/linux-stage.sh` and `scripts/release/win-stage.sh` find `labctl` through `scripts/labctl-path.sh`: `$LABCTL` first (an explicit override), then the shared `~/.claude/bin/labctl` (the same path on every worker device, Mac and Windows), then `labctl` on `PATH`, and last the lab's own checkout `~/Developer/repos/internal-repo/bin/labctl` (the release Mac had it only there on the first real release run, #1722). If none exists, `native-compile-check.sh` exits 2 and names the places it looked (the check stays closed), `check.sh` tries the Windows run as before; the push hook never invokes the lab. Test: `scripts/check.test.sh` §13.
+**Where labctl is looked up (#460).** `scripts/check.sh`, `scripts/native-compile-check.sh`, `scripts/release.sh` and the stage wrappers `scripts/release/linux-stage.sh` and `scripts/release/win-stage.sh` find `labctl` through `scripts/labctl-path.sh`: `$LABCTL` first (an explicit override), then the shared `~/.claude/bin/labctl` (the same path on every worker device, Mac and Windows), then `labctl` on `PATH`, and last the lab's own checkout `~/Developer/repos/<org>/testlab/bin/labctl` (the release Mac had it only there on the first real release run, #1722). If none exists, `native-compile-check.sh` exits 2 and names the places it looked (the check stays closed), `check.sh` tries the Windows run as before; the push hook never invokes the lab. Test: `scripts/check.test.sh` §13.
 
 **Lab checks run in CI, not in the pre-push hook (#1024).** Fast lane `.internal forge/workflows/lab.yml` (`lab/ubu`, `lab/win`): `flutter analyze` (moved from `gate/nas`, #1403) plus unit and contract tests under `tool/test_guard.dart`, which enforces the hard limits (a passing test over 10 s is red, 20 s without a reporter event ends the run and names the running test, a run over 3 min is red) and lists the slowest tests; the Windows job runs only on Windows-relevant paths (`LAB_ONLY`), otherwise it is green as "not needed". Full lane `.internal forge/workflows/lab-full.yml` (`lab/full-ubu`, `lab/full-win`): journeys (also under `tool/test_guard.dart`, same hard limits, a hung test aborts the run red and names the running test; 5 min step timeout as backstop, 60 min job limit as outer bound for the whole run, #1434), website E2E and release builds, after merges to `dev`, nightly and by manual dispatch; a red run on `dev` opens an issue. Manual lab sessions use `labctl` and write only under `/tmp`.
 
@@ -538,18 +538,23 @@ Before opening a pull request, run the gates listed in [CONTRIBUTING.md](CONTRIB
 ## Video import helper
 
 Desktop builds automatically stage an audio-only FFmpeg helper in
-`.build/video-decoder/<linux|macos|windows>`. The first build downloads a
-SHA-256-verified upstream source archive; subsequent builds reuse the helper.
-No system FFmpeg installation is required by users. The executable, LGPL text,
-complete matching source archive and build recipe are included in every app
-bundle. `scripts/build-video-decoder.py` is the source/version/build-option
-reference; update its pin and the FFmpeg entry in the third-party notices
-when updating the decoder.
+`.build/video-decoder/<linux|macos|windows>`. It extracts audio from imported
+videos (ADR 0037) and encodes the Opus/WebM upload copy of cloud transcription
+(ADR 0040). The first build downloads SHA-256-verified upstream source archives
+of FFmpeg and libopus (statically linked, BSD-3-Clause); subsequent builds
+reuse the helper. No system FFmpeg installation is required by users. The
+executable, LGPL and libopus texts, both complete matching source archives and
+the build recipe are included in every app bundle.
+`scripts/build-video-decoder.py` is the source/version/build-option reference;
+update its pins and the FFmpeg/libopus entries in the third-party notices when
+updating the helper. FFmpeg's configure finds libopus only via pkg-config; the
+script writes a small shim for exactly that, so no pkg-config is needed.
 
 Build prerequisites: Python 3.12 or later, a C compiler and GNU make. macOS
 builds run on Apple Silicon with Xcode command-line tools. Windows builds use
 Visual Studio's x64 tools plus MSYS2 bash/make at `C:/msys64/usr/bin` (install
-`make` in MSYS2 with `pacman -S --needed make`); CMake supplies `vcvars64.bat`.
+`make` in MSYS2 with `pacman -S --needed make`); CMake supplies `vcvars64.bat`
+and builds libopus with the static C runtime (`/MT`, FFmpeg's MSVC default).
 The helper is a native Windows executable and does not ship an MSYS runtime.
 CMake and the Xcode embed phase fail rather than create a package without it.
 
@@ -562,3 +567,55 @@ python3 test/scripts/video_audio_decode_test.py .build/video-decoder/linux/ffmpe
 
 The same fixture check accepts the macOS helper or Windows `ffmpeg.exe` path.
 The test fixture README records how the tiny video clips were produced.
+
+
+## sherpa CoreML / DirectML (#1793)
+
+`bash scripts/build-sherpa-onnx.sh macos` keeps the pinned dynamic ORT 1.28.2
+universal library. It already contains CoreML; `otool -L` must be run on
+**libonnxruntime.dylib**, not only on the sherpa C API. The build now checks that
+framework dependency and records `providers: cpu coreml` in `BUILD_INFO`.
+
+`powershell -File scripts/build-sherpa-onnx.ps1` builds ORT **1.28.2** with
+DirectML locally first (`scripts/build-onnxruntime-directml.ps1`). Requirements:
+x64 Visual Studio C++ tools, CMake, Ninja, Python 3.10+, Git and Internet for the
+first dependency fetch. No paid build service, CUDA toolkit or NVIDIA-only
+runtime is required. ORT's source commit and its Git tree are in
+`onnxruntime-directml.pin`; its upstream dependency hashes remain active.
+Source order: Microsoft's repository first, then Git mirrors from
+`WP_ORT_SOURCE_MIRRORS` (`;`-separated URLs or paths, process or Windows user environment, cloned with `--no-local`,
+checked against the pinned commit and tree), then Software Heritage
+(`scripts/fetch-ort-source-swh.py`: recomputes the Git tree hash from the
+archive bytes, refuses any other tree, checks out the submodules at the commits
+the tree names). On 2026-11-24 `github.com/microsoft/onnxruntime` answered 404;
+that is why the fallback exists. The CPU-only path (`-CpuOnly`) likewise tries
+Microsoft's release archive first, then byte-identical copies under
+`WP_ORT_ARCHIVE_MIRRORS` base URLs, all against the same SHA-256 pin. Configure and compile are split
+so the restored DirectML 1.15.4 NuGet archive is checked against our SHA-256 and
+re-extracted before compilation. The resulting DLL, headers and matching PDBs
+are cached with a recipe hash and individual file hashes. The sherpa stage
+contains `DirectML.dll` in addition to the C API and ORT. The app CMake bundles
+all three; PDBs remain outside the app. First builds are substantially longer
+than the previous prebuilt CPU-ORT path; subsequent verified-cache builds reuse
+it. `-Jobs` on the ORT script limits compiler parallelism (default two).
+
+For an independent build directory, the ORT script accepts `-SourceDir` and
+`-BuildDir`; the same source commit and dependency checks apply. These options
+were used under `C:\tmp\wp1793` in the lab. `-CpuOnly` on the sherpa script
+retains the former Microsoft CPU-ORT recipe for comparisons and stages into
+`windows-cpu`, with separate PDB directories; release consumers use `windows`.
+
+The small, checked-in `sherpa-provider.patch` preserves normal CPU execution of
+unsupported operators, but turns a failed EP registration into a recognizer
+creation error. The app can then retry CPU and report its actual selected
+backend. DirectML uses ORT's high-performance GPU selection rather than assuming
+that display adapter 0 supports DirectX 12 (important on hybrid/virtual displays).
+The patch also makes sherpa consume the verified DirectML dependency
+instead of downloading its older default. Its hash is recorded in `BUILD_INFO`;
+the stage check rejects stages predating the patch. Linux still builds CPU only.
+
+Selection is gated per exact model (`parakeetSherpaFasterProviders`), not by
+provider availability alone. The ggml Parakeet route remains preferred. The
+same GPU setting, a separate persistent crash marker and CPU retry govern the
+sherpa route. Benchmarks, observed limitations, and byte sizes are recorded in
+`benchmarks/sherpa_gpu/README.md` and `benchmarks/results/sherpa-gpu-1793/`.

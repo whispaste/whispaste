@@ -29,6 +29,7 @@ class WpFilterChip extends StatefulWidget {
     this.icon,
     this.count,
     this.testId,
+    this.semanticsHint,
   });
 
   final String label;
@@ -41,6 +42,10 @@ class WpFilterChip extends StatefulWidget {
 
   /// Stable, language-independent id for UI flows (`Semantics.identifier`).
   final String? testId;
+
+  /// Read after the label by screen readers, for a chip whose bare [count]
+  /// needs words — the note folders announce level and note count (#659).
+  final String? semanticsHint;
 
   @override
   State<WpFilterChip> createState() => _WpFilterChipState();
@@ -178,13 +183,14 @@ class _WpFilterChipState extends State<WpFilterChip> {
     // The trailing count keeps folding into the name ("Alle, 42"), as it
     // already did before this change. It is left as a bare number on
     // purpose: what the number counts is the caller's business, and this
-    // widget is generic — inventing a label parameter for the one caller
-    // that passes a count would be an abstraction ahead of a second need.
+    // widget is generic. A caller that needs the number in words passes
+    // [semanticsHint] (the note folders, #659).
     return MergeSemantics(
       child: Semantics(
         identifier: widget.testId,
         button: true,
         selected: widget.isActive,
+        hint: widget.semanticsHint,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),

@@ -63,7 +63,7 @@
 
 **Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into most apps (macOS/Windows/Linux; on Linux via a one-time uinput setup or the desktop portal; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
 
-**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux, after you accept the NVIDIA CUDA licence) or NVIDIA Parakeet (~25 languages, GPU-accelerated where available, CPU fallback, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine) · Import audio and video files using the file picker, by dropping them onto the window or, for audio files, from the file manager's right-click menu (WAV; MP3, FLAC, M4A/AAC, Ogg/Opus; MP4, MOV, MKV and WebM on macOS, Windows and Linux) — video audio is extracted locally by a bundled helper
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux, after you accept the NVIDIA CUDA licence) or NVIDIA Parakeet (~25 languages, GPU-accelerated where available, CPU fallback, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine) · Import audio and video files using the file picker, by dropping them onto the window or, for audio files, from the file manager's right-click menu (WAV; MP3, FLAC, M4A/AAC, Ogg/Opus; MP4, MOV, MKV, WebM, MPEG, VOB and MPEG-TS on macOS, Windows and Linux) — video audio is extracted locally by a bundled helper
 
 **Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
 
@@ -95,6 +95,16 @@
 
 </details>
 
+### Buy or build yourself?
+
+The [Microsoft Store](https://apps.microsoft.com/detail/9p22jvkrq2v0) and [Mac App Store](https://apps.apple.com/app/id6795319409) versions are a one-time purchase, no subscription; the store shows the current price.
+
+- **What you get:** on Windows, installation without the SmartScreen warning and automatic updates through the Microsoft Store. On macOS, installation and updates through the App Store. A new version can reach the Mac App Store later than GitHub, because Apple reviews every update.
+- **What the money is for:** further development, the Apple Developer Program, servers and store fees.
+- **What buying does not change:** buying unlocks nothing; the free version stays complete. The GitHub downloads and copies you build from this repository have nothing locked, time-limited or tied to an account.
+- **Where the versions differ:** the optional CUDA pack for recent NVIDIA cards is only available in the GitHub builds (Windows and Linux), not in the Microsoft Store version; GPU acceleration through Vulkan works in both. The Mac App Store version runs in Apple's app sandbox, so it cannot learn from corrections you make in other apps, does not detect password fields, has no AppleScript fallback for pasting and no tool to repair macOS permissions; the DMG from GitHub has all of these. The Mac App Store currently ships an older version, so audio and video file import reaches it with the next store update.
+- **Updates and reminders in free builds:** on Windows and macOS the update check only offers a newer release from GitHub and installs nothing until you confirm; on Linux it only tells you about a new release and links to it, and you install it by hand. You can switch the check off in Settings. A quiet support card may appear on the Overview after you have used the app for a while, at most three times, and “Don't ask again” ends it.
+
 ## Privacy
 
 - **Local mode** (offline speech recognition) — audio never leaves your device
@@ -112,11 +122,17 @@ Details: [whispaste.de/en/privacy](https://whispaste.de/en/privacy/) and [NETWOR
 Start, stop or cancel a dictation from a shortcut, launcher or script — handy on Wayland, where apps cannot grab global hotkeys themselves:
 
 ```sh
-whispaste --toggle   # start a dictation, or stop the running one
-whispaste --cancel   # discard the running dictation
+whispaste --start              # start a dictation (nothing if one is running)
+whispaste --stop               # stop the dictation and transcribe it
+whispaste --toggle             # start a dictation, or stop the running one
+whispaste --cancel             # discard the running dictation
+whispaste --transcribe memo.mp3  # transcribe files, like "Add files"
+whispaste --help               # list the commands
 ```
 
-The call is forwarded to the running WhisPaste and the second process exits right away. If WhisPaste is not running, `--toggle` starts it and then begins a dictation; `--cancel` does nothing. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
+The call is forwarded to the running WhisPaste and the second process exits right away; no second window opens. If WhisPaste is not running, `--start`, `--toggle` and `--transcribe` start it first; `--stop` and `--cancel` do nothing. An unknown command, a missing file or a file type the import does not read prints a message to stderr and exits with 64 (wrong use) or 66 (file), without starting anything. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
+
+The Mac App Store version cannot read files named on the command line (sandbox); use `open -a WhisPaste memo.mp3` there. The Microsoft Store version provides the command `whispaste` on the PATH. On Windows the console does not wait for WhisPaste; for the exit code use `start /wait` (cmd) or `Start-Process -Wait -PassThru` (PowerShell).
 
 On GNOME and KDE under Wayland, WhisPaste's hotkey works in other apps only after the desktop binds it. If it does not, Settings and onboarding show the reason and a button to ask the desktop again; without a portal, the same notice names the keyboard settings to use.
 
@@ -126,12 +142,13 @@ On GNOME and KDE under Wayland, WhisPaste's hotkey works in other apps only afte
 | Linux (AppImage) | `/path/to/WhisPaste-linux-x64.AppImage --toggle` |
 | macOS | `open -n -a WhisPaste --args --toggle` |
 | Windows (installer) | `"%LOCALAPPDATA%\Programs\WhisPaste\whispaste.exe" --toggle` |
+| Windows (Microsoft Store) | `whispaste --toggle` |
 
 **GNOME:** Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts → **+**. Name `WhisPaste`, command `whispaste --toggle`, then set the shortcut. Add a second one with `whispaste --cancel` if you like.
 
 **KDE Plasma 6:** System Settings → Keyboard → Shortcuts → **Add New** → **Command or Script…**, enter `whispaste --toggle` and assign the shortcut. (Plasma 5: System Settings → Shortcuts → Custom Shortcuts → Edit → New → Global Shortcut → Command/URL.)
 
-**Transcribe a file / benchmark**
+**Transcribe a file without the app / benchmark** (not the same as `--transcribe` above: runs on its own and prints the result)
 
 ```sh
 whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whisper-small] \

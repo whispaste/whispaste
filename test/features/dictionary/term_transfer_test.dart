@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/features/dictionary/term_import_page.dart';
-import 'package:whispaste/features/dictionary/term_store.dart';
+import 'package:whispaste/features/replacements/replacements_page.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -77,31 +77,19 @@ void main() {
       final container = ProviderScope.containerOf(
         tester.element(find.byType(TermImportPage)),
       );
-      expect(
-        container.read(settingsProvider).value!.stt.customVocabulary,
-        'OpenAI, Kubernetes',
+      // Imported terms become term entries (#1969); the term text itself
+      // follows from the replacements and is not written here.
+      final entries = await tester.runAsync(
+        () => container.read(replacementsProvider.future),
       );
-      expect(settings.writes, 1);
+      expect(
+        entries!
+            .where((e) => e.triggers.single == e.replacement)
+            .map((e) => e.replacement),
+        ['Kubernetes'],
+      );
+      expect(settings.writes, 0);
       await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
-
-  test(
-    'reported settings write failure cannot count as a successful import or learning decision',
-    () async {
-      final settings = _Settings()..fail = true;
-      final container = ProviderContainer(
-        overrides: [settingsProvider.overrideWith(() => settings)],
-      );
-      addTearDown(container.dispose);
-      await expectLater(
-        saveDictionaryVocabulary(container, (_) => 'Lost'),
-        throwsStateError,
-      );
-      expect(
-        container.read(settingsProvider).value!.stt.customVocabulary,
-        'OpenAI',
-      );
     },
   );
 }

@@ -75,43 +75,26 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.dictionaryTabReplacements));
     await tester.pumpAndSettle();
   }
 
   group('replacements tab', () {
-    testWidgets('tapping the star marks the entry as a favourite', (
+    testWidgets('dictionary rows carry no favourite star (#2166)', (
       tester,
     ) async {
-      // The default 800x600 view puts the row's star below the fold.
-      tester.view.physicalSize = const Size(800, 1000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
       final db = await seed([('mfg', 'Manufacturing')]);
       await openReplacementsTab(tester, db: db);
 
-      // The row actions appear on hover, so hover the row before the star.
+      // Row actions appear on hover: hover so a hidden star would show too.
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       addTearDown(mouse.removePointer);
+      await tester.ensureVisible(find.text('mfg'));
       await mouse.moveTo(tester.getCenter(find.text('mfg')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(WpFavouriteStar).first);
-      await tester.pump();
-      // The toggle writes through the database off the fake clock: wait for
-      // the row to change (bounded by a deadline), not for a fixed time.
-      await tester.runAsync(() async {
-        final deadline = DateTime.now().add(const Duration(seconds: 5));
-        while (DateTime.now().isBefore(deadline)) {
-          if ((await db.readAllReplacements()).single.row.isFavorite) break;
-          await Future<void>.delayed(Duration.zero);
-        }
-      });
-      await tester.pump();
 
-      final rows = await tester.runAsync(db.readAllReplacements);
-      expect(rows!.single.row.isFavorite, isTrue);
+      expect(find.text('mfg'), findsOneWidget);
+      expect(find.byType(WpFavouriteStar), findsNothing);
     });
 
     testWidgets('two entries with the same trigger are both badged', (
@@ -154,9 +137,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('dictionary-tab-suggestions')),
-      );
       await tester.pumpAndSettle();
     }
 
@@ -171,16 +151,22 @@ void main() {
       await openSuggestionsTab(tester, db);
       expect(settingsOf(tester).behavior.correctionLearningEnabled, isTrue);
 
+      await tester.tap(find.byKey(const ValueKey('dictionary-more')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('dictionary-learning-toggle')),
+      );
       await tester.tap(
-        find.byKey(const ValueKey('dictionary-suggestions-learning-toggle')),
+        find.byKey(const ValueKey('dictionary-learning-toggle')),
       );
       await tester.pumpAndSettle();
 
       expect(settingsOf(tester).behavior.correctionLearningEnabled, isFalse);
     });
 
-    testWidgets('keeping a suggestion as a term writes it into the own '
-        'vocabulary', (tester) async {
+    testWidgets('keeping a suggestion as a term adds the term entry', (
+      tester,
+    ) async {
       final db = await seed([]);
       await tester.runAsync(
         () => db.upsertCorrectionObservation(
@@ -203,7 +189,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(settingsOf(tester).stt.customVocabulary, contains('Kubernetes'));
+      // A term is the entry "Kubernetes → Kubernetes" (#1969).
+      final rows = await tester.runAsync(db.readAllReplacements);
+      expect(
+        rows!.where(
+          (r) =>
+              r.triggers.single == 'Kubernetes' &&
+              r.row.replacement == 'Kubernetes',
+        ),
+        hasLength(1),
+      );
     });
 
     testWidgets('accepting a suggestion confirms it', (tester) async {
@@ -222,9 +217,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('dictionary-tab-suggestions')),
-      );
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -257,9 +249,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('dictionary-tab-suggestions')),
-      );
       await tester.pumpAndSettle();
 
       await tester.tap(

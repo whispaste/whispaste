@@ -221,3 +221,56 @@ final historyOpenEntryProvider =
     NotifierProvider<HistoryOpenEntryNotifier, String?>(
       HistoryOpenEntryNotifier.new,
     );
+
+// ---------------------------------------------------------------------------
+// Search over every area (#628)
+// ---------------------------------------------------------------------------
+
+/// One-shot request to open the search over Aufnahmen, Notizen and
+/// Textbausteine. Cmd/Ctrl+K and the menu entries call [request]; the app
+/// shell listens and opens the dialog with its own context.
+class ContentSearchRequestNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void request() => state++;
+}
+
+final contentSearchRequestProvider =
+    NotifierProvider<ContentSearchRequestNotifier, int>(
+      ContentSearchRequestNotifier.new,
+    );
+
+/// A note to open with a text range selected: where a search hit matched
+/// (#628). [start] and [end] are UTF-16 offsets into the note's text; both
+/// null open the note at its start.
+typedef NoteRevealTarget = ({String noteId, int? start, int? end});
+
+/// The notes-side jump of the search: set before switching to `notes`;
+/// `NotesPage` consumes and clears it, like [notesEditorTargetProvider].
+class NotesRevealTargetNotifier extends Notifier<NoteRevealTarget?> {
+  @override
+  NoteRevealTarget? build() => null;
+
+  void set(NoteRevealTarget? target) => state = target;
+}
+
+final notesRevealTargetProvider =
+    NotifierProvider<NotesRevealTargetNotifier, NoteRevealTarget?>(
+      NotesRevealTargetNotifier.new,
+    );
+
+/// Snippet to open beside the Textbausteine list after navigating there (a
+/// search hit, #628). Set before switching to `snippets`; `SnippetsPage`
+/// consumes and clears it.
+class SnippetsOpenTargetNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? snippetId) => state = snippetId;
+}
+
+final snippetsOpenTargetProvider =
+    NotifierProvider<SnippetsOpenTargetNotifier, String?>(
+      SnippetsOpenTargetNotifier.new,
+    );

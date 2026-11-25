@@ -18,14 +18,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
+import '../../core/models/bundled_model_catalog.dart';
+import '../../core/models/model_catalog.dart';
 import '../download_disk_space.dart';
+import '../download_fragment_guard.dart';
 import '../download_error_kind.dart';
 import '../download_tls_failure.dart';
 import '../file_verification_service.dart';
 import '../free_disk_space.dart';
 import '../http_model_fetcher.dart';
-import '../model_download_service.dart'
-    show formatModelSizeLabel, modelDeleteFailedError;
+import '../model_install_check.dart';
+import '../model_download_service.dart' show modelDeleteFailedError;
 import '../tmp_reaper.dart';
 import 'smart_mode_ffi_engine.dart' show smartModeModelPath;
 
@@ -35,50 +38,12 @@ final _log = AppLogger('SmartModeDownload');
 // Model registry — single entry for now (Gemma-4-E2B-it Q4_K_M).
 // ---------------------------------------------------------------------------
 
-/// Metadata for the Smart-Mode local model.
-///
-/// Size/hash are ground-truth values read from the HuggingFace LFS metadata
-/// of `unsloth/gemma-4-E2B-it-GGUF` (3,106,738,272 bytes
-/// confirmed by direct file inspection during the license/config research
-/// spike).
-class SmartModeModelInfo {
-  const SmartModeModelInfo({
-    required this.id,
-    required this.label,
-    required this.filename,
-    required this.sizeBytes,
-    required this.url,
-    required this.sha256,
-    this.mirrorUrls = const [],
-  });
+/// The Smart-Mode local model: a single-file [CatalogModel] of kind `llm`.
+typedef SmartModeModelInfo = CatalogModel;
 
-  final String id;
-  final String label;
-  final String filename;
-  final int sizeBytes;
-
-  /// Primary source, pinned to one Hugging Face commit.
-  final String url;
-  final String sha256;
-
-  /// Further sources of the identical file, tried in order after [url]
-  /// fails (`HttpModelFetcher.fetchVerified`), each checked against [sha256].
-  final List<String> mirrorUrls;
-
-  /// [url] followed by [mirrorUrls].
-  List<String> get sources => [url, ...mirrorUrls];
-
-  String get sizeLabel => formatModelSizeLabel(sizeBytes);
-}
-
-const smartModeModel = SmartModeModelInfo(
-  id: 'gemma-4-E2B-it-Q4_K_M',
-  label: 'Gemma 4 E2B',
-  filename: 'gemma-4-E2B-it-Q4_K_M.gguf',
-  sizeBytes: 3106738272,
-  url:
-      'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf',
-  sha256: '740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8',
+/// The Smart-Mode model (Gemma 4 E2B, Q4_K_M), from the bundled catalog.
+final SmartModeModelInfo smartModeModel = bundledModelCatalog.byId(
+  CatalogIds.gemma4E2b,
 );
 
 /// `<appDataDir>/models/smart_mode/` — see [smartModeModelPath].
@@ -193,8 +158,10 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
   @visibleForTesting
   Future<bool> Function(String path)? existsHookOverride;
 
+  /// The model counts as installed only with its pinned size.
   Future<bool> Function(String path) get _checker =>
-      existsHookOverride ?? (path) => File(path).exists();
+      existsHookOverride ??
+      (path) => fileHasPinnedSize(path, smartModeModel.file.sizeBytes);
 
   bool _mounted = false;
   Completer<void>? _initialScanCompleter;
@@ -271,6 +238,7 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
           smartModeModel.sha256,
         );
         if (result is VerificationOk) {
+          await clearFragmentIdentity(destPath);
           _markDone();
           return;
         }
@@ -340,7 +308,7 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
       } else {
         final tls = isTlsDownloadFailure(e);
         final msg = 'Download failed: ${describeDioError(e)}';
-        tls ? _log.warning(msg) : _log.error(msg);
+        isConnectionDownloadFailure(e) ? _log.warning(msg) : _log.error(msg);
         state = state.copyWith(
           phase: SmartModeDownloadPhase.error,
           errorMessage: tls ? downloadTlsErrorCode : msg,
@@ -348,7 +316,9 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
         );
       }
     } on Exception catch (e) {
-      _log.error('Download error: $e');
+      isConnectionDownloadFailure(e)
+          ? _log.warning('Download error: $e')
+          : _log.error('Download error: $e');
       state = state.copyWith(
         phase: SmartModeDownloadPhase.error,
         errorMessage: '$e',

@@ -14,8 +14,9 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/tokens.dart';
 import '../../../services/automation_api/automation_api_controller.dart';
+import '../../../services/automation_api/automation_write_jobs.dart';
+import '../../../widgets/recording_behavior.dart' show localizeRecordingError;
 import '../../../widgets/dialog.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
@@ -23,6 +24,7 @@ import '../settings_widgets.dart';
 import '../widgets/automation_integrations.dart';
 import '../widgets/wp_settings_group.dart';
 import '../../../../widgets/wp_copy_feedback.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 final _log = AppLogger('AutomationApiSection');
 
@@ -81,49 +83,55 @@ class AutomationApiSection extends ConsumerWidget {
               ),
               if (apiState.token != null) ...[
                 settingsInlineBreak,
-                WpSettingsRow(
+                _TokenRow(
                   rowId: 'advanced-automation-token',
                   title: l10n.settingsAutomationApiToken,
                   subtitle: l10n.settingsAutomationApiTokenSubtitle,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 220),
-                        child: SelectableText(
-                          apiState.token!,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            color: WpColors.textMuted,
-                          ),
-                        ),
-                      ),
-                      WpCopyAnchor(
-                        target: 'automation-token',
-                        child: IconButton(
-                          icon: const Icon(
-                            LucideIcons.copy,
-                            size: WpIconSize.sm,
-                          ),
-                          tooltip: l10n.settingsAutomationApiCopyToken,
-                          onPressed: () => unawaited(
-                            copyWithFeedback(
-                              context,
-                              text: apiState.token!,
-                              target: 'automation-token',
+                  token: apiState.token!,
+                  copyTarget: 'automation-token',
+                  onRegenerate: () => _confirmRegenerate(context, ref, l10n),
+                ),
+              ],
+              // Writing (#255, ADR 0015 D17/D22): its own switch and token,
+              // nested under the API switch because it needs the server.
+              settingsInlineBreak,
+              WpSettingsRow(
+                rowId: 'advanced-automation-write',
+                title: l10n.settingsAutomationWriteEnable,
+                subtitle: l10n.settingsAutomationWriteEnableSubtitle,
+                switchNamesRow: true,
+                trailing: settingsToggle(
+                  label: l10n.settingsAutomationWriteEnable,
+                  value: settings.automationApi.writeEnabled,
+                  onChanged: (v) {
+                    _log.info('user toggled automationApi.writeEnabled=$v');
+                    ref
+                        .read(settingsProvider.notifier)
+                        .updateSettings(
+                          (s) => s.copyWithSections(
+                            automationApi: s.automationApi.copyWith(
+                              writeEnabled: v,
                             ),
                           ),
-                        ),
-                      ),
-                      WpButton(
-                        label: l10n.settingsAutomationApiRegenerate,
-                        variant: WpButtonVariant.secondary,
-                        onPressed: () => _confirmRegenerate(context, ref, l10n),
-                      ),
-                    ],
-                  ),
+                        );
+                  },
                 ),
+              ),
+              if (settings.automationApi.writeEnabled) ...[
+                if (apiState.writeToken != null) ...[
+                  settingsInlineBreak,
+                  _TokenRow(
+                    rowId: 'advanced-automation-write-token',
+                    title: l10n.settingsAutomationWriteToken,
+                    subtitle: l10n.settingsAutomationWriteTokenSubtitle,
+                    token: apiState.writeToken!,
+                    copyTarget: 'automation-write-token',
+                    onRegenerate: () =>
+                        _confirmRegenerateWrite(context, ref, l10n),
+                  ),
+                ],
+                settingsInlineBreak,
+                const _WriteProtocol(),
               ],
             ],
             settingsInlineBreak,
@@ -185,6 +193,143 @@ class AutomationApiSection extends ConsumerWidget {
 
     await ref.read(automationApiControllerProvider.notifier).regenerateToken();
   }
+
+  Future<void> _confirmRegenerateWrite(
+    BuildContext context,
+    WidgetRef ref,
+    L10n l10n,
+  ) async {
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.settingsAutomationWriteRegenerateConfirmTitle,
+      message: l10n.settingsAutomationWriteRegenerateConfirmMessage,
+      confirmLabel: l10n.settingsAutomationApiRegenerate,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await ref
+        .read(automationApiControllerProvider.notifier)
+        .regenerateWriteToken();
+  }
+}
+
+/// A token with copy and regenerate, as the API token row shows it.
+class _TokenRow extends StatelessWidget {
+  const _TokenRow({
+    required this.rowId,
+    required this.title,
+    required this.subtitle,
+    required this.token,
+    required this.copyTarget,
+    required this.onRegenerate,
+  });
+
+  final String rowId;
+  final String title;
+  final String subtitle;
+  final String token;
+  final String copyTarget;
+  final VoidCallback onRegenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return WpSettingsRow(
+      rowId: rowId,
+      title: title,
+      subtitle: subtitle,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: SelectableText(
+              token,
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color: WpColors.textMuted,
+              ),
+            ),
+          ),
+          WpCopyAnchor(
+            target: copyTarget,
+            child: WpIconButton.ghost(
+              icon: LucideIcons.copy,
+              tooltip: l10n.settingsAutomationApiCopyToken,
+              onPressed: () => unawaited(
+                copyWithFeedback(context, text: token, target: copyTarget),
+              ),
+            ),
+          ),
+          WpButton(
+            label: l10n.settingsAutomationApiRegenerate,
+            variant: WpButtonVariant.secondary,
+            onPressed: onRegenerate,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The in-memory log of API write jobs (D22): time, status and sizes, never
+/// text. Gone when the app quits.
+class _WriteProtocol extends ConsumerWidget {
+  const _WriteProtocol();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final records = ref.watch(automationWriteJobsProvider);
+    final localizations = MaterialLocalizations.of(context);
+    return WpSettingsRow(
+      rowId: 'advanced-automation-write-protocol',
+      title: l10n.settingsAutomationWriteProtocol,
+      subtitle: records.isEmpty
+          ? l10n.settingsAutomationWriteProtocolEmpty
+          : [for (final r in records) _line(l10n, localizations, r)].join('\n'),
+      trailing: const SizedBox.shrink(),
+    );
+  }
+
+  static String _line(
+    L10n l10n,
+    MaterialLocalizations localizations,
+    AutomationWriteRecord r,
+  ) {
+    final time = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(r.startedAt),
+    );
+    final title = l10n.automationWriteEntryTitle(time, _status(l10n, r));
+    final size = l10n.automationWriteEntryInstruction(r.instructionChars);
+    return '$title · $size';
+  }
+
+  static String _status(L10n l10n, AutomationWriteRecord r) {
+    final status = switch (r.status) {
+      AutomationWriteStatus.running => l10n.automationWriteStatusRunning,
+      AutomationWriteStatus.inserted => l10n.automationWriteStatusInserted(
+        r.resultChars ?? 0,
+      ),
+      AutomationWriteStatus.failed =>
+        '${l10n.automationWriteStatusFailed}: ${_reason(l10n, r.errorCode)}',
+    };
+    return r.targetChecked || r.status == AutomationWriteStatus.running
+        ? status
+        : '$status · ${l10n.automationWriteTargetUnchecked}';
+  }
+
+  static String _reason(L10n l10n, String? code) => switch (code) {
+    'automation_write_target_changed' => l10n.automationWriteErrorTargetChanged,
+    'automation_write_target_unknown' => l10n.automationWriteErrorTargetUnknown,
+    'automation_write_paste_failed' => l10n.automationWriteErrorPasteFailed,
+    'automation_write_dictation_busy' => l10n.automationWriteErrorDictationBusy,
+    'revoked' => l10n.automationWriteErrorRevoked,
+    null => l10n.errorGeneric,
+    _ => localizeRecordingError(l10n, code),
+  };
 }
 
 /// Lowest/highest port [AutomationApiSettings.customPort] accepts — ports

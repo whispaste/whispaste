@@ -17,10 +17,17 @@ import '../../core/config/secure_key_store.dart';
 /// Secure-storage key for the automation API bearer token.
 const automationApiTokenKey = 'wp_automation_api_token';
 
+/// Secure-storage key for the separate write-scope token (#255, ADR 0015
+/// D17). Only this token may start a write job; it opens no other route.
+const automationWriteTokenKey = 'wp_automation_write_token';
+
 class AutomationApiTokenStore {
-  AutomationApiTokenStore(this._store);
+  AutomationApiTokenStore(this._store, {this.key = automationApiTokenKey});
 
   final SecureKeyStore _store;
+
+  /// The secure-storage entry this store manages.
+  final String key;
 
   /// The token once read or written. The auth middleware asks for it on every
   /// request; without the cache each request would touch the key store (and,
@@ -33,7 +40,7 @@ class AutomationApiTokenStore {
   Future<String?> readToken() async {
     final cached = _cached;
     if (cached != null) return cached;
-    return _cached = await _store.readKey(automationApiTokenKey);
+    return _cached = await _store.readKey(key);
   }
 
   /// Generates a new cryptographically random token, persists it, and
@@ -42,7 +49,7 @@ class AutomationApiTokenStore {
   /// token instantly" requirement.
   Future<String> regenerate() async {
     final token = _generateToken();
-    await _store.writeKey(automationApiTokenKey, token);
+    await _store.writeKey(key, token);
     return _cached = token;
   }
 
@@ -50,7 +57,7 @@ class AutomationApiTokenStore {
   /// request is rejected (no token can ever match `null`).
   Future<void> revoke() async {
     _cached = null;
-    await _store.deleteKey(automationApiTokenKey);
+    await _store.deleteKey(key);
   }
 }
 
@@ -69,4 +76,12 @@ String _generateToken() {
 /// Riverpod provider for the automation API token store.
 final automationApiTokenStoreProvider = Provider<AutomationApiTokenStore>(
   (ref) => AutomationApiTokenStore(ref.read(secureKeyStoreProvider)),
+);
+
+/// Store of the write-scope token (`wp_automation_write_token`).
+final automationWriteTokenStoreProvider = Provider<AutomationApiTokenStore>(
+  (ref) => AutomationApiTokenStore(
+    ref.read(secureKeyStoreProvider),
+    key: automationWriteTokenKey,
+  ),
 );

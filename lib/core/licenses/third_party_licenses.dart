@@ -20,7 +20,9 @@ const _fontLicenses = <String, String>{
 /// in `scripts/build-*.sh`, `macos/Podfile.lock` and `pubspec.lock`; each text
 /// is copied from the upstream repository at that tag or commit.
 const nativeLibraryLicenses = <String, String>{
-  'FFmpeg (local video audio extraction)':
+  // Helper program: video audio extraction (ADR 0037) and the Opus/WebM upload
+  // copy of cloud transcription (ADR 0040); links libopus statically.
+  'FFmpeg (video audio extraction, upload compression)':
       'ffmpeg-LICENSE.txt', // 9.0.2, LGPL-2.1-or-later
 
   'whisper.cpp (with ggml)': 'whisper-cpp-LICENSE.txt', // v1.9.5
@@ -33,7 +35,7 @@ const nativeLibraryLicenses = <String, String>{
       'libogg-LICENSE.txt', // 1.3.6, BSD-3-Clause
   // libFLAC is linked by the Linux build (FLAC decoding); BSD-3-Clause, libFLAC only.
   'libFLAC (in the FLAC decoder)': 'libflac-LICENSE.txt', // 1.4.3, BSD-3-Clause
-  'libopus (in the Ogg/Opus decoder)':
+  'libopus (in the Ogg/Opus decoder and the FFmpeg helper)':
       'libopus-LICENSE.txt', // 1.5.2, BSD-3-Clause
   'opusfile (in the Ogg/Opus decoder)':
       'opusfile-LICENSE.txt', // 0.12, BSD-3-Clause
@@ -60,6 +62,9 @@ const nativeLibraryLicenses = <String, String>{
   // Speaker diarization clustering, on by default in the upstream sherpa-onnx binaries (ADR 0037).
   'hclust-cpp (in sherpa-onnx)':
       'hclust-cpp-LICENSE.txt', // 2026-02-25, BSD-2-Clause
+  'Microsoft DirectML': 'directml-LICENSE.txt', // 1.15.4, Windows
+  'Microsoft DirectML sample code': 'directml-code-LICENSE.txt',
+  'Microsoft DirectML third-party notices': 'directml-ThirdPartyNotices.txt',
   'ONNX Runtime': 'onnxruntime-LICENSE.txt', // 1.28.2
   'ONNX Runtime third-party notices': 'onnxruntime-ThirdPartyNotices.txt',
   'Sparkle': 'sparkle-LICENSE.txt', // 2.10.1, macOS auto-update

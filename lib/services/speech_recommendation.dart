@@ -76,10 +76,41 @@ final speechRecommendationProvider = FutureProvider<SpeechRecommendation>((
   );
 });
 
-/// The settings [speechRecommendationFor] reads.
-({String language, String locale, BenchmarkSettings benchmark})
-_recommendationInputs(AppSettings s) =>
-    (language: s.sttLanguageCode, locale: s.locale, benchmark: s.benchmark);
+/// The settings [speechRecommendationFor] reads. The favorites are joined
+/// so the record compares by value.
+({
+  String language,
+  String favorites,
+  String locale,
+  BenchmarkSettings benchmark,
+})
+_recommendationInputs(AppSettings s) => (
+  language: s.sttLanguageCode,
+  favorites: s.stt.favoriteLanguages.join(','),
+  locale: s.locale,
+  benchmark: s.benchmark,
+);
+
+/// The user's dictation languages for [settings]: the list the
+/// recommendation is made for ([recommendationLanguages]).
+List<String> dictationLanguagesFor(
+  AppSettings settings,
+  List<String> systemLanguages,
+) => recommendationLanguages(
+  sttLanguageCode: settings.sttLanguageCode,
+  favoriteLanguages: settings.stt.favoriteLanguages,
+  systemLanguages: systemLanguages,
+  uiLocale: settings.locale,
+);
+
+/// [dictationLanguagesFor] the current settings: the languages the model
+/// library checks each model against (#1953).
+final dictationLanguagesProvider = Provider<List<String>>(
+  (ref) => dictationLanguagesFor(
+    ref.watch(settingsProvider).value ?? AppSettings.defaults,
+    ref.watch(systemLanguageCodesProvider),
+  ),
+);
 
 /// The Whisper tier recommendation for [gpu] and [measuredRtf]: the same
 /// call onboarding makes inside [speechRecommendationFor], so Settings, which
@@ -120,11 +151,7 @@ SpeechRecommendation speechRecommendationFor({
   return SpeechRecommendation(
     recommendation: recommendEngine(
       compactBenchmarkRtf: compactBenchmarkRtf,
-      dictationLanguageCodes: recommendationLanguages(
-        sttLanguageCode: settings.sttLanguageCode,
-        systemLanguages: systemLanguages,
-        uiLocale: settings.locale,
-      ),
+      dictationLanguageCodes: dictationLanguagesFor(settings, systemLanguages),
       vendor: gpu.vendor,
       vramMB: vramMB,
       gpuName: gpu.name,

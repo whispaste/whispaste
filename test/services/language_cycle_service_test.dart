@@ -63,4 +63,35 @@ void main() {
       expect(feedback?.duringRecording, isFalse);
     });
   });
+
+  group('hotkey of one favorite language (#2137)', () {
+    test(
+      'switches straight to that language, with the same feedback',
+      () async {
+        final container = _container(phase: RecordingPhase.idle);
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+
+        await container
+            .read(languageCycleFeedbackProvider.notifier)
+            .switchTo('en');
+
+        expect(container.read(settingsProvider).value?.stt.language, 'en');
+        expect(container.read(languageCycleFeedbackProvider)?.language, 'en');
+      },
+    );
+
+    test('a language that is no favorite is ignored', () async {
+      final container = _container(phase: RecordingPhase.idle);
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      await container
+          .read(languageCycleFeedbackProvider.notifier)
+          .switchTo('ru');
+
+      expect(container.read(settingsProvider).value?.stt.language, 'de');
+      expect(container.read(languageCycleFeedbackProvider), isNull);
+    });
+  });
 }

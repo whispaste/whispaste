@@ -57,6 +57,7 @@ void main() {
     expect(nodes.where((n) => !n.isSeparator).map((n) => n.id), [
       WpTitleBarMenuGroupIds.recording,
       WpMenuBarCommandIds.settings,
+      WpMenuBarCommandIds.search,
       WpTitleBarMenuGroupIds.help,
     ]);
     final groupChildren = nodes.first.children;

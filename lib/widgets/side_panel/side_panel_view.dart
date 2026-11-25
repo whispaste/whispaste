@@ -10,11 +10,11 @@ import '../../services/clipboard_history/clipboard_platform_capability.dart';
 import '../../services/side_panel/side_panel_row_filter.dart';
 import '../../services/side_panel/side_panel_row_groups.dart';
 import '../../services/side_panel/side_panel_snapshot.dart';
-import '../wp_button.dart';
 import '../wp_focus_ring.dart';
 import '../wp_search_field.dart';
 import '../wp_segmented_selector.dart';
 import 'side_panel_row_tile.dart';
+import '../empty_state.dart';
 
 /// The side panel's content: one section at a time (Recordings, Snippets,
 /// Clipboard History), switched by an icon tab bar, each with its own empty
@@ -265,19 +265,19 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
               child: KeyedSubtree(
                 key: ValueKey(_selected),
                 child: loadFailed
-                    ? _EmptySectionState(
+                    ? WpEmptyState.panel(
                         icon: LucideIcons.triangleAlert,
                         title: l10n.errorGeneric,
                         hint: l10n.sidePanelLoadFailedHint,
                       )
                     : rows.isEmpty
-                    ? _EmptySectionState(
+                    ? WpEmptyState.panel(
                         icon: locked ? LucideIcons.lock : iconOf(_selected),
                         title: emptyTitle,
                         hint: emptyHint,
                       )
                     : filteredRows.isEmpty
-                    ? _EmptySectionState(
+                    ? WpEmptyState.panel(
                         icon: LucideIcons.searchX,
                         title: l10n.searchNoMatches,
                         hint: l10n.searchNoMatchesHint(query.trim()),
@@ -543,78 +543,6 @@ class _CloseButtonState extends State<_CloseButton> {
                 color: _isHovered ? WpColors.textPrimary : WpColors.textMuted,
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptySectionState extends StatelessWidget {
-  const _EmptySectionState({
-    required this.icon,
-    required this.title,
-    required this.hint,
-    this.actionLabel,
-    this.actionTestId,
-    this.onAction,
-  });
-
-  final IconData icon;
-  final String title;
-  final String hint;
-
-  /// Optional way back (the no-matches state's "Clear search").
-  final String? actionLabel;
-  final String? actionTestId;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    // Scrollable like WpEmptyState: the longer Linux hint at 200 % text scale
-    // in the narrow panel scrolls instead of overflowing.
-    return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: WpSpacing.xl,
-            vertical: WpSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: WpIconSize.xl, color: WpColors.textMuted),
-              const SizedBox(height: WpSpacing.sm),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: WpColors.textSecondary,
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: WpSpacing.xxs),
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: WpColors.textMuted,
-                  fontSize: WpTypography.caption,
-                  height: 1.35,
-                ),
-              ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: WpSpacing.md),
-                WpButton(
-                  label: actionLabel!,
-                  testId: actionTestId,
-                  variant: WpButtonVariant.secondary,
-                  size: WpButtonSize.dense,
-                  onPressed: onAction,
-                ),
-              ],
-            ],
           ),
         ),
       ),

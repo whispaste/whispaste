@@ -8,6 +8,7 @@ import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_openai_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_text_model.dart';
 
 void main() {
@@ -243,6 +244,50 @@ void main() {
       );
     });
 
+    // #2116: an OpenAI failure on every dictation said only "could not be
+    // applied"; each error class now names its cause and next step.
+    test('an OpenAI error names its cause instead of the generic sentence', () {
+      String body(String code) => smartModeFallbackNoticeBody(
+        l10n,
+        reason: SmartModeFallbackReason.openAi,
+        delivery: SmartModeDelivery.pasted,
+        errorCode: code,
+      );
+      final outcome = ' ${l10n.notificationSmartModeOutcomePasted}';
+      expect(
+        body('smart_mode_openai_invalid_api_key'),
+        l10n.notificationSmartModeSkippedOpenAiInvalidKey(
+              l10n.settingsAreaApiKeys,
+            ) +
+            outcome,
+      );
+      for (final status in ['403', '404']) {
+        expect(
+          body('smart_mode_openai_error_$status'),
+          l10n.notificationSmartModeSkippedOpenAiNoModelAccess(
+                SmartModeOpenAiEngine.openAiModel,
+              ) +
+              outcome,
+        );
+      }
+      expect(
+        body('smart_mode_openai_rate_limited'),
+        l10n.notificationSmartModeSkippedOpenAiRateLimited + outcome,
+      );
+      expect(
+        body('smart_mode_openai_network_error: SocketException'),
+        l10n.notificationSmartModeSkippedOpenAiNetwork + outcome,
+      );
+      expect(
+        body('smart_mode_openai_timeout'),
+        l10n.notificationSmartModeSkippedTimedOut + outcome,
+      );
+      expect(
+        body('smart_mode_openai_error_500'),
+        l10n.notificationSmartModeSkippedBody + outcome,
+      );
+    });
+
     test(
       'every locale: each delivery gets its own sentence, so only a confirmed '
       'paste is ever described as pasted',
@@ -260,6 +305,9 @@ void main() {
               // Without an endpoint code the generic body applies (see
               // customEndpointErrorText for the classed messages).
               SmartModeFallbackReason.customEndpoint =>
+                loc.notificationSmartModeSkippedBody,
+              // Likewise for OpenAI (see smartModeOpenAiErrorText).
+              SmartModeFallbackReason.openAi =>
                 loc.notificationSmartModeSkippedBody,
             };
             final expectedOutcome = {

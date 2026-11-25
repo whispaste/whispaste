@@ -91,9 +91,10 @@ const _documentedExceptions = <String, String>{
 
 /// Matches a top-level type declaration at column 0, with any leading
 /// class modifiers (`abstract`, `final`, `base`, `interface`, `sealed`, …).
+/// An unnamed `extension on X` is library-private and therefore skipped.
 final _typeDeclaration = RegExp(
   r'^(?:(?:abstract|final|base|interface|sealed|mixin)\s+)*'
-  r'(class|enum|mixin|extension|typedef)\s+'
+  r'(class|enum|mixin|extension(?!\s+on\b)|typedef)\s+'
   r'([A-Za-z_$][A-Za-z0-9_$]*)',
 );
 

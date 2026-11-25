@@ -21,27 +21,7 @@ class TermImportRow {
 /// Throws [FormatException] for unreadable, unknown or oversized documents.
 /// A malformed document is never partially accepted.
 List<String?> decodeTermImport(List<int> bytes, {required String filename}) {
-  if (bytes.length > termImportMaxBytes) throw const FormatException('size');
-  String text;
-  if (bytes.length >= 2 &&
-      ((bytes[0] == 255 && bytes[1] == 254) ||
-          (bytes[0] == 254 && bytes[1] == 255))) {
-    if (bytes.length.isOdd) throw const FormatException('encoding');
-    final little = bytes[0] == 255;
-    text = String.fromCharCodes([
-      for (var i = 2; i < bytes.length; i += 2)
-        little
-            ? bytes[i] + (bytes[i + 1] << 8)
-            : (bytes[i] << 8) + bytes[i + 1],
-    ]);
-  } else {
-    text = utf8.decode(bytes);
-  }
-  text = text.replaceFirst(RegExp('^\uFEFF'), '').trim();
-  if (RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]').hasMatch(text)) {
-    throw const FormatException('binary');
-  }
-  if (text.isEmpty) throw const FormatException('empty');
+  final text = decodeImportText(bytes);
   final extension = filename.split('.').last.toLowerCase();
   List<String?> terms;
   if (text.startsWith('[') || text.startsWith('{') || extension == 'json') {
@@ -68,7 +48,7 @@ List<String?> decodeTermImport(List<int> bytes, {required String filename}) {
     if (!['csv', 'txt', 'tsv'].contains(extension) || text.startsWith('<')) {
       throw const FormatException('format');
     }
-    final records = _records(text, _delimiter(text));
+    final records = importCsvRecords(text);
     if (records.isNotEmpty && _header(records.first)) records.removeAt(0);
     terms = [
       for (final row in records)
@@ -127,6 +107,47 @@ bool _header(List<String> row) {
             'target',
           }.contains(keys.last));
 }
+
+/// The trimmed text of an import file: size limit, UTF-16 with BOM, UTF-8
+/// (with [latin1Fallback], Latin-1 when the bytes are no valid UTF-8).
+/// Throws [FormatException] for oversized, binary or empty files.
+String decodeImportText(List<int> bytes, {bool latin1Fallback = false}) {
+  if (bytes.length > termImportMaxBytes) throw const FormatException('size');
+  String text;
+  if (bytes.length >= 2 &&
+      ((bytes[0] == 255 && bytes[1] == 254) ||
+          (bytes[0] == 254 && bytes[1] == 255))) {
+    if (bytes.length.isOdd) throw const FormatException('encoding');
+    final little = bytes[0] == 255;
+    text = String.fromCharCodes([
+      for (var i = 2; i < bytes.length; i += 2)
+        little
+            ? bytes[i] + (bytes[i + 1] << 8)
+            : (bytes[i] << 8) + bytes[i + 1],
+    ]);
+  } else if (latin1Fallback) {
+    try {
+      text = utf8.decode(bytes);
+    } on FormatException {
+      // Outlook writes its CSV export in the ANSI code page.
+      text = latin1.decode(bytes);
+    }
+  } else {
+    text = utf8.decode(bytes);
+  }
+  text = text.replaceFirst(RegExp('^\uFEFF'), '').trim();
+  if (RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]').hasMatch(text)) {
+    throw const FormatException('binary');
+  }
+  if (text.isEmpty) throw const FormatException('empty');
+  return text;
+}
+
+/// The rows of a CSV text (separator `,`, `;` or tab, detected from the
+/// first line). Throws [FormatException] for broken quoting or more than
+/// [termImportMaxRows] rows plus a header.
+List<List<String>> importCsvRecords(String text) =>
+    _records(text, _delimiter(text));
 
 String _delimiter(String text) {
   var quoted = false;

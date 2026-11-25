@@ -22,6 +22,7 @@ import '../../../widgets/version_compare_dialog.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../data/note_line_diff.dart';
 import '../data/notes_actions.dart';
+import '../../../widgets/wp_row_divider.dart';
 
 final _log = AppLogger('NoteVersions');
 
@@ -109,7 +110,7 @@ class _NoteVersionsListState extends ConsumerState<_NoteVersionsList> {
           child: ListView.separated(
             key: const ValueKey('notes-version-list'),
             itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const WpRowDivider(),
             itemBuilder: (context, index) {
               final version = list[index];
               // The next entry is the older snapshot: this version's changes

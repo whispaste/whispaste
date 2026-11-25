@@ -13,12 +13,31 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shelf/shelf.dart';
 
+/// Request-context key under which [bearerTokenAuth] records the scope of
+/// the token a request carried; read by `automationScopeGuard`.
+const kAutomationScopeContextKey = 'wp.automation.scope';
+
+/// What a valid token may do (#255, ADR 0015 D17). The scope is decided by
+/// which token matched, never by anything the client sends.
+enum AutomationTokenScope {
+  /// The original API token: every route except writing.
+  standard,
+
+  /// The separate write token: only the write routes.
+  write,
+}
+
 /// Builds the auth [Middleware].
 ///
 /// [currentToken] is invoked on every request (never captured once) so a
 /// token regenerated or revoked via settings takes effect on the very next
-/// request — no server restart required.
-Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
+/// request — no server restart required. [currentWriteToken] works the same
+/// way for the write scope and returns `null` while writing is switched off,
+/// so the switch revokes the write token instantly.
+Middleware bearerTokenAuth({
+  required Future<String?> Function() currentToken,
+  Future<String?> Function()? currentWriteToken,
+}) {
   return (Handler innerHandler) {
     return (Request request) async {
       // Without a header there is nothing to compare, so the token store (and
@@ -26,8 +45,10 @@ Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
       final header = request.headers['authorization'];
       if (header == null) return _unauthorized();
       final String? expected;
+      final String? expectedWrite;
       try {
         expected = await currentToken();
+        expectedWrite = await currentWriteToken?.call();
       } on Object {
         // A locked or failing keyring fails closed with a status, not an
         // unhandled error inside the server.
@@ -37,14 +58,29 @@ Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
           headers: {'content-type': 'application/json'},
         );
       }
-      final isValid =
-          expected != null &&
-          expected.isNotEmpty &&
-          constantTimeEquals(header, 'Bearer $expected');
-      if (!isValid) return _unauthorized();
-      return innerHandler(request);
+      // Both comparisons always run, so the timing does not tell which
+      // token a guess came close to.
+      final standard = _matches(header, expected);
+      final write = _matches(header, expectedWrite);
+      if (!standard && !write) return _unauthorized();
+      return innerHandler(
+        request.change(
+          context: {
+            kAutomationScopeContextKey: standard
+                ? AutomationTokenScope.standard
+                : AutomationTokenScope.write,
+          },
+        ),
+      );
     };
   };
+}
+
+bool _matches(String header, String? expected) {
+  final valid = expected != null && expected.isNotEmpty;
+  // Compare against a dummy when there is no token, to keep the work equal.
+  return constantTimeEquals(header, 'Bearer ${valid ? expected : '-'}') &&
+      valid;
 }
 
 Response _unauthorized() => Response(

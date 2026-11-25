@@ -25,6 +25,7 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste/services/headless/package_diagnose.dart'
     show selfCheckNativeCallGuard;
 import 'package:whispaste/services/stt/native_call_guard.dart';
+import 'package:whispaste/services/stt/whisper/whisper_isolate_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_bindings.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
@@ -275,28 +276,58 @@ void main() {
   final modelAvailable =
       available && modelPath != null && File(modelPath).existsSync();
 
-  test(
-    'WhisperFfiEngine loads and decodes through the guard',
-    () async {
-      final engine = WhisperFfiEngine(libraryPath: whisperPath);
-      await engine.load(modelPath: modelPath!);
-      addTearDown(engine.unload);
-      expect(engine.usesNativeCallGuard, isTrue);
-      // Real speech: a corrupted params copy would crash, return non-zero
-      // or ignore `language`/`no_timestamps` instead of producing text.
-      final wav = File(
-        p.join(
-          root!,
-          'packages',
-          'whispaste_gpu_probe',
-          'assets',
-          'reference_short.wav',
-        ),
-      ).readAsBytesSync();
-      final text = await engine.transcribe(wav, language: 'en');
-      expect(text.trim(), isNotEmpty);
+  final testBackend = Platform.isMacOS
+      ? WhisperBackend.metal
+      : WhisperBackend.cpu;
+  group(
+    'Whisper engines with a real model',
+    () {
+      late WhisperFfiEngine engine;
+      late List<int> wav;
+      late String wavPath;
+      setUpAll(() async {
+        engine = WhisperFfiEngine(
+          libraryPath: whisperPath,
+          backend: testBackend,
+        );
+        await engine.load(modelPath: modelPath!);
+        wavPath = p.join(root!, 'assets', 'benchmark', 'reference-de.wav');
+        wav = File(wavPath).readAsBytesSync();
+      });
+      tearDownAll(() => engine.unload());
+      test('loads through the guard', () {
+        expect(engine.usesNativeCallGuard, isTrue);
+        expect(engine.status.isLoaded, isTrue);
+      });
+      test('decodes a fixed language through the guard', () async {
+        final text = await engine.transcribe(wav, language: 'de');
+        expect(text.trim(), isNotEmpty);
+      });
+      test('automatic detection stays within DE+EN', () async {
+        engine.expectedLanguages = ['de', 'en'];
+        final text = await engine.transcribe(wav, language: 'auto');
+        expect(text.trim(), isNotEmpty);
+        expect(engine.lastDetectedLanguage, isIn(['de', 'en']));
+      });
+      test('fixed language takes priority over the restriction', () async {
+        engine.expectedLanguages = ['en'];
+        await engine.transcribe(wav, language: 'de');
+        expect(engine.lastDetectedLanguage, 'de');
+      });
+      test('file requests carry the restriction into the worker', () async {
+        final worker = WhisperIsolateEngine(
+          libraryPath: whisperPath,
+          backend: testBackend,
+        );
+        addTearDown(worker.shutdown);
+        await worker.load(modelPath: modelPath!);
+        // The clip is German: losing this request field would decode in de.
+        worker.expectedLanguages = ['en'];
+        final text = await worker.transcribeFile(wavPath, language: 'auto');
+        expect(text.trim(), isNotEmpty);
+        expect(worker.lastDetectedLanguage, 'en');
+      });
     },
-    timeout: const Timeout(Duration(minutes: 2)),
     skip: modelAvailable
         ? false
         : 'needs wp_ffi_guard + .build/test-models/whisper/ggml-tiny.bin',

@@ -13,6 +13,8 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/telemetry/first_run_network_gate.dart';
 import 'package:whispaste/services/telemetry_service.dart';
 
+import '../../fixtures/telemetry_hits.dart';
+
 class _FakeSettings extends SettingsNotifier {
   _FakeSettings(this._settings);
 
@@ -66,7 +68,7 @@ void main() {
     setUp(() {
       sent = [];
       client = MockClient((request) async {
-        sent.add(request.bodyFields);
+        sent.addAll(telemetryHits(request));
         return http.Response('', 204);
       });
       SharedPreferences.setMockInitialValues({});

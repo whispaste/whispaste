@@ -25,6 +25,7 @@ TESTS=(
   clipboard_hint
   x11_window
   clipboard_receipt
+  clipboard_receipt_policy
   clipboard_snapshot
   keybinder_raw
   hang_watchdog_core
@@ -32,6 +33,7 @@ TESTS=(
   message_clock
   uinput_access
   undo_policy
+  undo_shortcut
   video_audio_decode
 )
 
@@ -49,6 +51,8 @@ if [ "${1:-}" = --inputs ]; then
     test/fixtures/video_import/ test/scripts/video_audio_decode_test.py \
     test/scripts/video_decoder_download_test.py \
     windows/runner/undo_policy.h \
+    windows/runner/clipboard_receipt_policy.h \
+    windows/runner/clipboard_receipt_policy_test.cc \
     windows/runner/undo_policy_test.cc windows/runner/message_clock.h \
     windows/runner/message_clock_test.cc windows/runner/hang_watchdog_core.h \
     windows/runner/side_panel_edge_core.h macos/Runner/SidePanelWindow.swift

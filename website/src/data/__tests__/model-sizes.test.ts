@@ -1,6 +1,7 @@
 /**
  * Drift guard (#1152): the model sizes on the website come from
- * `model-sizes.ts` and must equal the pinned sizes in the app's Dart sources.
+ * `model-sizes.ts` and must equal the pinned sizes in the app's bundled model
+ * catalog (`lib/core/models/bundled_model_catalog.dart`, #1792).
  * The prose in every language must name the same rounded values.
  */
 import { describe, expect, it } from "vitest";
@@ -11,19 +12,24 @@ import { MODEL_SIZE_BYTES, formatModelSize } from "../model-sizes.ts";
 import { i18n } from "../../scripts/i18n.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
-const dart = (p: string) => readFileSync(resolve(root, p), "utf8");
+const catalog = readFileSync(resolve(root, "lib/core/models/bundled_model_catalog.dart"), "utf8");
 
-function sizesIn(source: string): number[] {
-  return [...source.matchAll(/sizeBytes:\s*(\d+)/g)].map((m) => Number(m[1]));
+/** File sizes of the catalog entry `id: CatalogIds.<id>`, in file order. */
+function fileSizes(id: string): number[] {
+  const start = catalog.indexOf(`id: CatalogIds.${id},`);
+  expect(start, `CatalogIds.${id} not in the bundled catalog`).toBeGreaterThanOrEqual(0);
+  const next = catalog.indexOf("CatalogModel(", start);
+  const entry = catalog.slice(start, next === -1 ? undefined : next);
+  return [...entry.matchAll(/_file\(\s*\w+,\s*'[^']+',\s*(\d+),/g)].map((m) => Number(m[1]));
 }
 
 describe("model sizes: website vs app", () => {
-  const whisper = sizesIn(dart("lib/services/model_download_service.dart"));
-  const bundle = sizesIn(dart("lib/services/stt_parakeet/parakeet_model_registry.dart"));
-  const gguf = sizesIn(dart("lib/services/stt_parakeet/parakeet_gguf_model.dart"));
-
-  it("whisper sizes equal sttModels", () => {
-    expect(whisper.slice(0, 3)).toEqual([
+  it("whisper sizes equal the catalog", () => {
+    expect([
+      ...fileSizes("whisperSmall"),
+      ...fileSizes("whisperMedium"),
+      ...fileSizes("whisperLargeV3Turbo"),
+    ]).toEqual([
       MODEL_SIZE_BYTES.whisperSmall,
       MODEL_SIZE_BYTES.whisperMedium,
       MODEL_SIZE_BYTES.whisperLargeV3Turbo,
@@ -31,11 +37,13 @@ describe("model sizes: website vs app", () => {
   });
 
   it("parakeet bundle equals the sum of its files", () => {
+    const bundle = fileSizes("parakeet");
+    expect(bundle).toHaveLength(4);
     expect(bundle.reduce((a, b) => a + b, 0)).toBe(MODEL_SIZE_BYTES.parakeetBundle);
   });
 
-  it("parakeet GGUF equals the active GGUF model", () => {
-    expect(gguf).toContain(MODEL_SIZE_BYTES.parakeetGguf);
+  it("parakeet GGUF equals the default GGUF model (q8_0)", () => {
+    expect(fileSizes("parakeetGgufQ8")).toEqual([MODEL_SIZE_BYTES.parakeetGguf]);
   });
 
   it.each(Object.keys(i18n))("prose in %s names the same values", (lang) => {

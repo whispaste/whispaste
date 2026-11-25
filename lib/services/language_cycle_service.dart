@@ -4,7 +4,8 @@ import '../core/config/language_cycle.dart';
 import '../core/config/settings_provider.dart';
 import '../core/recording/recording_state.dart';
 
-/// Result of the last press of the "next favorite language" hotkey.
+/// Result of the last press of the "next favorite language" hotkey or of the
+/// hotkey of one favorite language (#2137).
 class LanguageCycleFeedback {
   const LanguageCycleFeedback({
     required this.language,
@@ -37,6 +38,20 @@ class LanguageCycleController extends Notifier<LanguageCycleFeedback?> {
       current: stt.language,
       favorites: stt.favoriteLanguages,
     );
+    await _switch(next);
+  }
+
+  /// The hotkey of one favorite language (#2137): switches straight to
+  /// [code], with the same feedback as [cycle]. A language that is no
+  /// favorite any more is ignored (its key is not registered then, so this
+  /// only guards a press racing an unpin).
+  Future<void> switchTo(String code) async {
+    final stt = (ref.read(settingsProvider).value ?? AppSettings.defaults).stt;
+    if (!stt.favoriteLanguages.contains(code)) return;
+    await _switch(code);
+  }
+
+  Future<void> _switch(String? next) async {
     final serial = (state?.serial ?? 0) + 1;
     final duringRecording =
         ref.read(recordingPhaseProvider) != RecordingPhase.idle;

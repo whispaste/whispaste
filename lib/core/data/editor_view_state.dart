@@ -1,5 +1,6 @@
-/// Where someone was in an entry (#678): caret/selection, scroll anchor,
-/// text size and the folded sections. Kept beside the text, never in it —
+/// Where someone was in an entry (#678): caret/selection, scroll anchor
+/// and the folded sections (the stored per-entry text size is kept but no
+/// longer applied, #648). Kept beside the text, never in it —
 /// restoring or forgetting a view state cannot change a single character.
 library;
 
@@ -33,7 +34,6 @@ class EditorViewState {
 
   static const minZoom = 0.5;
   static const maxZoom = 3.0;
-  static const zoomStep = 0.1;
 
   /// Bump when the meaning of a field changes; older rows are then ignored.
   static const version = 1;
@@ -42,13 +42,16 @@ class EditorViewState {
   final int selectionExtent;
   final int anchorBlock;
   final double anchorOffset;
+
+  /// The per-entry text size of #678. Since #648 the editors share one text
+  /// size (`EditorTextView`); this value is still read and kept so stored
+  /// rows stay intact, but nothing applies it any more.
   final double zoom;
 
-  /// Indices of folded sections. Reserved for folding (follow-up of #678);
-  /// nothing writes it yet, but stored rows keep it.
+  /// Folded heading sections of the long-note editor (#1344), by the
+  /// ordinal of their heading (0 for the note's first ATX heading). The
+  /// editor drops ordinals that name no foldable section any more.
   final List<int> folded;
-
-  bool get isDefaultZoom => (zoom - 1.0).abs() < 0.001;
 
   EditorViewState copyWith({
     int? selectionBase,
@@ -83,10 +86,6 @@ class EditorViewState {
       ],
     );
   }
-
-  /// One step larger (+1) or smaller (-1), rounded to whole steps.
-  static double stepZoom(double zoom, int direction) =>
-      clampZoom(((zoom / zoomStep).round() + direction) * zoomStep);
 
   static double clampZoom(double zoom) => zoom.isFinite
       ? double.parse(zoom.clamp(minZoom, maxZoom).toStringAsFixed(2))

@@ -316,6 +316,12 @@ class CrashReporter {
     final level = event.level;
     if (level != null && !_isReportableLevel(level)) return null;
 
+    // A history file the start gate cannot open throws at every query that
+    // runs before the gate screen; each one reached Sentry as an unhandled
+    // exception (FLUTTER_WHISPASTE-B1). The open reports a lost key itself,
+    // once, under its own fingerprint, so these copies are dropped.
+    if (_isHistoryKeyFollowUp(event)) return null;
+
     // Error cascade throttle — prevent exponential error storms.
     final now = clock();
     if (now.difference(_errorWindowStart) > _errorWindowDuration) {
@@ -388,6 +394,13 @@ class CrashReporter {
     ];
     return kept.length == breadcrumbs.length ? breadcrumbs : kept;
   }
+
+  static bool _isHistoryKeyFollowUp(SentryEvent event) =>
+      (event.exceptions ?? const <SentryException>[]).any(
+        (ex) =>
+            ex.type == 'HistoryKeyUnavailableException' ||
+            ex.type == 'HistoryKeyringUnavailableException',
+      );
 
   static bool _isReportableLevel(SentryLevel level) =>
       level == SentryLevel.error || level == SentryLevel.fatal;

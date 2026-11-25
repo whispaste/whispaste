@@ -24,6 +24,12 @@
 /// Without the data key (#1019: unavailable, lost) a recording stays plain
 /// and the next start tries again; a sealed recording then cannot be read
 /// and [read] throws [RecordingLockedException].
+///
+/// With encryption switched off in Settings → Privacy (#1022) [protect]
+/// leaves new recordings plain, and [migrate] with `toPlain` turns sealed
+/// recordings back into plain WAVs ([unprotect]) with the same temp file,
+/// read-back check and atomic swap. [read] keeps opening both forms, so a
+/// recording not yet converted stays playable either way.
 library;
 
 import 'dart:io';
@@ -35,6 +41,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/data_key_access.dart';
 import '../../../core/config/data_key_store.dart';
+import '../../../core/data/encryption_preference.dart';
 import '../../../core/logging/app_logger.dart';
 import 'recording_cipher.dart';
 
@@ -58,8 +65,18 @@ enum ProtectOutcome {
   /// The data key is not available; the file stays plain.
   noKey,
 
-  /// Sealing failed; the original file is unchanged.
+  /// Sealing or opening failed; the original file is unchanged.
   failed,
+
+  /// Encryption is switched off for this session (#1022); the file stays
+  /// plain.
+  encryptionOff,
+
+  /// [RecordingVault.unprotect] replaced the sealed file by the plain WAV.
+  unsealed,
+
+  /// [RecordingVault.unprotect] found the file plain already.
+  alreadyPlain,
 }
 
 /// A sealed recording that cannot be opened: no data key, or the file does
@@ -93,11 +110,16 @@ Future<int> recordingPlainLength(String path) async {
 class RecordingVault {
   RecordingVault({
     required this._dataKey,
+    bool Function()? encryptionOn,
     @visibleForTesting
     Future<void> Function(File temp, Uint8List bytes)? writeTemp,
-  }) : _writeTemp = writeTemp ?? _defaultWriteTemp;
+  }) : _encryptionOn = encryptionOn ?? _alwaysOn,
+       _writeTemp = writeTemp ?? _defaultWriteTemp;
 
   final Future<List<int>?> Function() _dataKey;
+
+  /// Whether this session encrypts (#1022); read on every [protect].
+  final bool Function() _encryptionOn;
   final Future<void> Function(File temp, Uint8List bytes) _writeTemp;
 
   Uint8List? _key;
@@ -106,23 +128,41 @@ class RecordingVault {
   /// swap the same file at once.
   Future<void> _queue = Future<void>.value();
 
-  /// Replaces the plain WAV at [path] by a sealed one. Never throws.
-  Future<ProtectOutcome> protect(String path) => _enqueue(() => _protect(path));
+  /// Replaces the plain WAV at [path] by a sealed one, unless encryption is
+  /// switched off ([ProtectOutcome.encryptionOff]). Never throws.
+  Future<ProtectOutcome> protect(String path) => _enqueue(
+    () async =>
+        _encryptionOn() ? await _protect(path) : ProtectOutcome.encryptionOff,
+  );
 
-  /// Seals every plain recording in [paths], once. Removes temp files an
-  /// aborted earlier run left in [directories] first. Safe to repeat: sealed
-  /// files only cost a header read. Never throws.
+  /// Replaces the sealed recording at [path] by its plain WAV (#1022).
+  /// Never throws; on any failure the sealed file stays as it is.
+  Future<ProtectOutcome> unprotect(String path) =>
+      _enqueue(() => _unprotect(path));
+
+  /// Seals every plain recording in [paths], once, or with [toPlain] opens
+  /// every sealed one back into a plain WAV. Removes temp files an aborted
+  /// earlier run left in [directories] first. Safe to repeat: files already
+  /// in the wanted form only cost a header read. [onProgress] hears after
+  /// each file how many of all are done. Never throws.
   Future<Map<ProtectOutcome, int>> migrate(
     Iterable<String> paths, {
     Iterable<String> directories = const [],
+    bool toPlain = false,
+    void Function(int done, int total)? onProgress,
   }) async {
     await _enqueue(() => _sweepTemps(directories));
+    final all = paths.toList();
     final counts = <ProtectOutcome, int>{};
-    for (final path in paths) {
-      final outcome = await protect(path);
+    for (var i = 0; i < all.length; i++) {
+      final outcome = toPlain
+          ? await unprotect(all[i])
+          : await _enqueue(() => _protect(all[i]));
       counts[outcome] = (counts[outcome] ?? 0) + 1;
+      onProgress?.call(i + 1, all.length);
     }
     if ((counts[ProtectOutcome.sealed] ?? 0) > 0 ||
+        (counts[ProtectOutcome.unsealed] ?? 0) > 0 ||
         (counts[ProtectOutcome.failed] ?? 0) > 0) {
       _log.info('Recording migration: $counts');
     }
@@ -185,6 +225,39 @@ class RecordingVault {
     }
   }
 
+  Future<ProtectOutcome> _unprotect(String path) async {
+    final file = File(path);
+    final temp = File('$path$protectTempSuffix');
+    try {
+      if (!await file.exists()) return ProtectOutcome.missing;
+      if (!isSealedRecording(await _head(file))) {
+        return ProtectOutcome.alreadyPlain;
+      }
+      final key = await _recordingKey();
+      if (key == null) return ProtectOutcome.noKey;
+
+      final sealed = await file.readAsBytes();
+      final plain = await _openOff(sealed, key);
+      await _writeTemp(temp, plain);
+      final written = await temp.readAsBytes();
+      if (!await _sameOff(written, plain)) {
+        throw const FileSystemException('read-back mismatch');
+      }
+
+      // The recording may have been evicted or replaced meanwhile.
+      if (!await file.exists() || await file.length() != sealed.length) {
+        await _deleteQuietly(temp);
+        return ProtectOutcome.missing;
+      }
+      await temp.rename(path);
+      return ProtectOutcome.unsealed;
+    } on Object catch (e) {
+      _log.warning('Recording could not be opened back, kept sealed: $e');
+      await _deleteQuietly(temp);
+      return ProtectOutcome.failed;
+    }
+  }
+
   Future<void> _sweepTemps(Iterable<String> directories) async {
     for (final dir in directories) {
       try {
@@ -234,6 +307,11 @@ class RecordingVault {
     }
   });
 
+  static Future<bool> _sameOff(Uint8List a, Uint8List b) =>
+      Isolate.run(() => listEquals(a, b));
+
+  static bool _alwaysOn() => true;
+
   static Future<Uint8List> _head(File file) async {
     final raf = await file.open();
     try {
@@ -263,6 +341,7 @@ final recordingVaultProvider = Provider<RecordingVault>((ref) {
   var fallbackLogged = false;
   var missingLogged = false;
   return RecordingVault(
+    encryptionOn: encryptionOnThisSession,
     dataKey: () async {
       final result = await access.obtainForUse('recordings');
       switch (result) {

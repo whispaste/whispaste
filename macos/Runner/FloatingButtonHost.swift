@@ -361,6 +361,7 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
     let bootArgs = bootArguments()
     project.dartEntrypointArguments = bootArgs
     let engine = FlutterEngine(name: "floating_button", project: project)
+    SystemMotionHost.attach(engine.binaryMessenger)
     let didRun = engine.run(withEntrypoint: "floatingButtonMain")
     NSLog("[button] bootRenderEngine: engine.run(floatingButtonMain) -> \(didRun) boot=\(bootArgs)")
 
@@ -373,6 +374,8 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
     }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+
+    RenderEngineAccessibility.replayToNewEngine()
     // REAL surface transparency: must be set so the engine composites onto a
     // clear surface instead of opaque black. Set before the view is shown.
     vc.backgroundColor = .clear

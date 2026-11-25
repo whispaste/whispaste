@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/widgets/custom_endpoint_rows.dart';
+import 'package:whispaste/services/custom_endpoint/custom_endpoint_models.dart';
 import 'package:whispaste/services/custom_endpoint/custom_endpoint_probe.dart';
 
 void main() {
@@ -123,5 +124,55 @@ void main() {
       ),
       l10n.customEndpointProbeServerError,
     );
+  });
+
+  test('the model list line counts the models or says why there is none', () {
+    const two = CustomEndpointModelList(
+      CustomEndpointModelListResult.loaded,
+      models: ['a', 'b'],
+    );
+    expect(
+      customEndpointModelsText(l10n, two),
+      '2 models found. Choose one from the list or keep typing the name.',
+    );
+    expect(customEndpointModelsIsProblem(two), isFalse);
+
+    const needsV1 = CustomEndpointModelList(
+      CustomEndpointModelListResult.loaded,
+      models: ['a'],
+      needsV1: true,
+    );
+    expect(
+      customEndpointModelsText(l10n, needsV1),
+      l10n.customEndpointModelsLoadedNeedsV1,
+    );
+    expect(customEndpointModelsIsProblem(needsV1), isTrue);
+
+    const empty = CustomEndpointModelList(CustomEndpointModelListResult.empty);
+    expect(
+      customEndpointModelsText(l10n, empty),
+      l10n.customEndpointModelsEmpty,
+    );
+    expect(customEndpointModelsIsProblem(empty), isFalse);
+
+    for (final (result, text) in [
+      (
+        CustomEndpointModelListResult.unreachable,
+        l10n.customEndpointModelsUnreachable,
+      ),
+      (
+        CustomEndpointModelListResult.unauthorized,
+        l10n.customEndpointModelsUnauthorized,
+      ),
+      (CustomEndpointModelListResult.noList, l10n.customEndpointModelsNoList),
+      (
+        CustomEndpointModelListResult.serverError,
+        l10n.customEndpointModelsServerError,
+      ),
+    ]) {
+      final list = CustomEndpointModelList(result);
+      expect(customEndpointModelsText(l10n, list), text);
+      expect(customEndpointModelsIsProblem(list), isTrue);
+    }
   });
 }

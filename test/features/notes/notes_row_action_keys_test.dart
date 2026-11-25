@@ -15,6 +15,7 @@ import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import '../../fixtures/test_helpers.dart';
 
 Note _note({required bool isQuickNote}) => Note(
+  archived: false,
   id: 'n1',
   content: 'Einkaufsliste',
   pinned: false,

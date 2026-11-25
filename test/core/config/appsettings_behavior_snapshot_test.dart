@@ -526,8 +526,8 @@ void main() {
       expect(r.inputGain, 1.75);
     });
 
-    test('hold-or-tap threshold defaults to 250 ms and roundtrips', () {
-      expect(AppSettings.defaults.audioInput.holdOrTapThresholdMs, 250);
+    test('hold-or-tap threshold defaults to 400 ms and roundtrips', () {
+      expect(AppSettings.defaults.audioInput.holdOrTapThresholdMs, 400);
       final s = AppSettings.defaults.copyWithSections(
         audioInput: const AudioInputSettings(
           pushToTalk: true,
@@ -541,20 +541,42 @@ void main() {
 
     test(
       'existing install (onboarding done, key missing) keeps the old 1000 ms '
-      'threshold; a new install gets 250 ms',
+      'threshold; a new install gets 400 ms',
       () {
         final existing = AppSettings.fromStorageMap({
           'onboarding_completed': 'true',
         });
         expect(existing.audioInput.holdOrTapThresholdMs, 1000);
         final fresh = AppSettings.fromStorageMap({});
-        expect(fresh.audioInput.holdOrTapThresholdMs, 250);
+        expect(fresh.audioInput.holdOrTapThresholdMs, 400);
         final onboardingOpen = AppSettings.fromStorageMap({
           'onboarding_completed': 'false',
         });
-        expect(onboardingOpen.audioInput.holdOrTapThresholdMs, 250);
+        expect(onboardingOpen.audioInput.holdOrTapThresholdMs, 400);
       },
     );
+
+    test('#779: the former 250 ms default moves to 400 ms once; a 250 ms '
+        'stored after #779 and any other value stay', () {
+      AppSettings read(Map<String, String> v) =>
+          AppSettings.fromStorageMap({'onboarding_completed': 'true', ...v});
+      expect(
+        read({
+          'hold_or_tap_threshold_ms': '250',
+        }).audioInput.holdOrTapThresholdMs,
+        400,
+      );
+      expect(
+        read({
+          'hold_or_tap_threshold_ms': '300',
+        }).audioInput.holdOrTapThresholdMs,
+        300,
+      );
+      final chosen = AppSettings.defaults.copyWithSections(
+        audioInput: const AudioInputSettings(holdOrTapThresholdMs: 250),
+      );
+      expect(_roundtrip(chosen).audioInput.holdOrTapThresholdMs, 250);
+    });
 
     test('a stored threshold is never overridden by the legacy migration', () {
       final s = AppSettings.fromStorageMap({

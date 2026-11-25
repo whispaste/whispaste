@@ -105,6 +105,18 @@ class _GatedSettingsDatabase extends HistoryDatabase {
   }
 }
 
+/// Key store whose first full read waits until the test releases it, so a
+/// settings change can land while the start-up key merge is still reading.
+class _SlowReadSecureKeyStore extends FakeSecureKeyStore {
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<Map<String, String>> readAllApiKeys() async {
+    await release.future;
+    return super.readAllApiKeys();
+  }
+}
+
 void main() {
   group('initial app language (UIA-VIS-06)', () {
     Future<(ProviderContainer, HistoryDatabase)> buildWithSystem(
@@ -142,7 +154,7 @@ void main() {
     test(
       'first start with an unsupported system language takes English',
       () async {
-        final (c, db) = await buildWithSystem([const Locale('fr', 'FR')]);
+        final (c, db) = await buildWithSystem([const Locale('pl', 'PL')]);
         addTearDown(c.dispose);
 
         expect(c.read(localeProvider).languageCode, 'en');
@@ -418,6 +430,42 @@ void main() {
     );
   });
 
+  test('the start-up key merge keeps a change made while it reads keys '
+      '(own-model crash recovery, #1789)', () async {
+    final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    await db.writeAppSettings({'stt_engine': 'whisper', 'stt_model': 'x'});
+    final keys = _SlowReadSecureKeyStore()
+      ..store['wp_openai_api_key'] = 'sk-test'
+      ..store['wp_deepgram_api_key'] = 'dg-test'
+      ..store['wp_custom_endpoint_api_key'] = 'ce-test';
+    final container = ProviderContainer(
+      overrides: [
+        historyDatabaseProvider.overrideWith((ref) {
+          ref.onDispose(db.close);
+          return db;
+        }),
+        secureKeyStoreProvider.overrideWithValue(keys),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(settingsProvider.future);
+    final notifier = container.read(settingsProvider.notifier);
+
+    await notifier.updateSettings(
+      (s) => s.copyWith(sttEngine: OnDeviceEngine.parakeet.value),
+    );
+    keys.release.complete();
+    await notifier.secureKeysFuture;
+
+    final settings = container.read(settingsProvider).requireValue;
+    expect(settings.stt.engine, OnDeviceEngine.parakeet.value);
+    // All three stored keys arrive (the OpenAI and Deepgram ones were
+    // dropped again by the merge before this fix).
+    expect(settings.cloudProvider.openAiApiKey, 'sk-test');
+    expect(settings.cloudProvider.deepgramApiKey, 'dg-test');
+    expect(settings.cloudProvider.customEndpointApiKey, 'ce-test');
+  });
+
   group('secure API key storage', () {
     test('API keys written via updateSettings go to secure storage', () async {
       await container
@@ -435,6 +483,53 @@ void main() {
       // SQLite does NOT have the key (empty string).
       final sqliteValues = await db.readAppSettings();
       expect(sqliteValues['openai_api_key'], '');
+    });
+
+    test('an OpenAI key alone survives a restart and a later settings change '
+        '(GitHub #164)', () async {
+      // Only the OpenAI key is stored, as in the report: before the fix the
+      // start-up merge rebuilt the cloud section without it.
+      final restartDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+      final keyStore = FakeSecureKeyStore();
+      ProviderContainer start() {
+        return ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWithValue(restartDb),
+            secureKeyStoreProvider.overrideWithValue(keyStore),
+          ],
+        );
+      }
+
+      final first = start();
+      await first.read(settingsProvider.future);
+      await first.read(settingsProvider.notifier).secureKeysFuture;
+      await first
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(openAiApiKey: 'sk-proj-164'));
+      first.dispose();
+
+      final second = start();
+      addTearDown(second.dispose);
+      await second.read(settingsProvider.future);
+      final notifier = second.read(settingsProvider.notifier);
+      await notifier.secureKeysFuture;
+      expect(
+        second.read(settingsProvider).requireValue.openAiApiKey,
+        'sk-proj-164',
+      );
+
+      // A later, unrelated change must not write an empty key back.
+      await notifier.updateSettings(
+        (s) => s.copyWithSections(
+          automationApi: s.automationApi.copyWith(enabled: false),
+        ),
+      );
+      expect(
+        second.read(settingsProvider).requireValue.openAiApiKey,
+        'sk-proj-164',
+      );
+      expect(keyStore.store['wp_openai_api_key'], 'sk-proj-164');
+      await restartDb.close();
     });
 
     test('migrates plaintext keys from SQLite to secure storage', () async {
@@ -731,12 +826,33 @@ void main() {
         quickNoteHotkeyKey: 'N',
         quickNoteHotkeyKeyDisplay: 'N',
         quickNoteHotkeyModifiers: 'meta+shift',
+        destination: QuickNoteDestination.lastNote,
       );
       const settings = AppSettings(quickNoteHotkey: original);
 
       final restored = AppSettings.fromStorageMap(settings.toStorageMap());
 
       expect(restored.quickNoteHotkey, original);
+    });
+
+    test('destination: stored value missing or unknown keeps the marked '
+        'quick note, the behaviour before #661', () {
+      expect(
+        QuickNoteHotkeySettings.fromMap(const {}).destination,
+        QuickNoteDestination.markedNote,
+      );
+      expect(
+        QuickNoteHotkeySettings.fromMap(const {
+          'quick_note_destination': 'bogus',
+        }).destination,
+        QuickNoteDestination.markedNote,
+      );
+      expect(
+        QuickNoteHotkeySettings.fromMap(const {
+          'quick_note_destination': 'new_note',
+        }).destination,
+        QuickNoteDestination.newNote,
+      );
     });
   });
 

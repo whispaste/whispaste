@@ -114,7 +114,6 @@ class _ApiKeysSectionState extends ConsumerState<ApiKeysSection> {
       identifier: 'settings-api-keys-page',
       container: true,
       child: WpSettingsGroup(
-        heading: l10n.settingsAreaApiKeys,
         children: [
           for (final (i, p) in ApiKeyProvider.values.indexed) ...[
             if (i > 0) settingsInlineBreak,

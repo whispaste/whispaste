@@ -12,6 +12,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/accessibility/announce.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -35,6 +36,16 @@ List<SnippetItem> filterSnippetsForInsert(
       if (s.title.toLowerCase().contains(q) || s.body.toLowerCase().contains(q))
         s,
   ];
+}
+
+/// The start of [body] as the chooser speaks it: whitespace folded and cut
+/// after [maxChars] at a word boundary, like the one-line preview on screen.
+/// A long snippet would otherwise be read out whole on every arrow key.
+String spokenSnippetPreview(String body, {int maxChars = 80}) {
+  final text = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (text.length <= maxChars) return text;
+  final cut = text.lastIndexOf(' ', maxChars);
+  return '${text.substring(0, cut > 0 ? cut : maxChars)}…';
 }
 
 /// Opens the chooser over [items] and returns the picked snippet, `null`
@@ -106,6 +117,7 @@ class _SnippetInsertChooserState extends State<_SnippetInsertChooser> {
 
   void _moveHighlight(int index) {
     setState(() => _highlight = index);
+    _announceStatus();
     final id = _visible[index].id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _rowKeys[id]?.currentContext;
@@ -116,6 +128,35 @@ class _SnippetInsertChooserState extends State<_SnippetInsertChooser> {
   }
 
   void _pick(SnippetItem item) => Navigator.of(context).pop(item);
+
+  /// What a screen reader hears for the current state: the highlighted
+  /// snippet's title and the start of its text, or why the list is empty.
+  String _statusText(L10n l10n, List<SnippetItem> visible) {
+    if (visible.isEmpty) {
+      return widget.items.isEmpty
+          ? l10n.snippetInsertEmpty
+          : l10n.snippetInsertNoMatch;
+    }
+    final item = visible[_highlight.clamp(0, visible.length - 1)];
+    final preview = spokenSnippetPreview(item.body);
+    return preview.isEmpty ? item.title : '${item.title}, $preview';
+  }
+
+  /// The last text sent by [_announceStatus], so typing that keeps the same
+  /// highlight stays quiet.
+  String? _announced;
+
+  /// Focus stays in search while the arrow keys move the highlight, so the
+  /// active result is spoken as an announcement. A live region does not do
+  /// this: Flutter drops an invisible node before it reaches AT-SPI, UIA or
+  /// NSAccessibility (checked with another app on Ubuntu, #664).
+  void _announceStatus() {
+    final l10n = L10n.of(context);
+    final text = _statusText(l10n, _visible);
+    if (text == _announced) return;
+    _announced = text;
+    announce(View.of(context), text, Directionality.of(context));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +174,10 @@ class _SnippetInsertChooserState extends State<_SnippetInsertChooser> {
           variant: WpSearchFieldVariant.outlined,
           autofocus: true,
           testId: 'snippet-insert-search',
-          onChanged: (_) => setState(() => _highlight = 0),
+          onChanged: (_) {
+            setState(() => _highlight = 0);
+            _announceStatus();
+          },
           onSubmitted: (_) {
             if (visible.isNotEmpty) _pick(visible[_highlight]);
           },

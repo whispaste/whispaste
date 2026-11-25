@@ -15,6 +15,7 @@ import 'dart:isolate';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:whispaste/core/config/model_sampling.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart';
 import 'package:whispaste/services/stt/stt_idle_timer.dart';
 
@@ -43,8 +44,10 @@ class _FakeNative implements SmartModeNative {
     required String systemPrompt,
     required String userText,
     required ffi.Pointer<ffi.Int32> abortFlag,
+    SmartModeSampling sampling = SmartModeSampling.whispaste,
   }) async {
     if (!_loaded) throw StateError('fake: generate before load');
+    if (userText == 'sampling') return '$sampling';
     if (userText == 'hang') {
       final resume = ReceivePort();
       try {
@@ -89,6 +92,7 @@ class _ObservedEngine extends SmartModeFfiEngine {
     required super.idleTimeout,
     required super.idleTimer,
     required super.detectRamMB,
+    super.sampling,
   });
 
   Future<void>? idleUnload;
@@ -116,6 +120,7 @@ void main() {
     int? ramMB = 32768,
     String? overrideModelPath,
     SmartModeNativeFactory? nativeFactory,
+    SmartModeSampling Function()? sampling,
   }) {
     final engine = _ObservedEngine(
       libraryPath: 'unused-by-fake',
@@ -124,6 +129,7 @@ void main() {
       idleTimer: idleTimer,
       idleTimeout: () => idleTimeout,
       detectRamMB: () async => ramMB,
+      sampling: sampling,
     );
     addTearDown(engine.shutdown);
     return engine;
@@ -166,6 +172,29 @@ void main() {
         engine.run(systemPrompt: 'sys', userText: 'hi'),
         throwsStateError,
       );
+    });
+
+    test('each run passes the current per-model sampling to the native '
+        'side, without reloading the model (#2204)', () async {
+      var current = SmartModeSampling.whispaste;
+      final engine = buildEngine(sampling: () => current);
+
+      expect(
+        await engine.run(systemPrompt: 'sys', userText: 'sampling'),
+        '${SmartModeSampling.whispaste}',
+      );
+      current = const SmartModeSampling(
+        temperature: 1,
+        topK: 64,
+        topP: 0.95,
+        minP: 0.05,
+        repeatPenalty: 1.1,
+      );
+      expect(
+        await engine.run(systemPrompt: 'sys', userText: 'sampling'),
+        '$current',
+      );
+      expect(engine.modelLoadCount, 1);
     });
 
     test('first run loads the model once and returns the result', () async {

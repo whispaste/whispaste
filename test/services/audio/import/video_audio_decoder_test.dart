@@ -76,8 +76,58 @@ void main() {
     );
   });
 
+  test('sniffs MPEG program and transport streams from bytes', () {
+    expect(
+      sniffAudioFormat(Uint8List.fromList([0, 0, 1, 0xba])),
+      AudioSourceFormat.mpeg,
+    );
+    for (final (offset, stride) in [(0, 188), (4, 192), (0, 204)]) {
+      final bytes = Uint8List(612);
+      for (var i = 0; i < 3; i++) {
+        bytes[offset + i * stride] = 0x47;
+      }
+      expect(sniffAudioFormat(bytes), AudioSourceFormat.mpegts);
+      bytes[offset + 2 * stride] = 0;
+      expect(sniffAudioFormat(bytes), AudioSourceFormat.unknown);
+    }
+  });
+
+  for (final format in [AudioSourceFormat.mpeg, AudioSourceFormat.mpegts]) {
+    test('routes $format through its bundled demuxer', () async {
+      final bytes = Uint8List(612);
+      if (format == AudioSourceFormat.mpeg) {
+        bytes.setAll(0, [0, 0, 1, 0xba]);
+      } else {
+        for (var i = 0; i < 3; i++) {
+          bytes[i * 188] = 0x47;
+        }
+      }
+      await input.writeAsBytes(bytes);
+      final child = _Child();
+      await decodeAudioFileToSttWav(
+        inputPath: input.path,
+        outputWavPath: wav,
+        videoDecoder: VideoAudioDecoder(
+          executable: '/app/ffmpeg',
+          start: (_, arguments) async {
+            expect(
+              arguments,
+              containsAllInOrder(['-f', format.name, '-i', input.path]),
+            );
+            scheduleMicrotask(() {
+              child.output.add([0, 0, 255, 127]);
+              child.finish(0);
+            });
+            return child;
+          },
+        ),
+      );
+      expect(decodeWavBytes(await File(wav).readAsBytes()).samples.length, 2);
+    });
+  }
+
   test(
-    'picker extensions also accept all four video formats on drop',
+    'picker extensions also accept all bundled video formats on drop',
     () async {
       final files = <String>[];
       for (final ext in videoImportExtensions) {

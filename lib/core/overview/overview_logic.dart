@@ -6,6 +6,7 @@
 /// The providers in `overview_state.dart` feed these functions.
 library;
 
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:intl/intl.dart' show DateFormat;
 
 import '../data/analytics_provider.dart' show AnalyticsData;
@@ -311,7 +312,8 @@ bool overviewTipsEligible({
 /// [whatsNewKey]), so a 1.4 user who updates straight to 1.5.1 (the first 1.5
 /// in the Mac App Store) still meets the 1.5 highlights.
 /// 1.5.2: no own entries, bug fixes only; shows the 1.5 entries like 1.5.1.
-const kWhatsNewReviewedVersion = '1.5.2';
+/// 1.5.5: five own entries, picked from the CHANGELOG for the release.
+const kWhatsNewReviewedVersion = '1.5.5';
 
 /// One highlight of a version: a title, one sentence, and the place its
 /// "Try it" action leads to (a nav page id, `settings:<row>` or
@@ -364,6 +366,41 @@ final Map<String, List<WhatsNewItem>> kWhatsNewRegistry = {
       title: (l) => l.overviewWhatsNew150SnippetsTitle,
       body: (l) => l.overviewWhatsNew150SnippetsBody,
       target: 'snippets',
+    ),
+  ],
+  // 1.5.5: the five changes a 1.5.2 user is most likely to reach for, picked
+  // from the CHANGELOG. A patch with own entries shows them instead of the
+  // 1.5.0 ones (see [whatsNewKey]).
+  '1.5.5': [
+    WhatsNewItem(
+      id: 'v155-dictation-keys',
+      title: (l) => l.overviewWhatsNew155KeysTitle,
+      body: (l) => l.overviewWhatsNew155KeysBody,
+      target: 'settings:general-hotkey-dictation-keys',
+    ),
+    WhatsNewItem(
+      id: 'v155-models',
+      title: (l) => l.overviewWhatsNew155ModelsTitle,
+      body: (l) => l.overviewWhatsNew155ModelsBody,
+      target: 'settings:models-library',
+    ),
+    WhatsNewItem(
+      id: 'v155-contact-names',
+      title: (l) => l.overviewWhatsNew155ContactsTitle,
+      body: (l) => l.overviewWhatsNew155ContactsBody,
+      target: 'replacements',
+    ),
+    WhatsNewItem(
+      id: 'v155-note-links',
+      title: (l) => l.overviewWhatsNew155LinksTitle,
+      body: (l) => l.overviewWhatsNew155LinksBody,
+      target: 'notes',
+    ),
+    WhatsNewItem(
+      id: 'v155-media',
+      title: (l) => l.overviewWhatsNew155MediaTitle,
+      body: (l) => l.overviewWhatsNew155MediaBody,
+      target: 'settings:recording-pause-media',
     ),
   ],
 };
@@ -429,17 +466,14 @@ String overviewDayKey(DateTime t) => DateFormat('yyyy-MM-dd').format(t);
 /// time, or null while it rests on too little to be honest — fewer than three
 /// dictations or less than a minute of recording. The card then says "Noch zu
 /// wenig Daten" instead of a precise-looking number.
-double? overviewWordsPerMinute(AnalyticsData figures) =>
-    figures.totalRecordings < 3 || figures.totalDurationSec < 60
-    ? null
-    : figures.wordsPerMinute;
+double? overviewWordsPerMinute(AnalyticsData figures) => figures.wordsPerMinute;
 
 /// A card of the hint place under the head of the Übersicht.
 enum OverviewHint { firstSteps, whatsNew, tip, ask }
 
 /// Ü5: the cards of the hint place, top to bottom. The first steps hold the
 /// place alone while they show; after they are done or closed, "new in this
-/// version" comes before the discovery tip. The milestone or rate/share
+/// version" comes before the discovery tip. The milestone or support
 /// card ([overviewAskCard]) only takes the place when none of them shows.
 /// Readiness problems are not part of it: the status line above the place
 /// names them.
@@ -466,26 +500,159 @@ List<OverviewHint> overviewHintPlace({
 /// block that is off by default ([shownByDefault] false) is stored as shown
 /// when switched on, so an existing install keeps its page unchanged.
 enum OverviewBlock {
-  figures('figures'),
+  figures('figures', side: true),
   recent('recent'),
   notes('notes'),
-  dictation('dictation'),
-  storage('storage'),
+  dictation('dictation', side: true),
+  storage('storage', side: true),
   community('community'),
-  system('system', shownByDefault: false),
+  system('system', shownByDefault: false, side: true),
   news('news', shownByDefault: false),
 
   /// The weather card (#1569): off by default, asks a weather service only
   /// once a place is chosen.
-  weather('weather', shownByDefault: false);
+  weather('weather', shownByDefault: false, side: true);
 
-  const OverviewBlock(this.id, {this.shownByDefault = true});
+  const OverviewBlock(this.id, {this.shownByDefault = true, this.side = false});
 
   /// Stored id; never rename one.
   final String id;
 
   /// Whether the block is on until the user switches it off.
   final bool shownByDefault;
+
+  /// Whether the block starts in the narrow side column of the wide layout,
+  /// until the user moves it to the other column (#1970).
+  final bool side;
+}
+
+/// #1970: the order of the blocks before anyone moved one, top to bottom in
+/// the one-column layout. The wide layout reads the same list per column
+/// ([OverviewBlock.side], or the stored side set once a card changed
+/// column), so both layouts keep their former order.
+const kOverviewDefaultBlockOrder = <OverviewBlock>[
+  OverviewBlock.figures,
+  OverviewBlock.recent,
+  OverviewBlock.notes,
+  OverviewBlock.dictation,
+  OverviewBlock.storage,
+  OverviewBlock.system,
+  OverviewBlock.weather,
+  OverviewBlock.news,
+  OverviewBlock.community,
+];
+
+/// The order from its stored comma-separated ids; empty or missing is the
+/// default order. Unknown and repeated ids are dropped. A block the stored
+/// list does not name (added in a later version) takes its default place:
+/// right after the block that precedes it in [kOverviewDefaultBlockOrder].
+List<OverviewBlock> overviewBlockOrderFromStored(String? raw) {
+  final order = <OverviewBlock>[];
+  for (final id in (raw ?? '').split(',')) {
+    for (final b in OverviewBlock.values) {
+      if (b.id == id.trim() && !order.contains(b)) order.add(b);
+    }
+  }
+  for (final (i, block) in kOverviewDefaultBlockOrder.indexed) {
+    if (order.contains(block)) continue;
+    var at = 0;
+    for (var j = i - 1; j >= 0; j--) {
+      final k = order.indexOf(kOverviewDefaultBlockOrder[j]);
+      if (k >= 0) {
+        at = k + 1;
+        break;
+      }
+    }
+    order.insert(at, block);
+  }
+  return order;
+}
+
+/// The blocks in the side column of the wide layout before anyone moved a
+/// card across columns.
+/// The same as the blocks with [OverviewBlock.side] (guarded by a test).
+const kOverviewDefaultSideBlocks = <OverviewBlock>{
+  OverviewBlock.figures,
+  OverviewBlock.dictation,
+  OverviewBlock.storage,
+  OverviewBlock.system,
+  OverviewBlock.weather,
+};
+
+/// Stored value meaning "the default columns"; an empty string means "no
+/// card in the side column", which is a choice of its own.
+const kOverviewSideBlocksDefault = 'default';
+
+/// The blocks of the side column from their stored ids (#1970); nothing
+/// stored is the default columns.
+Set<OverviewBlock> overviewSideBlocksFromStored(String? raw) =>
+    raw == null || raw.trim() == kOverviewSideBlocksDefault
+    ? kOverviewDefaultSideBlocks
+    : _overviewBlocksFromStored(raw);
+
+/// The stored form of [side].
+String overviewSideBlocksToStored(Set<OverviewBlock> side) =>
+    _overviewBlocksToStored(side);
+
+/// Whether the columns differ from the default ones.
+bool overviewSideBlocksAreCustom(Set<OverviewBlock> side) =>
+    !setEquals(side, kOverviewDefaultSideBlocks);
+
+/// The stored form of [order].
+String overviewBlockOrderToStored(List<OverviewBlock> order) =>
+    order.map((b) => b.id).join(',');
+
+/// Whether [order] differs from the default order.
+bool overviewBlockOrderIsCustom(List<OverviewBlock> order) =>
+    !listEquals(order, kOverviewDefaultBlockOrder);
+
+/// [order] with [block] moved to the place of [target]: moving down it lands
+/// after [target], moving up before it, as a dragged card does.
+List<OverviewBlock> overviewMoveBlockTo(
+  List<OverviewBlock> order,
+  OverviewBlock block, {
+  required OverviewBlock target,
+}) {
+  if (block == target) return order;
+  final to = order.indexOf(target);
+  if (to < 0 || !order.contains(block)) return order;
+  return [...order]
+    ..remove(block)
+    ..insert(to, block);
+}
+
+/// [order] with [block] placed right after [after]: a card dropped at the
+/// end of a column (#1970).
+List<OverviewBlock> overviewMoveBlockAfter(
+  List<OverviewBlock> order,
+  OverviewBlock block, {
+  required OverviewBlock after,
+}) {
+  if (block == after || !order.contains(after) || !order.contains(block)) {
+    return order;
+  }
+  final next = [...order]..remove(block);
+  return next..insert(next.indexOf(after) + 1, block);
+}
+
+/// The keyboard step (#1970): [order] with [block] moved past its next
+/// neighbour among [peers] (the cards it shares a column with on the page,
+/// hidden ones skipped), earlier or [later]. Null at the edge.
+List<OverviewBlock>? overviewMoveBlockStep(
+  List<OverviewBlock> order,
+  OverviewBlock block, {
+  required bool later,
+  required Iterable<OverviewBlock> peers,
+}) {
+  final line = [
+    for (final b in order)
+      if (b == block || peers.contains(b)) b,
+  ];
+  final i = line.indexOf(block);
+  if (i < 0) return null;
+  final j = later ? i + 1 : i - 1;
+  if (j < 0 || j >= line.length) return null;
+  return overviewMoveBlockTo(order, block, target: line[j]);
 }
 
 /// Whether [block] is on the page, given the stored hidden and shown sets.
@@ -554,7 +721,7 @@ OverviewRecentEmpty? overviewRecentEmpty(
 }
 
 // ---------------------------------------------------------------------------
-// Milestone, rate/share and support card
+// Milestone and support card
 // ---------------------------------------------------------------------------
 
 /// Dictation counts that earn a one-time milestone card.
@@ -578,17 +745,6 @@ final class OverviewMilestoneCard extends OverviewAskCard {
   int get hashCode => count.hashCode;
 }
 
-/// Rate in the store of this install, or share the website link.
-final class OverviewRateShareCard extends OverviewAskCard {
-  const OverviewRateShareCard();
-
-  @override
-  bool operator ==(Object other) => other is OverviewRateShareCard;
-
-  @override
-  int get hashCode => 0;
-}
-
 /// The quiet ask to support WhisPaste; [recurring] is the one-time follow-up
 /// after a sponsoring link was opened.
 final class OverviewSupportCard extends OverviewAskCard {
@@ -603,19 +759,17 @@ final class OverviewSupportCard extends OverviewAskCard {
   int get hashCode => recurring.hashCode;
 }
 
-/// The milestone, rate/share or support card for a visit on [now], or null.
+/// The milestone or support card for a visit on [now], or null.
 ///
-/// All follow a good moment and never a problem: nothing shows while the
-/// status line reports one ([problemShown]). Order: milestone > rate/share >
-/// support. A milestone shows only once per count. The rate/share card shows
-/// when the review prompt service finds it due ([rateDue]), the support card
-/// when the support prompt service does ([supportDue]) and no dictation is
-/// running ([dictationRunning]). Never two cards on one day: once any card
+/// Both follow a good moment and never a problem: nothing shows while the
+/// status line reports one ([problemShown]). Order: milestone > support. A
+/// milestone shows only once per count. The support card shows when the
+/// support prompt service finds it due ([supportDue]) and no dictation is
+/// running ([dictationRunning]). The rating ask is a dialog since #2185. Never two cards on one day: once any card
 /// was answered on [now]'s day ([anyCardShownOn]), the place stays quiet.
 OverviewAskCard? overviewAskCard({
   required int dictations,
   required Set<int> milestonesSeen,
-  required bool rateDue,
   required bool problemShown,
   required DateTime? anyCardShownOn,
   required DateTime now,
@@ -634,7 +788,6 @@ OverviewAskCard? overviewAskCard({
     }
     if (dictations >= m) break;
   }
-  if (rateDue) return const OverviewRateShareCard();
   if (supportDue && !dictationRunning) {
     return OverviewSupportCard(recurring: supportRecurring);
   }

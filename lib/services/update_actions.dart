@@ -26,10 +26,14 @@ import 'update_service.dart';
 /// action for the current [updateState], routed identically regardless of
 /// which UI surface triggered it.
 ///
-/// On Sparkle/WinSparkle platforms, EVERY phase routes through the native
-/// dialog (`presentSparkleUpdate`) — Sparkle owns the whole check → download
-/// → install flow and presents its own UI for whatever state it's actually
-/// in (found an update, ready to install, up to date). Dart has no separate
+/// On Sparkle/WinSparkle platforms the native updater owns check → download
+/// → install. A plain "check now" runs it quietly
+/// ([checkSparkleUpdateQuietly], #1881): the result lands in
+/// `updateProvider` via the native listener and the app shows it in its own
+/// words, so no native "you are up to date" window (with the formal address
+/// of the WinSparkle/Sparkle translations) appears. Only a known update
+/// ([UpdatePhase.available] / [UpdatePhase.readyToInstall]) opens the native
+/// install dialog (`presentSparkleUpdate`), see [presentsNativeUpdateDialog]. Dart has no separate
 /// "install now" trigger for that path, and calling the Linux/portable
 /// `installUpdate()` there would be wrong (it expects a local downloaded
 /// file path that the native path never exposes to Dart).
@@ -45,7 +49,11 @@ void triggerUpdateAction({
   required DeployChannel channel,
 }) {
   if (shouldUseAutoUpdater(channel)) {
-    presentSparkleUpdate();
+    if (presentsNativeUpdateDialog(updateState.phase)) {
+      presentSparkleUpdate();
+    } else {
+      checkSparkleUpdateQuietly();
+    }
     return;
   }
 
@@ -64,6 +72,14 @@ void triggerUpdateAction({
       notifier.checkForUpdate();
   }
 }
+
+/// Whether a tap in [phase] opens the native Sparkle/WinSparkle dialog.
+///
+/// Only when an update is known: then the native dialog is the install path.
+/// Every other tap is a plain check whose result the app shows itself
+/// (#1881).
+bool presentsNativeUpdateDialog(UpdatePhase phase) =>
+    phase == UpdatePhase.available || phase == UpdatePhase.readyToInstall;
 
 /// Resolves the icon + label every update-check surface shows for
 /// [phase], so the About page, Settings, and status bar never drift out of

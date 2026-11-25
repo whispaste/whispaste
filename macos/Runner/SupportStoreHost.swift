@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import Security
 import StoreKit
 
 #if MAS_BUILD
@@ -84,6 +85,12 @@ final class SupportStoreHost {
       Task { @MainActor in
         let status = await self.purchase(id: id)
         result(status)
+      }
+
+    case "isTestEnvironment":
+      DispatchQueue.global(qos: .userInitiated).async {
+        let test = Self.signatureCheck() == .notStoreSigned
+        DispatchQueue.main.async { result(isMasBuild && test) }
       }
 
     case "hasVerifiedAppPurchase":
@@ -175,7 +182,9 @@ final class SupportStoreHost {
   // MARK: - Verification
 
   private func hasVerifiedAppPurchase() async -> Bool {
-    guard isMasBuild else { return false }
+    // A local preview or Xcode run gets a sandbox AppTransaction; that is no
+    // purchase of the app and earns no supporter status.
+    guard isMasBuild, Self.signatureCheck() == .storeSigned else { return false }
     do {
       switch try await AppTransaction.shared {
       case .verified:
@@ -199,13 +208,59 @@ final class SupportStoreHost {
     return UserDefaults.standard.bool(forKey: Self.verifiedSupportFlagKey)
   }
 
+  // MARK: - Store environment
+
+  enum SignatureCheck { case storeSigned, notStoreSigned, unknown }
+
+  /// Leaf certificate extension that only Apple's Mac App Store distribution
+  /// signature carries. A local preview (Developer ID) or an Xcode run lacks
+  /// it; StoreKit then talks to the sandbox, whose storefront and currency
+  /// follow the sandbox account, not the user's App Store country (#2202).
+  private static let masRequirement =
+    "anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9]"
+
+  private static let cachedSignatureCheck: SignatureCheck = {
+    var code: SecCode?
+    guard SecCodeCopySelf(SecCSFlags(), &code) == errSecSuccess, let code else {
+      return .unknown
+    }
+    var requirement: SecRequirement?
+    guard
+      SecRequirementCreateWithString(masRequirement as CFString, SecCSFlags(), &requirement)
+        == errSecSuccess,
+      let requirement
+    else { return .unknown }
+    switch SecCodeCheckValidity(code, SecCSFlags(), requirement) {
+    case errSecSuccess:
+      return .storeSigned
+    case errSecCSReqFailed:
+      return .notStoreSigned
+    default:
+      // Any other failure says nothing about the store; never claim a test
+      // environment on a real store build because of it.
+      return .unknown
+    }
+  }()
+
+  /// Whether Apple signed this process for the Mac App Store. Computed once.
+  static func signatureCheck() -> SignatureCheck { cachedSignatureCheck }
+
   // MARK: - Transaction updates
 
   /// Finishes verified transactions that arrive outside `purchase()` (Ask to
-  /// Buy approvals, restores, refunds). Dart re-queries
-  /// `hasVerifiedSupportPurchase` when it needs the badge; there is no push.
+  /// Buy approvals, interrupted purchases, refunds), so no consumable stays
+  /// unfinished. Started at app launch (`AppDelegate`). A confirmed support
+  /// purchase is pushed to Dart as `purchaseConfirmed`.
   private func listenForTransactionUpdates() -> Task<Void, Never> {
+    // Transactions left unfinished by an earlier run (crash, quit during the
+    // purchase) are finished too, so a consumable never stays stuck. Runs
+    // beside the updates listener, which must start at launch without delay.
     Task.detached { [self] in
+      for await unfinished in Transaction.unfinished {
+        await self.handleTransactionUpdate(unfinished)
+      }
+    }
+    return Task.detached { [self] in
       for await update in Transaction.updates {
         await self.handleTransactionUpdate(update)
       }
@@ -220,6 +275,9 @@ final class SupportStoreHost {
       setVerifiedSupportFlag(false)
     } else {
       setVerifiedSupportFlag(true)
+      // Tells Dart that a pending purchase (Ask to Buy) went through. No
+      // payload: amount, price and receipt never leave this host.
+      await MainActor.run { self.channel.invokeMethod("purchaseConfirmed", arguments: nil) }
     }
   }
 

@@ -11,26 +11,27 @@ import 'package:whispaste/widgets/wp_notice_bar.dart';
 
 late BuildContext _context;
 
-Widget _host({Widget? field}) => ProviderScope(
-  child: MaterialApp(
-    locale: const Locale('en'),
-    localizationsDelegates: L10n.localizationsDelegates,
-    supportedLocales: L10n.supportedLocales,
-    home: Scaffold(
-      body: Builder(
-        builder: (context) {
-          _context = context;
-          return Column(
-            children: [
-              Expanded(child: field ?? const SizedBox.expand()),
-              const WpNoticeBar(),
-            ],
-          );
-        },
+Widget _host({Widget? field, Locale locale = const Locale('en')}) =>
+    ProviderScope(
+      child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: L10n.localizationsDelegates,
+        supportedLocales: L10n.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              _context = context;
+              return Column(
+                children: [
+                  Expanded(child: field ?? const SizedBox.expand()),
+                  const WpNoticeBar(),
+                ],
+              );
+            },
+          ),
+        ),
       ),
-    ),
-  ),
-);
+    );
 
 Finder _notice(String id) => find.byKey(ValueKey('notice-bar-$id'));
 
@@ -50,6 +51,35 @@ WpNotice _undo(String id, {VoidCallback? onAction, VoidCallback? onGone}) =>
     );
 
 void main() {
+  testWidgets('a lasting notice follows a language switch (#1845)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(locale: const Locale('de')));
+    final de = L10n.of(_context);
+    await _show(
+      tester,
+      WpNotice(
+        id: 'tray',
+        kind: WpNoticeKind.warning,
+        message: de.trayLinuxNoTrayHost,
+        messageFor: (l10n) => l10n.trayLinuxNoTrayHost,
+        actionLabel: de.settingsChangeHotkey,
+        actionLabelFor: (l10n) => l10n.settingsChangeHotkey,
+        onAction: () {},
+      ),
+    );
+    expect(find.textContaining(de.trayLinuxNoTrayHost), findsOneWidget);
+
+    // Same ProviderScope state: only the app language changes.
+    await tester.pumpWidget(_host(locale: const Locale('en')));
+    await tester.pumpAndSettle();
+    final en = L10n.of(_context);
+    expect(en.trayLinuxNoTrayHost, isNot(de.trayLinuxNoTrayHost));
+    expect(find.textContaining(en.trayLinuxNoTrayHost), findsOneWidget);
+    expect(find.textContaining(de.trayLinuxNoTrayHost), findsNothing);
+    expect(find.text(en.settingsChangeHotkey), findsOneWidget);
+  });
+
   testWidgets('the action runs once and closes the notice', (tester) async {
     await tester.pumpWidget(_host());
     var runs = 0;

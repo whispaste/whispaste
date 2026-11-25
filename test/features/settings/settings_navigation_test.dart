@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -15,6 +16,7 @@ import 'package:whispaste/features/settings/settings_areas.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/sections/permissions_section.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
+import 'package:whispaste/features/settings/widgets/settings_navigation.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 
@@ -81,6 +83,23 @@ void main() {
   });
 
   group('Settings navigation', () {
+    // #1916: the entry named itself and then appended its visible text, so
+    // assistive tech read every area twice ("General General").
+    testWidgets('each area entry is one button named once', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpSettings(tester);
+
+      for (final area in SettingsArea.values) {
+        final data = tester
+            .getSemantics(find.byKey(ValueKey('settings-nav-${area.id}')))
+            .getSemanticsData();
+        expect(data.label, settingsAreaLabel(l10n, area), reason: area.id);
+        expect(data.flagsCollection.isButton, isTrue, reason: area.id);
+        expect(data.hasAction(SemanticsAction.tap), isTrue, reason: area.id);
+      }
+      handle.dispose();
+    });
+
     testWidgets('lists all seven areas with stable ids', (tester) async {
       await _pumpSettings(tester);
 
@@ -113,6 +132,24 @@ void main() {
       );
       expect(row.flagsCollection.isSelected.toString(), contains('isTrue'));
     });
+  });
+
+  // #1845: areas started inconsistently, some with their own heading, some
+  // with a sub-heading or only a description. Each now opens with its name,
+  // and no group under it repeats that name.
+  testWidgets('every area starts with its own name as heading', (tester) async {
+    await _pumpSettings(tester);
+    for (final area in SettingsArea.values) {
+      await tester.tap(find.byKey(ValueKey('settings-nav-${area.id}')));
+      await tester.pumpAndSettle();
+      final heading = find.byKey(const ValueKey('settings-area-heading'));
+      final name = settingsAreaLabel(l10n, area);
+      expect(
+        find.descendant(of: heading, matching: find.text(name)),
+        findsOneWidget,
+        reason: area.id,
+      );
+    }
   });
 
   group('Settings deep links', () {

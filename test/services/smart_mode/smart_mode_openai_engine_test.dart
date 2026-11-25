@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:whispaste/core/config/secure_key_store.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_openai_engine.dart';
 
 /// Helper provider that exposes a test-configured [SmartModeOpenAiEngine].
@@ -181,6 +182,119 @@ void main() {
           ),
         );
       });
+    });
+  });
+
+  group('SmartModeOpenAiEngine.write (#251)', () {
+    http.Response answer(String content, {String finish = 'stop'}) =>
+        http.Response(
+          jsonEncode({
+            'choices': [
+              {
+                'message': {'content': content},
+                'finish_reason': finish,
+              },
+            ],
+          }),
+          200,
+        );
+
+    Matcher code(String expected) => isA<SmartWriteEngineException>().having(
+      (e) => e.code,
+      'code',
+      expected,
+    );
+
+    SmartModeOpenAiEngine engineFor(http.Client client) {
+      final container = _makeContainer({'wp_openai_api_key': 'sk-test'});
+      addTearDown(container.dispose);
+      return container.read(_testEngineProvider(client));
+    }
+
+    test('sends the write request shape and returns the draft', () async {
+      Map<String, dynamic>? body;
+      final engine = engineFor(
+        MockClient((request) async {
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return answer('  Dear Anna  ');
+        }),
+      );
+
+      final draft = await engine.write(
+        systemPrompt: 's',
+        userText: 'u',
+        jobId: 'job-1',
+      );
+
+      expect(draft, 'Dear Anna');
+      expect(body!['model'], 'gpt-6-luna');
+      expect(body!['max_completion_tokens'], 2048);
+      expect(body!['reasoning_effort'], 'none');
+      expect(body!.containsKey('temperature'), isFalse);
+      expect(engine.writeTimeout, const Duration(seconds: 30));
+    });
+
+    test('maps every failure to its own code', () async {
+      final cases = <String, Future<http.Response> Function(http.Request)>{
+        'smart_write_openai_incomplete': (_) async =>
+            answer('Dear An', finish: 'length'),
+        'smart_write_openai_invalid_key': (_) async => http.Response('', 401),
+        'smart_write_openai_rate_limited': (_) async => http.Response('', 429),
+        'smart_write_openai_network': (_) async =>
+            throw const SocketException('refused'),
+      };
+      for (final entry in cases.entries) {
+        final engine = engineFor(MockClient(entry.value));
+        await expectLater(
+          engine.write(systemPrompt: 's', userText: 'u', jobId: 'j'),
+          throwsA(code(entry.key)),
+          reason: entry.key,
+        );
+      }
+      // 403 is a key without access, the same fix as a wrong key.
+      await expectLater(
+        engineFor(
+          MockClient((_) async => http.Response('', 403)),
+        ).write(systemPrompt: 's', userText: 'u', jobId: 'j'),
+        throwsA(code('smart_write_openai_invalid_key')),
+      );
+    });
+
+    test('waits 30 s before it times out', () {
+      fakeAsync((async) {
+        final engine = engineFor(
+          MockClient((_) => Completer<http.Response>().future),
+        );
+        Object? error;
+        unawaited(
+          engine
+              .write(systemPrompt: 's', userText: 'u', jobId: 'j')
+              .then<void>((_) {}, onError: (Object e) => error = e),
+        );
+        async.elapse(const Duration(seconds: 25));
+        expect(error, isNull);
+        async.elapse(const Duration(seconds: 6));
+        expect(error, code('smart_write_openai_timeout'));
+      });
+    });
+
+    test('cancelWrite aborts exactly its job', () async {
+      final engine = engineFor(
+        MockClient((_) => Completer<http.Response>().future),
+      );
+      Object? error;
+      final run = engine
+          .write(systemPrompt: 's', userText: 'u', jobId: 'mine')
+          .then<void>((_) {}, onError: (Object e) => error = e);
+      await Future<void>.delayed(Duration.zero);
+
+      engine.cancelWrite('someone-else');
+      await Future<void>.delayed(Duration.zero);
+      expect(error, isNull);
+
+      engine.cancelWrite('mine');
+      await run;
+      expect(error, code(smartWriteCancelledCode));
     });
   });
 }

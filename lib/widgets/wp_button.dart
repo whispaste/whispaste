@@ -386,12 +386,9 @@ class _WpButtonState extends State<WpButton> {
     }
 
     if (widget.semanticsLabel != null) {
-      result = Semantics(
-        button: true,
-        enabled: onPressed != null,
+      result = _semanticsCarrier(
         label: widget.semanticsLabel,
-        onTap: onPressed,
-        excludeSemantics: true,
+        onPressed: onPressed,
         child: result,
       );
     }
@@ -401,13 +398,10 @@ class _WpButtonState extends State<WpButton> {
       // excludeSemantics drops the carrier's own duplicate tap node, which
       // would otherwise report an empty identifier (same pattern as the
       // semanticsLabel branch above).
-      result = Semantics(
-        button: true,
-        enabled: onPressed != null,
+      result = _semanticsCarrier(
         label: widget.label,
-        onTap: onPressed,
         identifier: widget.testId,
-        excludeSemantics: true,
+        onPressed: onPressed,
         child: KeyedSubtree(key: _testKey(), child: result),
       );
     }
@@ -420,6 +414,36 @@ class _WpButtonState extends State<WpButton> {
     }
 
     return result;
+  }
+
+  /// One semantics node for the whole button. excludeSemantics drops the
+  /// inner Material button's node, and with it its focus flags; the carrier
+  /// therefore reports focus itself. Without that, NVDA on Windows (and any
+  /// screen reader that follows focus events) stayed silent when Tab moved
+  /// onto a button with a testId (native check, #668).
+  Widget _semanticsCarrier({
+    required String? label,
+    required VoidCallback? onPressed,
+    required Widget child,
+    String? identifier,
+  }) {
+    final node = _effectiveFocusNode;
+    return ListenableBuilder(
+      listenable: node,
+      builder: (context, child) => Semantics(
+        button: true,
+        enabled: onPressed != null,
+        focusable: onPressed != null,
+        focused: onPressed != null && node.hasFocus,
+        label: label,
+        onTap: onPressed,
+        onFocus: onPressed == null ? null : node.requestFocus,
+        identifier: identifier,
+        excludeSemantics: true,
+        child: child,
+      ),
+      child: child,
+    );
   }
 }
 

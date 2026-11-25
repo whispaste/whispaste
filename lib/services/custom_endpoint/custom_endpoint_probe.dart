@@ -132,7 +132,9 @@ CustomEndpointProbe _classifyModelList(String body, String model) {
     // checked on the first request.
     return const CustomEndpointProbe(CustomEndpointProbeResult.connected);
   }
-  if (ids.contains(model)) {
+  // Ollama runs `name` as `name:latest` and lists only the latter (#1957).
+  if (ids.contains(model) ||
+      (!model.contains(':') && ids.contains('$model:latest'))) {
     return CustomEndpointProbe(
       CustomEndpointProbeResult.connected,
       modelVerified: true,

@@ -137,6 +137,7 @@ class HttpModelFetcher {
   /// the connection drops mid-transfer; its length is the retry budget.
   HttpModelFetcher({
     Dio? dio,
+    this.confirmedHosts,
     this._stallThreshold = const Duration(seconds: 30),
     this._stallCheckInterval = const Duration(seconds: 5),
     this._retryBackoff = const [
@@ -148,6 +149,10 @@ class HttpModelFetcher {
 
   final Dio _dio;
 
+  /// Hosts the user confirmed for a model of their own (#1789), allowed next
+  /// to the fixed allowlist. Null for every catalog download.
+  final Set<String>? confirmedHosts;
+
   /// The token of the running [fetch]. [cancel] cancels it; every request
   /// attempt gets its own child token, so a stall can end one attempt (and be
   /// resumed) without ending the whole download.
@@ -156,6 +161,12 @@ class HttpModelFetcher {
   /// Set by [cancel]; also ends a [fetchVerified] that is still waiting for
   /// another download of the same file to finish.
   bool _cancelRequested = false;
+
+  /// 1-based number of the source the last [fetchVerified] tried last, so a
+  /// failure can name it in the usage statistics (#1791) without its URL.
+  /// `null` before the first source was tried (lock, preparation).
+  int? get lastSourceNumber => _lastSourceNumber;
+  int? _lastSourceNumber;
 
   /// Fetches in flight per destination, across fetcher instances: a second
   /// fetch of the same file waits until the first has closed its `.tmp`, so
@@ -280,6 +291,7 @@ class HttpModelFetcher {
     FileVerificationService verifier = const FileVerificationService(),
   }) async {
     assert(sources.isNotEmpty, 'fetchVerified needs at least one source');
+    _lastSourceNumber = null;
     return withDestinationLock(destPath, () async {
       final dest = File(destPath);
       if (dest.existsSync()) {
@@ -287,6 +299,7 @@ class HttpModelFetcher {
           onVerifying?.call();
           final existing = await verifier.verifyStamped(dest, expectedSha256);
           if (existing is VerificationOk) {
+            await clearFragmentIdentity(destPath);
             _log.info('${p.basename(destPath)} is already in place');
             return null;
           }
@@ -304,6 +317,7 @@ class HttpModelFetcher {
       StackTrace? lastStack;
       for (var i = 0; i < sources.length; i++) {
         final url = sources[i];
+        _lastSourceNumber = i + 1;
         final label =
             'source ${i + 1}/${sources.length} '
             '(${Uri.tryParse(url)?.host ?? 'invalid'})';
@@ -331,6 +345,11 @@ class HttpModelFetcher {
           lastStack = s;
           continue;
         } on DownloadLengthException catch (e, s) {
+          _log.warning('${p.basename(destPath)}: $label failed ($e)');
+          lastError = e;
+          lastStack = s;
+          continue;
+        } on DownloadWrongResponseException catch (e, s) {
           _log.warning('${p.basename(destPath)}: $label failed ($e)');
           lastError = e;
           lastStack = s;
@@ -456,6 +475,7 @@ class HttpModelFetcher {
         // over once from byte 0; a fresh download that is still too long is
         // reported, never renamed into place.
         if (restartedAfterOverlong) {
+          await _deleteQuietly(File('$destPath.tmp'));
           throw DownloadLengthException(
             expected: tooLong.expected,
             actual: tooLong.actual,
@@ -570,6 +590,20 @@ class HttpModelFetcher {
     );
     startByte = _bodyStartByte(response, resolvedStartByte);
 
+    // A captive portal, an error page or another file: refuse it before a
+    // single byte reaches the fragment, so a resumable fragment stays clean.
+    final wrong = wrongDownloadResponse(
+      contentType: response.headers.value('content-type'),
+      contentLength: response.headers.value('content-length'),
+      contentEncoding: response.headers.value('content-encoding'),
+      startByte: startByte,
+      expectedSize: expectedSize,
+    );
+    if (wrong != null) {
+      response.data?.stream.listen(null).cancel();
+      throw DownloadWrongResponseException(wrong);
+    }
+
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
     final sink = tmpFile.openWrite(
@@ -603,6 +637,10 @@ class HttpModelFetcher {
 
     try {
       await for (final chunk in response.data!.stream) {
+        final limit = expectedSize > 0 ? expectedSize : totalBytes;
+        if (limit > 0 && received + chunk.length > limit) {
+          throw _BodyTooLong(expected: limit, actual: received + chunk.length);
+        }
         sink.add(chunk);
         received += chunk.length;
         lastByteAt = DateTime.now();
@@ -720,6 +758,7 @@ class HttpModelFetcher {
         _dio,
         url,
         cancelToken: token,
+        confirmedHosts: confirmedHosts,
         options: Options(
           responseType: ResponseType.stream,
           headers: startByte > 0 ? {'Range': 'bytes=$startByte-'} : null,
@@ -739,6 +778,7 @@ class HttpModelFetcher {
             _dio,
             url,
             cancelToken: token,
+            confirmedHosts: confirmedHosts,
             options: Options(responseType: ResponseType.stream),
           );
           return (fresh, 0);
@@ -753,6 +793,7 @@ class HttpModelFetcher {
         _dio,
         url,
         cancelToken: token,
+        confirmedHosts: confirmedHosts,
         options: Options(responseType: ResponseType.stream),
       );
       return (response, 0);
@@ -858,6 +899,47 @@ class DownloadLengthException implements Exception {
   @override
   String toString() =>
       'Downloaded file size mismatch: expected $expected bytes, got $actual';
+}
+
+/// Why a download response is not the pinned file, or null when it may be.
+///
+/// An HTML or other text body is a web page (captive portal, login wall,
+/// error page of a host that changed its layout), never a model file. A
+/// declared length that does not match the remaining bytes of the pinned
+/// file is another file. A compressed body's length says nothing about the
+/// file, so it is not compared.
+String? wrongDownloadResponse({
+  required String? contentType,
+  required String? contentLength,
+  required String? contentEncoding,
+  required int startByte,
+  required int expectedSize,
+}) {
+  final type = contentType?.split(';').first.trim().toLowerCase() ?? '';
+  if (type == 'text/html' || type == 'application/xhtml+xml') {
+    return 'server sent a web page ($type) instead of the file';
+  }
+  final encoding = contentEncoding?.trim().toLowerCase() ?? '';
+  final length = int.tryParse(contentLength?.trim() ?? '');
+  if (expectedSize > 0 &&
+      length != null &&
+      (encoding.isEmpty || encoding == 'identity') &&
+      startByte + length != expectedSize) {
+    return 'server announced ${startByte + length} bytes, '
+        'the pinned file has $expectedSize';
+  }
+  return null;
+}
+
+/// A source answered with something that is not the pinned file
+/// ([wrongDownloadResponse]). Nothing was written; the next source is tried.
+class DownloadWrongResponseException implements Exception {
+  const DownloadWrongResponseException(this.reason);
+
+  final String reason;
+
+  @override
+  String toString() => 'Wrong download response: $reason';
 }
 
 /// Every source of [HttpModelFetcher.fetchVerified] was tried and the last

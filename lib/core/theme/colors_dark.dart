@@ -125,8 +125,6 @@ abstract final class WpColorsDark {
   /// Prefer them over inline `colour.withValues(...)` for component
   /// fills/borders.
   static const Color accentChipFill = Color(0x1A6FDDF0); // accent @ 10%
-  static const Color accentChipFillHover = Color(0x2E6FDDF0); // accent @ 18%
-  static const Color accentMiniTagFill = Color(0x1F6FDDF0); // accent @ 12%
   static const Color accentBorder30 = Color(0x4D6FDDF0); // accent @ 30%
   static const Color accentButtonFill = Color(0x146FDDF0); // accent @ 8%
   static const Color accentActiveFill = Color(0x1F6FDDF0); // accent @ 12%

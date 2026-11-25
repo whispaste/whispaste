@@ -43,23 +43,37 @@ class _FakeSecureKeyStore implements SecureKeyStore {
 ProviderContainer _makeContainer(
   Map<String, String> keys, {
   String vocabulary = '',
+  List<String> expected = const [],
+  List<String> favorites = const [],
 }) {
   return ProviderContainer(
     overrides: [
       secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore(keys)),
-      settingsProvider.overrideWith(() => _VocabularySettings(vocabulary)),
+      settingsProvider.overrideWith(
+        () => _VocabularySettings(vocabulary, expected, favorites),
+      ),
     ],
   );
 }
 
 class _VocabularySettings extends SettingsNotifier {
-  _VocabularySettings(this._vocabulary);
+  _VocabularySettings(
+    this._vocabulary, [
+    this.expected = const [],
+    this.favorites = const [],
+  ]);
+  final List<String> expected;
+  final List<String> favorites;
 
   final String _vocabulary;
 
   @override
   Future<AppSettings> build() async => AppSettings.defaults.copyWithSections(
-    stt: AppSettings.defaults.stt.copyWith(customVocabulary: _vocabulary),
+    stt: AppSettings.defaults.stt.copyWith(
+      customVocabulary: _vocabulary,
+      expectedLanguages: expected,
+      favoriteLanguages: favorites,
+    ),
   );
 }
 
@@ -119,22 +133,25 @@ void main() {
     });
 
     for (final (reply, expected) in [
-      ('Thank you for watching.', ''),
+      ('Thank you for watching.', 'Thank you for watching.'),
       ('(Applaus)', ''),
       ('Ich sage (Musik) laut.', 'Ich sage (Musik) laut.'),
     ]) {
-      test('drops silence artefacts: "$reply" → "$expected"', () async {
-        final client = MockClient(
-          (_) async => http.Response(_deepgramResponse(reply), 200),
-        );
-        final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
-        addTearDown(container.dispose);
+      test(
+        'keeps phrases without evidence and drops sound annotations: "$reply" → "$expected"',
+        () async {
+          final client = MockClient(
+            (_) async => http.Response(_deepgramResponse(reply), 200),
+          );
+          final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+          addTearDown(container.dispose);
 
-        final transcriber = container.read(_testTranscriberProvider(client));
-        await transcriber.prepare();
+          final transcriber = container.read(_testTranscriberProvider(client));
+          await transcriber.prepare();
 
-        expect(await transcriber.transcribe(_silentWav()), expected);
-      });
+          expect(await transcriber.transcribe(_silentWav()), expected);
+        },
+      );
     }
 
     test('returns empty string on HTTP 200 with empty transcript', () async {
@@ -313,6 +330,47 @@ void main() {
 
       expect(capturedUri?.queryParameters.containsKey('language'), isFalse);
       expect(capturedUri?.queryParameters['detect_language'], 'true');
+    });
+
+    test(
+      'auto sends every expected language; fixed language takes priority',
+      () async {
+        Uri? uri;
+        final client = MockClient((r) async {
+          uri = r.url;
+          return http.Response(_deepgramResponse('hello'), 200);
+        });
+        final container = _makeContainer(
+          {'wp_deepgram_api_key': 'test'},
+          expected: ['de', 'en'],
+        );
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.transcribe(_silentWav(), language: 'auto');
+        expect(uri!.queryParametersAll['detect_language'], ['de', 'en']);
+        await transcriber.transcribe(_silentWav(), language: 'fr');
+        expect(uri!.queryParameters['language'], 'fr');
+        expect(uri!.queryParameters.containsKey('detect_language'), isFalse);
+      },
+    );
+
+    test('auto without expected languages restricts detection to the '
+        'favorites (#2015)', () async {
+      Uri? uri;
+      final client = MockClient((r) async {
+        uri = r.url;
+        return http.Response(_deepgramResponse('hallo'), 200);
+      });
+      final container = _makeContainer(
+        {'wp_deepgram_api_key': 'test'},
+        favorites: ['de', 'en'],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.transcribe(_silentWav(), language: 'auto');
+      expect(uri!.queryParametersAll['detect_language'], ['de', 'en']);
     });
 
     test('uses model=nova-3 and smart_format=true query parameters', () async {

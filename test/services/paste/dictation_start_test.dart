@@ -103,4 +103,12 @@ void main() {
     expect(adapt('   ', 'Text'), '   ');
     expect(adapt('', ''), '');
   });
+
+  test('blanks at the start of every line are dropped (#2088)', () {
+    expect(
+      stripLeadingLineBlanks(' Eins\n Zwei\n\n \tDrei'),
+      'Eins\nZwei\n\nDrei',
+    );
+    expect(stripLeadingLineBlanks('Ein  Wort'), 'Ein  Wort');
+  });
 }

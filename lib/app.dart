@@ -14,6 +14,7 @@ import 'package:window_manager/window_manager.dart';
 import 'core/app_navigator.dart' show appNavigatorKey;
 import 'core/config/settings_enums.dart'
     show OnDeviceEngine, SmartModeProviderType;
+import 'core/text/name_order.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/smart_mode_labels.dart';
 import 'core/config/selectable_speech_models.dart';
@@ -36,8 +37,12 @@ import 'core/theme/tokens.dart';
 import 'services/floating_overlay/dictation_notice.dart';
 import 'services/floating_overlay/overlay_notice.dart' show OverlayNoticeTone;
 import 'services/selection_edit/selection_edit_preview.dart';
+import 'services/smart_mode/write/smart_write_preview.dart';
+import 'services/smart_mode/write/smart_write_notice.dart';
+import 'services/smart_mode/write/smart_write_environment.dart';
 import 'services/floating_overlay/hotkey_hint_notices.dart';
 import 'services/floating_overlay/pill_hint.dart';
+import 'widgets/wp_global_shortcuts.dart';
 import 'widgets/app_menu_bar.dart';
 import 'widgets/desktop_shortcut_toast.dart';
 import 'widgets/model_ram_precheck_dialog.dart';
@@ -48,6 +53,7 @@ import 'services/hotkey_disturbance.dart';
 import 'widgets/hotkey_fallback_toast.dart';
 import 'widgets/sidebar.dart';
 import 'widgets/app_shell.dart';
+import 'widgets/focus_first_in.dart';
 import 'widgets/page_shell.dart';
 import 'widgets/wp_page_header.dart';
 import 'widgets/wp_audio_drop_zone.dart';
@@ -60,6 +66,7 @@ import 'core/platform/display_bounds.dart';
 import 'core/platform/window_position_clamp.dart';
 import 'widgets/service_bootstrap.dart';
 import 'widgets/recording_behavior.dart';
+import 'features/dictionary/auto_terms_sync.dart';
 import 'features/history/history_page.dart';
 import 'features/overview/overview_customize_menu.dart';
 import 'features/overview/overview_page.dart';
@@ -70,6 +77,8 @@ import 'features/notes/data/writing_focus.dart';
 import 'features/notes/notes_page.dart';
 import 'features/settings/search/settings_search_entry.dart'
     show SettingsRowArea, settingsRowAnchorFor;
+import 'features/settings/data_export_offer.dart';
+import 'features/review/review_ask_dialog.dart';
 import 'features/settings/settings_page.dart';
 import 'features/smart_mode/smart_mode_page.dart';
 import 'features/dictionary/dictionary_page.dart';
@@ -78,6 +87,7 @@ import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/help/help_page.dart';
 import 'features/help/help_shortcuts.dart';
+import 'features/search/content_search_dialog.dart';
 import 'features/help/manual/manual_chapters.dart'
     show manualHotkeyDisturbedSection;
 import 'features/help/manual/user_manual_view.dart'
@@ -156,6 +166,7 @@ import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/welcome_sound_service.dart' show welcomeSoundProvider;
 import 'services/deploy_channel_service.dart';
+import 'services/media_pause/media_pause_providers.dart';
 import 'widgets/dialog.dart';
 import 'widgets/multiline_paste_preview.dart';
 import 'features/onboarding/data_key_explanation.dart';
@@ -164,6 +175,7 @@ import 'features/onboarding/onboarding_close_dialog.dart';
 import 'features/onboarding/onboarding_review_hint.dart';
 import 'features/startup/history_startup_notice.dart';
 import 'widgets/nudge_input_listener.dart';
+import 'services/user_models/user_models_provider.dart' show userModelsProvider;
 
 // activePageProvider and settingsScrollTargetProvider are defined in
 // lib/core/navigation/page_state.dart (imported above).
@@ -194,6 +206,7 @@ class WhisPasteApp extends ConsumerWidget {
     // Starts the sleep/wake channel handler (ticket, 9.5). Watched without
     // using the value: the provider lives for the whole app session.
     ref.watch(powerEventServiceProvider);
+    ref.watch(autoTermsSyncProvider);
     ref.watch(memoryPressureMonitorProvider);
     ref.watch(secureInputLogProvider);
     final appearance = ref.watch(
@@ -295,6 +308,11 @@ WpNavItem wpHelpNavItem(L10n l10n) =>
 /// screenshot shells), so grouping stays consistent everywhere.
 const Set<String> wpNavDividerAfterIds = {'history', 'replacements'};
 
+/// The sidebar entry a page belongs to. Feedback has no entry of its own and
+/// opens from Help, the tray or the menu: it lights up Hilfe, so the user
+/// sees where they are and gets back to Help with one click (#1845).
+String wpNavActiveId(String pageId) => pageId == 'feedback' ? 'help' : pageId;
+
 /// The Settings entry pinned to the bottom of the rail.
 ///
 /// Same [WpNavItem] type and same renderer as [wpNavItems] — it used to be a
@@ -336,7 +354,7 @@ List<MapEntry<String, String>> _dockLanguageOptions(BuildContext context) {
         ),
       )
       .toList()
-    ..sort((a, b) => a.value.compareTo(b.value));
+    ..sort((a, b) => compareDisplayNames(a.value, b.value));
 }
 
 /// The Smart Mode dropdown of the dock: writes the standard preset. Without a
@@ -475,7 +493,12 @@ WpDockChoiceSet _dockEngineChoices(
     current: sttChoiceValue(settings),
     currentLabel: currentLabel,
     choices: [
-      for (final choice in sttChoicesFrom(speechModels, l10n, missing: missing))
+      for (final choice in sttChoicesFrom(
+        speechModels,
+        l10n,
+        missing: missing,
+        own: ref.watch(userModelsProvider.select((s) => s.models)),
+      ))
         WpDockChoice(
           value: choice.value,
           label: choice.label,
@@ -656,6 +679,27 @@ class _AppShellState extends ConsumerState<_AppShell>
   Timer? _telemetryFlushTimer;
   bool _isMaximized = false;
 
+  /// One focus anchor per page body, so a page opened by shortcut can take
+  /// focus without reaching into the page that is fading out (#1845).
+  final Map<String, FocusNode> _pageFocusNodes = {};
+
+  FocusNode _pageFocus(String page) => _pageFocusNodes.putIfAbsent(
+    page,
+    () => FocusNode(debugLabel: 'page-$page', skipTraversal: true),
+  );
+
+  /// Opens [page] from a keyboard shortcut and moves focus to its first
+  /// control, unless the user already moved focus in the meantime.
+  void _openPageByShortcut(String page) {
+    final before = FocusManager.instance.primaryFocus;
+    ref.read(activePageProvider.notifier).setPage(page);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || FocusManager.instance.primaryFocus != before) return;
+      final anchor = _pageFocusNodes[page];
+      if (anchor != null) focusFirstIn(anchor);
+    });
+  }
+
   /// Watches the shared capability state so the native "must restart" modal
   /// fires the instant [PasteCapabilityNotifier.needsRestart] becomes true —
   /// even with the window hidden (tray-only), because the widget tree stays
@@ -731,6 +775,14 @@ class _AppShellState extends ConsumerState<_AppShell>
       });
       _listenForFirstMainWindow();
     }
+    // Aggregated section opens (`nav/open`, fixed page ids only), never a
+    // per-hit pageview. Sub-pages outside the main sections are not counted.
+    ref.listenManual<String>(activePageProvider, (prev, next) {
+      if (prev == next || !kRestorablePageIds.contains(next)) return;
+      ref
+          .read(telemetrySessionAggregatorProvider)
+          .count(category: 'nav', action: 'open', name: next);
+    });
     _historyWarmupSub = ref.listenManual(groupedHistoryProvider, (_, _) {});
 
     // Observe app lifecycle (background/suspend) so session-aggregated
@@ -755,6 +807,10 @@ class _AppShellState extends ConsumerState<_AppShell>
     // Force a DB query first to ensure beforeOpen/migrations have completed.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // A dictation that crashed while it had turned playback down left the
+      // old volumes in the duck journal: put them back (#1511).
+      unawaited(ref.read(mediaPauseControllerProvider).restoreAfterCrash());
 
       // Reactively sync crash reporting consent whenever settings change.
       // This replaces the old build()-side-effect approach.
@@ -1399,6 +1455,7 @@ class _AppShellState extends ConsumerState<_AppShell>
           id: 'tray-host-missing',
           kind: WpNoticeKind.warning,
           message: l10n.trayLinuxNoTrayHost,
+          messageFor: (l10n) => l10n.trayLinuxNoTrayHost,
         ),
       );
       unawaited(() async {
@@ -1445,6 +1502,9 @@ class _AppShellState extends ConsumerState<_AppShell>
 
   @override
   void dispose() {
+    for (final node in _pageFocusNodes.values) {
+      node.dispose();
+    }
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
       windowManager.removeListener(this);
     }
@@ -1502,6 +1562,8 @@ class _AppShellState extends ConsumerState<_AppShell>
           message: L10n.of(
             context,
           ).textWriteFailedBackup(failure.backupPath ?? '—'),
+          messageFor: (l10n) =>
+              l10n.textWriteFailedBackup(failure.backupPath ?? '—'),
         ),
       );
     });
@@ -1513,6 +1575,7 @@ class _AppShellState extends ConsumerState<_AppShell>
           id: 'text-write-conflict',
           kind: WpNoticeKind.warning,
           message: L10n.of(context).textWriteMergeConflict,
+          messageFor: (l10n) => l10n.textWriteMergeConflict,
         ),
       );
     });
@@ -1829,6 +1892,159 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
   }
 
+  bool _presetMovedChecked = false;
+
+  /// The write route of the Smart Mode hotkey (#248): the draft preview card
+  /// (Enter inserts, Esc discards), the "nothing selected" hint and the
+  /// one-time note that a bound preset is no longer applied.
+  void _listenSmartWrite() {
+    ref.listen(wpPageNoticeProvider(kAppNoticePage), (previous, next) {
+      if (next == null &&
+          const {
+            'dictation-smart-write-preview',
+            'dictation-smart-write-error-target-changed',
+            'dictation-smart-write-target-unverifiable-hint',
+          }.contains(previous?.id)) {
+        ref.read(smartWritePreviewProvider.notifier).discard();
+      }
+    });
+    // Ask the native overlay host early whether the preview may offer its
+    // edit field (#254, Linux X11), so the first preview already knows.
+    ref.listen<AsyncValue<bool>>(smartWriteOverlayEditFocusProvider, (_, _) {});
+    ref.listen<SmartWriteDraft?>(smartWritePreviewProvider, (previous, next) {
+      if (next == null) {
+        // Dropped elsewhere (a new start): its card goes too, and with it the
+        // Enter/Esc keys the card holds system-wide.
+        final notices = ref.read(dictationNoticeProvider.notifier);
+        if (previous != null &&
+            ref.read(dictationNoticeProvider)?.managesOwnKeys == true) {
+          notices.dismiss();
+        }
+        final banner = ref.read(wpPageNoticeProvider(kAppNoticePage));
+        if (previous != null &&
+            const {
+              'dictation-smart-write-preview',
+              'dictation-smart-write-error-target-changed',
+              'dictation-smart-write-target-unverifiable-hint',
+            }.contains(banner?.id)) {
+          ref.read(wpPageNoticeProvider(kAppNoticePage).notifier).dismiss();
+        }
+        return;
+      }
+      if (next.serial == previous?.serial || !mounted) return;
+      final l10n = L10n.of(context);
+      final preview = ref.read(smartWritePreviewProvider.notifier);
+      showDictationNotice(
+        context,
+        smartWriteDraftNotice(
+          l10n,
+          next,
+          onInsert: () => unawaited(_insertSmartWriteDraft()),
+          onDiscard: preview.discard,
+          // The edit field only where the focus can go back (D13, #254).
+          editor: ref.read(smartWriteEnvironmentProvider).canEditPreview
+              ? preview
+              : null,
+          localModel: SmartModeProviderType.fromValue(
+            (ref.read(settingsProvider).value ?? AppSettings.defaults)
+                .smartMode
+                .provider,
+          ).isLocal,
+        ),
+      );
+    });
+    ref.listen<SmartWriteNotice?>(smartWriteNoticeProvider, (previous, next) {
+      if (next == null || next.serial == previous?.serial || !mounted) return;
+      final l10n = L10n.of(context);
+      // A write job of the automation API pasted without a preview (D22).
+      final automation =
+          next.hint == SmartWriteHint.automationInserted ||
+          next.hint == SmartWriteHint.automationInsertedWayland;
+      final code = switch (next.hint) {
+        SmartWriteHint.noSelection ||
+        SmartWriteHint.clipboardNotRestored ||
+        SmartWriteHint.automationInserted ||
+        SmartWriteHint.automationInsertedWayland => null,
+        SmartWriteHint.targetChanged => 'smart_write_target_changed',
+        SmartWriteHint.targetUnknown => 'smart_write_target_unknown',
+        SmartWriteHint.pasteFailed => 'smart_write_paste_failed',
+        SmartWriteHint.keysFailed => 'smart_write_keys_failed',
+        SmartWriteHint.expired => 'smart_write_preview_timeout',
+        SmartWriteHint.clipboardFailed => 'smart_write_clipboard_failed',
+      };
+      showDictationNotice(
+        context,
+        DictationNotice(
+          id: switch (next.hint) {
+            SmartWriteHint.noSelection => kSmartWriteHintNoSelectionNoticeId,
+            SmartWriteHint.expired => 'smart-write-error-timeout',
+            SmartWriteHint.pasteFailed => 'smart-write-error-paste-failed',
+            _ => 'smart-write-${next.hint.name}',
+          },
+          cause: code != null
+              ? localizeRecordingError(l10n, code)
+              : automation
+              ? l10n.smartWriteAutomationInserted
+              : next.hint == SmartWriteHint.noSelection
+              ? l10n.smartWriteHintNoSelection
+              : l10n.smartWriteClipboardNotRestored,
+          nextStep: next.hint == SmartWriteHint.automationInsertedWayland
+              ? l10n.smartWriteWaylandHint
+              : '',
+          offersNewDictation: false,
+          autoDismiss: next.retainedText != null
+              ? null
+              : code == null
+              ? const Duration(seconds: 4)
+              : kDictationHintTime,
+          detail: next.retainedText ?? '',
+        ),
+      );
+    });
+    ref.listen<AsyncValue<AppSettings>>(
+      settingsProvider,
+      (_, next) => _announcePresetMoved(next.value),
+    );
+    _announcePresetMoved(ref.read(settingsProvider).value);
+  }
+
+  /// Once, after the update: an enabled Smart Mode hotkey that still carries a
+  /// preset binding now writes text instead (a toast, never a dialog).
+  void _announcePresetMoved(AppSettings? settings) {
+    if (_presetMovedChecked || settings == null) return;
+    _presetMovedChecked = true;
+    if (!smartWritePresetMovedNoticeDue(settings.smartModeHotkey)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final l10n = L10n.of(context);
+      showDictationNotice(
+        context,
+        DictationNotice(
+          id: kSmartWritePresetMovedNoticeId,
+          cause: l10n.smartWritePresetMovedTitle,
+          nextStep: l10n.smartWritePresetMovedBody,
+          offersNewDictation: false,
+        ),
+      );
+      unawaited(
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWithSections(
+                smartModeHotkey: s.smartModeHotkey.copyWith(
+                  smartWriteMigrationNoticeShown: true,
+                ),
+              ),
+            ),
+      );
+    });
+  }
+
+  /// Enter checks the target before pasting; the preview owns failure notices.
+  Future<void> _insertSmartWriteDraft() async {
+    await ref.read(smartWritePreviewProvider.notifier).insert();
+  }
+
   void _listenSmartModeUndo() {
     ref.listen<SmartModeUndoNotice?>(smartModeUndoNoticeProvider, (_, next) {
       if (next == null || !mounted) return;
@@ -1955,6 +2171,7 @@ class _AppShellState extends ConsumerState<_AppShell>
   Widget build(BuildContext context) {
     _listenSmartModeUndo();
     _listenSelectionEditPreview();
+    _listenSmartWrite();
     final activePage = ref.watch(activePageProvider);
     // Focus mode of the note editor (#669) owns the whole window, but only
     // while the notes area is on screen.
@@ -2069,7 +2286,9 @@ class _AppShellState extends ConsumerState<_AppShell>
       borderRadius: contentRadius,
     );
 
-    return CallbackShortcuts(
+    // Also fires when focus rests outside the shell, e.g. after a click
+    // on a sidebar item (#1845).
+    return WpGlobalShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         // Ctrl+, / Cmd+,: jump to Settings — the platform-standard
         // "Preferences" shortcut, so it's always reachable regardless of
@@ -2079,11 +2298,13 @@ class _AppShellState extends ConsumerState<_AppShell>
           control: !Platform.isMacOS,
           meta: Platform.isMacOS,
         ): () =>
-            ref.read(activePageProvider.notifier).setPage('settings'),
+            _openPageByShortcut('settings'),
+        // Cmd/Ctrl+K: the search over Aufnahmen, Notizen and Textbausteine
+        // (#628), from every page.
+        contentSearchActivator: () =>
+            ref.read(contentSearchRequestProvider.notifier).request(),
         // F1 and Cmd/Ctrl+?: open Help from anywhere (ticket).
-        ...helpShortcuts(
-          () => ref.read(activePageProvider.notifier).setPage('help'),
-        ),
+        ...helpShortcuts(() => _openPageByShortcut('help')),
       },
       child: WpNudgeInputListener(
         child: SmartModeUsageHintWatcher(
@@ -2098,6 +2319,14 @@ class _AppShellState extends ConsumerState<_AppShell>
                         children: [
                           // Feeds the "Erste Schritte" card; renders nothing.
                           const FirstStepsWatcher(),
+                          // Offers the regular export of recordings and
+                          // dictionary (#1023); renders nothing.
+                          const DataExportOfferWatcher(),
+                          // Opens the rating dialog at a good moment
+                          // (#2185); renders nothing.
+                          const ReviewAskWatcher(),
+                          // Opens the search over every area on request.
+                          const ContentSearchLauncher(),
                           // The frame — one diagonal ambient for title bar, nav
                           // rail and status bar together, painted here and
                           // nowhere else. None of the three bars carries a ground
@@ -2127,7 +2356,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                               compact: compactRail,
                               items: navItems,
                               dividerAfterIds: wpNavDividerAfterIds,
-                              activeId: activePage,
+                              activeId: wpNavActiveId(activePage),
                               onItemTap: (id) => ref
                                   .read(activePageProvider.notifier)
                                   .setPage(id),
@@ -2225,9 +2454,13 @@ class _AppShellState extends ConsumerState<_AppShell>
                                     },
                                     child: KeyedSubtree(
                                       key: ValueKey(activePage),
-                                      child:
-                                          wpPageWidgets[activePage] ??
-                                          const SizedBox.shrink(),
+                                      child: Focus(
+                                        focusNode: _pageFocus(activePage),
+                                        skipTraversal: true,
+                                        child:
+                                            wpPageWidgets[activePage] ??
+                                            const SizedBox.shrink(),
+                                      ),
                                     ),
                                   ),
                                 ),

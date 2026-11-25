@@ -13,6 +13,7 @@ import '../core/config/settings_provider.dart';
 import 'stt/on_device_engine_lifecycle.dart';
 import 'stt_parakeet/parakeet_lifecycle_adapter.dart';
 import 'system_speech/system_speech_lifecycle_adapter.dart';
+import 'user_models/user_sherpa_runtime.dart' show UserSherpaLifecycleAdapter;
 
 final onDeviceEngineLifecycleProvider = Provider<OnDeviceEngineLifecycle>((
   ref,
@@ -24,5 +25,6 @@ final onDeviceEngineLifecycleProvider = Provider<OnDeviceEngineLifecycle>((
     OnDeviceEngine.whisper => WhisperEngineLifecycleAdapter(ref),
     OnDeviceEngine.parakeet => ParakeetEngineLifecycleAdapter(ref),
     OnDeviceEngine.system => SystemSpeechLifecycleAdapter(ref),
+    OnDeviceEngine.userModel => UserSherpaLifecycleAdapter(ref),
   };
 });

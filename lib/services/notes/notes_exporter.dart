@@ -22,7 +22,7 @@ import '../../features/history/data/export_service.dart';
 import '../../features/notes/data/note_title.dart';
 import '../../widgets/export_format_picker.dart';
 import '../../widgets/wp_page_notice.dart';
-import '../../widgets/wp_banner.dart';
+import '../../widgets/wp_notice_bar.dart';
 import '../history/history_exporter.dart'
     show ExportFn, ExportSaveLocationFn, pickExportSaveLocation;
 
@@ -190,15 +190,18 @@ void _defaultNotifier(
   required bool failed,
   required String message,
 }) {
+  if (!failed) {
+    // A short confirmation stands at the bottom like every other (#1903).
+    showWpConfirmation(context, id: 'notes-export-done', message: message);
+    return;
+  }
   showWpPageNotice(
     context,
     page: WpNoticePage.notes,
     notice: WpPageNotice(
-      id: failed ? 'notes-export-failed' : 'notes-export-done',
+      id: 'notes-export-failed',
       message: message,
-      tone: failed ? WpBannerTone.error : WpBannerTone.info,
       area: noteId,
-      autoDismiss: failed ? null : const Duration(seconds: 4),
     ),
   );
 }

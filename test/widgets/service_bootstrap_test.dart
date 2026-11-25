@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:whispaste/services/recording_trigger_handler.dart'
+    show kShortTapMaxDuration;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/logging/ui_thread_watchdog.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -64,12 +66,13 @@ class _FakeHotkeyService extends HotkeyService {
   }
 
   @override
-  Future<void> registerCancelDictationKey({
+  Future<bool> registerCancelDictationKey({
     LogicalKeyboardKey key = LogicalKeyboardKey.escape,
     required VoidCallback onCancel,
   }) async {
     registerCancelDictationCalls++;
     capturedOnCancel = onCancel;
+    return true;
   }
 
   @override
@@ -434,10 +437,12 @@ void main() {
         harnessKey.currentState!.forceRebuild();
         await tester.pump();
 
-        // 3. Hold for > 100 ms so the anti-glitch threshold permits
-        //    stopRecording. The handler reads the time through
+        // 3. Hold past the short-tap limit so the anti-glitch threshold
+        //    permits stopRecording (#2113 raised it to 150 ms). The handler reads the time through
         //    `package:clock`, so the test's fake clock serves (#1491).
-        await tester.pump(const Duration(milliseconds: 120));
+        await tester.pump(
+          kShortTapMaxDuration + const Duration(milliseconds: 20),
+        );
 
         // 4. keyUp must call stopRecording on the SAME handler that observed
         //    the keyDown — if the handler was re-instantiated on rebuild, its
@@ -781,7 +786,8 @@ void main() {
       },
     );
   });
-  group('WpServiceBootstrap — CLI remote control (--toggle / --cancel)', () {
+  group('WpServiceBootstrap — CLI remote control (--toggle / --start / '
+      '--stop / --cancel)', () {
     late Directory tmp;
 
     setUp(() {
@@ -834,6 +840,45 @@ void main() {
 
       expect(orchestrator.toggleCalls, 1);
       expect(orchestrator.startCalls, 0);
+    });
+
+    testWidgets('--start starts only when idle, --stop stops only while '
+        'recording (#1952)', (tester) async {
+      await queueRemoteCommand(tester, 'start');
+      final orchestrator = _CounterOrchestrator();
+
+      await mount(tester, orchestrator);
+      expect(orchestrator.toggleCalls, 1, reason: 'queued start, idle');
+
+      // Each signal lands outside the per-command debounce window, so a
+      // command that does nothing is ignored by the handler, not debounced.
+      var now = DateTime(2026, 11, 19, 10);
+      SingleInstanceService.clock = () => now;
+      addTearDown(() => SingleInstanceService.clock = DateTime.now);
+      Future<void> deliver(String signal, String at) =>
+          tester.runAsync(() async {
+            now = now.add(const Duration(seconds: 1));
+            await File(
+              p.join(tmp.path, 'focus.signal'),
+            ).writeAsString('2026-11-19T10:00:0$at 1 $signal', flush: true);
+            await SingleInstanceService.debugReadSignal(tmp.path);
+          });
+
+      // Recording now: a second start changes nothing.
+      await deliver('start', '1.000');
+      await tester.pump();
+      expect(orchestrator.toggleCalls, 1);
+      expect(orchestrator.stopCalls, 0);
+
+      await deliver('stop', '2.000');
+      await tester.pump();
+      expect(orchestrator.stopCalls, 1);
+
+      // Idle again: a further stop does nothing.
+      await deliver('stop', '3.000');
+      await tester.pump();
+      expect(orchestrator.stopCalls, 1);
+      expect(orchestrator.toggleCalls, 1);
     });
 
     testWidgets('a queued --cancel cancels the dictation', (tester) async {

@@ -61,7 +61,8 @@ node_modules/
 website/dist/
 website/.astro/
 
-# Supabase
+# Local link state of the Supabase CLI, left on machines after the
+# shutdown (#703); delete it there, never commit it.
 supabase/.temp/
 
 # Fastlane (auto-generated on every run — Gemfile.lock itself IS tracked)
@@ -200,6 +201,7 @@ scripts/*
 !scripts/probe-packaging-validate.sh
 !scripts/check-workflow-hygiene.sh
 !scripts/generate_appcast.sh
+!scripts/publish-model-catalog.sh
 !scripts/release-macos-local.sh
 !scripts/release.sh
 !scripts/release/
@@ -357,3 +359,11 @@ WARP.md
 
 # Generated test bundles of the lab lanes (tool/test_bundles.dart, #1492)
 /test/_lab_bundles/
+
+# sherpa execution-provider build inputs (#1793)
+!scripts/build-onnxruntime-directml.ps1
+!scripts/onnxruntime-directml.pin
+!scripts/fetch-ort-source-swh.py
+!scripts/fetch-ort-source-swh.test.sh
+!scripts/sherpa-provider.patch
+!scripts/add-msix-explorer-command.ps1

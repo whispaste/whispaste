@@ -157,6 +157,7 @@ void main() {
           makeTestable(
             NotesListTile(
               note: Note(
+                archived: false,
                 id: 'n1',
                 content: 'Mein Titel\nZweite Zeile',
                 createdAt: DateTime(2026, 1, 1),

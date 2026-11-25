@@ -14,6 +14,8 @@
 /// Issue 05 (resilience).
 library;
 
+import 'dart:convert' show utf8;
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -26,6 +28,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/stt/tail_confidence.dart';
 
 // ---------------------------------------------------------------------------
 // Fake helpers (self-contained; do not import from other test files)
@@ -188,6 +191,21 @@ class _FakeWhisperEngineWithTokenCounter extends _FakeWhisperEngine
     if (text.isEmpty) return 0;
     return text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
+}
+
+/// A [_FakeWhisperEngine] that reports the token confidence at the end of
+/// its last transcription, as the FFI engine does (#573, #2013).
+class _TailConfidenceEngine extends _FakeWhisperEngine
+    implements TailConfidenceSource {
+  List<double> tailProbs = const [0.95, 0.97];
+
+  @override
+  TailConfidenceSample? get lastTailConfidence => TailConfidenceSample(
+    tokenProbs: tailProbs,
+    noSpeechProb: 0,
+    segmentCount: 2,
+    tailSegmentTokenCount: tailProbs.length,
+  );
 }
 
 /// Like the native engine: a transcription that finds the model unloaded, or
@@ -867,10 +885,49 @@ void main() {
         await container.read(settingsProvider.future);
         final notifier = container.read(localSttBundleProvider.notifier);
         await notifier.ensureRunning();
-        final text = await notifier.transcribeBytes(_validWavHeader());
+        // A header without samples supplies no silence evidence.
+        expect(
+          await notifier.transcribeBytes(_validWavHeader()),
+          'Thanks for watching!',
+        );
+        final text = await notifier.transcribeBytes(
+          _validWavHeader(totalLength: 32044),
+        );
 
         expect(text, isEmpty);
       });
+
+      test(
+        'a stock phrase on the silent end of a dictation is removed when '
+        'the end confidence is low, and kept when it is high (#2013)',
+        () async {
+          final engine = _TailConfidenceEngine()
+            ..responseText =
+                'Ich schicke dir die Unterlagen morgen. '
+                'Untertitel im Auftrag des ZDF, 2021.'
+            ..tailProbs = const [0.91, 0.18, 0.66];
+          final container = _makeContainer(
+            engine: engine,
+            settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+          );
+          addTearDown(container.dispose);
+
+          await container.read(settingsProvider.future);
+          final notifier = container.read(localSttBundleProvider.notifier);
+          await notifier.ensureRunning();
+          expect(
+            await notifier.transcribeBytes(_validWavHeader()),
+            'Ich schicke dir die Unterlagen morgen.',
+          );
+
+          engine.tailProbs = const [0.93, 0.88, 0.97];
+          expect(
+            await notifier.transcribeBytes(_validWavHeader()),
+            'Ich schicke dir die Unterlagen morgen. '
+            'Untertitel im Auftrag des ZDF, 2021.',
+          );
+        },
+      );
 
       test('a customVocabulary over the real token budget is truncated to the '
           'budget instead of being silently dropped inside whisper.cpp with '
@@ -894,30 +951,30 @@ void main() {
         expect(engine.lastPrompt, words.take(63).join(' '));
       });
 
-      test(
-        'without a PromptTokenCounter-capable engine, an over-budget '
-        'customVocabulary is still forwarded unmodified (conservative '
-        'fallback — no crash, no regression from pre-fix behaviour)',
-        () async {
-          final engine = _FakeWhisperEngine();
-          final vocab = List.generate(100, (i) => 'term$i').join(' ');
-          final container = _makeContainer(
-            engine: engine,
-            settings: AppSettings.defaults.copyWith(
-              sttModel: 'whisper-small',
-              customVocabulary: vocab,
-            ),
-          );
-          addTearDown(container.dispose);
+      test('without a PromptTokenCounter-capable engine, an over-budget '
+          'customVocabulary is cut to a byte-safe front (#1969): whisper.cpp '
+          'itself would keep the last tokens, the least used terms', () async {
+        final engine = _FakeWhisperEngine();
+        final vocab = List.generate(100, (i) => 'term$i').join(' ');
+        final container = _makeContainer(
+          engine: engine,
+          settings: AppSettings.defaults.copyWith(
+            sttModel: 'whisper-small',
+            customVocabulary: vocab,
+          ),
+        );
+        addTearDown(container.dispose);
 
-          await container.read(settingsProvider.future);
-          final notifier = container.read(localSttBundleProvider.notifier);
-          await notifier.ensureRunning();
-          await notifier.transcribeBytes(_validWavHeader());
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+        await notifier.transcribeBytes(_validWavHeader());
 
-          expect(engine.lastPrompt, vocab);
-        },
-      );
+        final sent = engine.lastPrompt!;
+        expect(utf8.encode(sent).length, lessThanOrEqualTo(63));
+        expect(sent, startsWith('term0 term1 '));
+        expect(vocab, startsWith(sent));
+      });
     },
   );
 

@@ -27,6 +27,7 @@ Note _note({
 }) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: 'n1',
     content: content,
     pinned: pinned,

@@ -19,9 +19,11 @@
 #include "hang_watchdog_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
+#include "spell_check_host.h"
 #include "system_languages_host.h"
 #include "tray_panel_host.h"
 #include "target_field_host.h"
+#include "system_motion_host.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -70,6 +72,8 @@ struct _MyApplication {
   // Owns whispaste/system_languages: the process language list for the first
   // start (same lifecycle as the hosts above).
   SystemLanguagesHost* system_languages_host;
+  // Owns whispaste/spell_check: the editor spell check through Enchant (#670).
+  SpellCheckHost* spell_check_host;
   // Owns com.whispaste.inserted_span: bounded read-back of the pasted section for
   // learning from corrections in the target app (#384).
   TargetFieldHost* target_field_host;
@@ -130,6 +134,7 @@ static void my_application_activate(GApplication* application) {
       project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
+  system_motion_attach(view);
   GdkRGBA background_color;
   // Background defaults to black, override it here if necessary, e.g. #00000000
   // for transparent.
@@ -167,6 +172,7 @@ static void my_application_activate(GApplication* application) {
   self->attention_host = new AttentionHost(main_messenger, window);
   self->app_identity_host = new AppIdentityHost(main_messenger);
   self->system_languages_host = new SystemLanguagesHost(main_messenger);
+  self->spell_check_host = new SpellCheckHost(main_messenger);
   self->target_field_host = new TargetFieldHost(main_messenger);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
@@ -245,6 +251,8 @@ static void my_application_dispose(GObject* object) {
   self->app_identity_host = nullptr;
   delete self->system_languages_host;
   self->system_languages_host = nullptr;
+  delete self->spell_check_host;
+  self->spell_check_host = nullptr;
   delete self->target_field_host;
   self->target_field_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);

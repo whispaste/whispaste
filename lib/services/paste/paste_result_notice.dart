@@ -35,6 +35,7 @@ import '../system_attention_service.dart';
 import '../tray_service.dart';
 import 'paste_capability_notifier.dart';
 import 'paste_failure_notifier.dart';
+import 'paste_notice_mute.dart';
 import 'paster.dart';
 import 'secure_input_notice.dart';
 
@@ -267,6 +268,15 @@ class PasteResultReporter {
     // Silent outcomes never reach the in-app toast either.
     if (outcome == PasteOutcome.blocked ||
         outcome == PasteOutcome.unconfirmedNoBridge) {
+      return false;
+    }
+    // Switched off by the user (#1852): no card, no OS notice, no sound. The
+    // paster's log line and the history entry stay.
+    if (pasteNoticeMuted(
+      outcome,
+      _ref.read(settingsProvider).value?.interface_,
+    )) {
+      _log.info('Paste notice muted by the user: ${outcome.name}');
       return false;
     }
     // Only a skipped paste asks which app holds secure input (F35-8).

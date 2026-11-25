@@ -4,8 +4,13 @@ library;
 import 'package:clock/clock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:whispaste/core/data/content_metadata.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/history_providers.dart';
+
+import 'package:whispaste/core/views/smart_view.dart';
+import 'package:whispaste/core/views/smart_view_items.dart';
+import 'package:whispaste/core/views/smart_view_providers.dart';
 
 import 'search_query_parser.dart';
 export 'search_query_parser.dart';
@@ -224,13 +229,50 @@ final historyHasMoreProvider = Provider<bool>((ref) {
 /// Filtered and searched history entries— the main data source for the list.
 ///
 /// The duration chip narrows whatever the filter and the search return, so
-/// all three combine.
+/// all three combine. A saved view (#658) narrows the loaded rows of the
+/// live list on top; "Mehr laden" reads further rows into it.
 final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   final bucket = ref.watch(historyDurationBucketProvider);
-  return _filteredBySearch(
-    ref,
-  ).whenData((entries) => applyDurationBucket(entries, bucket));
+  final view = _shownHistoryView(ref);
+  final checklists = view != null && smartViewNeedsChecklists(view)
+      ? ref.watch(checklistDocumentsProvider).value ?? const <ContentKey>{}
+      : const <ContentKey>{};
+  final now = clock.now();
+  return _filteredBySearch(ref).whenData((entries) {
+    final narrowed = applyDurationBucket(entries, bucket);
+    if (view == null) return narrowed;
+    return [
+      for (final e in narrowed)
+        if (smartViewMatches(
+          view,
+          recordingSmartViewItem(
+            e,
+            hasChecklist:
+                checklists.contains((kind: ContentKind.recording, id: e.id)) ||
+                checklists.contains((
+                  kind: ContentKind.recordingEdited,
+                  id: e.id,
+                )),
+          ),
+          now,
+        ))
+          e,
+    ];
+  });
 });
+
+/// The view the Aufnahmen page shows now; views narrow only the live list,
+/// not the archive or the trash.
+final shownHistorySmartViewProvider = Provider<SmartView?>((ref) {
+  final filter = ref.watch(historyFilterProvider);
+  if (filter == HistoryFilter.archived || filter == HistoryFilter.trash) {
+    return null;
+  }
+  return ref.watch(shownSmartViewProvider(SmartViewScope.recordings));
+});
+
+SmartView? _shownHistoryView(Ref ref) =>
+    ref.watch(shownHistorySmartViewProvider);
 
 AsyncValue<List<HistoryEntry>> _filteredBySearch(Ref ref) {
   final filter = ref.watch(historyFilterProvider);
@@ -407,6 +449,9 @@ HistorySearchSpec _searchSpec(
 /// yet. "Alle auswählen" reads the ids of every match through it, and a
 /// selection keeps the matches that are not loaded yet.
 final historyListSpecProvider = Provider.autoDispose<HistorySearchSpec?>((ref) {
+  // A saved view is applied in Dart (#658): no query reads exactly its
+  // rows, so "Alle auswählen" and the count stay with the loaded rows.
+  if (_shownHistoryView(ref) != null) return null;
   final rawSearch = ref.watch(historySearchProvider).trim();
   final filter = ref.watch(historyFilterProvider);
   final bucket = ref.watch(historyDurationBucketProvider);

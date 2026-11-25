@@ -71,6 +71,7 @@ class WpFloatingOverlayView extends StatefulWidget {
     this.animate = true,
     this.glassTone,
     this.onNoticeAction,
+    this.onNoticeEdit,
     this.onPillWidth,
   });
 
@@ -85,6 +86,10 @@ class WpFloatingOverlayView extends StatefulWidget {
   /// Called with the action of a pressed notice-card button (overlay F2).
   /// The render engine relays it to the main engine; previews pass null.
   final ValueChanged<OverlayNoticeActionId>? onNoticeAction;
+
+  /// Called with what a notice card's edit field reports (#254). Relayed
+  /// like [onNoticeAction]; previews pass null.
+  final ValueChanged<OverlayNoticeEditEvent>? onNoticeEdit;
 
   /// Fully-resolved render state.
   final FloatingOverlaySnapshot snapshot;
@@ -752,6 +757,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                 widget.glassTone ?? WpFloatingOverlayView.systemGlassTone(),
           ),
           onAction: widget.onNoticeAction,
+          onEdit: widget.onNoticeEdit,
         ),
       );
     }

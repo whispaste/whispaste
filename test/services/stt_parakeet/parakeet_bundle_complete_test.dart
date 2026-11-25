@@ -11,8 +11,18 @@ void main() {
   tearDown(() => dir.deleteSync(recursive: true));
 
   const files = [
-    ParakeetModelFile(filename: 'a.onnx', url: '', sizeBytes: 4, sha256: ''),
-    ParakeetModelFile(filename: 'b.txt', url: '', sizeBytes: 2, sha256: ''),
+    ParakeetModelFile(
+      filename: 'a.onnx',
+      sources: [''],
+      sizeBytes: 4,
+      sha256: '',
+    ),
+    ParakeetModelFile(
+      filename: 'b.txt',
+      sources: [''],
+      sizeBytes: 2,
+      sha256: '',
+    ),
   ];
   void put(String name, int bytes) =>
       File('${dir.path}/$name').writeAsBytesSync(List.filled(bytes, 1));

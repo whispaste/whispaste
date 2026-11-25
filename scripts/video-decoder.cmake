@@ -7,7 +7,8 @@ if(WIN32)
   # CMAKE_CXX_COMPILER is .../VC/Tools/MSVC/<version>/bin/Hostx64/x64/cl.exe.
   string(REGEX REPLACE "/Tools/MSVC/.*$" "/Auxiliary/Build/vcvars64.bat"
     WP_VIDEO_VCVARS "${CMAKE_CXX_COMPILER}")
-  set(WP_VIDEO_ARGS --vcvars "${WP_VIDEO_VCVARS}")
+  # libopus is built with CMake; the runner's own CMake is always present.
+  set(WP_VIDEO_ARGS --vcvars "${WP_VIDEO_VCVARS}" --cmake "${CMAKE_COMMAND}")
 else()
   set(WP_VIDEO_PLATFORM linux)
 endif()

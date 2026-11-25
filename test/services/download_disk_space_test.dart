@@ -153,7 +153,7 @@ void main() {
       parakeetModelFilesOverride = [
         ParakeetModelFile(
           filename: 'encoder.int8.onnx',
-          url: 'https://x/e',
+          sources: ['https://x/e'],
           sizeBytes: 4096,
           sha256: '0' * 64,
         ),

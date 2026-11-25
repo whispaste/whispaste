@@ -49,6 +49,10 @@ class OnboardingDownloadStatusNotifier
       OnDeviceEngine.system => onboardingStatusFromSystemSpeech(
         ref.watch(systemSpeechProvider),
       ),
+      // An own model (#1789) is on disk and checked already.
+      OnDeviceEngine.userModel => const OnboardingDownloadStatus(
+        phase: OnboardingDownloadPhase.ready,
+      ),
     };
     if (status.phase != OnboardingDownloadPhase.running) {
       _throughput = DownloadThroughput();

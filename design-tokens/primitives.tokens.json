@@ -57,7 +57,9 @@
       "kofi": { "$value": "#FF6433", "$description": "Ko-fi orange (simple-icons brand colour): fill of the Ko-fi support tile. Navy ink reaches about 6.3:1; white would not pass." },
       "kofi-hover": { "$value": "#F25427", "$description": "Hover fill of the Ko-fi support tile (navy ink about 5.4:1)." },
       "sponsors": { "$value": "#EA4AAA", "$description": "GitHub Sponsors pink (simple-icons brand colour): fill of the GitHub Sponsors tile. Navy ink reaches about 5.3:1." },
-      "sponsors-hover": { "$value": "#DD3A9C", "$description": "Hover fill of the GitHub Sponsors tile (navy ink about 4.6:1)." }
+      "sponsors-hover": { "$value": "#DD3A9C", "$description": "Hover fill of the GitHub Sponsors tile (navy ink about 4.6:1)." },
+      "youtube": { "$value": "#FF0000", "$description": "YouTube red (YouTube brand resources): play button of the trailer frame in the Get involved block. White play mark reaches about 4.0:1 (graphic, 3:1 required)." },
+      "youtube-hover": { "$value": "#CC0000", "$description": "Hover and focus fill of the trailer play button (white play mark about 5.9:1)." }
     },
     "red": {
       "400": { "$value": "#FF7B7B", "$description": "Error on dark (app semantic error)." },

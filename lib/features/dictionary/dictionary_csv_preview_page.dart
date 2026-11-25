@@ -18,6 +18,7 @@ import '../../widgets/wp_button.dart';
 import '../../widgets/wp_page_header.dart';
 import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_segmented_selector.dart';
+import '../../widgets/wp_row_divider.dart';
 
 class DictionaryCsvPreviewPage extends StatefulWidget {
   const DictionaryCsvPreviewPage({
@@ -209,7 +210,7 @@ class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
                     ? _statusText(l10n, statusByRow[i]!)
                     : l10n.dictionaryCsvRowWillAdd,
               ),
-              if (i < widget.result.rows.length - 1) const Divider(height: 1),
+              if (i < widget.result.rows.length - 1) const WpRowDivider(),
             ],
             const SizedBox(height: WpSpacing.lg),
             WpButton(

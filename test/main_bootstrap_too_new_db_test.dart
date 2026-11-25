@@ -72,4 +72,49 @@ void main() {
     );
     expect(await tester.runAsync(file.readAsBytes), before);
   });
+
+  // #1925: the app opens the file on a background isolate; drift then wraps
+  // the refusal in a DriftRemoteException and the gate used to fall through
+  // to the shell (first-run onboarding instead of the notice).
+  testWidgets('a too-new database opened on the background isolate still '
+      'ends in the notice screen', (tester) async {
+    final file = await tester
+        .runAsync(() async {
+          final dir = await Directory.systemTemp.createTemp('whispaste-iso-');
+          final file = File(p.join(dir.path, 'history.db'));
+          final probe = HistoryDatabase.forTesting(NativeDatabase.memory());
+          final supported = probe.schemaVersion;
+          await probe.close();
+          final raw = sqlite.sqlite3.open(file.path);
+          raw.execute('CREATE TABLE marker (value TEXT)');
+          raw.execute('PRAGMA user_version = ${supported + 1}');
+          raw.close();
+          return file;
+        })
+        .then((v) => v!);
+    addTearDown(() => deleteTempDir(file.parent));
+
+    final container = ProviderContainer(
+      overrides: [
+        historyDatabaseProvider.overrideWith((ref) {
+          final db = HistoryDatabase.forTesting(
+            NativeDatabase.createInBackground(file),
+          );
+          ref.onDispose(db.close);
+          return db;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final error = await tester.runAsync(() async {
+      try {
+        await container.read(databaseStartupProbeProvider.future);
+        return null;
+      } on Object catch (e) {
+        return e;
+      }
+    });
+    expect(error, isA<DatabaseTooNewException>());
+  });
 }

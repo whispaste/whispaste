@@ -26,6 +26,7 @@ class _RecordingQueue extends AudioImportQueueNotifier {
   Future<ImportEnqueueResult> addFiles(
     List<String> paths, {
     String? sliceManifestPath,
+    ImportStartSource? source,
   }) async {
     handed.add(List.of(paths));
     return const ImportEnqueueResult(rejections: [], jobIds: []);

@@ -19,7 +19,6 @@ import '../../core/config/settings_enums.dart';
 import '../../core/text/byte_size.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
-import '../../core/l10n/download_error_text.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/speech_recommendation.dart';
@@ -31,11 +30,12 @@ import '../../services/model_download_service.dart';
 import '../../services/model_hardware_telemetry.dart';
 import '../../services/telemetry_model_buckets.dart';
 import '../../services/stt/stt_bundle.dart';
+import '../../widgets/wp_model_download_error_notice.dart';
 import '../../widgets/wp_progress_bar.dart';
+import '../../services/path_service.dart' show sttDir;
 import '../../widgets/model_ram_precheck_dialog.dart';
 import '../../widgets/recommendation_reason.dart';
 import '../../widgets/tier_performance_presentation.dart';
-import '../../widgets/wp_button.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/wp_focus_ring.dart';
 import '../../core/recording/recording_helpers.dart' show displayNameForModel;
@@ -201,17 +201,18 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
         // Error message
         if (downloadState.isError && downloadState.errorMessage != null) ...[
           const SizedBox(height: WpSpacing.sm),
-          _ErrorBanner(
-            message: downloadFailureText(
-              l10n,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+            child: WpModelDownloadErrorNotice(
               message: downloadState.errorMessage,
               kind: downloadState.errorKind,
-            ),
-            l10n: l10n,
-            onRetry: () => unawaited(
-              ref
-                  .read(modelDownloadProvider.notifier)
-                  .retry(fallbackModelId: widget.currentModelId),
+              folder: sttDir,
+              testIdPrefix: 'settings-stt',
+              onRetry: () => unawaited(
+                ref
+                    .read(modelDownloadProvider.notifier)
+                    .retry(fallbackModelId: widget.currentModelId),
+              ),
             ),
           ),
         ],
@@ -960,67 +961,6 @@ class _ActionChip extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Error banner
-// ---------------------------------------------------------------------------
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message, required this.l10n, this.onRetry});
-
-  final String message;
-  final L10n l10n;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final errorColor = WpColors.error;
-
-    return Semantics(
-      container: true,
-      identifier: 'settings-stt-download-error',
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
-        padding: const EdgeInsets.all(WpSpacing.sm),
-        decoration: BoxDecoration(
-          color: WpColors.errorButtonFill,
-          borderRadius: BorderRadius.circular(WpRadius.sm),
-          border: Border.all(color: WpColors.errorBorder20),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              LucideIcons.triangleAlert,
-              size: WpIconSize.xs,
-              color: errorColor,
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                message,
-                style: TextStyle(
-                  fontSize: WpTypography.small,
-                  color: errorColor,
-                ),
-              ),
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(width: WpSpacing.xs),
-              WpButton(
-                label: l10n.actionRetry,
-                variant: WpButtonVariant.ghost,
-                tone: WpButtonTone.danger,
-                size: WpButtonSize.dense,
-                testId: 'settings-stt-download-retry',
-                onPressed: onRetry,
-              ),
-            ],
-          ],
         ),
       ),
     );

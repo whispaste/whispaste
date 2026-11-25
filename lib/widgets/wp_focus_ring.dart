@@ -42,6 +42,11 @@
 /// [ringColor] with a colour that contrasts against *both* its own fill and
 /// the page behind it (see `WpButton`). It stays an explicit opt-in: changing
 /// the default would repaint the ten-odd correct callers to fix one.
+///
+/// Controls on the window frame (title bar, sidebar) pass
+/// `WpColors.frame.accent`: in Marine the frame is navy while the default
+/// accent is the petrol of the light content area, which stays below 3:1
+/// against the frame (#1845).
 library;
 
 import 'package:flutter/material.dart';

@@ -29,15 +29,22 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
+import '../../core/config/model_sampling.dart';
 import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/models/bundled_model_catalog.dart';
 import '../../core/utils/windows_dll_search_path.dart';
 import '../hardware_info_service.dart' as hw;
 import '../path_service.dart';
 import '../stt/idle_unload_policy.dart';
 import '../stt/isolate_shutdown_helper.dart';
 import '../stt/stt_idle_timer.dart';
+import '../user_models/user_model_guards.dart'
+    show UserModelGuardedSmartModeEngine;
+import '../user_models/user_model_use.dart'
+    show ownSmartModelPathFor, userModelUseProvider;
+import '../user_models/user_models_provider.dart' show userModelStoreProvider;
 import 'smart_mode_engine.dart';
 import 'smart_mode_openai_engine.dart';
 
@@ -75,6 +82,34 @@ typedef _SmartModeGenerateDart =
       int topK,
       ffi.Pointer<ffi.Int32> abortFlag,
     );
+
+/// Mirrors `smart_mode_sampling` in smart_mode_shim.h (field order fixed).
+final class _SamplingStruct extends ffi.Struct {
+  @ffi.Float()
+  external double temperature;
+  @ffi.Float()
+  external double topP;
+  @ffi.Int32()
+  external int topK;
+  @ffi.Float()
+  external double minP;
+  @ffi.Float()
+  external double penaltyRepeat;
+  @ffi.Int32()
+  external int penaltyLastN;
+  @ffi.Float()
+  external double penaltyPresent;
+}
+
+typedef _SmartModeGenerateSampledNative =
+    ffi.Pointer<Utf8> Function(
+      ffi.Pointer<ffi.Void> session,
+      ffi.Pointer<Utf8> systemPrompt,
+      ffi.Pointer<Utf8> userText,
+      ffi.Pointer<_SamplingStruct> sampling,
+      ffi.Pointer<ffi.Int32> abortFlag,
+    );
+typedef _SmartModeGenerateSampledDart = _SmartModeGenerateSampledNative;
 typedef _SmartModeUnloadNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 typedef _SmartModeUnloadDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _SmartModeFreeResultNative =
@@ -93,11 +128,10 @@ String? smartModeModelDirOverride;
 /// [sttDir], not reusing it, since Smart-Mode-v2 models are a distinct asset
 /// class (chat/instruct GGUF, not Whisper encoder-decoder GGML) with their
 /// own licensing/attribution surface (Apache 2.0).
-String smartModeModelPath({String filename = 'gemma-4-E2B-it-Q4_K_M.gguf'}) =>
-    p.join(
-      smartModeModelDirOverride ?? p.join(appDataDir(), 'models', 'smart_mode'),
-      filename,
-    );
+String smartModeModelPath({String? filename}) => p.join(
+  smartModeModelDirOverride ?? p.join(appDataDir(), 'models', 'smart_mode'),
+  filename ?? bundledModelCatalog.byId(CatalogIds.gemma4E2b).filename,
+);
 
 /// Absolute path to the bundled `libsmartmode_shim` shared library, resolved
 /// relative to [Platform.resolvedExecutable] exactly like
@@ -228,6 +262,7 @@ abstract class SmartModeNative {
     required String systemPrompt,
     required String userText,
     required ffi.Pointer<ffi.Int32> abortFlag,
+    SmartModeSampling sampling = SmartModeSampling.whispaste,
   });
 
   /// Frees the loaded model. No-op when nothing is loaded.
@@ -266,6 +301,10 @@ class _ShimNative implements SmartModeNative {
   _SmartModeUnloadDart? _unload;
   _SmartModeFreeResultDart? _freeResult;
 
+  /// Optional: missing from a shim built before #2204; then only
+  /// temperature, top_p and top_k reach the model.
+  _SmartModeGenerateSampledDart? _generateSampled;
+
   /// Optional: missing from a shim built before the truncation flag existed,
   /// in which case output is trusted as complete (the old behaviour).
   _SmartModeLastIncompleteDart? _lastIncomplete;
@@ -295,6 +334,13 @@ class _ShimNative implements SmartModeNative {
     _load = dylib.lookupFunction<_SmartModeLoadNative, _SmartModeLoadDart>(
       'smart_mode_load',
     );
+    if (dylib.providesSymbol('smart_mode_generate_sampled')) {
+      _generateSampled = dylib
+          .lookupFunction<
+            _SmartModeGenerateSampledNative,
+            _SmartModeGenerateSampledDart
+          >('smart_mode_generate_sampled');
+    }
     if (dylib.providesSymbol('smart_mode_last_output_incomplete')) {
       _lastIncomplete = dylib
           .lookupFunction<
@@ -310,7 +356,7 @@ class _ShimNative implements SmartModeNative {
     if (_session != ffi.nullptr) return;
     final modelPathC = modelPath.toNativeUtf8();
     try {
-      _session = _load!(modelPathC, 2048, gpuLayers);
+      _session = _load!(modelPathC, kSmartModeContextLength, gpuLayers);
     } finally {
       malloc.free(modelPathC);
     }
@@ -324,24 +370,36 @@ class _ShimNative implements SmartModeNative {
     required String systemPrompt,
     required String userText,
     required ffi.Pointer<ffi.Int32> abortFlag,
+    SmartModeSampling sampling = SmartModeSampling.whispaste,
   }) {
     if (_session == ffi.nullptr) throw StateError('smart_mode_not_loaded');
     final systemPromptC = systemPrompt.toNativeUtf8();
     final userTextC = userText.toNativeUtf8();
+    final samplingC = calloc<_SamplingStruct>();
     try {
-      // Config validated in the spike test (spike-test-results.md):
-      // temperature 0.3 / top_p 0.95 / top_k 64, `enable_thinking: false`
-      // (baked into the shim itself, not a parameter here — see
-      // smart_mode_shim.cpp).
-      final resultPtr = _generate!(
-        _session,
-        systemPromptC,
-        userTextC,
-        0.3,
-        0.95,
-        64,
-        abortFlag,
-      );
+      // The model's values (#2204); WhisPaste's default is the spike-test
+      // config temperature 0.3 / top_p 0.95 / top_k 64. `enable_thinking:
+      // false` stays baked into the shim (smart_mode_shim.cpp).
+      samplingC.ref
+        ..temperature = sampling.temperature
+        ..topP = sampling.topP
+        ..topK = sampling.topK
+        ..minP = sampling.minP
+        ..penaltyRepeat = sampling.repeatPenalty
+        ..penaltyLastN = SmartModeSampling.penaltyLastN
+        ..penaltyPresent = 0;
+      final sampled = _generateSampled;
+      final resultPtr = sampled != null
+          ? sampled(_session, systemPromptC, userTextC, samplingC, abortFlag)
+          : _generate!(
+              _session,
+              systemPromptC,
+              userTextC,
+              sampling.temperature,
+              sampling.topP,
+              sampling.topK,
+              abortFlag,
+            );
       if (resultPtr == ffi.nullptr) {
         throw StateError('smart_mode_run_failed');
       }
@@ -357,6 +415,7 @@ class _ShimNative implements SmartModeNative {
     } finally {
       malloc.free(systemPromptC);
       malloc.free(userTextC);
+      calloc.free(samplingC);
     }
   }
 
@@ -390,8 +449,12 @@ class _RunRequest {
     required this.systemPrompt,
     required this.userText,
     required this.abortFlagAddress,
+    this.sampling = SmartModeSampling.whispaste,
   });
   final int requestId;
+
+  /// Sampling values of the model ([effectiveSampling]).
+  final SmartModeSampling sampling;
   final String modelPath;
 
   /// Requested GPU offload (see [smartModeGpuLayersFor]). The worker may run
@@ -527,6 +590,7 @@ Future<void> _smartModeIsolateMain(_WorkerInit init) async {
         systemPrompt: req.systemPrompt,
         userText: req.userText,
         abortFlag: abortFlag,
+        sampling: req.sampling,
       );
     } catch (e) {
       error = '$e';
@@ -579,7 +643,9 @@ class SmartModeFfiEngine implements SmartModeEngine {
     SttIdleTimer? idleTimer,
     Future<int?> Function()? detectRamMB,
     int Function()? gpuLayers,
-  }) : _modelPath = modelPath ?? smartModeModelPath(),
+    SmartModeSampling Function()? sampling,
+  }) : _sampling = sampling ?? (() => SmartModeSampling.whispaste),
+       _modelPath = modelPath ?? smartModeModelPath(),
        _nativeFactory =
            nativeFactory ??
            _shimFactory(libraryPath ?? defaultSmartModeLibraryPath()),
@@ -596,6 +662,10 @@ class SmartModeFfiEngine implements SmartModeEngine {
   /// Read at each [run], so a changed "Grafikbeschleunigung" setting applies
   /// to the next load without rebuilding this long-lived engine.
   final int Function() _gpuLayers;
+
+  /// Read at each [run], so a changed per-model setting applies to the next
+  /// dictation without reloading the model.
+  final SmartModeSampling Function() _sampling;
 
   Isolate? _isolate;
   SendPort? _workerPort;
@@ -659,6 +729,7 @@ class SmartModeFfiEngine implements SmartModeEngine {
         systemPrompt: systemPrompt,
         userText: userText,
         abortFlagAddress: abortFlag.address,
+        sampling: _sampling(),
       ),
     );
 
@@ -866,29 +937,75 @@ final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
   );
   switch (providerType) {
     case SmartModeProviderType.local:
-      final engine = SmartModeFfiEngine(
-        idleTimeout: () {
-          final minutes =
-              (ref.read(settingsProvider).value ?? AppSettings.defaults)
-                  .stt
-                  .idleTimeoutMinutes;
-          return Duration(
-            minutes: minutes == kSttIdleAutomatic
-                ? kSttIdleFallbackMinutes
-                : minutes,
-          );
-        },
-        gpuLayers: () => smartModeGpuLayersFor(
-          (ref.read(settingsProvider).value ?? AppSettings.defaults)
-              .behavior
-              .gpuAcceleration,
-        ),
+      // An own GGUF model (#1789) runs behind a guard that hands a failed
+      // instruction to the bundled model and takes the own one out of use.
+      final localModel = ref.watch(
+        settingsProvider.select((s) => s.value?.smartMode.localModel ?? ''),
       );
-      ref.onDispose(engine.shutdown);
-      return engine;
+      final ownPath = ownSmartModelPathFor(
+        localModel,
+        ref.read(userModelStoreProvider),
+      );
+      final engine = _localSmartModeEngine(
+        ref,
+        samplingId: kCatalogTextModelSamplingId,
+      );
+      if (ownPath == null) return engine;
+      final own = _localSmartModeEngine(
+        ref,
+        modelPath: ownPath,
+        samplingId: localModel,
+      );
+      return UserModelGuardedSmartModeEngine(
+        modelId: localModel,
+        inner: own,
+        host: ref.read(userModelUseProvider),
+        fallback: () => engine,
+      );
     case SmartModeProviderType.openAI:
       return SmartModeOpenAiEngine(ref: ref);
     case SmartModeProviderType.custom:
       return SmartModeOpenAiEngine.customEndpoint(ref: ref);
   }
 });
+
+/// The local engine for the bundled model, or for [modelPath]. Shut down
+/// with the provider.
+SmartModeFfiEngine _localSmartModeEngine(
+  Ref ref, {
+  required String samplingId,
+  String? modelPath,
+}) {
+  final path = modelPath ?? smartModeModelPath();
+  final engine = SmartModeFfiEngine(
+    modelPath: modelPath,
+    sampling: () {
+      final choice = (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .smartMode
+          .modelSampling[samplingId];
+      // The file header is only read when the choice needs the vendor values.
+      if ((choice?.preset ?? SamplingPreset.whispaste) ==
+          SamplingPreset.whispaste) {
+        return SmartModeSampling.whispaste;
+      }
+      return effectiveSampling(choice, cachedGgufSampling(path));
+    },
+    idleTimeout: () {
+      final minutes = (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .stt
+          .idleTimeoutMinutes;
+      return Duration(
+        minutes: minutes == kSttIdleAutomatic
+            ? kSttIdleFallbackMinutes
+            : minutes,
+      );
+    },
+    gpuLayers: () => smartModeGpuLayersFor(
+      (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .behavior
+          .gpuAcceleration,
+    ),
+  );
+  ref.onDispose(engine.shutdown);
+  return engine;
+}

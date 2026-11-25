@@ -13,6 +13,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/accessibility/announce.dart';
@@ -24,6 +25,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/wp_page_notice.dart';
 import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_text_field.dart';
 import 'overlay_notice.dart';
 import 'overlay_notice_rules.dart' show noticeFitsState;
 
@@ -60,6 +62,69 @@ class DictationNoticeAction {
   final String? confirmation;
 }
 
+/// An editable text on a [DictationNotice] (#254, the write preview's edit
+/// field). The card shows [text] with a toggle until [open]; then a
+/// multi-line field holds it, with the [insertHint] line under it. Enter in
+/// the field submits, Shift+Enter breaks the line, Esc cancels (D21).
+@immutable
+class DictationNoticeEdit {
+  const DictationNoticeEdit({
+    required this.key,
+    required this.text,
+    required this.open,
+    required this.toggleLabel,
+    required this.fieldLabel,
+    required this.insertHint,
+    required this.onOpen,
+    required this.onChanged,
+    required this.onFocus,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  /// Changes when the text is replaced from outside (a new version); the
+  /// field keeps its caret while the key stays.
+  final int key;
+  final String text;
+  final bool open;
+  final String toggleLabel;
+
+  /// The field's name for assistive technology.
+  final String fieldLabel;
+  final String insertHint;
+  final VoidCallback onOpen;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<bool> onFocus;
+  final ValueChanged<String> onSubmit;
+  final VoidCallback onCancel;
+
+  /// The wire form for the overlay card.
+  OverlayNoticeEdit toOverlay() => OverlayNoticeEdit(
+    key: key,
+    text: text,
+    open: open,
+    toggleLabel: toggleLabel,
+    fieldLabel: fieldLabel,
+    insertHint: insertHint,
+  );
+
+  /// Runs [event] from the card on this edit.
+  void handle(OverlayNoticeEditEvent event) {
+    switch (event.kind) {
+      case OverlayNoticeEditKind.open:
+        onOpen();
+      case OverlayNoticeEditKind.text:
+        onChanged(event.text ?? text);
+      case OverlayNoticeEditKind.focus:
+        onFocus(event.focused ?? false);
+      case OverlayNoticeEditKind.submit:
+        onSubmit(event.text ?? text);
+      case OverlayNoticeEditKind.cancel:
+        onCancel();
+    }
+  }
+}
+
 /// A message for the overlay card: [cause] is the headline, [nextStep] the
 /// optional second sentence. At most two [actions] fit on the card.
 @immutable
@@ -69,12 +134,15 @@ class DictationNotice {
     required this.cause,
     this.nextStep = '',
     this.detail = '',
+    this.notes = const [],
     this.tone = OverlayNoticeTone.hint,
     this.actions = const [],
     this.autoDismiss,
     this.offersNewDictation = true,
     this.firstActionOnEnter = false,
+    this.managesOwnKeys = false,
     this.onDismiss,
+    this.edit,
   }) : assert(actions.length <= 2, 'The card has room for two buttons');
 
   /// Stable name of the situation, for logs and tests.
@@ -86,6 +154,12 @@ class DictationNotice {
   /// suggested for a silent microphone, #613). It shows whole, with a line
   /// break, and is read out on its own when it is the only thing that is new.
   final String detail;
+
+  /// Quiet hint lines under the body, each with its own testID (#251: the
+  /// local model's quality hint, #250: the refine hint of the write
+  /// preview). They are not part of [message], so they are not read out as
+  /// the news.
+  final List<OverlayNoticeNote> notes;
   final OverlayNoticeTone tone;
   final List<DictationNoticeAction> actions;
 
@@ -104,10 +178,16 @@ class DictationNotice {
   /// with Enter like an input field; Esc still closes it.
   final bool firstActionOnEnter;
 
+  /// Session registered its keys before showing and owns action dismissal.
+  final bool managesOwnKeys;
+
   /// Runs when the user closes the card with its close button or the cancel
   /// key, not when a button, a new recording or another card replaces it.
   /// The AI preview (#589) discards its proposal here.
   final VoidCallback? onDismiss;
+
+  /// An editable [detail] (#254); null for a card without a field.
+  final DictationNoticeEdit? edit;
 
   /// The time after which the card closes itself, null when it stays until
   /// it is closed: errors and cards that offer a button never time out.
@@ -121,7 +201,11 @@ class DictationNotice {
   String get message => nextStep.isEmpty ? cause : '$cause $nextStep';
 
   /// The card or banner body: the second sentence and the [detail] line.
-  String get body => [nextStep, detail].where((t) => t.isNotEmpty).join('\n');
+  /// An open edit field holds the detail itself.
+  String get body => [
+    nextStep,
+    if (edit?.open != true) detail,
+  ].where((t) => t.isNotEmpty).join('\n');
 }
 
 /// What a screen reader should hear when [notice] replaces the one that is
@@ -301,9 +385,12 @@ WpPageNotice dictationBannerFor(
 }) {
   return WpPageNotice(
     id: _bannerNoticeId(notice.id),
-    message: notice.detail.isEmpty
-        ? notice.message
-        : '${notice.message}\n${notice.detail}',
+    message: [
+      notice.message,
+      // An open edit field holds the detail itself (#254).
+      if (notice.edit?.open != true) notice.detail,
+      for (final n in notice.notes) n.text,
+    ].where((t) => t.isNotEmpty).join('\n'),
     tone: notice.tone == OverlayNoticeTone.error
         ? WpBannerTone.error
         : WpBannerTone.info,
@@ -312,39 +399,169 @@ WpPageNotice dictationBannerFor(
         ? null
         // A Wrap, not a Row: at a large system text size the two buttons break
         // onto a second line instead of overflowing (#828).
-        : (context) => Wrap(
-            alignment: WrapAlignment.end,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: WpSpacing.xs,
-            runSpacing: WpSpacing.xs,
-            children: [
-              for (final (i, a) in notice.actions.indexed) ...[
-                // Same hierarchy as the card: first filled, second outlined.
-                WpButton(
-                  testId: 'dictation-notice-action-${a.id}',
-                  label: a.label,
-                  variant: i == 0
-                      ? WpButtonVariant.primary
-                      : WpButtonVariant.secondary,
-                  onPressed: () {
-                    a.onPressed();
-                    dismiss();
-                    final confirmation = a.confirmation;
-                    if (confirmation != null && showNotice != null) {
-                      showNotice(
-                        WpPageNotice(
-                          id: _bannerNoticeId('${notice.id}-confirmation'),
-                          message: confirmation,
-                          tone: WpBannerTone.info,
-                          autoDismiss: kDictationHintTime,
-                        ),
-                      );
-                    }
-                  },
-                ),
+        : (context) => _withBannerEdit(
+            notice.edit,
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: WpSpacing.xs,
+              runSpacing: WpSpacing.xs,
+              children: [
+                if (notice.edit case final edit? when !edit.open)
+                  WpButton(
+                    testId: kNoticeEditToggleId,
+                    label: edit.toggleLabel,
+                    variant: WpButtonVariant.ghost,
+                    onPressed: edit.onOpen,
+                  ),
+                for (final (i, a) in notice.actions.indexed) ...[
+                  // Same hierarchy as the card: first filled, second outlined.
+                  WpButton(
+                    testId: 'dictation-notice-action-${a.id}',
+                    label: a.label,
+                    variant: i == 0
+                        ? WpButtonVariant.primary
+                        : WpButtonVariant.secondary,
+                    onPressed: () {
+                      a.onPressed();
+                      if (!notice.managesOwnKeys) dismiss();
+                      final confirmation = a.confirmation;
+                      if (confirmation != null && showNotice != null) {
+                        showNotice(
+                          WpPageNotice(
+                            id: _bannerNoticeId('${notice.id}-confirmation'),
+                            message: confirmation,
+                            tone: WpBannerTone.info,
+                            autoDismiss: kDictationHintTime,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
+  );
+}
+
+/// The banner's buttons [buttons] with the open edit field of [edit] above
+/// them (#254): the main window stands in for the overlay card while the
+/// overlay is off, with the same keys (D21).
+Widget _withBannerEdit(DictationNoticeEdit? edit, Widget buttons) {
+  if (edit == null || !edit.open) return buttons;
+  return SizedBox(
+    width: 420,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DictationNoticeEditField(key: ValueKey(edit.key), edit: edit),
+        const SizedBox(height: WpSpacing.xs),
+        Align(alignment: AlignmentDirectional.centerEnd, child: buttons),
+      ],
+    ),
+  );
+}
+
+/// The edit field of a notice in the main window (#254, D21): Enter submits
+/// the text as it stands, Shift+Enter breaks the line, Esc cancels. The
+/// hint line under it names the keys (R25).
+class DictationNoticeEditField extends StatefulWidget {
+  const DictationNoticeEditField({super.key, required this.edit});
+
+  final DictationNoticeEdit edit;
+
+  @override
+  State<DictationNoticeEditField> createState() =>
+      _DictationNoticeEditFieldState();
+}
+
+class _DictationNoticeEditFieldState extends State<DictationNoticeEditField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.edit.text,
+  );
+  late final FocusNode _focus = FocusNode(
+    debugLabel: kNoticeEditFieldId,
+    onKeyEvent: _onKey,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocus);
+  }
+
+  @override
+  void dispose() {
+    _focus
+      ..removeListener(_onFocus)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() => widget.edit.onFocus(_focus.hasFocus);
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      if (event is KeyDownEvent) widget.edit.onCancel();
+      return KeyEventResult.handled;
+    }
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      final value = _controller.value;
+      final selection = value.selection.isValid
+          ? value.selection
+          : TextSelection.collapsed(offset: value.text.length);
+      final text = value.text.replaceRange(
+        selection.start,
+        selection.end,
+        '\n',
+      );
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: selection.start + 1),
+      );
+      widget.edit.onChanged(text);
+    } else if (event is KeyDownEvent) {
+      widget.edit.onSubmit(_controller.text);
+    }
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      WpTextField(
+        controller: _controller,
+        focusNode: _focus,
+        variant: WpTextFieldVariant.passage,
+        testId: kNoticeEditFieldId,
+        semanticsLabel: widget.edit.fieldLabel,
+        autofocus: true,
+        minLines: 3,
+        maxLines: kNoticeEditFieldLines,
+        keyboardType: TextInputType.multiline,
+        onChanged: widget.edit.onChanged,
+      ),
+      const SizedBox(height: WpSpacing.xxs),
+      Semantics(
+        identifier: kNoticeEditInsertHintId,
+        child: Text(
+          widget.edit.insertHint,
+          key: const ValueKey(kNoticeEditInsertHintId),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+    ],
   );
 }
 
@@ -363,6 +580,8 @@ OverlayNotice overlayNoticeFor(
     tone: notice.tone,
     title: notice.cause,
     body: notice.body,
+    notes: notice.notes,
+    edit: notice.edit?.toOverlay(),
     actions: [
       for (final (i, a) in notice.actions.indexed)
         OverlayNoticeAction(
@@ -373,6 +592,8 @@ OverlayNotice overlayNoticeFor(
               ? null
               : i == 0
               ? actionKey
+              : notice.managesOwnKeys
+              ? 'Esc'
               : '2× $actionKey',
           primary: i == 0,
         ),

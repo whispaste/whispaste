@@ -6,6 +6,8 @@
 #include <cstring>
 #include <limits>
 
+#include "overlay_edit_focus.h"
+
 namespace {
 
 // Geometrically nearest monitor to (x, y) by distance to its rect. Mirrors
@@ -41,6 +43,25 @@ GdkMonitor* PrimaryOrNearestMonitor(GdkDisplay* display, int x, int y) {
   GdkMonitor* primary = gdk_display_get_primary_monitor(display);
   if (primary) return primary;
   return NearestMonitorToPoint(display, x, y);
+}
+
+// Whether the snapshot shows a notice card whose edit field is open (#254):
+// snapshot["notice"]["edit"]["open"].
+bool SnapshotEditOpen(FlValue* args) {
+  if (args == nullptr || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
+    return false;
+  }
+  FlValue* notice = fl_value_lookup_string(args, "notice");
+  if (notice == nullptr || fl_value_get_type(notice) != FL_VALUE_TYPE_MAP) {
+    return false;
+  }
+  FlValue* edit = fl_value_lookup_string(notice, "edit");
+  if (edit == nullptr || fl_value_get_type(edit) != FL_VALUE_TYPE_MAP) {
+    return false;
+  }
+  FlValue* open = fl_value_lookup_string(edit, "open");
+  return open != nullptr && fl_value_get_type(open) == FL_VALUE_TYPE_BOOL &&
+         fl_value_get_bool(open);
 }
 
 }  // namespace
@@ -149,12 +170,28 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
       }
     }
 
-    bool size_changed = (size_class != size_class_);
+    // Measure the old window before the notice height changes with it.
+    const int old_w = OverlayLogicalW(size_class_);
+    const int old_h = OverlayLogicalH(size_class_);
+    const int old_notice_h = OverlayNoticeH();
+    int notice_h = kOverlayNoticeMinH;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* h_val = fl_value_lookup_string(args, "noticeHeight");
+      if (h_val && fl_value_get_type(h_val) == FL_VALUE_TYPE_FLOAT) {
+        notice_h = static_cast<int>(fl_value_get_float(h_val) + 0.5);
+      } else if (h_val && fl_value_get_type(h_val) == FL_VALUE_TYPE_INT) {
+        notice_h = static_cast<int>(fl_value_get_int(h_val));
+      }
+    }
+    OverlayNoticeH() = notice_h > 0 ? notice_h : kOverlayNoticeMinH;
+    bool size_changed =
+        (size_class != size_class_) ||
+        (size_class == "notice" && OverlayNoticeH() != old_notice_h);
     // Content and window must never disagree (#1193): a shrinking shell
     // relays the new snapshot first and resizes after it, a growing shell
     // resizes first (same order as macOS handleUpdateSnapshot).
-    bool shrinking = OverlayLogicalW(size_class) < OverlayLogicalW(size_class_) ||
-                     OverlayLogicalH(size_class) < OverlayLogicalH(size_class_);
+    bool shrinking = OverlayLogicalW(size_class) < old_w ||
+                     OverlayLogicalH(size_class) < old_h;
     size_class_ = size_class;
 
     bool resize_existing = false;
@@ -174,11 +211,18 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
     }
     if (resize_existing && shrinking) ResizeOverlayWindow();
 
-    // Show or hide the native shell.
+    // Show or hide the native shell. The write preview's open edit field
+    // (#254) makes it focusable for as long as the field is open; it gives
+    // the focus back before it hides.
     if (overlay_window_) {
+      const bool edit_focus =
+          OverlayWantsEditFocus(overlay_window_->EditFocusSupported(), visible,
+                                SnapshotEditOpen(args));
       if (visible) {
         overlay_window_->Show();
+        overlay_window_->SetEditFocus(edit_focus);
       } else {
+        overlay_window_->SetEditFocus(false);
         overlay_window_->Hide();
       }
     }
@@ -230,6 +274,23 @@ void FloatingOverlayHost::HandleMethodCall(FlMethodCall* method_call) {
     // args: {items:[...tree...], appearance} (#393, native_context_menu.h)
     context_menu_ = ParseNativeMenu(args);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "setCaptureExcluded") == 0) {
+    // ── setCaptureExcluded ────────────────────────────────────────────────
+    // Overlay F (#194): Linux cannot keep a window out of captures (X11 has
+    // no such property, Wayland leaves it to each compositor). Answers false
+    // so the call never fails; Settings does not offer the switch here.
+    g_autoptr(FlValue) applied = fl_value_new_bool(FALSE);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(applied));
+
+  } else if (strcmp(method, "editFocusSupport") == 0) {
+    // ── editFocusSupport ──────────────────────────────────────────────────
+    // Whether the write preview may offer its edit field (#254): the overlay
+    // can take the keyboard focus and the paste host can confirm its return.
+    // Asked before the first overlay exists, so it answers for the session.
+    g_autoptr(FlValue) supported =
+        fl_value_new_bool(FloatingOverlayWindow::SessionSupportsEditFocus());
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(supported));
 
   } else if (strcmp(method, "rebootRenderEngine") == 0) {
     // ── rebootRenderEngine ────────────────────────────────────────────────

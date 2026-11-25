@@ -51,6 +51,12 @@ int parakeetDownloadBytes({required bool gpuWanted}) =>
 String parakeetDownloadSizeLabel({required bool gpuWanted}) =>
     formatModelSizeLabel(parakeetDownloadBytes(gpuWanted: gpuWanted));
 
+/// Whole-download percentage, held at 99 until the last file is verified
+/// (the same ceiling as a single file's progress).
+@visibleForTesting
+int bundleProgressPercent(int bytes, int total) =>
+    total > 0 ? (bytes * 100 ~/ total).clamp(0, 99) : 0;
+
 /// Progress/phase state for the Parakeet bundle download — deliberately the
 /// same shape as `DownloadPhase`/`ModelDownloadState` in
 /// `model_download_service.dart` so the UI layer can treat both uniformly.
@@ -117,6 +123,10 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
   // One fetcher per notifier: cancel and dispose must reach the one that is
   // downloading (UIA-RT-05).
   late final HttpModelFetcher _fetcher = fetcherOverride ?? HttpModelFetcher();
+
+  /// Number of the source the last download tried last (1-based), for the
+  /// usage statistics (#1791); `null` when no source was reached.
+  int? get lastSourceNumber => _fetcher.lastSourceNumber;
 
   Future<void>? _orphanSweep;
 
@@ -188,24 +198,35 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       return;
     }
 
+    // Progress counts against the whole download, the size the download
+    // button names (parakeetDownloadBytes); per file, the label showed a
+    // smaller total that restarted with every file (#1845).
+    final ggufBytes = _gpuWanted() ? parakeetGgufActive.sizeBytes : 0;
+    final total = files.fold(0, (sum, f) => sum + f.sizeBytes) + ggufBytes;
+    var done = 0;
     state = state.copyWith(
       phase: ParakeetDownloadPhase.downloading,
       currentFileIndex: 0,
       progressPercent: 0,
+      bytesDownloaded: 0,
+      totalBytes: total,
       errorMessage: null,
     );
     for (var i = 0; i < files.length; i++) {
       final file = files[i];
       final destPath = parakeetModelFilePath(file.filename);
 
-      if (_bundleFileComplete(file)) continue; // Downloaded, size matches.
+      if (_bundleFileComplete(file)) {
+        done += file.sizeBytes; // Downloaded, size matches.
+        continue;
+      }
       _log.info('Downloading ${file.filename} (${file.sizeBytes} B)');
 
       state = state.copyWith(
         currentFileIndex: i,
-        progressPercent: 0,
-        bytesDownloaded: 0,
-        totalBytes: file.sizeBytes,
+        progressPercent: bundleProgressPercent(done, total),
+        bytesDownloaded: done,
+        totalBytes: total,
       );
 
       try {
@@ -216,15 +237,13 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
           destPath: destPath,
           expectedSize: file.sizeBytes,
           expectedSha256: file.sha256,
-          onProgress: (prog) => state = state.copyWith(
-            progressPercent: prog.progressPercent,
-            bytesDownloaded: prog.bytesReceived,
-            totalBytes: prog.totalBytes,
-          ),
+          onProgress: (prog) =>
+              _reportBundleProgress(done + prog.bytesReceived, total),
           onVerifying: () =>
               state = state.copyWith(phase: ParakeetDownloadPhase.verifying),
         );
         state = state.copyWith(phase: ParakeetDownloadPhase.downloading);
+        done += file.sizeBytes;
       } on DownloadChecksumException {
         _log.warning(
           'SHA-256 check failed for ${file.filename} on every source — '
@@ -246,9 +265,7 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
         final tls = isTlsDownloadFailure(e);
         // A connection the fetcher could not resume is the user's network,
         // not a defect — the partial file stays and a retry resumes it.
-        final log = tls || e.type == DioExceptionType.connectionError
-            ? _log.warning
-            : _log.error;
+        final log = isConnectionDownloadFailure(e) ? _log.warning : _log.error;
         log('Download failed for ${file.filename}: $description');
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
@@ -261,7 +278,8 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       } on Exception catch (e) {
         // The UI starts downloads fire-and-forget, so anything rethrown here
         // would be an unhandled error and leave the UI stuck "downloading".
-        _log.error('Download failed for ${file.filename}: $e');
+        final log = isConnectionDownloadFailure(e) ? _log.warning : _log.error;
+        log('Download failed for ${file.filename}: $e');
         state = state.copyWith(
           phase: ParakeetDownloadPhase.error,
           errorMessage: 'Download failed: $e',
@@ -273,7 +291,12 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
 
     // GPU engine model: fetched only where the GPU backend is wanted.
     if (_gpuWanted() && !_ggufPresent()) {
-      if (!await _downloadGguf(slot: files.length)) return;
+      final ok = await _downloadGguf(
+        slot: files.length,
+        done: done,
+        total: total,
+      );
+      if (!ok) return;
     }
 
     state = state.copyWith(
@@ -290,6 +313,12 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       _orphanSweep = sweepOrphanedTmpFiles(directory: parakeetModelDir()),
     );
   }
+
+  void _reportBundleProgress(int bytes, int total) => state = state.copyWith(
+    progressPercent: bundleProgressPercent(bytes, total),
+    bytesDownloaded: bytes,
+    totalBytes: total,
+  );
 
   /// Takes over bundle files a user copied into a folder named after the
   /// download page (`…-int8`, see [parakeetMisplacedDirNames]) instead of
@@ -319,24 +348,28 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
   /// the download was cancelled or failed; [state] then carries the outcome.
   /// The SHA-256 check runs right after download, so a corrupt file is caught
   /// here and not on the first dictation.
-  Future<bool> _downloadGguf({required int slot}) async {
+  ///
+  /// [done] and [total] place it in the whole download, so the progress
+  /// label keeps counting on from the bundle files.
+  Future<bool> _downloadGguf({
+    required int slot,
+    required int done,
+    required int total,
+  }) async {
     final gguf = parakeetGgufActive;
     state = state.copyWith(
       phase: ParakeetDownloadPhase.downloading,
       currentFileIndex: slot,
-      progressPercent: 0,
-      bytesDownloaded: 0,
-      totalBytes: gguf.sizeBytes,
+      progressPercent: bundleProgressPercent(done, total),
+      bytesDownloaded: done,
+      totalBytes: total,
     );
     try {
       await downloadParakeetGguf(
         fetcher: _fetcher,
         file: gguf,
-        onProgress: (prog) => state = state.copyWith(
-          progressPercent: prog.progressPercent,
-          bytesDownloaded: prog.bytesReceived,
-          totalBytes: prog.totalBytes,
-        ),
+        onProgress: (prog) =>
+            _reportBundleProgress(done + prog.bytesReceived, total),
         onVerifying: () =>
             state = state.copyWith(phase: ParakeetDownloadPhase.verifying),
       );
@@ -364,7 +397,8 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       );
       return false;
     } on Exception catch (e) {
-      _log.error('GGUF download failed: $e');
+      final log = isConnectionDownloadFailure(e) ? _log.warning : _log.error;
+      log('GGUF download failed: $e');
       state = state.copyWith(
         phase: ParakeetDownloadPhase.error,
         errorMessage: 'Download failed: $e',

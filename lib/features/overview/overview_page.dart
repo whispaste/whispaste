@@ -18,6 +18,8 @@ import 'overview_figures.dart';
 import 'overview_header.dart';
 import 'overview_hint_place.dart';
 import 'overview_last_dictation.dart';
+import 'overview_movable_card.dart'
+    show OverviewColumnDrop, OverviewMovableCard, overviewDragActiveProvider;
 import 'overview_news.dart';
 import 'overview_notes.dart';
 import 'overview_storage.dart';
@@ -37,6 +39,8 @@ import 'overview_recent.dart';
 /// [WpLayout.breakpointOverviewTwoColumn] it is one column with the figures as
 /// a strip above the recordings; from there on the figures move into a side
 /// column so the rows of the main column keep their actions near their text.
+/// The cards follow the order the user gave them by dragging or with the
+/// arrow keys ([OverviewMovableCard], #1970), also across the two columns.
 class OverviewPage extends ConsumerStatefulWidget {
   const OverviewPage({super.key});
 
@@ -76,20 +80,18 @@ class _OverviewPageState extends ConsumerState<OverviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final (hidden, shown) = ref.watch(
-      overviewPrefsProvider.select((p) => (p.hiddenBlocks, p.shownBlocks)),
+    final layout = ref.watch(
+      overviewPrefsProvider.select(
+        (p) => (p.hiddenBlocks, p.shownBlocks, p.blockOrder, p.sideBlocks),
+      ),
     );
-    bool isShown(OverviewBlock block) =>
-        overviewBlockShown(block, hidden: hidden, shown: shown);
-    final showFigures = isShown(OverviewBlock.figures);
-    final showRecent = isShown(OverviewBlock.recent);
-    final showNotes = isShown(OverviewBlock.notes);
-    final showDictation = isShown(OverviewBlock.dictation);
-    final showStorage = isShown(OverviewBlock.storage);
-    final showSystem = isShown(OverviewBlock.system);
-    final showNews = isShown(OverviewBlock.news);
-    final showWeather = isShown(OverviewBlock.weather);
-    final showCommunity = isShown(OverviewBlock.community);
+    final (hidden, shown, order, sideSet) = layout;
+    final dragging = ref.watch(overviewDragActiveProvider);
+    // The shown blocks in the user's order (#1970).
+    final visible = [
+      for (final block in order)
+        if (overviewBlockShown(block, hidden: hidden, shown: shown)) block,
+    ];
     return WpPageShell(
       child: LayoutBuilder(
         key: const ValueKey('overview-page'),
@@ -100,40 +102,42 @@ class _OverviewPageState extends ConsumerState<OverviewPage> {
             OverviewStatusLine(),
           ];
           // A block switched off in "Übersicht anpassen" takes its gap
-          // with it; without the figures the main column takes the width.
+          // with it; without side blocks the main column takes the width,
+          // except while a card is dragged: then the empty side column is a
+          // drop place.
           if (constraints.maxWidth >= WpLayout.breakpointOverviewTwoColumn) {
-            // "Mitmachen" sits under the main column, never in the side column.
+            final mainBlocks = [
+              for (final b in visible)
+                if (!sideSet.contains(b)) b,
+            ];
+            final sideBlocks = [
+              for (final b in visible)
+                if (sideSet.contains(b)) b,
+            ];
+            List<Widget> column(List<OverviewBlock> blocks, bool side) => [
+              ..._column(blocks, visible: visible, side: side),
+              if (dragging) ...[
+                if (blocks.isNotEmpty) const SizedBox(height: WpSpacing.xl),
+                OverviewColumnDrop(
+                  side: side,
+                  blocks: blocks,
+                  visible: visible,
+                ),
+              ],
+            ];
             final main = Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const OverviewHintPlace(),
-                if (showRecent) const OverviewRecent(),
-                if (showNotes && showRecent)
-                  const SizedBox(height: WpSpacing.xl),
-                if (showNotes) const OverviewNotes(),
-                if (showNews && (showRecent || showNotes))
-                  const SizedBox(height: WpSpacing.xl),
-                if (showNews) const OverviewNews(),
-                if (showCommunity && (showRecent || showNotes || showNews))
-                  const SizedBox(height: WpSpacing.xl),
-                if (showCommunity) const OverviewCommunity(),
+                ...column(mainBlocks, false),
               ],
             );
-            // The side column holds the figures and the two status blocks,
-            // each one switched off in "Übersicht anpassen" leaves no gap.
-            final side = [
-              if (showFigures) const OverviewFigures(stacked: true),
-              if (showDictation) const OverviewLastDictation(),
-              if (showStorage) const OverviewStorage(),
-              if (showSystem) const OverviewSystemCard(),
-              if (showWeather) const OverviewWeatherCard(),
-            ];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 ...head,
                 const SizedBox(height: WpSpacing.xl),
-                if (side.isEmpty)
+                if (sideBlocks.isEmpty && !dragging)
                   main
                 else
                   Row(
@@ -145,12 +149,7 @@ class _OverviewPageState extends ConsumerState<OverviewPage> {
                         width: WpLayout.overviewSideColumn,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final (i, block) in side.indexed) ...[
-                              if (i > 0) const SizedBox(height: WpSpacing.xl),
-                              block,
-                            ],
-                          ],
+                          children: column(sideBlocks, true),
                         ),
                       ),
                     ],
@@ -164,62 +163,60 @@ class _OverviewPageState extends ConsumerState<OverviewPage> {
               ...head,
               const SizedBox(height: WpSpacing.xl),
               const OverviewHintPlace(),
-              if (showFigures) const OverviewFigures(),
-              if (showFigures && showRecent)
-                const SizedBox(height: WpSpacing.xxl),
-              if (showRecent) const OverviewRecent(),
-              if ((showFigures || showRecent) && showNotes)
-                const SizedBox(height: WpSpacing.xl),
-              if (showNotes) const OverviewNotes(),
-              if ((showFigures || showRecent || showNotes) && showDictation)
-                const SizedBox(height: WpSpacing.xl),
-              if (showDictation) const OverviewLastDictation(),
-              if ((showFigures || showRecent || showNotes || showDictation) &&
-                  showStorage)
-                const SizedBox(height: WpSpacing.xl),
-              if (showStorage) const OverviewStorage(),
-              if ((showFigures ||
-                      showRecent ||
-                      showNotes ||
-                      showDictation ||
-                      showStorage) &&
-                  showSystem)
-                const SizedBox(height: WpSpacing.xl),
-              if (showSystem) const OverviewSystemCard(),
-              if ((showFigures ||
-                      showRecent ||
-                      showNotes ||
-                      showDictation ||
-                      showStorage ||
-                      showSystem) &&
-                  showWeather)
-                const SizedBox(height: WpSpacing.xl),
-              if (showWeather) const OverviewWeatherCard(),
-              if ((showFigures ||
-                      showRecent ||
-                      showNotes ||
-                      showDictation ||
-                      showStorage ||
-                      showSystem ||
-                      showWeather) &&
-                  showNews)
-                const SizedBox(height: WpSpacing.xl),
-              if (showNews) const OverviewNews(),
-              if (showCommunity &&
-                  (showFigures ||
-                      showRecent ||
-                      showNotes ||
-                      showDictation ||
-                      showStorage ||
-                      showSystem ||
-                      showWeather ||
-                      showNews))
-                const SizedBox(height: WpSpacing.xl),
-              if (showCommunity) const OverviewCommunity(),
+              ..._column(visible, visible: visible, side: null),
             ],
           );
         },
       ),
     );
   }
+
+  /// One key per card across both columns: a card moved into the other
+  /// column keeps its state and the keyboard focus on its grip.
+  final Map<OverviewBlock, GlobalKey> _keys = {};
+
+  /// The movable cards of one column with the gaps between them. The
+  /// figures strip keeps its wider gap before the recordings below it.
+  /// [side] is the column of the wide layout, null in the one-column one.
+  List<Widget> _column(
+    List<OverviewBlock> blocks, {
+    required List<OverviewBlock> visible,
+    required bool? side,
+  }) => [
+    for (final (i, block) in blocks.indexed) ...[
+      if (i > 0)
+        SizedBox(
+          height:
+              blocks[i - 1] == OverviewBlock.figures &&
+                  block == OverviewBlock.recent
+              ? WpSpacing.xxl
+              : WpSpacing.xl,
+        ),
+      OverviewMovableCard(
+        key: _keys.putIfAbsent(
+          block,
+          () => GlobalKey(debugLabel: 'overview-card-${block.id}'),
+        ),
+        block: block,
+        visible: visible,
+        side: side,
+        reserveTop: block == OverviewBlock.community,
+        child: _card(block, narrow: side ?? false),
+      ),
+    ],
+  ];
+
+  /// [narrow]: the card sits in the side column, so the figures stack.
+  static Widget _card(OverviewBlock block, {required bool narrow}) =>
+      switch (block) {
+        OverviewBlock.figures => OverviewFigures(stacked: narrow),
+        OverviewBlock.recent => const OverviewRecent(),
+        OverviewBlock.notes => const OverviewNotes(),
+        OverviewBlock.dictation => const OverviewLastDictation(),
+        OverviewBlock.storage => const OverviewStorage(),
+        OverviewBlock.system => const OverviewSystemCard(),
+        OverviewBlock.weather => const OverviewWeatherCard(),
+        OverviewBlock.news => const OverviewNews(),
+        OverviewBlock.community => const OverviewCommunity(),
+      };
 }

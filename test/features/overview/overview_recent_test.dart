@@ -15,10 +15,20 @@ class _FakePlayer implements RecordingPlayer {
   final played = <String>[];
 
   @override
-  Future<bool> play(String path, {required void Function() onEnd}) async {
+  Future<bool> play(
+    String path, {
+    required void Function() onEnd,
+    Duration from = Duration.zero,
+  }) async {
     played.add(path);
     return true;
   }
+
+  @override
+  bool seek(Duration to) => false;
+
+  @override
+  Duration? get position => null;
 
   @override
   void stop() {}

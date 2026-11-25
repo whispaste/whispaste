@@ -156,16 +156,16 @@ void main() {
   group('RecordingTriggerHandler — hold-or-tap mode (hybrid)', () {
     const threshold = RecordingTriggerHandler.holdOrTapThreshold;
 
-    test('threshold defaults to 250 ms (settings can change it)', () {
-      expect(threshold, const Duration(milliseconds: 250));
+    test('threshold defaults to 400 ms (settings can change it)', () {
+      expect(threshold, const Duration(milliseconds: 400));
     });
 
-    test('H4: a press of 200 ms (below the 250 ms default) still latches', () {
+    test('H4: a press of 300 ms (below the 400 ms default) still latches', () {
       final h = _Hybrid();
       h.handler.onKeyDown();
-      h.advance(const Duration(milliseconds: 200));
+      h.advance(const Duration(milliseconds: 300));
       h.handler.onKeyUp();
-      expect(h.stop, 0, reason: 'short press stays latched below 250 ms');
+      expect(h.stop, 0, reason: 'short press stays latched below 400 ms');
       expect(h.recording, isTrue);
     });
 
@@ -381,9 +381,9 @@ void main() {
     });
 
     test(
-      'Befund 5 / Grenzwerte: double-tap window 399 pairs, 400 and 401 do not',
+      'Befund 5 / Grenzwerte: double-tap window 499 pairs, 500 and 501 do not',
       () async {
-        for (final gap in [399, 400, 401]) {
+        for (final gap in [499, 500, 501]) {
           final g = _Gesture(
             pushToTalk: false,
             doubleTap: true,
@@ -398,7 +398,7 @@ void main() {
           await _pump();
           expect(
             g.start,
-            gap == 399 ? 1 : 0,
+            gap == 499 ? 1 : 0,
             reason: 'gap $gap ms after release',
           );
         }

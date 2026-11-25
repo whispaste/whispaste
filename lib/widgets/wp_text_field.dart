@@ -189,6 +189,8 @@ import 'package:flutter/services.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
+import 'editor_smart_action_scope.dart';
+import 'editor_text_view_scope.dart';
 
 // ---------------------------------------------------------------------------
 // Axis
@@ -263,6 +265,7 @@ class WpTextField extends StatefulWidget {
     this.focusNode,
     this.hintText,
     this.semanticsLabel,
+    this.testId,
     this.autofocus = false,
     this.onChanged,
     this.onSubmitted,
@@ -272,13 +275,16 @@ class WpTextField extends StatefulWidget {
     this.expands = false,
     this.obscureText = false,
     this.autocorrect = true,
+    this.autofillHints,
     this.maxLength,
     this.enforceMaxLength = true,
     this.keyboardType,
     this.inputFormatters,
     this.suffix,
     this.scrollToEnd,
+    this.readOnly = false,
     this.undoController,
+    this.contextMenuBuilder,
   }) : assert(
          minLines == null && maxLines == null ||
              variant == WpTextFieldVariant.form ||
@@ -324,7 +330,19 @@ class WpTextField extends StatefulWidget {
   /// transcript.
   final String? semanticsLabel;
 
+  /// Accessibility identifier for UI automation, `<screen>-<field>`.
+  ///
+  /// Set here rather than with a `Semantics(identifier:)` around the field:
+  /// a labelled field is its own merged node (see [semanticsLabel]), so an
+  /// identifier on a wrapper ends up on an ancestor and the node that takes
+  /// the focus and the text has none.
+  final String? testId;
+
   final bool autofocus;
+
+  /// Shows the text without letting it change: selecting and copying still
+  /// work (a note in the trash, #656).
+  final bool readOnly;
 
   final ValueChanged<String>? onChanged;
 
@@ -356,6 +374,10 @@ class WpTextField extends StatefulWidget {
   /// address ([autocorrect]) and the feedback comment ([maxLength]).
   final bool obscureText;
   final bool autocorrect;
+
+  /// What the field asks for (e.g. [AutofillHints.givenName]), so autofill
+  /// and assistive tech know its purpose (WCAG 1.3.5, #1927).
+  final Iterable<String>? autofillHints;
   final int? maxLength;
 
   /// Whether typing stops at [maxLength]. Off, the field only counts: the
@@ -395,6 +417,10 @@ class WpTextField extends StatefulWidget {
   /// keeps Flutter's internal history and Ctrl/Cmd+Z behaves exactly as
   /// before.
   final UndoHistoryController? undoController;
+
+  /// Replaces the field's context menu, e.g. with spell suggestions first
+  /// (#670). Omitted, the platform's usual menu.
+  final EditableTextContextMenuBuilder? contextMenuBuilder;
 
   /// The text style [variant] renders at, so a read-only view of the same
   /// text can match it exactly. See the library docs.
@@ -524,9 +550,32 @@ class _WpTextFieldState extends State<WpTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final spec = _WpTextFieldSpec.of(widget.variant);
+    // Inside an editor the chosen line length caps the text body (#648)
+    // through the inset, not the box, so the card keeps filling the panel at
+    // any text size. Single-line fields there keep their own width.
+    final view = spec.multiline || widget.expands
+        ? WpEditorText.maybeOf(context)
+        : null;
+    // Keep the editor subtree stable across full-width/capped-width changes.
+    if (view == null) return _build(context, spec.padding);
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(
+        context,
+        WpEditorText.paddingFor(
+          context,
+          base: spec.padding,
+          boxWidth: constraints.maxWidth,
+          fontSize: spec.fontSize,
+        ),
+      ),
+    );
+  }
+
+  Widget _build(BuildContext context, EdgeInsetsGeometry padding) {
     final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
-    final style = spec.textStyle(palette.textPrimary);
+    var style = spec.textStyle(palette.textPrimary);
 
     // On `form`/`embedded` the call site owns the line count; `passage` may
     // bound its growth; everywhere else the variant decides.
@@ -537,6 +586,8 @@ class _WpTextFieldState extends State<WpTextField> {
         widget.expands ||
         (spec.linesFromCallSite ? maxLines != 1 : spec.multiline);
     final expands = spec.fillsItsBox || widget.expands;
+    // The editors' chosen line spacing (#648), for their text body only.
+    if (multiline) style = WpEditorText.styleOf(context, style);
 
     Widget field = TextField(
       controller: widget.controller,
@@ -544,6 +595,17 @@ class _WpTextFieldState extends State<WpTextField> {
       scrollController: _scrollController,
       undoController: widget.undoController,
       autofocus: widget.autofocus,
+      readOnly: widget.readOnly,
+      // A host's own menu (spell suggestions, #670) wins; inside an editor
+      // that offers Smart Mode (#650) the menu adds its four actions;
+      // everywhere else it is the platform's own.
+      contextMenuBuilder:
+          widget.contextMenuBuilder ??
+          editorSmartActionContextMenuBuilder(
+            context,
+            readOnly: widget.readOnly,
+          ) ??
+          editorDefaultContextMenu,
       minLines: (spec.linesFromCallSite || spec.multiline) && !expands
           ? widget.minLines
           : null,
@@ -558,6 +620,7 @@ class _WpTextFieldState extends State<WpTextField> {
       inputFormatters: widget.inputFormatters,
       obscureText: widget.obscureText,
       autocorrect: widget.autocorrect,
+      autofillHints: widget.autofillHints,
       maxLength: widget.enforceMaxLength ? widget.maxLength : null,
       style: style,
       onChanged: widget.onChanged,
@@ -572,7 +635,7 @@ class _WpTextFieldState extends State<WpTextField> {
         // every other form field.
         counterText: '',
         isDense: true,
-        contentPadding: spec.padding,
+        contentPadding: padding,
         constraints: spec.minHeight == null
             ? null
             : BoxConstraints(minHeight: spec.minHeight!),
@@ -590,11 +653,33 @@ class _WpTextFieldState extends State<WpTextField> {
     );
 
     if (widget.semanticsLabel != null) {
-      field = Semantics(
-        label: widget.semanticsLabel!,
-        textField: true,
-        child: field,
-      );
+      // A plain `Semantics(label:, textField: true)` is no boundary: label
+      // and text-field flag merged into the nearest ancestor node instead,
+      // and macOS then presented that whole ancestor as one unlabelled text
+      // field and hid everything inside it (on the dictionary page the
+      // entire page while the "often misspelled as" field was open, #1500).
+      // Same cure as `WpSearchField`: `MergeSemantics` folds the label onto
+      // the field's own node and stops the upward merge. A trailing button
+      // (the API-key reveal toggle) must stay its own element, so with a
+      // [suffix] the label gets its own container node around both instead.
+      // The identifier goes onto the same node as the label, so automation
+      // finds the field itself and not an ancestor (#2011).
+      field = widget.suffix == null
+          ? MergeSemantics(
+              child: Semantics(
+                label: widget.semanticsLabel!,
+                identifier: widget.testId,
+                child: field,
+              ),
+            )
+          : Semantics(
+              container: true,
+              label: widget.semanticsLabel!,
+              identifier: widget.testId,
+              child: field,
+            );
+    } else if (widget.testId != null) {
+      field = Semantics(identifier: widget.testId, child: field);
     }
 
     Widget box = AnimatedContainer(
@@ -739,6 +824,27 @@ class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final spec = _WpTextFieldSpec.of(widget.variant);
+    // Same inset as the edit field inside an editor (#648), so the line
+    // length does not jump when editing starts.
+    final view = spec.multiline ? WpEditorText.maybeOf(context) : null;
+    if (view == null) return _box(context, 0);
+    return LayoutBuilder(
+      builder: (context, constraints) => _box(
+        context,
+        WpEditorText.extraEndInset(
+          context,
+          base: spec.padding,
+          boxWidth: constraints.maxWidth,
+          fontSize: spec.fontSize,
+        ),
+      ),
+    );
+  }
+
+  /// [extraEnd] sits inside the animated box, so a window resize re-wraps
+  /// the text at once instead of easing the inset along.
+  Widget _box(BuildContext context, double extraEnd) {
     final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
     final lifts = spec.liftsOnHover && widget.liftsOnHover;
@@ -766,7 +872,10 @@ class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
               ),
             )
           : null,
-      child: widget.child,
+      child: Padding(
+        padding: EdgeInsetsDirectional.only(end: extraEnd),
+        child: widget.child,
+      ),
     );
 
     if (lifts) {

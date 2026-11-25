@@ -49,6 +49,28 @@ String blogFeedUrl(String languageCode) => languageCode == 'de'
 String websiteHomeUrl(String languageCode) =>
     languageCode == 'de' ? '$kWebsiteUrl/' : '$kWebsiteUrl/en/';
 
+/// Languages of the public website's home page; German is the root.
+const Set<String> _kWebsiteHomeLanguages = {
+  'en',
+  'es',
+  'pt',
+  'it',
+  'ru',
+  'zh',
+  'fr',
+};
+
+/// Home page of the public website in [languageCode] where the site has it
+/// (all eight website languages), otherwise the English one. Used for shared
+/// links (#2185), so the preview a friend sees speaks the sharer's language.
+String websiteLocalizedHomeUrl(String languageCode) {
+  if (languageCode == 'de') return '$kWebsiteUrl/';
+  if (_kWebsiteHomeLanguages.contains(languageCode)) {
+    return '$kWebsiteUrl/$languageCode/';
+  }
+  return '$kWebsiteUrl/en/';
+}
+
 /// Language-aware privacy-policy URL on the public website. German UI maps to
 /// `/datenschutz/`; every other UI language maps to the English `/en/privacy/`
 /// policy (the site has no localized legal pages beyond DE/EN).
@@ -145,6 +167,24 @@ const String kMaintainerGitHubUrl = 'https://github.com/silvio-l';
 /// WhisPaste's YouTube channel (videos). Used by the Übersicht's "Get
 /// involved" section on every build.
 const String kYouTubeChannelUrl = 'https://www.youtube.com/@whispaste';
+
+/// The WhisPaste trailer on YouTube, German cut. Shown as the trailer frame in
+/// the Übersicht's "Get involved" section when the app speaks German.
+const String kTrailerVideoIdDe = 'UDyacr_B-cA';
+
+/// The WhisPaste trailer on YouTube, English cut. Shown for every UI language
+/// other than German.
+const String kTrailerVideoIdEn = 'OU6hfYu06kY';
+
+/// The trailer's YouTube id for a UI language code (`de`, `en`, ...): the
+/// German cut for German, the English cut for everything else.
+String trailerVideoIdFor(String languageCode) =>
+    languageCode.toLowerCase() == 'de' ? kTrailerVideoIdDe : kTrailerVideoIdEn;
+
+/// Watch page of a YouTube video, opened in the browser. YouTube links carry
+/// no campaign parameters (see the Matomo campaign taxonomy, §YouTube).
+String youTubeWatchUrl(String videoId) =>
+    'https://www.youtube.com/watch?v=${Uri.encodeQueryComponent(videoId)}';
 
 /// Public Votepit ideas & voting board. Used by the feedback page's
 /// thank-you view and the settings review/support section.

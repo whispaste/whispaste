@@ -1,178 +1,140 @@
 # Snap — Snap Store / Ubuntu App Center
 
-WhisPaste als **Snap**: installierbar über den Snap Store bzw. das Ubuntu App
-Center. **Vierter** Linux-Kanal laut PRD §8.3 (Flatpak → AppImage → `.deb` →
-Snap — Snap zuletzt).
+## Stand 2026-11-18
 
-| Datei | Zweck |
-|---|---|
-| `snapcraft.yaml` | Snap-Manifest (`gnome`-Extension, strict Confinement, Plugs) |
+Name `whispaste`, Publisher `silvioli`, Snap-ID `L8btngjUpqlBSGW6hhUn6U9zL5SWq3SY`.
+Revision 2 (1.5.2, amd64) wurde am 18.11. über Launchpad gebaut und hochgeladen;
+sie ersetzt die am 17.11. eingereichte Revision 1 (1.5.1). Die alte Revision
+wurde aus der Review-Warteschlange genommen, damit Revision 2 geprüft wird.
+Das Listing ist privat, ohne veröffentlichten Kanal. Die Store-Prüfung verlangt
+für `uinput` eine `allow-installation`-Deklaration; strict Confinement umgeht
+sie nicht. [Freigabeanfrage](https://forum.snapcraft.io/t/54267): uinput-Installation
+und Auto-Verbindung sowie audio-record-Auto-Verbindung. Genehmigung steht aus.
 
-`.desktop`-Entry, AppStream-`metainfo.xml` und Icon werden **nicht** dupliziert,
-sondern verbatim aus `packaging/flatpak/` bzw. `assets/icons/app_icon.png`
-übernommen — eine einzige Quelle für App-ID (`de.whispaste.app`), Name,
-Kategorien, Keywords. Der Snap-**Name** im Store ist das kleingeschriebene
-`whispaste`; die App-ID/Desktop-Referenzen bleiben `de.whispaste.app`.
+Das Manifest verwendet 1.5.2 und **core26**: Bibliotheken im Linux-Release
+benötigen GLIBC_2.43. core24 mit glibc 2.39 reicht nicht aus. Snapcraft 9.2
+unterstützt die GNOME-Erweiterung auf core26. Paketbau ersetzt keinen Laufzeittest.
 
----
+Der erste 1.5.2-Build (#3351905) wurde wegen einer fehlenden direkten
+Runner-Abhängigkeit (`libopusfile.so.0`) nicht hochgeladen. `libopusfile0` ist nun
+explizit enthalten. Die verbleibende Linter-Warnung für `libdartjni.so` /
+`libjvm.so` betrifft Sentrys Android-Anbindung: `sentry_flutter` 9.25.0 wählt in
+`lib/src/native/factory_real.dart` unter Linux `SentryNative` (C), nicht Java.
+Die Java-Bibliothek wird deshalb nicht als zusätzliche Laufzeit installiert.
+
+Korrigiertes Artefakt: `whispaste_1.5.2_amd64.snap`, 155918336 Bytes,
+SHA-256 `24830bb115117f08aa55f9258f9647aca42cdcb286edc92fc6787cc89a6befc6`.
+Paketmetadaten (`core26`, `strict`, Version 1.5.2) und die enthaltene
+`libopusfile.so.0` wurden direkt im SquashFS geprüft.
 
 ## Build
 
-Wie beim Flatpak/AppImage/`.deb` wird **nicht** Flutter neu gebaut, sondern das
-fertige Linux-x86_64-Release-Bundle des `build-linux`-Jobs in
-`.github/workflows/release.yml` (Artefakt `linux-release` →
-`WhisPaste-<version>-linux-x64.tar.gz`) **gestaged**. Alle §3.1-Build-
-Stolperfallen (sentry-native, `flutter_soloud`-Xiph, `crashpad_handler`
-`chmod +x`) sind damit bereits im Bundle. Die `gnome`-Extension verdrahtet nur
-die GTK/GNOME-Laufzeit (GSettings, GDK-Pixbuf-Loader, fontconfig, Launcher)
-um das gestagte Bundle.
+Das fertige Linux-x86_64-Release-Bundle wird über eine versionierte URL mit
+SHA-256-Prüfung geladen. Kein Flutter-Neubau. `gnome` ergänzt die Desktop-Laufzeit.
+Snap-Name: `whispaste`, App-ID: `de.whispaste.app`.
+
+Desktop-Datei, Metainfo und Icon sind **Snap-lokale Kopien**; verwaltete Builds
+können Nachbarverzeichnisse nicht lesen. Desktop/Metainfo mit `packaging/flatpak/`
+und Icon mit `assets/icons/app_icon.png` synchron halten.
 
 ```bash
-# Reproduzierbarer Build (CI oder NAS-x86-VM, Ubuntu x86_64):
 cd packaging/snap
-snapcraft pack            # erzeugt whispaste_<version>_amd64.snap
+snapcraft expand-extensions
+# Linux amd64 mit snapd und Build-Provider:
+snapcraft pack
 ```
 
-> `snapcraft` läuft auf macOS/dem Dev-Mac **nicht** (LXD/multipass + amd64-
-> Toolchain nötig) — der Build (AC1) läuft in CI bzw. auf der NAS-x86-VM. CI
-> validiert die Manifest-*Shape* toolchain-unabhängig (siehe unten), der echte
-> `snapcraft pack` läuft auf dem Linux-x86_64-Runner.
-
-### Datei-Layout im Snap
-
-| Pfad (im Snap) | Inhalt |
-|---|---|
-| `$SNAP/whispaste/` | Flutter-Bundle (Executable, `lib/`, `data/`) — read-only |
-| `$SNAP/bin/whispaste` | Symlink auf `../whispaste/whispaste` (Launcher) |
-| `$SNAP/usr/share/applications/de.whispaste.app.desktop` | Desktop-Entry |
-| `$SNAP/usr/share/metainfo/de.whispaste.app.metainfo.xml` | AppStream-Metainfo |
-| `$SNAP/usr/share/icons/hicolor/512x512/apps/de.whispaste.app.png` | Icon |
-
----
-
-## Confinement + Plugs
-
-**Confinement: `strict`** (bewusst — `strict` ist Store-auto-review-freundlich,
-`classic` wäre review-pflichtig und ist hier **nicht** nötig). Die Plugs decken
-alle App-Funktionen ab:
-
-| App-Funktion (internal-notes) | Plug(s) |
-|---|---|
-| Display + Clipboard/Paste (§2.4) | `wayland`, `x11`, `desktop`, `desktop-legacy` |
-| Global Hotkey (§2.5) | `unity7` (Session-Bus → WM / GlobalShortcuts-Portal / keybinder) |
-| Audio-Aufnahme (§2.2) | `audio-record`, `audio-playback` |
-| Self-Download Sprachdienst (Netzwerk) | `network` |
-| Tray / App-Indicator + Notifications | `desktop` (Session-Bus → StatusNotifier/Notifications) |
-| Auto-Paste-Tastendruck-Synthese (§2.7) | `uinput` |
-
-Auto-Paste läuft auf Linux über ein uinput-virtuelles Keyboard
-(`linux/runner/desktop_paste_host.cc`, Ticket 30). snapd behandelt `uinput` als
-**nicht auto-connect**: der Plug im Manifest allein reicht nicht — Nutzer
-außerhalb eines Store-Auto-Freigabe-Assertions müssen einmalig
-`sudo snap connect whispaste:uinput` ausführen, sonst bleibt `CheckCapability()` bei
-`permission_missing` und Auto-Paste fällt auf Zwischenablage-only zurück.
-
----
-
-## Self-Download des Sprachdienstes + Schreibpfade (strict Confinement)
-
-WhisPaste lädt den lokalen **Sprachdienst** (`whisper-server`) und das
-**Sprachmodell** beim ersten Start selbst herunter. Unter **strict** Confinement:
-
-- **Netzwerk**: das `network`-Plug erlaubt den Download.
-- **Schreibpfad**: `appDataDir()` liest `$XDG_CONFIG_HOME` zuerst
-  (`packages/whispaste_diagnostics/lib/src/probes/path_service.dart`). snapd
-  remappt `$XDG_CONFIG_HOME` für strict-Snaps auf `$SNAP_USER_DATA/.config`
-  (= `~/snap/whispaste/current/.config`). Dieser Pfad ist **beschreibbar** und
-  **ausführbar** (kein `noexec`) — die heruntergeladene Binary wird `chmod +x`
-  gesetzt und dort gestartet.
-
-Damit funktioniert der Self-Download unter strict Confinement **ohne** zusätzliche
-`home`/`removable-media`-Plugs (die die Store-Auto-Freigabe nur verschlechtern
-würden). Der Snap-Mount (`$SNAP`) selbst bleibt read-only; alles Veränderliche
-liegt unter `$SNAP_USER_DATA`.
-
-> **Real-World-Constraint (Issue 03 ist human-blocked):** Ein veröffentlichtes
-> Linux-`whisper-server`-Artefakt existiert noch **nicht**. Der Self-Download-E2E
-> ist daher lokal **nicht** ausführbar. Dieser Slice stellt sicher, dass Plugs +
-> Schreibpfad-Remapping korrekt sind, **damit** der Self-Download funktioniert,
-> sobald das Linux-Manifest (WS-A) live ist. Dann: E2E auf der NAS-x86-VM.
-
----
-
-## Lokale Validierung + Installation
+macOS unterstützt Snapcraft-Manifestprüfung, Store-Verwaltung und Launchpad-
+Remote-Builds. Die Snap-Ausführung benötigt Linux. Remote-Builds laden den
+Projektinhalt öffentlich hoch: nur die vier Paketdateien separat bereitstellen:
 
 ```bash
-# Manifest-Shape ohne Build prüfen (toolchain-unabhängig, läuft auch in CI):
-python3 -c "import yaml; yaml.safe_load(open('packaging/snap/snapcraft.yaml'))"
-
-# Extensions expandieren (zeigt das vollständige, von der gnome-Extension
-# angereicherte Manifest — braucht snapcraft, also Linux):
-cd packaging/snap && snapcraft expand-extensions
-
-# Lokal bauen + ohne Store-Signatur installieren (Linux x86_64):
-cd packaging/snap && snapcraft pack
-sudo snap install --dangerous ./whispaste_<version>_amd64.snap
-
-# Plugs nach der Installation prüfen:
-snap connections whispaste
-snap run whispaste
+# Vom Repository-Root:
+build_dir=$(mktemp -d /tmp/whispaste-snap.XXXXXX)
+cp packaging/snap/snapcraft.yaml packaging/snap/de.whispaste.app.* "$build_dir/"
+cd "$build_dir"
+git init -b main
+git add .
+git commit -m "build: prepare snap package"
+snapcraft remote-build --build-for=amd64 --launchpad-accept-public-upload
+# Unterbrochenen Lauf abrufen:
+snapcraft remote-build --recover --launchpad-accept-public-upload
 ```
 
-`whispaste --diagnose` startet im Snap kein eigenes Xvfb; ohne Display
-schreibt es einen Fehlerreport und endet mit 2. Headless daher unter Xvfb
-prüfen: `xvfb-run -a snap run whispaste --diagnose`.
+Snapcraft 9.2.1 kann beim Wiederaufnehmen ein automatisch angelegtes Launchpad-
+Projekt übersehen (`Could not find repository at path ~silvioli/+git/…`). Dann
+den bestehenden Build auf Launchpad öffnen und dessen Artefakt herunterladen;
+keinen zweiten Build für denselben Stand starten. Korrigierter Build 1.5.2 mit
+Opus-Laufzeit: [Launchpad #3351915](https://launchpad.net/~silvioli/silvioli-craft-remote-build/+snap/snapcraft-whispaste-bba6db7aeca782dbea7ea5ff110e41ef/+build/3351915).
 
-`snapcraft`/`snap` sind auf macOS/dem Dev-Mac **nicht** verfügbar — Build +
-`--dangerous`-Install laufen in CI bzw. auf der NAS-x86-VM (Ubuntu x86_64).
+Das aktuelle Lenovo-Testlab `ubu` verwendet Ubuntu 26.04.1 LTS in einem
+unprivilegierten LXC-Container. Am 18.11. scheiterte der erste Snap-Test noch mit
+`cannot mount squashfs image ... failed to setup loop device`. Die separate
+Lab-Wartung hat die FUSE-Einbindung und Basis inzwischen korrigiert;
+`hello-world` läuft nach dem Neustart mit snapd 2.78. Das korrigierte WhisPaste-
+Paket wurde anschließend ohne `devmode` installiert. `--diagnose` beendet sich
+mit Exit 0 / `ok: true`; Whisper, FFI-Guard und Smart-Mode-Bibliothek samt
+CPU-Backends laden erfolgreich. Auch der normale Start zeigt das Onboarding.
 
----
+Die Standard-Schnittstellen und GNOME-/Mesa-Inhalte wurden automatisch verbunden;
+`audio-record` und `uinput` ließen sich manuell verbinden. `/dev/uinput` fehlt im
+Lab weiterhin, der virtuelle Desktop hat keinen Tray-Host. Aufnahme, tatsächliche
+Transkription, automatisches Einfügen, Import und Autostart sind mit diesem
+Starttest noch nicht abgenommen. Vor `stable` bleibt die vollständige Desktop-
+Abnahme erforderlich.
 
-## Store-Einreichung (Runbook)
+## Berechtigungen und Abnahme
 
-> **Out of scope dieses Slices (§7):** die tatsächliche Canonical/Store-Review-
-> Freigabe und das Konto-Setup. Die folgenden Schritte sind dokumentiert, damit
-> die Einreichung **einreichbar** ist — ausgeführt werden sie vom Maintainer.
+| Funktion | Schnittstelle |
+|---|---|
+| Fenster und Zwischenablage | wayland, x11, desktop, desktop-legacy |
+| Hotkey / Desktop-Integration | unity7, Desktop-Portale |
+| Mikrofon / Wiedergabe | audio-record, audio-playback |
+| Downloads / optionale Cloud | network |
+| Virtuelle Tastatureingabe | uinput |
 
-1. **Name registrieren** (einmalig, Maintainer-Konto):
-   ```bash
-   snapcraft login
-   snapcraft register whispaste
-   ```
-2. **Version bumpen**: `version:` in `snapcraft.yaml` + `source:`-URL des Parts
-   `whispaste-bundle` auf das neue Release-Tag-Asset
-   (`…/releases/download/v<version>/WhisPaste-<version>-linux-x64.tar.gz`) setzen.
-3. **Bauen**: `snapcraft pack` auf einem Ubuntu-x86_64-System mit snapd und
-   LXD, oder ohne eigenes System über Launchpad: `snapcraft remote-build`
-   (kostenlos, verlangt einmal die Freigabe des Launchpad-Kontos im Browser).
-   test-lab `ubu` geht nicht: Es ist ein unprivilegierter LXC-Container ohne
-   Loop-Geräte, snapd startet dort nicht (geprüft 2026-11-17). Auch das
-   Container-Image `ghcr.io/canonical/snapcraft:8_core24` baut nicht, weil die
-   `gnome`-Extension ihr SDK als Build-Snap über snapd holt.
-4. **Hochladen + Channel** (`edge` → `beta` → `candidate` → `stable`):
-   ```bash
-   snapcraft upload ./whispaste_<version>_amd64.snap --release=edge
-   # nach manuellem Smoke-Test:
-   snapcraft release whispaste <revision> stable
-   ```
-5. **Store-Listing**: Titel, Kategorie, Icon + Screenshots im Snapcraft-
-   Dashboard ergänzen (Metadaten stammen aus der gemeinsamen
-   `de.whispaste.app.metainfo.xml`).
+Ohne Store-Auto-Verbindungsfreigabe bei Bedarf manuell verbinden:
 
-`strict`-Confinement-Snaps durchlaufen i. d. R. die **automatische** Review;
-nur falls ein Plug ein manuelles Review triggert, ist ein Store-Request nötig
-(hier durch den minimalen Plug-Satz vermieden).
+```bash
+sudo snap connect whispaste:audio-record
+sudo snap connect whispaste:uinput
+snap connections whispaste
+```
 
----
+Die uinput-Verbindung hebt Unix-Dateirechte auf `/dev/uinput` **nicht** auf.
+Host-Berechtigungen bzw. ein geeigneter Portal-Weg müssen separat funktionieren.
+Ohne automatische Eingabe bleibt manuelles Einfügen aus der Zwischenablage.
+Eine hostweite udev-Regel wird nicht automatisch durch den Snap installiert.
 
-## Per-Release-Pflege
+Vor `stable` auf einem frischen Linux-Desktop prüfen:
 
-Bei jeder neuen Version anzupassen:
+- Start ohne fehlende Bibliotheken oder AppArmor-Abbrüche;
+- Mikrofonaufnahme, Modell-Download und lokale Transkription;
+- Hotkey, Zwischenablage und Einfügen unter Wayland/X11;
+- Audiodatei-Import, Tray, Autostart und gespeicherte Einstellungen.
 
-- `version:` in `snapcraft.yaml`,
-- `source:`-URL des Parts `whispaste-bundle` (Tag-Asset),
-- `source-checksum:` desselben Parts (`sha256/<Digest>` aus `SHA256SUMS` des Releases),
-- `<release>`-Eintrag in `de.whispaste.app.metainfo.xml` (Kopie der Flatpak-Datei, beide gleich halten),
+Der Snap-Inhalt ist read-only. Veränderliche Daten und heruntergeladene
+Komponenten gehören in die Snap-Benutzerverzeichnisse. Schreibpfade und Ausführung
+dieser Komponenten sind Teil der Laufzeitabnahme, keine Zusicherung des Manifests.
 
-danach `snapcraft pack` + `snapcraft upload`. Das Bundle, die `Depends`-äquivalenten
-`stage-packages` und die gemeinsame Desktop-/Metainfo-/Icon-Quelle bleiben stabil.
+```bash
+sudo snap install --dangerous ./whispaste_1.5.2_amd64.snap
+snap run whispaste
+# Diagnose benötigt ein Display, headless gegebenenfalls:
+xvfb-run -a snap run whispaste --diagnose
+```
+
+## Store und Versionspflege
+
+1. `version`, Release-URL und `source-checksum` gemeinsam aktualisieren. Hash
+   gegen das heruntergeladene Asset prüfen.
+2. Release-Notiz in beiden Metainfo-Kopien ergänzen.
+3. Erweiterungen prüfen, bauen und Artefakt kontrollieren.
+4. `snapcraft upload ./whispaste_<version>_amd64.snap` lädt ohne Kanal-Freigabe
+   hoch. Review-Status im Dashboard prüfen.
+5. Erst nach Store-Freigabe und Laufzeitabnahme mit
+   `snapcraft release whispaste <revision> stable` veröffentlichen, Listing
+   öffentlich schalten und Installation über den Store prüfen.
+
+Keine erneute Namensregistrierung nötig. Zugangsdaten verbleiben in der lokalen
+Snapcraft-Konfiguration und gehören niemals ins Build-Verzeichnis.

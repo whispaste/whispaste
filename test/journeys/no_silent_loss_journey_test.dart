@@ -596,6 +596,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    mockHotkeyPluginChannels(on: true);
     // The pipeline's fire-and-forget review/support prompt checks read
     // SharedPreferences; without a backend getInstance fails and the error
     // can escape into the test zone, depending on timing.
@@ -628,6 +629,7 @@ void main() {
   });
 
   tearDown(() {
+    mockHotkeyPluginChannels(on: false);
     RecordingOrchestrator.smartModeCleanupTimeoutOverride = null;
     sttDirOverride = null;
     appDataDirOverride = null;

@@ -55,13 +55,22 @@ void main() {
       expect(hints?.cancel, isNull);
     });
 
-    test('an empty stop label means no hints at all', () {
+    test('a learned stop hint keeps the cancel hint (overlay E)', () {
+      final hints = OverlayKeyHints.forRecording(
+        size: OverlaySizeVariant.normal,
+        live: true,
+        cancelLabel: 'Esc',
+      );
+      expect(hints?.stop, isNull);
+      expect(hints?.cancel, 'Esc');
+    });
+
+    test('without any label there are no hints', () {
       expect(
         OverlayKeyHints.forRecording(
           size: OverlaySizeVariant.normal,
           live: true,
           stopLabel: '',
-          cancelLabel: 'Esc',
         ),
         isNull,
       );
@@ -90,6 +99,22 @@ void main() {
       expect(
         restored.keyHints,
         const OverlayKeyHints(stop: '⌥ Space', cancel: 'Esc'),
+      );
+    });
+
+    test('a snapshot without the learned stop hint keeps only the cancel '
+        'hint', () {
+      const snapshot = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        label: 'Recording',
+        keyHints: OverlayKeyHints(cancel: 'Esc'),
+      );
+      final map = snapshot.toMap();
+      expect(map['stopHint'], isNull);
+      expect(
+        FloatingOverlaySnapshot.fromMap(map).keyHints,
+        const OverlayKeyHints(cancel: 'Esc'),
       );
     });
 

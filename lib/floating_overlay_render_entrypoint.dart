@@ -24,9 +24,12 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/overlay_design_spec.dart';
 import 'services/floating_overlay/floating_overlay_controller_interface.dart';
+import 'services/floating_overlay/overlay_notice.dart';
+import 'services/floating_overlay/overlay_notice_layout.dart';
 import 'services/floating_overlay/overlay_render_channel.dart';
 import 'shared_render_engine_helpers.dart';
 import 'widgets/floating_overlay/floating_overlay_view.dart';
@@ -48,7 +51,7 @@ const String _renderChannelName = 'com.whispaste.floating_overlay_render';
 void runFloatingOverlayEngine() {
   bootstrapFloatingOverlayEngine();
   debugPrint('[overlay-engine] runFloatingOverlayEngine booted');
-  runApp(const _OverlayRenderApp());
+  runApp(const SystemMotionScope(child: _OverlayRenderApp()));
 }
 
 /// Everything [runFloatingOverlayEngine] does before `runApp` — the
@@ -80,7 +83,39 @@ void bootstrapFloatingOverlayEngine() {
 /// pill and has no X.
 @visibleForTesting
 bool isCloseTap(FloatingOverlaySnapshot snapshot, Offset position) {
-  if (!snapshot.visible || snapshot.notice != null) return false;
+  final hit = closeHitRectOf(snapshot);
+  return hit != null && hit.contains(position);
+}
+
+/// Whether a click at [position] (window-local) lands on the notice card
+/// itself rather than on the shadow margin around it. The card's own
+/// buttons, toggle and edit field take such a click; the surface's raw
+/// pointer layer sees it as well and must not report it as a body click,
+/// which the main engine treats as a stray click and closes the card like
+/// Escape (#921). Before this the toggle of the write preview's edit field
+/// (#254) closed the preview instead of opening the field. [scaler] is the
+/// system text scale; the card follows it up to its cap.
+@visibleForTesting
+bool isNoticeCardTap(
+  FloatingOverlaySnapshot snapshot,
+  Offset position,
+  TextScaler scaler,
+) {
+  final notice = snapshot.notice;
+  if (!snapshot.visible || notice == null) return false;
+  const pad = OverlayDesignSpec.shadowPadding;
+  return Rect.fromLTWH(
+    pad,
+    pad,
+    OverlayDesignSpec.noticeCardSize.width,
+    overlayNoticeCardHeight(notice, overlayNoticeScaler(scaler)),
+  ).contains(position);
+}
+
+/// Where the painted cancel X takes clicks, or null when there is none
+/// (hidden, notice card, or the size shows no X).
+Rect? closeHitRectOf(FloatingOverlaySnapshot snapshot) {
+  if (!snapshot.visible || snapshot.notice != null) return null;
   final sizeSpec = OverlayDesignSpec.sizeFor(snapshot.size);
   final width = OverlayDesignSpec.pillWidthForText(
     WpFloatingOverlayView.designStateFor(snapshot.state),
@@ -89,12 +124,11 @@ bool isCloseTap(FloatingOverlaySnapshot snapshot, Offset position) {
     WpFloatingOverlayView.statusTextFor(snapshot),
     secondaryText: WpFloatingOverlayView.secondaryTextFor(snapshot),
   );
-  final hit = OverlayDesignSpec.closeHitRect(
+  return OverlayDesignSpec.closeHitRect(
     variant: snapshot.size,
     showCancel: snapshot.appearance.showCancel,
     pillWidth: width,
   );
-  return hit != null && hit.contains(position);
 }
 
 class _OverlayRenderApp extends StatefulWidget {
@@ -128,6 +162,7 @@ class _OverlayRenderAppState
     name: _renderChannelName,
     onSnapshot: _onSnapshot,
     onWaveformBars: (b) => setState(() => _bars = b),
+    onEditKey: OverlayNoticeEditKeys.dispatch,
   );
 
   @override
@@ -165,13 +200,29 @@ class _OverlayRenderAppState
   }
 
   /// A click on the painted X cancels the dictation; a click anywhere else
-  /// toggles recording. Notice cards have no X and keep their own buttons.
+  /// toggles recording. Notice cards have no X and keep their own buttons;
+  /// a click on the card goes only to them.
   void _onTapAt(Offset position) {
+    final scaler =
+        MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
+    // The card handles its own clicks.
+    if (isNoticeCardTap(_snapshot, position, scaler)) return;
     if (isCloseTap(_snapshot, position)) {
       channel.closeClicked();
     } else {
       channel.bodyClicked();
     }
+  }
+
+  /// The cancel X as its own node (#1923); its label follows the app locale.
+  RenderEngineSecondaryAction? get _cancelAction {
+    final rect = closeHitRectOf(_snapshot);
+    if (rect == null) return null;
+    return RenderEngineSecondaryAction(
+      rect: rect,
+      label: (l10n ?? lookupL10n(const Locale('en'))).overlayContextCancel,
+      onTap: channel.closeClicked,
+    );
   }
 
   @override
@@ -184,12 +235,14 @@ class _OverlayRenderAppState
     onTapAt: _onTapAt,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,
+    secondaryAction: _cancelAction,
     child: HiddenSurfaceFill(
       hidden: !_snapshot.visible,
       child: WpFloatingOverlayView(
         snapshot: _snapshot,
         waveformBars: _bars,
         onNoticeAction: (action) => channel.noticeAction(action.id),
+        onNoticeEdit: (edit) => channel.noticeAction(edit.id, edit.args),
         onPillWidth: channel.pillWidth,
       ),
     ),

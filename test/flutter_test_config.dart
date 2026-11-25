@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/media_pause/media_pause_backends.dart';
 import 'package:whispaste/services/media_pause/media_pause_controller.dart';
+import 'package:whispaste/services/media_pause/media_pause_providers.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/stt/memory_pressure.dart';
 
@@ -70,6 +71,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   defaultMemorySnapshotReader = () async => null;
   // Never open the real media-control channel from widget tests.
   mediaPauseBackendFactory = () => const UnavailableMediaPauseBackend();
+  mediaDuckBackendFactory = () => const UnavailableMediaDuckBackend();
+  duckJournalFactory = MemoryDuckJournal.new;
   try {
     await testMain();
   } finally {

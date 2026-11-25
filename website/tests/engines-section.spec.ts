@@ -33,3 +33,31 @@ test('language names follow the page locale', async ({ page }) => {
   await page.goto('/fr/');
   await expect(page.getByTestId('languages-grid').locator('li[data-code="de"]')).toHaveAttribute('title', 'allemand');
 });
+
+// #1595: the head carries the paper-cut illustration "on every computer".
+// One component for all languages, so every locale ships the same markup; it
+// carries no text, and reduced motion shows the still (no running animation).
+const LOCALE_HOMES = ['/', '/en/', '/es/', '/pt/', '/it/', '/ru/', '/zh/', '/fr/'];
+
+test('the engines illustration is identical in all 8 languages', async ({ page }) => {
+  let reference: string | null = null;
+  for (const path of LOCALE_HOMES) {
+    await page.goto(path);
+    const art = page.getByTestId('engines').getByTestId('illustration-every-computer');
+    await expect(art).toHaveCount(1);
+    await expect(art).toHaveAttribute('aria-hidden', 'true');
+    const markup = await art.evaluate((el) => el.innerHTML.replace(/\s+data-astro-cid-\w+(="")?/g, ''));
+    expect(markup).not.toMatch(/<text|<image/);
+    if (reference === null) reference = markup;
+    else expect(markup, path).toBe(reference);
+  }
+});
+
+test('reduced motion shows the engines illustration as a still', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/en/');
+  const art = page.getByTestId('engines').getByTestId('illustration-every-computer');
+  await art.scrollIntoViewIfNeeded();
+  const running = await art.evaluate((el) => el.getAnimations({ subtree: true }).length);
+  expect(running).toBe(0);
+});

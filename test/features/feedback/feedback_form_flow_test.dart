@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whispaste/widgets/wp_consent_checkbox.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/feedback/feedback_type.dart';
@@ -36,6 +37,7 @@ void main() {
   late L10n l10n;
   late Map<String, Object?> sent;
   late int requests;
+  late int logReads;
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
@@ -45,6 +47,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     sent = {};
     requests = 0;
+    logReads = 0;
   });
 
   FeedbackSubmissionService service() => FeedbackSubmissionService(
@@ -67,6 +70,10 @@ void main() {
             () => _PresetNotifier(preset),
           ),
           feedbackDiagnosticBlockProvider.overrideWithValue(_block),
+          feedbackDiagnosticAttachmentProvider.overrideWith((ref) {
+            logReads++;
+            return '$_block\n--- recent logs ---\nline';
+          }),
         ],
       ),
     );
@@ -114,8 +121,9 @@ void main() {
     ),
   );
 
-  Finder blockPreview() =>
-      find.byWidgetPredicate((w) => w is SelectableText && w.data == _block);
+  Finder blockPreview() => find.byWidgetPredicate(
+    (w) => w is SelectableText && (w.data?.startsWith(_block) ?? false),
+  );
 
   group('rating and category are optional', () {
     testWidgets('a message alone is sent, as kind other and without rating', (
@@ -206,6 +214,9 @@ void main() {
     expect(sent['message'], 'Plain message');
     expect(sent.containsKey('appVersion'), isFalse);
     expect(sent.containsKey('os'), isFalse);
+    expect(sent.containsKey('diagnostics'), isFalse);
+    // Without the tick no log file is even read.
+    expect(logReads, 0);
   });
 
   testWidgets('opt-in preview shows the exact block and it is sent', (
@@ -226,6 +237,19 @@ void main() {
     await typeMessage(tester, 'With block');
     await submit(tester);
     expect(sent['message'], 'With block\n\n$_block');
+    expect(sent['diagnostics'], '$_block\n--- recent logs ---\nline');
+    expect(sent['appVersion'], isNotNull);
+    expect(logReads, greaterThan(0));
+  });
+
+  testWidgets('the diagnostics choice is the shared consent checkbox with '
+      'its focus ring (#1845)', (tester) async {
+    await pump(tester);
+    await choose(tester, l10n.feedbackTypeProblem);
+    expect(
+      tester.widget(find.byKey(const Key('feedback-diagnostics-attach'))),
+      isA<WpConsentCheckbox>(),
+    );
   });
 
   testWidgets('the message field honours the attached block', (tester) async {

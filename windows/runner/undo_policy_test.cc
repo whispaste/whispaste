@@ -73,5 +73,36 @@ int main() {
          "a click outside WhisPaste since the insert");
   Expect(std::string(UndoSendStatus(UndoSendCheck::kSend)) == "sent",
          "sent status");
+  // The user's own Ctrl+Z after an auto-paste (#2078).
+  Expect(CountsAsUndoShortcut(1000, 2000, true, true, false, false, false,
+                              false, false),
+         "typed Ctrl+Z in another program counts");
+  Expect(CountsAsUndoShortcut(2000, 2000, true, true, false, false, false,
+                              false, false),
+         "right at the deadline still counts");
+  Expect(!CountsAsUndoShortcut(2001, 2000, true, true, false, false, false,
+                               false, false),
+         "after the window: no count");
+  Expect(!CountsAsUndoShortcut(1000, 0, true, true, false, false, false,
+                               false, false),
+         "no watch armed");
+  Expect(!CountsAsUndoShortcut(1000, 2000, true, true, false, false, false,
+                               true, false),
+         "injected keys (our own) never count");
+  Expect(!CountsAsUndoShortcut(1000, 2000, true, true, false, false, false,
+                               false, true),
+         "Ctrl+Z in WhisPaste itself does not count");
+  Expect(!CountsAsUndoShortcut(1000, 2000, true, true, true, false, false,
+                               false, false),
+         "Ctrl+Shift+Z is redo");
+  Expect(!CountsAsUndoShortcut(1000, 2000, true, true, false, true, false,
+                               false, false),
+         "AltGr+Z is no undo");
+  Expect(!CountsAsUndoShortcut(1000, 2000, true, false, false, false, false,
+                               false, false),
+         "a plain z is typing");
+  Expect(!CountsAsUndoShortcut(1000, 2000, false, true, false, false, false,
+                               false, false),
+         "another Ctrl key");
   return failures == 0 ? 0 : 1;
 }

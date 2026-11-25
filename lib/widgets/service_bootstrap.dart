@@ -42,6 +42,7 @@ import '../services/snippets/system_variables.dart';
 import '../services/feedback_submission_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
+import '../services/floating_overlay/overlay_hint_learning.dart';
 import '../services/hotkey_disturbance.dart';
 import '../services/hotkey_self_heal.dart';
 import '../services/hotkey_service.dart';
@@ -56,7 +57,6 @@ import '../services/newsletter/newsletter_service.dart'
 import '../services/modifier_key_monitor.dart'
     show ModifierHotkey, kBusyKeyHoldStartDelay;
 import '../services/recording_trigger_handler.dart';
-import '../services/smart_mode/smart_mode_presets.dart';
 import '../services/paste/paste_result_notice.dart';
 import '../services/paste/repaste_service.dart';
 import '../services/replacements/learn_correction_hotkey.dart';
@@ -65,7 +65,11 @@ import '../services/snippets/interactive_snippet_controller.dart';
 import '../services/side_panel/side_panel_service.dart';
 import '../services/app_profiles/profile_activation.dart';
 import '../services/app_profiles/profile_hotkey_sync.dart';
+import '../services/dictation_key_plan.dart' show resolveDictationKey;
+import '../services/dictation_key_sync.dart';
+import '../services/instance_cli.dart' show remoteCommandActs;
 import '../services/single_instance_service.dart';
+import '../services/file_import_inbox.dart';
 import '../features/history/widgets/audio_import_panel.dart'
     show audioImportRejectionsProvider, importAudioFiles;
 import '../services/tray_service.dart';
@@ -138,6 +142,64 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   /// Smart-Mode hotkey, recording into [RecordingTarget.selectionEdit].
   late final RecordingTriggerHandler _selectionEditTriggerHandler;
 
+  /// Trigger handlers of the extra dictation keys (#2055), one per key id,
+  /// created on the key's first press and kept for this state's lifetime
+  /// (each holds its own keyDown/keyUp state, see [_triggerHandler]).
+  final Map<String, RecordingTriggerHandler> _dictationKeyHandlers = {};
+
+  /// The trigger handler of the extra dictation key [keyId]. It mirrors the
+  /// main hotkey's gestures (hold, tap or hold, double tap for hands-free,
+  /// #769) and forces the key's language and Smart Mode choice, resolved at
+  /// the press so a change in Settings applies to the next press.
+  RecordingTriggerHandler _dictationKeyHandler(String keyId) =>
+      _dictationKeyHandlers.putIfAbsent(keyId, () {
+        final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+        final hotkeySvc = _hotkeySvc;
+        return RecordingTriggerHandler(
+          startRecording: () {
+            final run = resolveDictationKey(_settings, keyId);
+            if (run == null || _isInteractiveSnippetActive) {
+              return Future<void>.value();
+            }
+            return orchestrator.startRecording(
+              languageOverride: run.language,
+              forcedSmartModePreset: run.preset,
+              startToneNotBefore: _settings.hotkey.hotkeyDoubleTap
+                  ? kShortTapMaxDuration
+                  : Duration.zero,
+            );
+          },
+          stopRecording: _stopOrAdvance,
+          toggleRecording: () {
+            if (_isInteractiveSnippetActive) return _stopOrAdvance();
+            final run = resolveDictationKey(_settings, keyId);
+            if (run == null) {
+              // A key removed meanwhile may still stop what runs.
+              return ref.read(recordingProvider).isRecording
+                  ? orchestrator.stopRecording()
+                  : Future<void>.value();
+            }
+            return orchestrator.toggleRecording(
+              languageOverride: run.language,
+              forcedSmartModePreset: run.preset,
+            );
+          },
+          pushToTalkEnabled: () => _settings.pushToTalk,
+          registrarSupportsKeyUp: () => hotkeySvc.dictationKeysSupportKeyUp,
+          holdOrTapEnabled: () => _settings.audioInput.holdOrTap,
+          holdOrTapThresholdMs: () => _settings.audioInput.holdOrTapThresholdMs,
+          doubleTapEnabled: () => _settings.hotkey.hotkeyDoubleTap,
+          doubleTapLatches: () => true,
+          isRecording: () => ref.read(recordingProvider).isRecording,
+          recordingSessionId: () => ref.read(recordingProvider).sessionId,
+          cancelRecording: () => orchestrator.cancelRecording(),
+          onHandsFreeChanged: (handsFree) =>
+              ref.read(handsFreeRecordingProvider.notifier).set(handsFree),
+          nativeEventAt: () => hotkeySvc.nativeEventAt,
+          nativePressed: () => hotkeySvc.nativePressed,
+        );
+      });
+
   /// Whether an interactive-snippet guided sequence is currently running —
   /// while it is, the main recording hotkey advances to the next field
   /// (PRD `interactive-snippets` User Story 14) instead of its usual
@@ -181,8 +243,24 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       cardOpen: ref.read(recordingCardOpenProvider),
     );
     if (!discardNow) return;
+    // Overlay E: a cancel by key teaches the cancel hint.
+    unawaited(
+      ref.read(overlayHintLearningProvider.notifier).recordCancel(byKey: true),
+    );
     unawaited(
       ref.read(recordingOrchestratorProvider.notifier).cancelRecording(),
+    );
+  }
+
+  /// Overlay E: the dictation hotkey is about to stop a running recording.
+  /// Counted for the stop hint before the stop, while the phase still says
+  /// recording; a press that starts a recording or advances a snippet field
+  /// is not counted.
+  void _countHotkeyStop() {
+    if (_isInteractiveSnippetActive) return;
+    if (!ref.read(recordingProvider).isRecording) return;
+    unawaited(
+      ref.read(overlayHintLearningProvider.notifier).recordHotkeyStop(),
     );
   }
 
@@ -280,10 +358,18 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
                       ? kShortTapMaxDuration
                       : Duration.zero,
                 ),
-      stopRecording: () => _stopOrAdvance(),
-      toggleRecording: () => _isInteractiveSnippetActive
-          ? _stopOrAdvance()
-          : ref.read(recordingOrchestratorProvider.notifier).toggleRecording(),
+      stopRecording: () {
+        _countHotkeyStop();
+        return _stopOrAdvance();
+      },
+      toggleRecording: () {
+        _countHotkeyStop();
+        return _isInteractiveSnippetActive
+            ? _stopOrAdvance()
+            : ref
+                  .read(recordingOrchestratorProvider.notifier)
+                  .toggleRecording();
+      },
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
       registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
@@ -369,6 +455,12 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     hotkeySvc.onLanguageCycleHotkeyPressed = () =>
         ref.read(languageCycleFeedbackProvider.notifier).cycle();
 
+    // ── One hotkey per favorite language (#2137) — one-shot, switches
+    // straight to that language with the same toast. Registered by the
+    // profile hotkey sync below. ──
+    hotkeySvc.onFavoriteLanguageHotkeyPressed = (code) =>
+        ref.read(languageCycleFeedbackProvider.notifier).switchTo(code);
+
     // ── "Paste the last dictation again" hotkey — one-shot, starts nothing,
     // pastes through the shared paster. ──
     hotkeySvc.onRepasteHotkeyPressed = () => unawaited(
@@ -391,23 +483,18 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     ref.read(profileHotkeySyncProvider);
     ref.read(profileMarkerProvider);
 
-    // ── Smart-Mode trigger handler (ticket 04) — push-to-talk AND toggle,
-    // identical to the main hotkey's behaviour, but always forces the bound
-    // preset regardless of the standard-preset setting. ──
-    SmartModePreset boundSmartModePreset() => smartModePresetFromSettingsValue(
-      (ref.read(settingsProvider).value ?? AppSettings.defaults)
-          .smartModeHotkey
-          .smartModeHotkeyPreset,
-    );
+    // ── Smart-Mode hotkey (#248, ADR 0015 D9) — push-to-talk AND toggle,
+    // identical to the main hotkey's behaviour. It writes new text (or edits
+    // a selection); a preset bound earlier is no longer applied. ──
     _smartModeTriggerHandler = RecordingTriggerHandler(
       startRecording: () => ref
           .read(recordingOrchestratorProvider.notifier)
-          .startRecording(forcedSmartModePreset: boundSmartModePreset()),
+          .startRecording(target: RecordingTarget.smartWrite),
       stopRecording: () =>
           ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
       toggleRecording: () => ref
           .read(recordingOrchestratorProvider.notifier)
-          .toggleRecording(forcedSmartModePreset: boundSmartModePreset()),
+          .toggleRecording(target: RecordingTarget.smartWrite),
       pushToTalkEnabled: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
       registrarSupportsKeyUp: () => hotkeySvc.optionalActionsSupportKeyUp,
@@ -456,6 +543,19 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     );
     hotkeySvc.onSelectionEditHotkeyReleased =
         _selectionEditTriggerHandler.onKeyUp;
+
+    // ── Extra dictation keys (#2055): each forces its language (and
+    // optionally a Smart Mode choice) and otherwise behaves like the main
+    // hotkey. Without extra keys the sync registers nothing. ──
+    hotkeySvc.onDictationKeyPressed = (keyId) =>
+        withDisturbance(_dictationKeyHandler(keyId).onKeyDown)();
+    hotkeySvc.onDictationKeyReleased = (keyId) {
+      unawaited(
+        ref.read(recordingOrchestratorProvider.notifier).armAutoSendOnRelease(),
+      );
+      _dictationKeyHandler(keyId).onKeyUp();
+    };
+    ref.read(dictationKeySyncProvider);
 
     // A bootstrap rebuilt mid-dictation takes over the Escape cancel key:
     // the phase listener only fires on a change, so the key would otherwise
@@ -519,7 +619,8 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       await ref.read(pasteResultReporterProvider).report(outcome);
     };
 
-    // ── CLI remote control (`whispaste --toggle` / `--cancel`) — forwarded
+    // ── CLI remote control (`whispaste --toggle` / `--start` / `--stop` /
+    // `--cancel`, #1952) — forwarded
     // by a second process over the single-instance channel. Registered after
     // the first frame, alongside the orchestrator's deferred init, so a
     // command queued during startup (cold start via `--toggle`) runs against
@@ -539,6 +640,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
         onboardingSurfaceActiveProvider,
         (_, _) => _syncOpenFilesHandler(),
       );
+      _importInbox.start(SingleInstanceService.requeueOpenFiles);
       // macOS hands a `whispaste://` link to the running process instead of
       // an argument; collect any that arrived before this point.
       unawaited(MacOSLifecycleChannel.takeOpenUrls());
@@ -623,6 +725,8 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     }
   }
 
+  final _importInbox = FileImportInbox();
+
   void _onRemoteCommand(InstanceCommand command) {
     final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
     switch (command) {
@@ -632,6 +736,21 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
               ? _stopOrAdvance()
               : orchestrator.toggleRecording(),
         );
+      case InstanceCommand.start || InstanceCommand.stop:
+        // `--start`/`--stop` (#1952): the toggle's two halves, each acting
+        // only in its own phase, so a script can call either without
+        // knowing the state. Starting goes through toggleRecording, which
+        // already hints "still processing" while a transcription runs. A
+        // running interactive snippet records its fields itself: `--stop`
+        // ends the current field like the hotkey, `--start` does nothing.
+        final recording = ref.read(recordingProvider).isRecording;
+        if (!remoteCommandActs(command, recording: recording)) {
+          _log.debug('Ignoring ${command.name}: recording=$recording');
+        } else if (command == InstanceCommand.stop) {
+          unawaited(_stopOrAdvance());
+        } else if (!_isInteractiveSnippetActive) {
+          unawaited(orchestrator.toggleRecording());
+        }
       case InstanceCommand.cancel:
         unawaited(orchestrator.cancelRecording());
       case InstanceCommand.newsletterConfirmed:
@@ -677,7 +796,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     }
     // Counts only: paths are user content and stay out of the log.
     _log.info('Transcribing ${paths.length} opened file(s)');
-    await importAudioFiles(ref, paths);
+    await importAudioFiles(ref, paths, source: ImportStartSource.openWith);
     if (!mounted) return;
     final refused = ref.read(audioImportRejectionsProvider).length;
     _log.info('Opened files done, $refused refused');
@@ -706,6 +825,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     _removeWithdrawalKick?.call();
     SingleInstanceService.onRemoteCommand = null;
     SingleInstanceService.onOpenFiles = null;
+    _importInbox.close();
     _hotkeySvc.releaseCallbacks(this);
     final watchdog = UiThreadWatchdog.instance;
     if (identical(watchdog.onSevereStall, _onSevereStall)) {
@@ -731,6 +851,15 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
 
     ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
       _syncCancelDictationEscapeKey(prev ?? RecordingPhase.idle, next);
+      // Overlay E: a recording that goes on to transcription is a finished
+      // dictation, however it was stopped.
+      if (prev == RecordingPhase.recording &&
+          (next == RecordingPhase.transcribing ||
+              next == RecordingPhase.refining)) {
+        unawaited(
+          ref.read(overlayHintLearningProvider.notifier).recordCompleted(),
+        );
+      }
     });
 
     // A permission that flips at runtime (revoked, or granted after a

@@ -83,10 +83,10 @@ void main() {
     });
   }
 
-  test('the schema version is 44', () {
+  test('the schema version is 48', () {
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
-    expect(db.schemaVersion, 44);
+    expect(db.schemaVersion, 48);
   });
 
   test('reopening an upgraded file changes nothing', () async {

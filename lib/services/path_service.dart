@@ -19,7 +19,12 @@ export 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
         retainedAudioDir,
         userAudioRootDir,
         whisperServerPath,
-        sttModelPath;
+        sttModelPath,
+        userModelsDirOverride,
+        userModelIdPrefix,
+        isUserModelId,
+        userModelsDir,
+        userWhisperModelFilename;
 
 import 'package:path/path.dart' as p;
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'

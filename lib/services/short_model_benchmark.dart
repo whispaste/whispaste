@@ -59,6 +59,13 @@ class ShortModelBenchmark {
   Process? _child;
   final _cancelled = Completer<void>();
 
+  /// Whether the last [run] failed on its own: the child exited with an
+  /// error, or its report was unusable or missing. A cancel or the time
+  /// limit is no failure (the machine is just slow). Read by the usage
+  /// statistics as `model/check_failed` `small|short_test` (#1791).
+  bool get failed => _failed;
+  bool _failed = false;
+
   void cancel() {
     if (!_cancelled.isCompleted) _cancelled.complete();
     _child?.kill(ProcessSignal.sigkill);
@@ -107,9 +114,16 @@ class ShortModelBenchmark {
         child.exitCode,
         _cancelled.future.then((_) => null),
       ]);
-      if (code != 0 || _cancelled.isCompleted) return null;
-      return compactRtfFromReport(jsonDecode(await report.readAsString()));
+      if (_cancelled.isCompleted) return null;
+      if (code != 0) {
+        _failed = true;
+        return null;
+      }
+      final rtf = compactRtfFromReport(jsonDecode(await report.readAsString()));
+      _failed = rtf == null;
+      return rtf;
     } on Object {
+      _failed = !_cancelled.isCompleted;
       return null;
     } finally {
       deadline.cancel();

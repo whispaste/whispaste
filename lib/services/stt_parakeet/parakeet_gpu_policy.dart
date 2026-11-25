@@ -48,6 +48,10 @@ enum ParakeetBackend {
 
   /// sherpa-onnx on the CPU (the historical engine, always available).
   sherpaCpu,
+  sherpaCoreml,
+  sherpaDirectml;
+
+  bool get usesGpu => this != sherpaCpu;
 }
 
 /// Why the GPU path was not chosen. Logged, and surfaced as a reason in

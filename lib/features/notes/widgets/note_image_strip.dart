@@ -15,6 +15,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../data/notes_actions.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 const double _thumbnailExtent = 64;
 
@@ -84,20 +85,25 @@ class NoteImageStrip extends ConsumerWidget {
               Positioned(
                 top: -WpSpacing.sm,
                 right: -WpSpacing.sm,
-                child: Semantics(
-                  label: l10n.notesImageRemove,
-                  button: true,
-                  identifier: 'notes-editor-image-remove-${asset.id}',
-                  child: IconButton(
+                // The compact ghost, but on its own elevated card: over a
+                // photo a bare glyph would vanish, so the X keeps the fill and
+                // edge of the outlined icon button at the editor's 32-px
+                // density.
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: WpColors.cardFillElevated,
+                    borderRadius: WpRadius.borderSm,
+                    border: Border.all(color: WpColors.borderDefault),
+                  ),
+                  child: WpIconButton.ghost(
                     key: ValueKey('notes-editor-image-remove-${asset.id}'),
+                    testId: 'notes-editor-image-remove-${asset.id}',
+                    compact: true,
                     tooltip: l10n.notesImageRemove,
+                    color: WpColors.textPrimary,
                     onPressed: () =>
                         ref.read(notesActionsProvider).removeImage(asset),
-                    icon: Icon(
-                      LucideIcons.x,
-                      size: WpIconSize.sm,
-                      color: WpColors.textPrimary,
-                    ),
+                    icon: LucideIcons.x,
                   ),
                 ),
               ),

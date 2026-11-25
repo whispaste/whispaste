@@ -17,6 +17,8 @@ void main() {
     // wp_coffee_button.dart is the brand-coloured support CTA with its own
     // component tokens (WpCoffeeTokens), like WpHeroButton a deliberate
     // design-system exception rather than a feature call site.
+    // wp_provider_tile.dart is the same exception for the support provider
+    // tiles in each provider's brand colour (WpBrandTokens, #1757).
     const allowedFiles = <String>{
       'lib/widgets/wp_button.dart',
       'lib/widgets/wp_coffee_button.dart',

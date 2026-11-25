@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/widgets/wp_notice_bar.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -212,6 +213,7 @@ void main() {
           const SingleChildScrollView(child: AdvancedSection()),
           locale: const Locale('en'),
           overrides: [settingsProvider.overrideWith(() => notifier)],
+          noticeBar: true,
         ),
       );
       await tester.pumpAndSettle();
@@ -249,8 +251,8 @@ void main() {
 
       expect(find.text(l10n.settingsSecureKeysNotRemoved), findsNothing);
       expect(find.text(l10n.settingsResetSuccess), findsOneWidget);
-      // The confirmation closes itself.
-      await tester.pump(const Duration(seconds: 5));
+      // The confirmation closes itself in the notice bar (#1903).
+      await tester.pump(kWpNoticeUndoMinimum);
       await tester.pumpAndSettle();
       expect(find.text(l10n.settingsResetSuccess), findsNothing);
     });

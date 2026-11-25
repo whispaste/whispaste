@@ -40,11 +40,14 @@ import '../services/app_commands/tray_command_catalog.dart';
 import '../services/tray_service.dart';
 import '../services/window_activation.dart';
 import 'wp_notice_bar.dart';
+import '../services/user_models/user_models_provider.dart'
+    show userModelsProvider;
 
 /// Ids of the menu bar's own commands. Tray ids are reused where a command
 /// exists in both surfaces, so an id means the same thing on both.
 abstract final class WpMenuBarCommandIds {
   static const settings = 'settings';
+  static const search = 'search';
   static const appAbout = 'app.about';
   static const appHide = 'app.hide';
   static const appHideOthers = 'app.hideOthers';
@@ -81,6 +84,7 @@ final menuBarRecordingCommandsProvider = Provider<List<MenuBarNode>>((ref) {
             l10n,
             models: ref.watch(selectableSpeechModelsProvider),
             missing: ref.watch(missingSelectedSpeechModelProvider),
+            own: ref.watch(userModelsProvider.select((s) => s.models)),
           ),
     profiles: ref.watch(appProfilesProvider).value ?? const [],
     profileChoice: ref.watch(profileChoiceProvider),
@@ -117,6 +121,10 @@ Future<void> runMenuBarCommand(WidgetRef ref, String id) async {
   switch (id) {
     case WpMenuBarCommandIds.settings:
       await _showPage(ref, 'settings');
+    // The search over every area (#628): the shell opens the dialog.
+    case WpMenuBarCommandIds.search:
+      await ref.read(windowActivatorProvider)();
+      ref.read(contentSearchRequestProvider.notifier).request();
     case WpMenuBarCommandIds.appAbout:
       ref.read(settingsScrollTargetProvider.notifier).set('about');
       await _showPage(ref, 'settings');
@@ -281,6 +289,15 @@ List<PlatformMenu> buildAppMenus({
             label: l10n.menuBarEditSelectAll,
             shortcut: _key(LogicalKeyboardKey.keyA),
             onSelected: () => _editIntent(const SelectAllTextIntent(_cause)),
+          ),
+        ],
+      ),
+      PlatformMenuItemGroup(
+        members: [
+          PlatformMenuItem(
+            label: l10n.menuBarEditSearch,
+            shortcut: _key(LogicalKeyboardKey.keyK),
+            onSelected: () => activate(WpMenuBarCommandIds.search),
           ),
         ],
       ),

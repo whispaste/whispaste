@@ -22,8 +22,12 @@
 #include "snippet_picker_host.h"
 #include "tray_panel_host.h"
 #include "support_store_channel.h"
+#include "system_contacts_host.h"
+#include "autostart_host.h"
 #include "media_pause_host.h"
+#include "spell_check_host.h"
 #include "system_languages_host.h"
+#include "system_motion_channel.h"
 #include "audio_routing_host.h"
 #include "win32_window.h"
 
@@ -47,6 +51,10 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // "Reduce motion" for the main engine (#1756); reset before
+  // flutter_controller_ in OnDestroy().
+  std::unique_ptr<SystemMotionChannel> motion_channel_;
 
   // Set at the start of OnDestroy(), before flutter_controller_ is torn
   // down. DestroyWindow() on the embedded Flutter child (inside the
@@ -98,7 +106,11 @@ class FlutterWindow : public Win32Window {
 
   // Microsoft Store sponsoring channel (runner-owned, destroyed before engine
   // teardown). Replies are posted back to this window's message loop.
+  std::unique_ptr<AutostartHost> autostart_host_;
   std::unique_ptr<SupportStoreChannel> support_store_channel_;
+  // Names from the Windows contacts for the dictionary (#2038); replies are
+  // posted back to this window's message loop.
+  std::unique_ptr<SystemContactsHost> system_contacts_host_;
   std::unique_ptr<MediaPauseHost> media_pause_host_;
   // Decodes imported MP3, FLAC and M4A files for ticket.
   std::unique_ptr<AudioFileDecodeHost> audio_file_decode_host_;
@@ -106,6 +118,8 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<FieldTypeHost> field_type_host_;
   // Preferred UI languages for the first start (whispaste/system_languages).
   std::unique_ptr<SystemLanguagesHost> system_languages_host_;
+  // Editor spell check (whispaste/spell_check, #670).
+  std::unique_ptr<SpellCheckHost> spell_check_host_;
   std::unique_ptr<AudioRoutingHost> audio_routing_host_;
 };
 

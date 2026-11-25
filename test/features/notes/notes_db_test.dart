@@ -400,4 +400,63 @@ void main() {
       expect(await db.watchTrashNotes().first, isEmpty);
     });
   });
+
+  group('setNoteArchived (#656)', () {
+    test('archive moves a note out of the active list and back', () async {
+      final note = await db.createNote();
+      await db.updateNoteContent(note.id, 'keep');
+
+      await db.setNoteArchived(note.id, archived: true);
+      expect(await db.watchNotes().first, isEmpty);
+      final archived = await db.watchArchivedNotes().first;
+      expect(archived.single.id, note.id);
+      expect(archived.single.archived, isTrue);
+
+      await db.setNoteArchived(note.id, archived: false);
+      expect((await db.watchNotes().first).single.id, note.id);
+      expect(await db.watchArchivedNotes().first, isEmpty);
+    });
+
+    test('restoring from the trash keeps the archive flag', () async {
+      final note = await db.createNote();
+      await db.setNoteArchived(note.id, archived: true);
+      await db.softDeleteNote(note.id);
+      expect(await db.watchArchivedNotes().first, isEmpty);
+      expect((await db.watchTrashNotes().first).single.id, note.id);
+
+      await db.restoreNote(note.id);
+      expect(await db.watchNotes().first, isEmpty);
+      expect((await db.watchArchivedNotes().first).single.id, note.id);
+    });
+
+    test('archiving drops the quick-note mark', () async {
+      final note = await db.createNote();
+      await db.setQuickNote(note.id);
+      expect((await db.getQuickNote())?.id, note.id);
+
+      await db.setNoteArchived(note.id, archived: true);
+      expect(await db.getQuickNote(), isNull);
+      expect((await db.getNote(note.id))!.isQuickNote, isFalse);
+    });
+
+    test('setNotesArchived files several notes at once and back', () async {
+      final a = await db.createNote();
+      final b = await db.createNote();
+      final c = await db.createNote();
+      await db.setQuickNote(b.id);
+
+      expect(await db.setNotesArchived([a.id, b.id], archived: true), 2);
+      expect((await db.watchNotes().first).single.id, c.id);
+      expect((await db.watchArchivedNotes().first).map((n) => n.id).toSet(), {
+        a.id,
+        b.id,
+      });
+      expect(await db.getQuickNote(), isNull);
+
+      await db.setNotesArchived([a.id, b.id], archived: false);
+      expect(await db.watchArchivedNotes().first, isEmpty);
+      expect(await db.watchNotes().first, hasLength(3));
+      expect(await db.setNotesArchived(const [], archived: true), 0);
+    });
+  });
 }

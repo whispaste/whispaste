@@ -84,17 +84,32 @@ void main() {
     }
   });
 
-  group('Mac App Store build (decision 2026-11-09, #1006)', () {
-    test('native tip first, then sponsoring, Ko-fi and PayPal, then reach', () {
+  group('Mac App Store build (guideline 3.1.1, #2202)', () {
+    test('native tip, then reach asks only', () {
       expect(supportCapabilities(DeployChannel.store, SupportPlatform.macos), [
         SupportAsk.nativeTip,
-        SupportAsk.githubSponsors,
-        SupportAsk.kofi,
-        SupportAsk.paypal,
         SupportAsk.rate,
         SupportAsk.star,
         SupportAsk.share,
       ]);
+    });
+
+    test('never links to an external payment page', () {
+      final asks = supportCapabilities(
+        DeployChannel.store,
+        SupportPlatform.macos,
+      );
+      for (final ask in [
+        SupportAsk.githubSponsors,
+        SupportAsk.kofi,
+        SupportAsk.paypal,
+      ]) {
+        expect(asks, isNot(contains(ask)), reason: '$ask');
+      }
+      expect(
+        otherAmountWays(DeployChannel.store, SupportPlatform.macos),
+        isEmpty,
+      );
     });
   });
 
@@ -170,7 +185,6 @@ void main() {
           final expected = switch ((platform, channel)) {
             (SupportPlatform.macos, DeployChannel.store) => [
               SupportAsk.nativeTip,
-              ...external,
             ],
             (SupportPlatform.windows, DeployChannel.store) => [
               SupportAsk.nativeTip,
@@ -224,7 +238,7 @@ void main() {
       OtherAmountWay.paypal,
     ];
 
-    test('direct, package-managed and both stores offer every way', () {
+    test('direct, package-managed and the Microsoft Store offer every way', () {
       for (final (channel, platform) in [
         (DeployChannel.installer, SupportPlatform.windows),
         (DeployChannel.portable, SupportPlatform.windows),
@@ -232,7 +246,6 @@ void main() {
         (DeployChannel.store, SupportPlatform.windows),
         (DeployChannel.portable, SupportPlatform.macos),
         (DeployChannel.packageManaged, SupportPlatform.macos),
-        (DeployChannel.store, SupportPlatform.macos),
         (DeployChannel.portable, SupportPlatform.linux),
         (DeployChannel.packageManaged, SupportPlatform.linux),
       ]) {
@@ -255,7 +268,7 @@ void main() {
       expect(
         otherAmountWays(
           DeployChannel.store,
-          SupportPlatform.macos,
+          SupportPlatform.windows,
           buyMeACoffeeUrl: null,
         ),
         isNot(contains(OtherAmountWay.buyMeACoffee)),
@@ -277,6 +290,60 @@ void main() {
       for (final way in OtherAmountWay.values) {
         expect(otherAmountUrl(way), startsWith('https://'));
       }
+    });
+  });
+
+  group('Overview support card names the store offer (#1941)', () {
+    test('only Windows installer/portable and macOS portable name it', () {
+      const naming = {
+        (DeployChannel.installer, SupportPlatform.windows),
+        (DeployChannel.portable, SupportPlatform.windows),
+        (DeployChannel.portable, SupportPlatform.macos),
+      };
+      for (final channel in DeployChannel.values) {
+        for (final platform in SupportPlatform.values) {
+          expect(
+            overviewNamesStoreOffer(
+              supportCapabilities(channel, platform),
+              storeOfferDismissed: false,
+            ),
+            naming.contains((channel, platform)),
+            reason: '$channel on $platform',
+          );
+        }
+      }
+    });
+
+    test('a hidden store offer falls back to the general text', () {
+      expect(
+        overviewNamesStoreOffer(
+          supportCapabilities(DeployChannel.portable, SupportPlatform.windows),
+          storeOfferDismissed: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('Linux and package managers never name it', () {
+      for (final channel in DeployChannel.values) {
+        expect(
+          overviewNamesStoreOffer(
+            supportCapabilities(channel, SupportPlatform.linux),
+            storeOfferDismissed: false,
+          ),
+          isFalse,
+        );
+      }
+      expect(
+        overviewNamesStoreOffer(
+          supportCapabilities(
+            DeployChannel.packageManaged,
+            SupportPlatform.windows,
+          ),
+          storeOfferDismissed: false,
+        ),
+        isFalse,
+      );
     });
   });
 }

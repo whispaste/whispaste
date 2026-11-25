@@ -19,6 +19,7 @@ import 'package:url_launcher_platform_interface/url_launcher_platform_interface.
 import 'package:whispaste/features/onboarding/widgets/onboarding_contact.dart';
 import 'package:whispaste/features/onboarding/widgets/onboarding_contact_launcher.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
+import 'package:whispaste/services/feedback_diagnostics.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -39,74 +40,82 @@ class _FakeUrlLauncher extends UrlLauncherPlatform
   }
 }
 
-FeedbackPayload _payload({
+ContactPayload _payload({
   OnboardingContactKind kind = OnboardingContactKind.problem,
   String message = '  The hotkey does nothing.  ',
   String email = '',
   bool diagnostics = false,
+  List<String>? logReads,
 }) => buildOnboardingContactPayload(
-  kind: kind,
-  message: message,
-  email: email,
-  includeDiagnostics: diagnostics,
-  stepId: 'mic-check',
-  appVersion: '9.9.9',
-  os: 'macos 15.5',
-  deviceIdHash: 'abcdef012345',
+  message: OnboardingContactMessage(
+    kind: kind,
+    message: message,
+    email: email,
+    includeDiagnostics: diagnostics,
+    stepId: 'micCheck',
+    elapsed: const Duration(seconds: 12),
+  ),
   locale: 'de',
+  installHash: 'a' * 64,
+  appVersion: '9.9.9',
+  operatingSystem: 'macos',
+  readDiagnostics: () {
+    logReads?.add('read');
+    return 'sanitized log excerpt';
+  },
 );
 
 void main() {
   group('payload', () {
-    test('without the opt-in the text is the message alone', () {
-      final json = _payload().toJson();
-      expect(json['feedback_text'], 'The hotkey does nothing.');
-      expect(json['feedback_text'], isNot(contains('mic-check')));
-      expect(json['feedback_text'], isNot(contains('macos')));
-      expect(json['category'], 'bug');
+    test('without the opt-in only the message leaves, no log is read', () {
+      final reads = <String>[];
+      final json = _payload(logReads: reads).toJson();
+      expect(json['message'], 'The hotkey does nothing.');
+      expect(json['kind'], 'problem');
       expect(json['rating'], isNull);
-      expect(json['publish_consent'], false);
-      expect(json.containsKey('consent_text_version'), isFalse);
-      expect(json.containsKey('withdraw_token_hash'), isFalse);
-      expect(json.containsKey('contact_email'), isFalse);
+      for (final key in const [
+        'appVersion',
+        'os',
+        'stepId',
+        'diagnostics',
+        'publish_consent',
+        'withdraw_token_hash',
+      ]) {
+        expect(json.containsKey(key), isFalse, reason: key);
+      }
+      expect(reads, isEmpty);
     });
 
-    test('with the opt-in it adds step, app version and OS only', () {
-      final text = _payload(diagnostics: true).feedbackText;
-      expect(text, startsWith('The hotkey does nothing.\n\n'));
-      expect(text, contains('Step mic-check'));
-      expect(text, contains('App 9.9.9'));
-      expect(text, contains('OS macos 15.5'));
-      expect(text, isNot(contains('Engine')));
-      expect(text, isNot(contains('Backend')));
+    test('with the opt-in version, system, step and the attachment travel '
+        'apart from the message', () {
+      final reads = <String>[];
+      final json = _payload(diagnostics: true, logReads: reads).toJson();
+      expect(json['message'], 'The hotkey does nothing.');
+      expect(json['appVersion'], '9.9.9');
+      expect(json['os'], 'macos');
+      expect(json['stepId'], 'mic_check');
+      expect(json['diagnostics'], 'sanitized log excerpt');
+      expect(reads, hasLength(1));
     });
 
-    test('the text never exceeds the server limit', () {
-      final text = _payload(message: 'x' * 5000, diagnostics: true);
+    test('step ids follow the API pattern', () {
+      expect(contactStepId('tryOut'), 'try_out');
+      expect(contactStepId('welcome'), 'welcome');
+      expect(contactStepId('mic-check'), 'mic_check');
+      expect(contactStepId('42'), isNull);
+      expect(contactStepId('a' * 40), hasLength(32));
+    });
+
+    test('an e-mail is trimmed', () {
       expect(
-        text.feedbackText.length,
-        lessThanOrEqualTo(kOnboardingContactMaxTextLength),
+        _payload(email: ' me@example.org ').toJson()['email'],
+        'me@example.org',
       );
     });
 
-    test('an e-mail is trimmed and carries the contact locale', () {
-      final json = _payload(email: ' me@example.org ').toJson();
-      expect(json['contact_email'], 'me@example.org');
-      expect(json['contact_locale'], 'de');
-    });
-
-    test('categories follow the feedback form; ideas never send', () {
+    test('ideas never send; the other kinds keep their category', () {
       expect(onboardingContactCategory(OnboardingContactKind.problem), 'bug');
-      expect(
-        onboardingContactCategory(OnboardingContactKind.question),
-        'general',
-      );
-      expect(onboardingContactCategory(OnboardingContactKind.other), 'general');
       expect(onboardingContactCategory(OnboardingContactKind.idea), isNull);
-      expect(
-        () => _payload(kind: OnboardingContactKind.idea),
-        throwsArgumentError,
-      );
     });
 
     test('message and e-mail gates', () {
@@ -171,6 +180,9 @@ void main() {
           locale: const Locale('en'),
           overrides: [
             feedbackSubmissionServiceProvider.overrideWithValue(service()),
+            feedbackDiagnosticAttachmentProvider.overrideWithValue(
+              'sanitized crash log',
+            ),
             onboardingContactSendEnabledProvider.overrideWithValue(sendEnabled),
           ],
         ),
@@ -222,8 +234,9 @@ void main() {
       await tap(tester, 'onboarding-contact-send');
 
       expect(sent, hasLength(1));
-      expect(sent.single['category'], 'bug');
-      expect(sent.single['feedback_text'], 'No sound at all.');
+      expect(sent.single['kind'], 'problem');
+      expect(sent.single['message'], 'No sound at all.');
+      expect(sent.single.containsKey('diagnostics'), isFalse);
 
       // The panel thanks and stays until the user presses Done.
       expect(find.byKey(const ValueKey('onboarding-contact-sent')), findsOne);
@@ -242,8 +255,9 @@ void main() {
       await tap(tester, 'onboarding-contact-send');
 
       expect(sent, hasLength(2));
-      expect(sent.last['category'], 'general');
-      expect(sent.last['feedback_text'], contains('Step welcome'));
+      expect(sent.last['kind'], 'question');
+      expect(sent.last['stepId'], 'welcome');
+      expect(sent.last['diagnostics'], 'sanitized crash log');
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(milliseconds: 500));
     });
@@ -270,7 +284,7 @@ void main() {
 
       offline = false;
       await tap(tester, 'onboarding-contact-send');
-      expect(sent.single['feedback_text'], 'Paste fails often.');
+      expect(sent.single['message'], 'Paste fails often.');
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(milliseconds: 500));
     });

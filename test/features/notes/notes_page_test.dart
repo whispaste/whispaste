@@ -80,7 +80,7 @@ class _FailingCreateActions extends NotesActions {
   int discardCalls = 0;
 
   @override
-  Future<Note> create() async => throw SqliteException(
+  Future<Note> create({String? folderId}) async => throw SqliteException(
     extendedResultCode: 13,
     message: 'private database error',
   );
@@ -102,6 +102,7 @@ Note _sampleNote({
 }) {
   final t = updatedAt ?? DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: pinned,

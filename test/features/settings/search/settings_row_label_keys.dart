@@ -87,6 +87,8 @@ const Map<String, String> kSettingsCoverageLabelKeys = {
   'settingsAutomationApi': 'automationApi',
   'settingsAutomationApiToken': 'automationApi',
   'settingsAutomationApiCustomPortLabel': 'automationApi',
+  'settingsAutomationWriteEnable': 'automationApi',
+  'settingsAutomationWriteToken': 'automationApi',
   // Updates
   'settingsUpdates': 'updates',
   'settingsCheckForUpdatesNow': 'updates',

@@ -44,7 +44,17 @@ void main() {
   test(
     'the Flatpak and Snap hints name no apt command in any app language',
     () {
-      for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+      for (final lang in [
+        'de',
+        'en',
+        'es',
+        'he',
+        'pt',
+        'ru',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         final arb =
             jsonDecode(File('lib/core/l10n/app_$lang.arb').readAsStringSync())
                 as Map<String, dynamic>;

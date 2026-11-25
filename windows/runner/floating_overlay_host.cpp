@@ -48,6 +48,13 @@ namespace {
 constexpr char kChannelName[] = "com.whispaste.floating_overlay";
 constexpr char kRenderChannelName[] = "com.whispaste.floating_overlay_render";
 
+// SetWindowDisplayAffinity value that leaves a window out of every capture
+// (screenshots, screen sharing, recordings) while it stays visible on the
+// monitor. Windows 10 version 2004 and later; older SDKs lack the name.
+#ifndef WDA_EXCLUDEFROMCAPTURE
+#define WDA_EXCLUDEFROMCAPTURE 0x00000011
+#endif
+
 // ── Window-size spec (mirrors OverlayDesignSpec.windowSizeFor in Dart) ───
 // pill + 8 px shadow padding each side
 constexpr int kNormalW = 346;
@@ -58,9 +65,12 @@ constexpr int kMiniW = 166;
 constexpr int kMiniH = 50;
 constexpr int kNanoW = 104;
 constexpr int kNanoH = 40;
-// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSize.
+// Notice card (overlay F2): OverlayDesignSpec.noticeWindowSizeFor. The
+// card grows with its content (#1845): its height arrives with every
+// snapshot as `noticeHeight`; 164 is the smallest card.
 constexpr int kNoticeW = 346;
-constexpr int kNoticeH = 164;
+constexpr int kNoticeMinH = 164;
+int g_notice_h = kNoticeMinH;
 
 // Logical shell size for a size class ("normal" | "compact" | "mini" | "nano",
 // mirrors the Dart OverlaySizeVariant serialised as snapshot["size"]).
@@ -76,7 +86,7 @@ int OverlayLogicalH(const std::string& size_class) {
   if (size_class == "compact") return kCompactH;
   if (size_class == "mini") return kMiniH;
   if (size_class == "nano") return kNanoH;
-  if (size_class == "notice") return kNoticeH;
+  if (size_class == "notice") return g_notice_h;
   return kNormalH;
 }
 
@@ -161,6 +171,7 @@ void FloatingOverlayHost::Destroy() {
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
+    motion_channel_.reset();
   }
 
   // Tear down the shell BEFORE the render engine/controller — the shell
@@ -267,7 +278,11 @@ bool FloatingOverlayHost::EnsureEngineAndShell(const std::string& size_class) {
   render_project_ = std::move(project);
   render_controller_ = std::move(controller);
   render_channel_ = std::move(render_ch);
+  motion_channel_ = std::make_unique<SystemMotionChannel>(
+      render_controller_->engine()->messenger());
   window_ = std::move(shell);
+  // A rebuilt shell also starts without the capture exclusion (overlay F).
+  ApplyCaptureExclusion();
   // A rebuilt shell starts with the full-width region; restore the last
   // reported pill width instead of waiting for the next width change.
   if (last_pill_w_ > 0.0) {
@@ -284,6 +299,19 @@ bool FloatingOverlayHost::EnsureEngineAndShell(const std::string& size_class) {
 // ══════════════════════════════════════════════════════════════════════
 
 namespace {
+// Whether the snapshot's notice card shows its edit field (#254):
+// snapshot["notice"]["edit"]["open"], see OverlayNoticeEdit.toMap.
+bool NoticeEditOpen(const EncodableMap& snapshot) {
+  const auto notice_it = snapshot.find(EncodableValue("notice"));
+  if (notice_it == snapshot.end()) return false;
+  const auto* notice = std::get_if<EncodableMap>(&notice_it->second);
+  if (!notice) return false;
+  const auto edit_it = notice->find(EncodableValue("edit"));
+  if (edit_it == notice->end()) return false;
+  const auto* edit = std::get_if<EncodableMap>(&edit_it->second);
+  return edit && GetBool(*edit, "open", false);
+}
+
 // The system "Show transparency effects" switch (Settings > Personalisation >
 // Colours). Off means the user asked for less transparency.
 bool ReduceTransparencyEnabled() {
@@ -299,6 +327,36 @@ bool ReduceTransparencyEnabled() {
   return false;
 }
 }  // namespace
+
+void FloatingOverlayHost::UpdateEditSession(bool open) {
+  if (!window_ || open == window_->IsEditable()) return;
+  if (open) {
+    HWND foreground = ::GetForegroundWindow();
+    DWORD process_id = 0;
+    if (foreground) ::GetWindowThreadProcessId(foreground, &process_id);
+    edit_return_window_ =
+        (foreground && process_id != ::GetCurrentProcessId()) ? foreground
+                                                               : nullptr;
+    window_->SetEditable(true);
+    return;
+  }
+  const bool had_focus = window_->IsForeground();
+  window_->SetEditable(false);
+  HWND back = edit_return_window_;
+  edit_return_window_ = nullptr;
+  // Best effort for Esc/discard: the insert already moved the focus back
+  // (confirmed by DesktopPasteHost::ActivateTarget) before this snapshot.
+  if (had_focus && back && ::IsWindow(back)) {
+    const DWORD this_thread = ::GetCurrentThreadId();
+    const DWORD back_thread = ::GetWindowThreadProcessId(back, nullptr);
+    bool attached = false;
+    if (back_thread != 0 && back_thread != this_thread) {
+      attached = ::AttachThreadInput(this_thread, back_thread, TRUE) != FALSE;
+    }
+    ::SetForegroundWindow(back);
+    if (attached) ::AttachThreadInput(this_thread, back_thread, FALSE);
+  }
+}
 
 void FloatingOverlayHost::HandleMethodCall(
     const MethodCall<EncodableValue>& call,
@@ -327,13 +385,22 @@ void FloatingOverlayHost::HandleMethodCall(
         size_class = GetBool(*map, "compact", false) ? "compact" : "normal";
       }
     }
-    bool size_changed = (size_class != size_class_);
+    // Measure the old window before the notice height changes with it.
+    const int old_w = OverlayLogicalW(size_class_);
+    const int old_h = OverlayLogicalH(size_class_);
+    const int old_notice_h = g_notice_h;
+    if (map) {
+      const double notice_h = GetDouble(*map, "noticeHeight", kNoticeMinH);
+      g_notice_h = notice_h > 0 ? static_cast<int>(notice_h + 0.5) : kNoticeMinH;
+    }
+    bool size_changed =
+        (size_class != size_class_) ||
+        (size_class == "notice" && g_notice_h != old_notice_h);
     // Content and window must never disagree (#1193): a shrinking shell
     // relays the new snapshot first and resizes after it, a growing shell
     // resizes first (same order as macOS handleUpdateSnapshot).
-    const bool shrinking =
-        OverlayLogicalW(size_class) < OverlayLogicalW(size_class_) ||
-        OverlayLogicalH(size_class) < OverlayLogicalH(size_class_);
+    const bool shrinking = OverlayLogicalW(size_class) < old_w ||
+                           OverlayLogicalH(size_class) < old_h;
     bool resize_existing = false;
 
     // Update size state BEFORE EnsureEngineAndShell so the first creation
@@ -354,8 +421,9 @@ void FloatingOverlayHost::HandleMethodCall(
 
     // Glass look on Windows falls back to the opaque glass body (#518). The
     // system acrylic backdrop (DWMSBT_TRANSIENTWINDOW) only blurs while its
-    // window is active; this overlay never takes focus (WS_EX_NOACTIVATE), so
-    // DWM painted its flat grey fallback colour over the whole client area,
+    // window is active; this overlay takes focus only while the write
+    // preview's edit field is open (WS_EX_NOACTIVATE otherwise), so DWM
+    // painted its flat grey fallback colour over the whole client area,
     // window region and shadow padding included (seen on real Windows 11
     // hardware). The opaque body is the same one "reduce transparency" uses,
     // so the Flutter view paints it via the relayed reduceTransparency flag.
@@ -384,6 +452,7 @@ void FloatingOverlayHost::HandleMethodCall(
       if (visible) window_->Show();
       else          window_->Hide();
     }
+    UpdateEditSession(visible && map && NoticeEditOpen(*map));
 
     result->Success();
     return;
@@ -428,6 +497,16 @@ void FloatingOverlayHost::HandleMethodCall(
     return;
   }
 
+  // ── setCaptureExcluded ──────────────────────────────────────────────
+  // Overlay F (#194): screen sharing, recordings and screenshots leave the
+  // overlay out; the user still sees it. Answers whether the shell applied
+  // it (true also while no shell exists yet: the next one takes it over).
+  if (method == "setCaptureExcluded") {
+    capture_excluded_ = map ? GetBool(*map, "excluded", false) : false;
+    result->Success(EncodableValue(ApplyCaptureExclusion()));
+    return;
+  }
+
   // ── setOpacity ───────────────────────────────────────────────────────
   // Opacity was removed in issue 11. Accept as a no-op so the Dart controller
   // does not receive a MethodChannel error.
@@ -453,6 +532,7 @@ void FloatingOverlayHost::HandleMethodCall(
     const auto [x, y] = window_->GetPosition();
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
+    motion_channel_.reset();
     window_->Destroy();
     window_.reset();
     render_controller_.reset();
@@ -476,6 +556,7 @@ void FloatingOverlayHost::HandleMethodCall(
     if (render_channel_) {
       render_channel_->SetMethodCallHandler(nullptr);
       render_channel_.reset();
+      motion_channel_.reset();
     }
     if (window_) {
       window_->Destroy();
@@ -739,6 +820,16 @@ std::pair<double, double> FloatingOverlayHost::ResolveAnchorPosition() const {
 // ══════════════════════════════════════════════════════════════════════
 // Relay helpers → render engine
 // ══════════════════════════════════════════════════════════════════════
+
+bool FloatingOverlayHost::ApplyCaptureExclusion() {
+  if (!window_ || !window_->GetHandle()) return true;
+  const DWORD affinity = capture_excluded_ ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE;
+  if (SetWindowDisplayAffinity(window_->GetHandle(), affinity)) return true;
+  OutputDebugStringW(
+      L"[FloatingOverlay] SetWindowDisplayAffinity refused (Windows older "
+      L"than 10 version 2004?)\n");
+  return false;
+}
 
 void FloatingOverlayHost::RelaySnapshot() {
   if (!render_channel_ || !latest_snapshot_args_) return;

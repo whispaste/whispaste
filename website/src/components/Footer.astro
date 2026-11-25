@@ -166,6 +166,13 @@ const resourceLinks = [
           <a href={privacyHref} class="footer-legal__link" data-testid="footer-link-privacy" data-i18n-href="footer.privacy.href"><span data-i18n="footer.privacy">{t(lang, "footer.privacy")}</span></a>
           <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="footer-legal__link" data-testid="footer-link-license"><span data-i18n="footer.license">{t(lang, "footer.license")}</span></a>
         </nav>
+        {/* In-page stop for the endless decorative motion (#1910, WCAG
+            2.2.2); remembered locally, see scripts/motion-pref.ts. */}
+        <button type="button" class="footer-legal__link footer-motion" data-motion-toggle aria-pressed="false" data-testid="footer-motion-toggle">
+          <svg class="footer-motion__icon footer-motion__icon--pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          <svg class="footer-motion__icon footer-motion__icon--play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
+          <span data-i18n="footer.motionPause">{t(lang, "footer.motionPause")}</span>
+        </button>
         <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
       </div>
      </div>
@@ -278,6 +285,21 @@ const resourceLinks = [
     text-decoration: none;
   }
   .footer-legal__link:hover { color: var(--wp-footer-link-hover); }
+  /* Toggle button styled as a legal-line link; the icon shows the state
+     (pause while motion runs, play once paused), aria-pressed tells it to
+     screen readers. */
+  .footer-motion {
+    gap: var(--wp-space-2);
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+  }
+  .footer-motion__icon { flex: none; }
+  .footer-motion[aria-pressed="true"] .footer-motion__icon--pause,
+  .footer-motion:not([aria-pressed="true"]) .footer-motion__icon--play { display: none; }
+  .footer-motion[aria-pressed="true"] { color: var(--wp-footer-link-hover); }
   /* Community line: channels first, then the developer's own profiles in a
      second group with its own label. Stacked on phones, one row from 640px.
      Targets are 44px tall. */

@@ -1,10 +1,4 @@
-/// Replacements tab: the replacement list itself, with its secondary actions
-/// (try-it test, CSV import/export) behind the toolbar's overflow button.
-///
-/// The list is the only thing above the fold on purpose (ticket): explanation
-/// and rows scroll together, search and Add stay fixed, and nothing else takes
-/// vertical space until it is asked for. The learning cards live on the
-/// Suggestions tab.
+/// Replacement commands and rows, embedded in the shared dictionary page.
 library;
 
 import 'package:flutter/material.dart';
@@ -23,7 +17,19 @@ import '../replacements/replacements_page.dart';
 import 'dictionary_csv_actions.dart';
 
 class DictionaryReplacementsTab extends ConsumerWidget {
-  const DictionaryReplacementsTab({super.key});
+  const DictionaryReplacementsTab({
+    super.key,
+    this.dictionaryBuilder,
+    this.query = '',
+  });
+  final String query;
+  final Widget Function(
+    Widget rows,
+    List<WpListMenuAction> actions,
+    VoidCallback add,
+    Widget sortControl,
+  )?
+  dictionaryBuilder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,6 +37,8 @@ class DictionaryReplacementsTab extends ConsumerWidget {
     final items =
         ref.watch(replacementsProvider).value ?? const <Replacement>[];
     return ReplacementsPage(
+      dictionaryBuilder: dictionaryBuilder,
+      query: query,
       leadingMenuActions: [
         WpListMenuAction(
           itemKey: const ValueKey('dictionary-test-open'),
@@ -41,14 +49,18 @@ class DictionaryReplacementsTab extends ConsumerWidget {
         ),
         WpListMenuAction(
           itemKey: const ValueKey('dictionary-csv-import'),
-          label: l10n.dictionaryCsvImport,
+          label: dictionaryBuilder == null
+              ? l10n.dictionaryCsvImport
+              : '${l10n.dictionaryTabReplacements}: ${l10n.dictionaryCsvImport}',
           hint: l10n.dictionaryCsvHint(ltrIsolate('|')),
           icon: LucideIcons.fileUp,
           onSelected: () => importReplacementsCsv(context, ref),
         ),
         WpListMenuAction(
           itemKey: const ValueKey('dictionary-csv-export'),
-          label: l10n.dictionaryCsvExport,
+          label: dictionaryBuilder == null
+              ? l10n.dictionaryCsvExport
+              : '${l10n.dictionaryTabReplacements}: ${l10n.dictionaryCsvExport}',
           icon: LucideIcons.fileDown,
           // A disabled row says why: the empty list is the reason.
           hint: items.isEmpty ? l10n.dictionaryCsvExportEmpty : null,

@@ -15,7 +15,28 @@ import 'package:whispaste/services/path_service.dart' as paths;
 /// run. A new step adds its predecessor here, or the guard below fails.
 const List<int> _sourceVersions = [
   1, 2, 3, 4, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, //
-  26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  38,
+  39,
+  40,
+  41,
+  42,
+  43,
+  44,
+  45,
+  46,
+  47,
 ];
 
 /// Counts the write statements of the open and throws on the [failAt]-th one.
@@ -84,6 +105,10 @@ class _FailNthWrite extends QueryInterceptor {
 
   static bool _isWrite(String sql) {
     final s = sql.trimLeft().toUpperCase();
+    // FTS5 takes its read-only check as an INSERT; the open's index
+    // inspection runs it per search index after the upgrade has committed
+    // (#628), and it changes nothing a fault could leave half done.
+    if (s.contains("VALUES ('INTEGRITY-CHECK')")) return false;
     return !(s.startsWith('PRAGMA') && !s.contains('=')) &&
         !s.startsWith('SELECT');
   }

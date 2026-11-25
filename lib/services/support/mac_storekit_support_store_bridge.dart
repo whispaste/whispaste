@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 
 import '../../core/logging/app_logger.dart';
@@ -13,11 +15,38 @@ const String kMacStoreKitChannelName = 'com.whispaste.support_store';
 ///
 /// Every native failure degrades to the contract's fallback value; nothing
 /// here throws to the caller.
-class MacStoreKitSupportStoreBridge implements SupportStoreBridge {
+///
+/// The native side pushes `purchaseConfirmed` when `Transaction.updates`
+/// delivers a verified support purchase that did not come from [purchase]
+/// (Ask to Buy approval, a purchase finished after an interruption). That
+/// feeds [lateConfirmations], so a pending purchase gets its thank-you.
+class MacStoreKitSupportStoreBridge
+    implements
+        LateConfirmingSupportStoreBridge,
+        TestEnvironmentAwareSupportStoreBridge {
   MacStoreKitSupportStoreBridge({MethodChannel? channel})
     : _channel = channel ?? const MethodChannel(kMacStoreKitChannelName);
 
   final MethodChannel _channel;
+
+  /// Lives as long as the bridge, which lives as long as the process.
+  final StreamController<void> _confirmations =
+      StreamController<void>.broadcast();
+  bool _listening = false;
+
+  @override
+  Stream<void> get lateConfirmations {
+    if (!_listening) {
+      _listening = true;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'purchaseConfirmed') _confirmations.add(null);
+      });
+    }
+    return _confirmations.stream;
+  }
+
+  @override
+  Future<bool> isTestEnvironment() => _invokeBool('isTestEnvironment');
 
   @override
   Future<bool> isAvailable() => _invokeBool('isAvailable');

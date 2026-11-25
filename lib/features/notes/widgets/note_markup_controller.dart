@@ -43,7 +43,7 @@ class NoteMarkupController extends WpFindHighlightController {
   }
 
   @override
-  TextSpan buildTextSpan({
+  TextSpan buildDecoratedTextSpan({
     required BuildContext context,
     TextStyle? style,
     required bool withComposing,
@@ -83,7 +83,7 @@ class NoteMarkupController extends WpFindHighlightController {
         ? const <NoteHighlightSpan>[]
         : _spansFor(value.text);
     if (spans.isEmpty) {
-      return super.buildTextSpan(
+      return super.buildDecoratedTextSpan(
         context: context,
         style: style,
         withComposing: withComposing,

@@ -128,29 +128,5 @@ void main() {
         expect(await db.readAllReplacements(), isEmpty);
       });
     });
-
-    test('favourite flag can be set, cleared and survives an edit', () async {
-      await inMemory((db) async {
-        await db.upsertReplacementWithTriggers(
-          id: 'mfg',
-          triggers: ['mfg'],
-          replacement: 'Mit freundlichen Grüßen',
-          createdAt: DateTime(2026, 10, 1),
-        );
-        await db.setReplacementFavourite('mfg', value: true);
-        expect((await db.readAllReplacements()).single.row.isFavorite, isTrue);
-
-        await db.upsertReplacementWithTriggers(
-          id: 'mfg',
-          triggers: ['mfg'],
-          replacement: 'Mit freundlichen Grüßen!',
-          createdAt: DateTime(2026, 10, 1),
-        );
-        expect((await db.readAllReplacements()).single.row.isFavorite, isTrue);
-
-        await db.setReplacementFavourite('mfg', value: false);
-        expect((await db.readAllReplacements()).single.row.isFavorite, isFalse);
-      });
-    });
   });
 }

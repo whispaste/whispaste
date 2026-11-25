@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
+import 'wp_focus_ring.dart';
 
 // ---------------------------------------------------------------------------
 // WpListTileSurface — the one tile envelope for every list row in the app
@@ -260,6 +261,28 @@ class WpListTileSurface extends StatelessWidget {
             ],
           );
 
+    // The keyboard cursor draws the app's focus ring around the row, in
+    // every variant and also on the open row: the fill and edge above only
+    // tint it (about 1.03:1 on a card) and the selected look would hide it,
+    // so an arrow or Tab cursor stayed invisible (#1902).
+    return CustomPaint(
+      foregroundPainter: isFocused
+          ? WpFocusRingPainter(
+              color: WpColors.accent,
+              radius: WpRadiusTokens.control,
+              insets: _margin(),
+            )
+          : null,
+      child: _envelope(context, padding, hasActions, content),
+    );
+  }
+
+  Widget _envelope(
+    BuildContext context,
+    EdgeInsets padding,
+    bool hasActions,
+    Widget content,
+  ) {
     return AnimatedContainer(
       duration: WpMotion.durationFor(
         context,

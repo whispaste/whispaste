@@ -93,6 +93,17 @@ int wpg_whisper_init_state(wpg_whisper_init_state_fn fn,
   return guarded(err, err_len, [&] { *out_state = fn(ctx); });
 }
 
+int wpg_whisper_language_probs(wpg_whisper_mel_fn mel,
+    wpg_whisper_detect_fn detect, struct whisper_context* ctx,
+    const float* samples, int count, int threads, float* probs, int* out_rc,
+    char* err, size_t err_len) {
+  *out_rc = -1;
+  return guarded(err, err_len, [&] {
+    *out_rc = mel(ctx, samples, count, threads);
+    if (*out_rc == 0) *out_rc = detect(ctx, 0, threads, probs);
+  });
+}
+
 int wpg_whisper_full(wpg_whisper_full_fn fn, struct whisper_context* ctx,
                      const struct whisper_full_params* params,
                      const float* samples, int n_samples, int* out_rc,

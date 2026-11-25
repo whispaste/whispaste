@@ -1,0 +1,4 @@
+/* Permission reasons shown by macOS (Info.plist keys), per app language. */
+"NSMicrophoneUsageDescription" = "WhisPaste ha bisogno dell'accesso al microfono per trasformare la tua voce in testo.";
+"NSAppleEventsUsageDescription" = "WhisPaste può usare questa autorizzazione per incollare il testo dettato in altre app quando il metodo abituale non è disponibile, e per mettere in pausa Musica o Spotify mentre detti.";
+"NSContactsUsageDescription" = "WhisPaste legge solo i nomi e le aziende dei tuoi contatti, dopo il tuo consenso nell’app, perché la dettatura li scriva correttamente. Restano su questo Mac.";

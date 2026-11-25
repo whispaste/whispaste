@@ -62,6 +62,7 @@ import 'steps/test_recording_step.dart';
 import 'steps/privacy_step.dart';
 import 'onboarding_completion_gate.dart';
 import 'stt_model_readiness.dart';
+import '../../widgets/wp_icon_button.dart';
 
 /// Widget keys exposed for testing — the shell-owned navigation actions.
 @visibleForTesting
@@ -127,8 +128,9 @@ const double _kOnboardingContactInset = WpSpacing.xl;
 const double _kOnboardingContactReserve =
     56 + _kOnboardingContactInset + WpSpacing.md;
 
-/// Hit box of the floating exit X, independent of the top bar's height.
-const double _kOnboardingExitBoxSize = 32;
+/// Hit box of the floating exit X, independent of the top bar's height: the
+/// compact [WpIconButton.ghost] square.
+const double _kOnboardingExitBoxSize = WpIconButton.compactExtent;
 
 /// Distance from the window edges to the exit *glyph* — the visible X — on
 /// both axes.
@@ -144,9 +146,11 @@ const double _kOnboardingExitGlyphInset = WpSpacing.sm;
 
 /// Where the exit button's *box* is positioned so its glyph lands on
 /// [_kOnboardingExitGlyphInset]: the 32-px hit box extends
-/// `(32 − WpIconSize.md) / 2 = 6 px` beyond the glyph on every side.
+/// `(32 − WpIconSize.smMd) / 2 = 7 px` beyond the compact ghost's glyph on
+/// every side.
 const double _kOnboardingExitBoxInset =
-    _kOnboardingExitGlyphInset - (_kOnboardingExitBoxSize - WpIconSize.md) / 2;
+    _kOnboardingExitGlyphInset -
+    (_kOnboardingExitBoxSize - WpIconSize.smMd) / 2;
 
 /// Air under the step counter, i.e. between the last thing on screen and the
 /// window's bottom edge — the counterpart to the empty top bar above the
@@ -391,6 +395,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
 
   int _currentStep = 0;
   int _previousStep = 0;
+
+  /// The page a link jumped back from (Try out → Access or Mic, closing page
+  /// → Access). Back and Escape return there instead of walking one page
+  /// further back through pages already done; any other move forgets it.
+  int? _jumpOrigin;
 
   /// The model page, opened from the closing page via "Modell laden". It is
   /// a detour, not a page of the sequence: the displayed page is the model
@@ -812,8 +821,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   }
 
   /// Opens the privacy-choice hold for a first run (ticket 01, decision 5a):
-  /// onboarding events and crash reports wait in memory until
-  /// [_commitPrivacyChoice]. Never called for a review or a revision run —
+  /// onboarding events wait in the buffer and its device-local copy (GR-033),
+  /// crash reports in memory, until [_commitPrivacyChoice]. Never called for a review or a revision run —
   /// those start on an app whose choice is already made.
   void _beginPrivacyHold() {
     ref.read(onboardingTelemetryBufferProvider).begin();
@@ -847,6 +856,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
         (t, screen) => skip ? t.stepSkip(screen) : t.stepNext(screen),
       );
       setState(() {
+        _jumpOrigin = null;
         _previousStep = _currentStep;
         _currentStep++;
       });
@@ -884,6 +894,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     );
     _trackFirstRun(id, (t, screen) => t.stepShown(screen));
     setState(() {
+      _jumpOrigin = index < _currentStep ? _currentStep : null;
       _previousStep = _currentStep;
       _currentStep = index;
     });
@@ -891,10 +902,23 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
   }
 
   void _goBack() {
-    if (_currentStep > 0) {
-      final steps = _onboardingSteps();
+    final steps = _onboardingSteps();
+    final origin = _jumpOrigin;
+    if (origin != null && origin > _currentStep && origin < steps.length) {
       _trackFirstRun(steps[_currentStep], (t, screen) => t.stepBack(screen));
       setState(() {
+        _jumpOrigin = null;
+        _previousStep = _currentStep;
+        _currentStep = origin;
+      });
+      _persistCurrentStep(_currentStep);
+      _trackFirstRun(steps[_currentStep], (t, screen) => t.stepShown(screen));
+      return;
+    }
+    if (_currentStep > 0) {
+      _trackFirstRun(steps[_currentStep], (t, screen) => t.stepBack(screen));
+      setState(() {
+        _jumpOrigin = null;
         _previousStep = _currentStep;
         _currentStep--;
       });
@@ -1294,40 +1318,19 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           if (showExitIcon) const SizedBox(width: WpSpacing.xxs),
         ],
         if (showExitIcon)
-          // One node carries the identifier, the label and the tap action.
-          // excludeSemantics drops the IconButton's own duplicate node, which
-          // would otherwise have no identifier.
-          Semantics(
-            button: true,
-            identifier: 'onboarding-nav-review-exit',
-            label: widget.manualReview
+          // The compact ghost: its 32-px square is the whole hit box (no 48-px
+          // touch padding), so the X keeps its corner inset; its tooltip is
+          // the one accessible name (#1757).
+          WpIconButton.ghost(
+            key: kOnboardingReviewExitButtonKey,
+            testId: 'onboarding-nav-review-exit',
+            compact: true,
+            icon: LucideIcons.x,
+            color: textMuted,
+            onPressed: widget.manualReview ? _exitManualReview : _quitFirstRun,
+            tooltip: widget.manualReview
                 ? l10n.onboardingReviewExit
                 : MaterialLocalizations.of(context).closeButtonTooltip,
-            onTap: widget.manualReview ? _exitManualReview : _quitFirstRun,
-            excludeSemantics: true,
-            child: IconButton(
-              key: kOnboardingReviewExitButtonKey,
-              onPressed: widget.manualReview
-                  ? _exitManualReview
-                  : _quitFirstRun,
-              icon: Icon(
-                LucideIcons.x,
-                // `md`, the floor DESIGN.md sets for an interactive icon; 18
-                // was off the scale in both directions. The 32-px constraints
-                // below set the button's own box.
-                size: WpIconSize.md,
-                color: textMuted,
-              ),
-              tooltip: widget.manualReview
-                  ? l10n.onboardingReviewExit
-                  : MaterialLocalizations.of(context).closeButtonTooltip,
-              splashRadius: 16,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: _kOnboardingExitBoxSize,
-                minHeight: _kOnboardingExitBoxSize,
-              ),
-            ),
           ),
       ],
     );

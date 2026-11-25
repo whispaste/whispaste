@@ -34,10 +34,19 @@ final _letterOrDigit = RegExp(r'[\p{L}\p{N}]', unicode: true);
 /// The full hygiene for a finished transcript from any engine. Returns the
 /// empty string for a transcript that is only non-speech, so the caller takes
 /// the same path as a blank recording.
-String applyTranscriptHygiene(String transcript) {
+///
+/// [silence] carries what the engine and the audio say about silence
+/// (#2013); with it, stock phrases and fillers invented on the silent end of
+/// a dictation are removed as well ([dropInventedText]). Without it only the
+/// sound annotations and decoder loops are removed; spoken phrases stay.
+String applyTranscriptHygiene(
+  String transcript, {
+  SilenceSignal silence = SilenceSignal.none,
+}) {
   final cleaned = dropLetterLoops(stripNonSpeechMarkers(transcript.trim()));
-  if (isNonSpeechTranscript(cleaned)) return '';
-  return collapseRepeatedSentences(cleaned);
+  final kept = dropInventedText(cleaned, silence);
+  if (kept.isEmpty) return '';
+  return collapseRepeatedSentences(kept);
 }
 
 /// Removes bracket tags and collapses the whitespace they leave behind.

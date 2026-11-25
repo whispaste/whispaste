@@ -28,6 +28,7 @@ import '../settings_widgets.dart';
 import '../widgets/auto_paste_blocklist_field.dart';
 import 'linux_paste_shortcut_row.dart';
 import '../widgets/wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 // ---------------------------------------------------------------------------
 // Sound & Feedback section
@@ -104,22 +105,18 @@ class _SoundFeedbackSectionState extends ConsumerState<SoundFeedbackSection> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Semantics(
-            identifier: 'settings-sound-$id-preview',
-            label: previewLabel,
-            button: true,
-            child: IconButton(
-              key: Key('settings-sound-$id-preview'),
-              icon: const Icon(LucideIcons.play, size: WpIconSize.sm),
-              tooltip: previewLabel,
-              onPressed: available
-                  ? () => unawaited(
-                      ref
-                          .read(soundFeedbackProvider.notifier)
-                          .playCuePreview(cue),
-                    )
-                  : null,
-            ),
+          WpIconButton.ghost(
+            key: Key('settings-sound-$id-preview'),
+            testId: 'settings-sound-$id-preview',
+            icon: LucideIcons.play,
+            tooltip: previewLabel,
+            onPressed: available
+                ? () => unawaited(
+                    ref
+                        .read(soundFeedbackProvider.notifier)
+                        .playCuePreview(cue),
+                  )
+                : null,
           ),
           settingsToggle(
             label: title,
@@ -463,7 +460,9 @@ class AfterTranscriptionSection extends ConsumerWidget {
         WpSettingsRow(
           rowId: 'text-auto-send',
           title: l10n.settingsAutoSendToggle,
-          subtitle: l10n.settingsAutoSendToggleSubtitle,
+          subtitle: l10n.settingsAutoSendToggleSubtitle(
+            defaultTargetPlatform == TargetPlatform.macOS ? 'Option' : 'Alt',
+          ),
           switchNamesRow: true,
           trailing: settingsToggle(
             label: l10n.settingsAutoSendToggle,

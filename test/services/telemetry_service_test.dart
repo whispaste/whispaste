@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +10,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
 
+import '../fixtures/telemetry_hits.dart';
+
 DateTime _testNow() => DateTime.utc(2026, 11, 11, 12);
+
+List<Map<String, String>> _hits(http.Request req) => telemetryHits(req);
 
 TelemetryService _makeService({
   required http.Client client,
@@ -355,8 +360,10 @@ void main() {
       () async {
         final capturedIds = <String>[];
         final client = MockClient((req) async {
-          final id = Uri.splitQueryString(req.body)['_id'];
-          if (id != null) capturedIds.add(id);
+          for (final hit in _hits(req)) {
+            final id = hit['_id'];
+            if (id != null) capturedIds.add(id);
+          }
           return http.Response('', 200);
         });
         const fixedId = '1234567890abcdef';
@@ -404,8 +411,10 @@ void main() {
       'flush completes all pending requests and clears the buffer',
       () async {
         var requestCount = 0;
-        final client = MockClient((_) async {
+        var hitCount = 0;
+        final client = MockClient((req) async {
           requestCount++;
+          hitCount += _hits(req).length;
           return http.Response('', 200);
         });
         final service = _makeService(client: client);
@@ -414,11 +423,13 @@ void main() {
         service.trackPageView('/test');
         await service.flush();
 
-        expect(requestCount, 2);
+        // Both hits of the same turn share one bulk request (#1994).
+        expect(requestCount, 1);
+        expect(hitCount, 2);
 
         // Second flush with empty buffer is a no-op.
         await service.flush();
-        expect(requestCount, 2);
+        expect(requestCount, 1);
       },
     );
   });
@@ -475,9 +486,9 @@ void main() {
   group('TelemetrySessionAggregator', () {
     test('count() tallies repeated tuples; drainTo emits one event with the '
         'session count as value', () async {
-      final bodies = <String>[];
+      final requests = <http.Request>[];
       final client = MockClient((req) async {
-        bodies.add(req.body);
+        requests.add(req);
         return http.Response('', 200);
       });
       final service = _makeService(client: client);
@@ -493,16 +504,14 @@ void main() {
       agg.drainTo(service);
       await service.flush();
 
-      // One HTTP hit per distinct tuple — not one per occurrence.
-      expect(bodies, hasLength(2));
+      // One hit per distinct tuple — not one per occurrence — and both leave
+      // in one bulk request, so Matomo keeps them in one visit (#1994).
+      expect(requests, hasLength(1));
+      final hits = _hits(requests.single);
+      expect(hits, hasLength(2));
       final byTuple = {
-        for (final b in bodies)
-          () {
-            final p = Uri.splitQueryString(b);
-            return '${p['e_c']}/${p['e_a']}/${p['e_n'] ?? ''}';
-          }(): Uri.splitQueryString(
-            b,
-          )['e_v'],
+        for (final p in hits)
+          '${p['e_c']}/${p['e_a']}/${p['e_n'] ?? ''}': p['e_v'],
       };
       expect(byTuple['pipeline/success/ok'], '3');
       expect(byTuple['insertion/clipboard/'], '2');
@@ -560,9 +569,9 @@ void main() {
     });
 
     test('drainAndFlush combines drain + flush in one call', () async {
-      final bodies = <String>[];
+      final requests = <http.Request>[];
       final client = MockClient((req) async {
-        bodies.add(req.body);
+        requests.add(req);
         return http.Response('', 200);
       });
       final service = _makeService(client: client);
@@ -574,7 +583,8 @@ void main() {
       // Single call drains the counters AND awaits the pending requests.
       await agg.drainAndFlush(service);
 
-      expect(bodies, hasLength(2));
+      expect(requests, hasLength(1));
+      expect(_hits(requests.single), hasLength(2));
       expect(agg.debugCounts, isEmpty);
     });
 
@@ -589,6 +599,82 @@ void main() {
       await TelemetrySessionAggregator().drainAndFlush(service);
 
       expect(hits, 0);
+    });
+  });
+
+  // ── Wire discipline: bulk packets, one request at a time (#1994) ────────
+
+  group('TelemetryService bulk sending (#1994)', () {
+    test('hits of one turn leave in bulk packets of at most '
+        '$kTelemetryBulkPageSize, in order, never two at once', () async {
+      final requests = <http.Request>[];
+      var inFlight = 0;
+      var maxInFlight = 0;
+      final client = MockClient((req) async {
+        inFlight++;
+        maxInFlight = max(maxInFlight, inFlight);
+        requests.add(req);
+        // Yield one event-loop turn: a parallel send would start the next
+        // request before this one completes and raise maxInFlight.
+        await Future<void>.delayed(Duration.zero);
+        inFlight--;
+        return http.Response('{"status":"success"}', 200);
+      });
+      final service = _makeService(
+        client: client,
+        sessionVisitorId: '1234567890abcdef',
+        dimensions: const {'dimension1': '1.5.3'},
+      );
+
+      for (var i = 0; i < 45; i++) {
+        service.trackEvent(category: 'pipeline', action: 'latency', value: i);
+      }
+      await service.flush();
+
+      expect(requests, hasLength(3), reason: '45 hits = 20 + 20 + 5');
+      expect(maxInFlight, 1);
+      final hits = requests.expand(_hits).toList();
+      expect(
+        [for (final h in hits) h['e_v']],
+        [for (var i = 0; i < 45; i++) '$i'],
+      );
+      for (final h in hits) {
+        expect(h['idsite'], '1');
+        expect(h['rec'], '1');
+        expect(h['_id'], '1234567890abcdef');
+        expect(h['dimension1'], '1.5.3');
+      }
+      expect(requests.first.url.path, endsWith('/matomo.php'));
+    });
+
+    test('a single hit stays a plain form request', () async {
+      http.Request? captured;
+      final client = MockClient((req) async {
+        captured = req;
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+      service.trackEvent(category: 'lifecycle', action: 'start');
+      await service.flush();
+
+      expect(captured!.headers['content-type'], isNot(contains('json')));
+      expect(Uri.splitQueryString(captured!.body)['e_a'], 'start');
+    });
+
+    test('a failing packet does not stop the next one', () async {
+      var calls = 0;
+      final client = MockClient((req) async {
+        calls++;
+        if (calls == 1) throw const SocketException('Failed host lookup');
+        return http.Response('', 200);
+      });
+      final service = _makeService(client: client);
+      for (var i = 0; i < 25; i++) {
+        service.trackEvent(category: 'pipeline', action: 'latency');
+      }
+      await service.flush();
+
+      expect(calls, 2);
     });
   });
 

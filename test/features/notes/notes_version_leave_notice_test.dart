@@ -4,7 +4,6 @@ library;
 
 import 'dart:io';
 
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +36,7 @@ void main() {
 
   setUp(() {
     appData = Directory.systemTemp.createTempSync('wp636-leave-');
-    db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    db = openInMemoryTestDatabase();
   });
 
   tearDown(() async {

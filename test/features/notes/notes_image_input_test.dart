@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
@@ -55,7 +54,7 @@ void main() {
 
   setUp(() {
     appData = Directory.systemTemp.createTempSync('wp31a-image-input-');
-    db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    db = openInMemoryTestDatabase();
     store = NoteAssetStore(appDataDirPath: appData.path);
   });
 

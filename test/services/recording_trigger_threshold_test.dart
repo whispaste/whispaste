@@ -47,14 +47,14 @@ void main() {
     handler.onKeyUp();
   }
 
-  test('default threshold is 250 ms when no setting is given', () {
-    expect(RecordingTriggerHandler.defaultHoldOrTapThresholdMs, 250);
+  test('default threshold is 400 ms when no setting is given', () {
+    expect(RecordingTriggerHandler.defaultHoldOrTapThresholdMs, 400);
     build();
-    hold(300);
+    hold(450);
     expect(
       stop,
       1,
-      reason: 'a 300 ms hold is push-to-talk at the 250 ms default',
+      reason: 'a 450 ms hold is push-to-talk at the 400 ms default',
     );
   });
 

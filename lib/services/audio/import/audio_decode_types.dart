@@ -9,6 +9,8 @@ enum AudioSourceFormat {
   m4a,
   mp4,
   matroska,
+  mpeg,
+  mpegts,
   ogg,
   unknown;
 
@@ -19,9 +21,17 @@ enum AudioSourceFormat {
     AudioSourceFormat.m4a => 'M4A/AAC',
     AudioSourceFormat.mp4 => 'MP4/MOV',
     AudioSourceFormat.matroska => 'MKV/WebM',
+    AudioSourceFormat.mpeg => 'MPEG',
+    AudioSourceFormat.mpegts => 'MPEG-TS',
     AudioSourceFormat.ogg => 'Ogg/Opus',
     AudioSourceFormat.unknown => 'unknown',
   };
+
+  bool get isVideo =>
+      this == AudioSourceFormat.mp4 ||
+      this == AudioSourceFormat.matroska ||
+      this == AudioSourceFormat.mpeg ||
+      this == AudioSourceFormat.mpegts;
 
   /// Formats that need the platform decoder.
   bool get isCompressed =>

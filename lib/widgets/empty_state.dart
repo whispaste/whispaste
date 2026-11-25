@@ -5,13 +5,19 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_button.dart';
+import 'wp_cut_illustration.dart';
+
+export 'wp_cut_illustration.dart' show WpEmptyMotif;
 
 /// Empty state — centered illustration, title, hint, and one first action.
 ///
-/// The illustration ([WpEmptyIllustration]) is a calm, flat still life: two
-/// stacked blank cards on a soft accent wash, the area's icon on a small
-/// accent badge. Built from theme roles only, so light, dark and Marine
-/// each draw it in their own tones; it never moves (#1076).
+/// The base "nothing here yet" state of a collection page passes its
+/// paper-cut [motif] ([WpCutIllustration], #1595: recordings, notes,
+/// snippets). Every other state (filters, trash, errors) keeps the icon
+/// still life ([WpEmptyIllustration]): two stacked blank cards on a soft
+/// accent wash, the area's icon on a small accent badge. Both are built from
+/// theme roles only, so light, dark and Marine each draw them in their own
+/// tones; neither moves (#1076).
 ///
 /// When to pass an action — one rule, the same on every page: **every empty
 /// state offers exactly one first action.** The area's main action whenever
@@ -40,7 +46,26 @@ class WpEmptyState extends StatelessWidget {
     this.onAction,
     this.actionTestId,
     this.footer,
-  }) : _searchQuery = null;
+    this.motif,
+  }) : _searchQuery = null,
+       _panel = false;
+
+  /// The same state sized for a narrow floating surface (side panel, snippet
+  /// picker, #1757): no illustration, the area's icon in `textMuted`, a
+  /// body-size title and a caption hint, and a dense secondary action, so a
+  /// 360-pt panel keeps its list area calm.
+  const WpEmptyState.panel({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.hint,
+    this.actionLabel,
+    this.onAction,
+    this.actionTestId,
+  }) : footer = null,
+       motif = null,
+       _searchQuery = null,
+       _panel = true;
 
   /// The one "search found nothing" state of every list with a search field
   /// (#1498): the shared title and a hint naming [query], and "Clear search"
@@ -57,11 +82,16 @@ class WpEmptyState extends StatelessWidget {
        onAction = onClear,
        actionTestId = testId,
        footer = null,
-       _searchQuery = query;
+       motif = null,
+       _searchQuery = query,
+       _panel = false;
 
   /// Set only by [WpEmptyState.searchNoMatches]; its texts come from L10n at
   /// build time.
   final String? _searchQuery;
+
+  /// Set only by [WpEmptyState.panel].
+  final bool _panel;
 
   final IconData icon;
   final String title;
@@ -76,8 +106,13 @@ class WpEmptyState extends StatelessWidget {
   /// area by showing what an entry looks like. It never adds anything alone.
   final Widget? footer;
 
+  /// The paper-cut motif of a page's base empty state; replaces the icon
+  /// still life. Only the "nothing here yet" state of a collection sets it.
+  final WpEmptyMotif? motif;
+
   @override
   Widget build(BuildContext context) {
+    if (_panel) return _panelContent(context);
     // A low pane (minimum window height under a tall header, e.g. the
     // history's three filter rows) drops the decorative illustration and the
     // wide padding, so the first action stays above the fold instead of
@@ -86,9 +121,22 @@ class WpEmptyState extends StatelessWidget {
     // LayoutBuilder has no intrinsic size.
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Example chips below the action need room of their own: with a
+        // footer the illustration goes earlier, so the chips stay in view
+        // instead of below the fold (#1845).
+        // A paper-cut motif stands taller than the icon still life; the
+        // thresholds grow by the difference so the action (and a footer)
+        // keep the room they had (#1595).
+        final extra = motif == null
+            ? 0.0
+            : WpCutIllustration.defaultSize - WpEmptyIllustration.height;
+        final threshold =
+            (footer == null
+                ? compactBelowHeight
+                : compactWithFooterBelowHeight) +
+            extra;
         final compact =
-            constraints.hasBoundedHeight &&
-            constraints.maxHeight < compactBelowHeight;
+            constraints.hasBoundedHeight && constraints.maxHeight < threshold;
         return _content(context, compact: compact);
       },
     );
@@ -96,6 +144,9 @@ class WpEmptyState extends StatelessWidget {
 
   /// Pane height below which the state renders without its illustration.
   static const double compactBelowHeight = 400;
+
+  /// The same threshold when a [footer] follows the action.
+  static const double compactWithFooterBelowHeight = 560;
 
   Widget _content(BuildContext context, {required bool compact}) {
     final searchQuery = _searchQuery;
@@ -113,7 +164,10 @@ class WpEmptyState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!compact) ...[
-                WpEmptyIllustration(icon: icon),
+                if (motif case final motif?)
+                  WpCutIllustration(motif: motif)
+                else
+                  WpEmptyIllustration(icon: icon),
                 const SizedBox(height: WpSpacing.xl),
               ],
               Text(
@@ -144,6 +198,63 @@ class WpEmptyState extends StatelessWidget {
               if (footer != null) ...[
                 const SizedBox(height: WpSpacing.lg),
                 footer!,
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+extension _PanelContent on WpEmptyState {
+  Widget _panelContent(BuildContext context) {
+    final hint = this.hint;
+    final actionLabel = this.actionLabel;
+    // Scrollable like the full state: a long hint at 200 % text scale in the
+    // narrow panel scrolls instead of overflowing.
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xl,
+            vertical: WpSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: WpIconSize.xl, color: WpColors.textMuted),
+              const SizedBox(height: WpSpacing.sm),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: WpColors.textSecondary,
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (hint != null) ...[
+                const SizedBox(height: WpSpacing.xxs),
+                Text(
+                  hint,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: WpColors.textMuted,
+                    fontSize: WpTypography.caption,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: WpSpacing.md),
+                WpButton(
+                  label: actionLabel,
+                  testId: actionTestId,
+                  variant: WpButtonVariant.secondary,
+                  size: WpButtonSize.dense,
+                  onPressed: onAction,
+                ),
               ],
             ],
           ),

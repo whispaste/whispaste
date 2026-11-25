@@ -10,31 +10,18 @@
 /// glyph for a hint, red for an error, flat with no glow.
 library;
 
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../core/l10n/ltr_isolate.dart';
 import '../../core/theme/overlay_design_spec.dart';
-import '../../core/theme/theme.dart' show kWpFontFallback;
 import '../../services/floating_overlay/overlay_notice.dart';
+import '../../services/floating_overlay/overlay_notice_layout.dart';
 
-/// Lines the card's headline may take. Without a body the title carries the
-/// whole message: the Esc hint of the discard ask needs the second line, a
-/// message card may take three (#453).
-int overlayNoticeTitleMaxLines(OverlayNotice notice) {
-  if (notice.body.isNotEmpty) return 1;
-  return notice.kind == OverlayNoticeKind.message ? 3 : 2;
-}
-
-/// Lines the card's body may take before it is cut. A message card gets a
-/// third line when the key footer or the button row leaves room for it: with
-/// both a third line would not fit the card (#781). A message card without
-/// buttons (a skipped paste, #1617) keeps the third line at the largest text
-/// scale too.
-int overlayNoticeBodyMaxLines(OverlayNotice notice) {
-  final hasButtons = notice.actions.any((a) => !a.action.isClose);
-  final roomy = notice.footer.isEmpty || !hasButtons;
-  return notice.kind == OverlayNoticeKind.message && roomy ? 3 : 2;
-}
+export '../../services/floating_overlay/overlay_notice_layout.dart'
+    show overlayNoticeBodyMaxLines, overlayNoticeTitleMaxLines;
 
 class WpOverlayNoticeCard extends StatelessWidget {
   const WpOverlayNoticeCard({
@@ -42,6 +29,7 @@ class WpOverlayNoticeCard extends StatelessWidget {
     required this.notice,
     required this.colors,
     this.onAction,
+    this.onEdit,
   });
 
   final OverlayNotice notice;
@@ -50,9 +38,13 @@ class WpOverlayNoticeCard extends StatelessWidget {
   /// Called with the action of a pressed button; null in static previews.
   final ValueChanged<OverlayNoticeActionId>? onAction;
 
+  /// Called with what the edit field reports (#254); null in static
+  /// previews.
+  final ValueChanged<OverlayNoticeEditEvent>? onEdit;
+
   @override
   Widget build(BuildContext context) {
-    const size = OverlayDesignSpec.noticeCardSize;
+    final width = OverlayDesignSpec.noticeCardSize.width;
     final dismiss = notice.actions.where((a) => a.action.isClose).firstOrNull;
     final buttons = notice.actions.where((a) => !a.action.isClose).toList();
     final glyph = notice.tone == OverlayNoticeTone.error
@@ -61,9 +53,13 @@ class WpOverlayNoticeCard extends StatelessWidget {
 
     // The card text follows the system font size up to a fixed cap (#728).
     final media = MediaQuery.maybeOf(context);
-    final scaler = (media?.textScaler ?? TextScaler.noScaling).clamp(
-      maxScaleFactor: OverlayDesignSpec.noticeMaxTextScale,
+    final scaler = overlayNoticeScaler(
+      media?.textScaler ?? TextScaler.noScaling,
     );
+    // Grows with its content instead of cutting it (#1845); the shells get
+    // the same height with the snapshot.
+    final height = overlayNoticeCardHeight(notice, scaler);
+    final stacked = overlayNoticeStacksButtons(notice, scaler);
 
     final card = Padding(
       padding: const EdgeInsets.all(OverlayDesignSpec.shadowPadding),
@@ -73,8 +69,8 @@ class WpOverlayNoticeCard extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () {},
         child: Container(
-          width: size.width,
-          height: size.height,
+          width: width,
+          height: height,
           padding: const EdgeInsets.all(OverlayDesignSpec.noticeCardPadding),
           decoration: BoxDecoration(
             // Opaque on glass too: a decision must stay legible over any
@@ -143,57 +139,86 @@ class WpOverlayNoticeCard extends StatelessWidget {
                     ).copyWith(color: colors.noticeBodyInk),
                   ),
                 ],
-                const Spacer(),
-                if (notice.footer.isNotEmpty) ...[
-                  // Never cut by an ellipsis: the longest translations shrink
-                  // to the card width instead (#728).
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
+                if (notice.edit case final edit?)
+                  if (edit.open)
+                    _NoticeEditField(
+                      edit: edit,
+                      colors: colors,
+                      style: _style(
+                        OverlayDesignSpec.noticeBodyFontSize,
+                        FontWeight.w400,
+                      ),
+                      hintStyle: _style(
+                        OverlayDesignSpec.noticeFooterFontSize,
+                        FontWeight.w400,
+                      ).copyWith(color: colors.noticeFooterInk),
+                      onEdit: onEdit,
+                    )
+                  else
+                    _EditToggle(
+                      label: edit.toggleLabel,
+                      style: _style(
+                        OverlayDesignSpec.noticeFooterFontSize,
+                        OverlayDesignSpec.primaryFontWeight,
+                      ).copyWith(color: colors.accent),
+                      onTap: () => onEdit?.call(
+                        const OverlayNoticeEditEvent(
+                          OverlayNoticeEditKind.open,
+                        ),
+                      ),
+                    ),
+                for (final note in notice.notes) ...[
+                  const SizedBox(height: 4),
+                  // A quiet hint, never cut: it wraps and the card grows.
+                  Semantics(
+                    identifier: note.id,
                     child: Text(
-                      notice.footer,
-                      key: const ValueKey('overlay-notice-footer'),
-                      maxLines: 1,
-                      softWrap: false,
+                      note.text,
+                      key: ValueKey(note.id),
                       style: _style(
                         OverlayDesignSpec.noticeFooterFontSize,
                         FontWeight.w400,
                       ).copyWith(color: colors.noticeFooterInk),
                     ),
                   ),
+                ],
+                const Spacer(),
+                if (notice.footer.isNotEmpty) ...[
+                  // Never cut and never shrunk below the small type step: a
+                  // long footer wraps and the card grows (#1845).
+                  Text(
+                    notice.footer,
+                    key: const ValueKey('overlay-notice-footer'),
+                    style: _style(
+                      OverlayDesignSpec.noticeFooterFontSize,
+                      FontWeight.w400,
+                    ).copyWith(color: colors.noticeFooterInk),
+                  ),
                   const SizedBox(height: OverlayDesignSpec.noticeFooterGap),
                 ],
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    for (final (i, b) in buttons.indexed) ...[
-                      if (i > 0) const SizedBox(width: 8),
-                      // Shares the row by label width: a short label leaves a
-                      // long one its room instead of halving the row.
-                      Flexible(
-                        flex: _labelWidth(b.fullLabel, scaler),
-                        child: Semantics(
-                          button: true,
-                          identifier: 'overlay-notice-action-${b.testName}',
-                          label: b.fullLabel,
-                          // A tap action on the node, so a screen reader's
-                          // double tap triggers it (#728).
-                          onTap: () => onAction?.call(b.action),
-                          excludeSemantics: true,
-                          child: _NoticeButton(
-                            action: b,
-                            colors: colors,
-                            style: _style(
-                              OverlayDesignSpec.noticeBodyFontSize,
-                              OverlayDesignSpec.primaryFontWeight,
-                            ),
-                            onTap: () => onAction?.call(b.action),
-                          ),
+                if (stacked)
+                  // Whole labels on top of each other when they do not fit
+                  // side by side (#1845), primary first.
+                  for (final (i, b) in buttons.indexed) ...[
+                    if (i > 0)
+                      const SizedBox(height: OverlayDesignSpec.noticeStackGap),
+                    _buttonFor(b),
+                  ]
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      for (final (i, b) in buttons.indexed) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        // Shares the row by label width: a short label leaves a
+                        // long one its room instead of halving the row.
+                        Flexible(
+                          flex: _labelWidth(b.fullLabel, scaler),
+                          child: _buttonFor(b),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
               ],
             ),
           ),
@@ -204,7 +229,7 @@ class WpOverlayNoticeCard extends StatelessWidget {
     // card arrives or leaves (#1193). The card keeps its own size and is cut
     // at the window edge then, instead of squeezing its column into an
     // overflow.
-    final window = OverlayDesignSpec.noticeWindowSize;
+    final window = OverlayDesignSpec.noticeWindowSizeFor(height);
     final framed = LayoutBuilder(
       builder: (context, constraints) {
         final fits =
@@ -231,6 +256,25 @@ class WpOverlayNoticeCard extends StatelessWidget {
           );
   }
 
+  Widget _buttonFor(OverlayNoticeAction b) => Semantics(
+    button: true,
+    identifier: 'overlay-notice-action-${b.testName}',
+    label: b.fullLabel,
+    // A tap action on the node, so a screen reader's double tap triggers it
+    // (#728).
+    onTap: () => onAction?.call(b.action),
+    excludeSemantics: true,
+    child: _NoticeButton(
+      action: b,
+      colors: colors,
+      style: _style(
+        OverlayDesignSpec.noticeBodyFontSize,
+        OverlayDesignSpec.primaryFontWeight,
+      ),
+      onTap: () => onAction?.call(b.action),
+    ),
+  );
+
   int _labelWidth(String label, TextScaler scaler) {
     final painter = TextPainter(
       text: TextSpan(
@@ -249,14 +293,8 @@ class WpOverlayNoticeCard extends StatelessWidget {
     return width;
   }
 
-  TextStyle _style(double size, FontWeight weight) => TextStyle(
-    fontFamily: OverlayDesignSpec.fontFamily,
-    fontFamilyFallback: kWpFontFallback,
-    fontSize: size,
-    fontWeight: weight,
-    color: colors.ink,
-    height: 1.3,
-  );
+  TextStyle _style(double size, FontWeight weight) =>
+      overlayNoticeTextStyle(size, weight).copyWith(color: colors.ink);
 }
 
 class _NoticeButton extends StatelessWidget {
@@ -386,4 +424,249 @@ class _CrossPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CrossPainter old) => old.color != color;
+}
+
+/// The toggle that turns the draft into the edit field (#254).
+class _EditToggle extends StatelessWidget {
+  const _EditToggle({
+    required this.label,
+    required this.style,
+    required this.onTap,
+  });
+
+  final String label;
+  final TextStyle style;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Semantics(
+      button: true,
+      identifier: kNoticeEditToggleId,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          key: const ValueKey(kNoticeEditToggleId),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Text(label, maxLines: 1, style: style),
+        ),
+      ),
+    ),
+  );
+}
+
+/// The edit field of the write preview (#254, D21): Enter inserts the text
+/// as it stands, Shift+Enter breaks the line, Esc discards. The hint line
+/// inside the field says so (R25). The render engine has no Material, so
+/// the field is an [EditableText] with the plain-widgets selection gestures
+/// and text editing shortcuts.
+class _NoticeEditField extends StatefulWidget {
+  const _NoticeEditField({
+    required this.edit,
+    required this.colors,
+    required this.style,
+    required this.hintStyle,
+    required this.onEdit,
+  });
+
+  final OverlayNoticeEdit edit;
+  final OverlayThemeColors colors;
+  final TextStyle style;
+  final TextStyle hintStyle;
+  final ValueChanged<OverlayNoticeEditEvent>? onEdit;
+
+  @override
+  State<_NoticeEditField> createState() => _NoticeEditFieldState();
+}
+
+class _NoticeEditFieldState extends State<_NoticeEditField>
+    implements TextSelectionGestureDetectorBuilderDelegate {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.edit.text,
+  );
+  late final FocusNode _focus = FocusNode(
+    debugLabel: kNoticeEditFieldId,
+    onKeyEvent: _onKey,
+  );
+  late final TextSelectionGestureDetectorBuilder _gestures =
+      TextSelectionGestureDetectorBuilder(delegate: this);
+
+  @override
+  final GlobalKey<EditableTextState> editableTextKey =
+      GlobalKey<EditableTextState>();
+
+  @override
+  bool get forcePressEnabled => false;
+
+  @override
+  bool get selectionEnabled => true;
+
+  StreamSubscription<OverlayNoticeEditKey>? _nativeKeys;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_onFocus);
+    _nativeKeys = OverlayNoticeEditKeys.stream.listen(_onNativeKey);
+  }
+
+  /// A key the macOS shell caught before the embedder's text input (#254):
+  /// the same as the keys arriving here, with the field's text.
+  void _onNativeKey(OverlayNoticeEditKey key) => switch (key) {
+    OverlayNoticeEditKey.enter => _emit(
+      OverlayNoticeEditEvent(
+        OverlayNoticeEditKind.submit,
+        text: _controller.text,
+      ),
+    ),
+    OverlayNoticeEditKey.newline => _insertLineBreak(),
+    OverlayNoticeEditKey.escape => _emit(
+      const OverlayNoticeEditEvent(OverlayNoticeEditKind.cancel),
+    ),
+  };
+
+  @override
+  void didUpdateWidget(_NoticeEditField old) {
+    super.didUpdateWidget(old);
+    // A new version (a refinement) replaces the text; the same draft drawn
+    // again keeps what was typed and the caret.
+    if (widget.edit.key != old.edit.key &&
+        widget.edit.text != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: widget.edit.text,
+        selection: TextSelection.collapsed(offset: widget.edit.text.length),
+      );
+    }
+    // A new draft behind the same field learns where the focus is.
+    if (widget.edit.key != old.edit.key && _focus.hasFocus) _onFocus();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_nativeKeys?.cancel());
+    _focus
+      ..removeListener(_onFocus)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _emit(OverlayNoticeEditEvent event) => widget.onEdit?.call(event);
+
+  void _onFocus() => _emit(
+    OverlayNoticeEditEvent(
+      OverlayNoticeEditKind.focus,
+      focused: _focus.hasFocus,
+    ),
+  );
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      if (event is KeyDownEvent) {
+        _emit(const OverlayNoticeEditEvent(OverlayNoticeEditKind.cancel));
+      }
+      return KeyEventResult.handled;
+    }
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
+      return KeyEventResult.ignored;
+    }
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      _insertLineBreak();
+    } else if (event is KeyDownEvent) {
+      _emit(
+        OverlayNoticeEditEvent(
+          OverlayNoticeEditKind.submit,
+          text: _controller.text,
+        ),
+      );
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _insertLineBreak() {
+    final value = _controller.value;
+    final selection = value.selection.isValid
+        ? value.selection
+        : TextSelection.collapsed(offset: value.text.length);
+    final text = value.text.replaceRange(selection.start, selection.end, '\n');
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: selection.start + 1),
+    );
+    _onChanged(text);
+  }
+
+  void _onChanged(String text) =>
+      _emit(OverlayNoticeEditEvent(OverlayNoticeEditKind.text, text: text));
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final scaler =
+        MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
+    final line = scaler.scale(widget.style.fontSize!) * widget.style.height!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Container(
+        key: const ValueKey(kNoticeEditFieldId),
+        padding: const EdgeInsets.all(overlayNoticeEditPadding),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.accent),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: kNoticeEditFieldLines * line,
+              child: Semantics(
+                identifier: kNoticeEditFieldId,
+                label: widget.edit.fieldLabel,
+                textField: true,
+                child: DefaultTextEditingShortcuts(
+                  child: _gestures.buildGestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    child: EditableText(
+                      key: editableTextKey,
+                      controller: _controller,
+                      focusNode: _focus,
+                      style: widget.style,
+                      cursorColor: colors.accent,
+                      backgroundCursorColor: colors.capsuleBorder,
+                      selectionColor: colors.accent.withValues(alpha: 0.3),
+                      maxLines: null,
+                      keyboardType: TextInputType.multiline,
+                      textInputAction: TextInputAction.newline,
+                      autofocus: true,
+                      onChanged: _onChanged,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // The keys of the field, inside it, where the eye is (R25).
+            Semantics(
+              identifier: kNoticeEditInsertHintId,
+              child: Text(
+                widget.edit.insertHint,
+                key: const ValueKey(kNoticeEditInsertHintId),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.hintStyle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -316,6 +316,42 @@ void main() {
       expect(newKc(), {'data_key': 'k'});
     });
 
+    test('#1841: a leftover duplicate whose second delete takes the new entry '
+        'too does not lose the key', () async {
+      legacyKc()['data_key'] = 'k';
+      var deletes = 0;
+      final storages = secureStoragesFor(isMacOS: true, hasAccessGroup: true);
+      final migration = KeychainMigration(
+        legacy: storages.legacy!,
+        primary: storages.primary,
+        keys: keys,
+        oldKeychain: _CallbackOldKeychain(
+          read: (key) => legacyKc()[key],
+          delete: (key) {
+            deletes++;
+            // The first delete leaves a duplicate; the second one removes
+            // the data-protection item as well.
+            if (deletes == 2) {
+              legacyKc().remove(key);
+              newKc().remove(key);
+            }
+          },
+        ),
+        quietReader: (key) async {
+          final value = legacyKc()[key];
+          return value == null
+              ? const QuietReadResult(QuietReadStatus.missing)
+              : QuietReadResult(QuietReadStatus.ok, value: value);
+        },
+      );
+
+      final scan = await migration.scan();
+
+      expect(deletes, 2);
+      expect(newKc(), {'data_key': 'k'}, reason: 'the key must survive');
+      expect(scan.movedQuietly, isEmpty, reason: 'not reported as moved');
+    });
+
     test('a failed write is not "moved" and keeps the old entry', () async {
       newWriteFails = true;
       legacyKc()['data_key'] = 'k';
@@ -347,6 +383,23 @@ void main() {
       expect(legacyKc(), isEmpty);
     });
   });
+}
+
+class _CallbackOldKeychain implements OldKeychain {
+  _CallbackOldKeychain({
+    required String? Function(String) read,
+    required void Function(String) delete,
+  }) : read_ = read,
+       delete_ = delete;
+
+  final String? Function(String) read_;
+  final void Function(String) delete_;
+
+  @override
+  Future<String?> read(String key) async => read_(key);
+
+  @override
+  Future<void> delete(String key) async => delete_(key);
 }
 
 class _MapOldKeychain implements OldKeychain {

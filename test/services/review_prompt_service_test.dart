@@ -134,6 +134,24 @@ void main() {
     });
   });
 
+  group('rated in the Microsoft Store (#2185)', () {
+    test('a confirmed Store rating stops every later ask', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 20);
+      addTearDown(harness.container.dispose);
+      expect(await _shouldShow(harness.container), isTrue);
+
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .markStoreRated();
+
+      expect(await reviewStoreRated(), isTrue);
+      expect(
+        await _shouldShow(harness.container, appVersion: '2.0.0'),
+        isFalse,
+      );
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // AC2 / AC4 — version-upgrade re-prompt + version persistence
   // ---------------------------------------------------------------------------

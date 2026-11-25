@@ -33,7 +33,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('#alpha'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
       expect(find.text('Add tag'), findsNothing);
       expect(find.byIcon(LucideIcons.x), findsNothing);

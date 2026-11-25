@@ -17,14 +17,22 @@ import 'path_service.dart' as paths;
 /// A plain launch only brings the existing window to the front. The
 /// remote-control flags let shortcuts, scripts and launchers (GNOME/KDE
 /// custom shortcuts on Wayland, Raycast/Alfred, window managers) drive the
-/// recording without the opt-in automation API: `whispaste --toggle`
-/// starts/stops a dictation, `whispaste --cancel` discards the running one.
+/// recording without the opt-in automation API (#1952, `instance_cli.dart`):
+/// `whispaste --start` / `--stop` start or stop a dictation, `--toggle`
+/// does either, `--cancel` discards the running one.
 enum InstanceCommand {
   /// Plain launch — focus the running instance's window.
   focus,
 
   /// `--toggle` — start a dictation, or stop the running one.
   toggle,
+
+  /// `--start` — start a dictation; nothing while one is recording.
+  start,
+
+  /// `--stop` — stop the recording dictation and transcribe it; nothing
+  /// when none records.
+  stop,
 
   /// `--cancel` — discard the running dictation (no-op when idle).
   cancel,
@@ -44,8 +52,11 @@ enum InstanceCommand {
   /// `whispaste://` link as an argument; macOS delivers it through
   /// [SingleInstanceService.openUrls].
   static InstanceCommand fromArgs(List<String> args) {
+    if (args.isNotEmpty && args.first == '--import-files') return focus;
     for (final arg in args) {
       if (arg == '--toggle') return toggle;
+      if (arg == '--start') return start;
+      if (arg == '--stop') return stop;
       if (arg == '--cancel') return cancel;
       switch (AppLink.parse(arg)) {
         case AppLink.newsletterConfirmed:
@@ -103,7 +114,8 @@ enum InstanceClaim {
 /// acquired, this is the primary instance. If it's already held, another
 /// instance is running — we drop a signal file for it to pick up and exit.
 /// The signal carries the second launch's [InstanceCommand], so the same
-/// channel forwards `--toggle`/`--cancel` to the running instance.
+/// channel forwards `--start`/`--stop`/`--toggle`/`--cancel` to the running
+/// instance.
 ///
 /// A second lock of the same kind lives in the user's temporary folder
 /// ([fallbackLockDir], #1647). Every primary holds both locks where it can,
@@ -252,12 +264,13 @@ class SingleInstanceService {
   /// the user confirms). Returns `false` if another instance is already
   /// running (and was signalled with [command]).
   ///
-  /// When this process may start and [command] is
-  /// [InstanceCommand.toggle] or [InstanceCommand.newsletterConfirmed], it is
-  /// queued for [onRemoteCommand]: `whispaste --toggle` with no running
-  /// instance starts the app and then starts a dictation, an opened
-  /// newsletter link starts it and then shows the status. Handling a primary [InstanceCommand.cancel] (nothing
-  /// to cancel) is the caller's decision.
+  /// When this process may start and [command] is [InstanceCommand.toggle],
+  /// [InstanceCommand.start] or [InstanceCommand.newsletterConfirmed], it is
+  /// queued for [onRemoteCommand]: `whispaste --toggle`/`--start` with no
+  /// running instance starts the app and then starts a dictation, an opened
+  /// newsletter link starts it and then shows the status. Handling a primary
+  /// [InstanceCommand.stop] or [InstanceCommand.cancel] (nothing to stop or
+  /// cancel) is the caller's decision.
   ///
   /// [openFiles] are the files the launch was asked to transcribe (#1684,
   /// [openedFilesFromArgs]). A second launch hands them to the running
@@ -322,6 +335,7 @@ class SingleInstanceService {
     // A retry from the start screen already queued the launch's command.
     if (!wasUnverified &&
         (command == InstanceCommand.toggle ||
+            command == InstanceCommand.start ||
             command == InstanceCommand.newsletterConfirmed)) {
       _dispatchRemoteCommand(command);
     }

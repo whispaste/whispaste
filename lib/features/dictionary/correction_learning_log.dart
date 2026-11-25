@@ -23,9 +23,11 @@ import '../../widgets/section.dart';
 import '../../widgets/wp_error_notice.dart';
 import '../../widgets/wp_icon_button.dart';
 import '../replacements/replacements_page.dart';
+import '../../widgets/wp_row_divider.dart';
 
 class CorrectionLearningLog extends ConsumerWidget {
-  const CorrectionLearningLog({super.key});
+  const CorrectionLearningLog({super.key, this.initiallyExpanded = false});
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,7 +43,10 @@ class CorrectionLearningLog extends ConsumerWidget {
       title: l10n.dictionaryLogTitle,
       subtitle: l10n.dictionaryLogSubtitle,
       collapsible: true,
-      initiallyExpanded: false,
+      initiallyExpanded: initiallyExpanded,
+      // Set apart from the list above by the section gap of the page
+      // family, not glued to the last row (#1969).
+      padding: const EdgeInsets.only(top: WpSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -62,8 +67,10 @@ class CorrectionLearningLog extends ConsumerWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             )
           else
-            Column(
+            // One rule between two entries, none after the last (#2050).
+            WpDividedColumn(
               key: const ValueKey('dictionary-learning-log-list'),
+              inset: const EdgeInsetsDirectional.only(start: WpSpacing.xs),
               children: [
                 for (final e in entries)
                   _LogRow(entry: e, onRemove: () => _remove(ref, e)),
@@ -153,7 +160,6 @@ class _LogRow extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, indent: WpSpacing.xs),
       ],
     );
   }

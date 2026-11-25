@@ -55,4 +55,13 @@ void main() {
     expect(ctrl.text, 'one 2 three!');
     expect(ctrl.selection, TextSelection.collapsed(offset: ctrl.text.length));
   });
+
+  test('the spoken preview folds whitespace and stops at a word', () {
+    expect(spokenSnippetPreview('  one\n two  '), 'one two');
+    final long = List.filled(30, 'word').join('\n');
+    final spoken = spokenSnippetPreview(long);
+    expect(spoken.length, lessThanOrEqualTo(81));
+    expect(spoken, endsWith('word…'));
+    expect(spokenSnippetPreview('x' * 100), '${'x' * 80}…');
+  });
 }

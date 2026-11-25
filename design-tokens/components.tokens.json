@@ -283,7 +283,16 @@
     "accent-strong": { "$type": "color", "$value": "{accent.strong}" },
     "accent-fill": { "$type": "color", "$value": "{accent.fill}", "$description": "Active dots, the recording bar, the core of the chip." },
     "glow": { "$type": "color", "$value": "{accent.glow}" },
-    "highlight": { "$type": "color", "$value": "{highlight.default}" }
+    "highlight": { "$type": "color", "$value": "{highlight.default}" },
+    "cut-ground": { "$type": "color", "$value": "{surface.card}", "$description": "Paper-cut illustrations (design-tokens/illustration/STYLE.md): the flat ground the motif sits on, one step off the band." },
+    "cut-back": { "$type": "color", "$value": "{surface.sunken}", "$description": "Paper-cut back layer E1: the one wave band or half circle." },
+    "cut-carrier": { "$type": "color", "$value": "{color.white}", "$description": "Paper-cut middle layer E2: card, screen or capsule carrying the motif." },
+    "cut-device": { "$type": "color", "$value": "{color.navy.900}", "$description": "Paper-cut device frames and stands (laptop, monitor), as in refs/fuss-plattformen.png." },
+    "cut-line": { "$type": "color", "$value": "{text.muted}", "$description": "Paper-cut front layer E3: text bars and cursor." },
+    "cut-rest": { "$type": "color", "$value": "{color.glacier.300}", "$description": "The resting waveform pill of empty states: no cyan, nothing records." },
+    "cut-action": { "$type": "color", "$value": "{color.cyan.400}", "$description": "The waveform pill while recording: the only cyan in a paper-cut motif." },
+    "cut-on-action": { "$type": "color", "$value": "{text.on-action}", "$description": "Bars on the cyan pill: ink keeps them well above 3:1 on cyan in both modes." },
+    "cut-mark": { "$type": "color", "$value": "{highlight.default}", "$description": "The one amber dot (D3) of a paper-cut motif." }
   },
   "progress": {
     "track": { "$type": "color", "$value": "{border.subtle}" },

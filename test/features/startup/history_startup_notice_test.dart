@@ -3,12 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/features/settings/data_key/data_key_flows.dart';
 import 'package:whispaste/features/startup/history_startup_notice.dart';
 import 'package:whispaste/widgets/wp_page_notice.dart';
 
 import '../../fixtures/test_helpers.dart';
 
-Widget _host() => makeTestable(
+Widget _host({List overrides = const []}) => makeTestable(
   Builder(
     builder: (context) => Column(
       children: [
@@ -22,6 +23,7 @@ Widget _host() => makeTestable(
     ),
   ),
   locale: const Locale('en'),
+  overrides: overrides,
 );
 
 void main() {
@@ -58,6 +60,57 @@ void main() {
     expect(
       find.byKey(const ValueKey('page-notice-history-move-failed')),
       findsNothing,
+    );
+  });
+
+  // #1023: a lost data key started the app empty; the notice says so, stays,
+  // and offers the restore dialog that brings the old history back.
+  testWidgets('a lost key leaves a notice with the restore dialog', (
+    tester,
+  ) async {
+    var restores = 0;
+    noteHistoryStartupProblem(HistoryStartupProblem.keyLostStartedEmpty);
+    await tester.pumpWidget(
+      _host(
+        overrides: [
+          dataKeyRestoreFlowProvider.overrideWithValue((context) async {
+            restores++;
+          }),
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('show')));
+    await tester.pumpAndSettle();
+
+    final notice = find.byKey(const ValueKey('page-notice-history-key-lost'));
+    expect(notice, findsOneWidget);
+    expect(
+      find.textContaining('starts with empty data', findRichText: true),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 60));
+    expect(notice, findsOneWidget);
+
+    await tester.tap(find.bySemanticsIdentifier('history-key-lost-restore'));
+    await tester.pumpAndSettle();
+    expect(restores, 1);
+  });
+
+  testWidgets('a restored history says where the interim one went', (
+    tester,
+  ) async {
+    noteHistoryStartupProblem(HistoryStartupProblem.setAsideHistoryRestored);
+    await tester.pumpWidget(_host());
+    await tester.tap(find.byKey(const ValueKey('show')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('page-notice-history-set-aside-restored')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('history_set_aside', findRichText: true),
+      findsOneWidget,
     );
   });
 }

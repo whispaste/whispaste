@@ -44,8 +44,6 @@ final class WpThemeColors {
     required this.onAction,
     required this.accentSubtle,
     required this.accentChipFill,
-    required this.accentChipFillHover,
-    required this.accentMiniTagFill,
     required this.accentBorder30,
     required this.accentButtonFill,
     required this.accentActiveFill,
@@ -134,8 +132,6 @@ final class WpThemeColors {
   final Color onAction;
   final Color accentSubtle;
   final Color accentChipFill;
-  final Color accentChipFillHover;
-  final Color accentMiniTagFill;
   final Color accentBorder30;
   final Color accentButtonFill;
   final Color accentActiveFill;
@@ -251,8 +247,6 @@ const WpThemeColors wpLightColors = WpThemeColors(
   onAction: WpPalette.white,
   accentSubtle: Color(0x2A0BAACC),
   accentChipFill: Color(0x1A0BAACC),
-  accentChipFillHover: Color(0x2E0BAACC),
-  accentMiniTagFill: Color(0x1F0BAACC),
   accentBorder30: Color(0x4D005F73),
   accentButtonFill: Color(0x140BAACC),
   accentActiveFill: Color(0x240BAACC),
@@ -372,8 +366,6 @@ const WpThemeColors wpDarkColors = WpThemeColors(
   onAction: WpColorsDark.onAction,
   accentSubtle: WpColorsDark.accentSubtle,
   accentChipFill: WpColorsDark.accentChipFill,
-  accentChipFillHover: WpColorsDark.accentChipFillHover,
-  accentMiniTagFill: WpColorsDark.accentMiniTagFill,
   accentBorder30: WpColorsDark.accentBorder30,
   accentButtonFill: WpColorsDark.accentButtonFill,
   accentActiveFill: WpColorsDark.accentActiveFill,
@@ -457,8 +449,6 @@ const WpThemeColors wpNavyColors = WpThemeColors(
   onAction: WpPalette.white,
   accentSubtle: Color(0x2A0BAACC),
   accentChipFill: Color(0x1A0BAACC),
-  accentChipFillHover: Color(0x2E0BAACC),
-  accentMiniTagFill: Color(0x1F0BAACC),
   accentBorder30: Color(0x4D005F73),
   accentButtonFill: Color(0x140BAACC),
   accentActiveFill: Color(0x240BAACC),

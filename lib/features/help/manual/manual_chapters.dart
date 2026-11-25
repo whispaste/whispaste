@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/config/command_shortcut.dart';
+import '../../../core/config/custom_endpoint_rules.dart'
+    show kCustomEndpointServerPresets;
 import '../../../core/data/database.dart' show kAudioCap;
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/l10n/ltr_isolate.dart';
@@ -55,12 +57,76 @@ final ManualSection manualHotkeyDisturbedSection = ManualSection(
   ],
 );
 
+/// The command-line commands that control the running app (#1952,
+/// `lib/services/instance_cli.dart`). The copyable lines name the program
+/// the way it is called on the reader's system: the binary inside the app
+/// on macOS (so messages and exit codes reach the terminal), `whispaste`
+/// elsewhere (Linux packages, the Microsoft Store alias); the paragraph
+/// after them names every other variant.
+final ManualSection manualCommandLineSection = ManualSection(
+  heading: (l) => l.manualCliHeading,
+  blocks: <ManualBlock>[
+    ManualParagraph(
+      (l) => l.manualCliB1(
+        ltrIsolate('--start'),
+        ltrIsolate('--toggle'),
+        ltrIsolate('--transcribe'),
+        ltrIsolate('--stop'),
+        ltrIsolate('--cancel'),
+      ),
+    ),
+    for (final command in kManualCliCommands)
+      ManualCode(
+        'cli-${command.split(' ').first.substring(2)}',
+        (l) => '${manualCliProgram(defaultTargetPlatform)} $command',
+      ),
+    ManualParagraph(
+      (l) => l.manualCliB2(
+        ltrIsolate('--start'),
+        ltrIsolate('--stop'),
+        ltrIsolate('--toggle'),
+        ltrIsolate('--cancel'),
+        ltrIsolate('--transcribe'),
+        ltrIsolate('--help'),
+      ),
+    ),
+    ManualParagraph(
+      (l) => l.manualCliB3(
+        ltrIsolate(r'%LOCALAPPDATA%\Programs\WhisPaste\whispaste.exe'),
+        ltrIsolate('whispaste'),
+        ltrIsolate('flatpak run de.whispaste.app'),
+        ltrIsolate(kManualCliMacProgram),
+        ltrIsolate('open -a WhisPaste memo.mp3'),
+      ),
+    ),
+  ],
+);
+
+/// The commands the handbook lists, one copyable line each.
+const List<String> kManualCliCommands = [
+  '--start',
+  '--stop',
+  '--toggle',
+  '--cancel',
+  '--transcribe memo.mp3',
+  '--help',
+];
+
+/// The program inside the macOS app bundle.
+const String kManualCliMacProgram =
+    '/Applications/WhisPaste.app/Contents/MacOS/WhisPaste';
+
+/// How the handbook's command lines call WhisPaste on [platform].
+String manualCliProgram(TargetPlatform platform) =>
+    platform == TargetPlatform.macOS ? kManualCliMacProgram : 'whispaste';
+
 /// How to put a speech model on the computer by hand, for a machine without a
 /// connection to the download server. It lives in the hardware chapter and is
 /// also shown on its own from the download error (`showManualSectionDialog`).
 ///
 /// File names, sizes, addresses and the Parakeet folder name come from the
-/// model registries (`sttModels`, `parakeetModelFiles`, `parakeetModelId`).
+/// bundled model catalog via the registries (`sttModels`,
+/// `parakeetModelFiles`, `parakeetModelId`, `smartModeModel`).
 /// The folder texts below are fixed strings that mirror `appDataDir()` and
 /// `sttDir()` (`packages/whispaste_diagnostics/lib/src/probes/path_service.dart`);
 /// change them together with those.
@@ -119,6 +185,14 @@ final ManualSection manualModelInstallSection = ManualSection(
       'model-folder-linux-flatpak',
       (l) => '~/.var/app/de.whispaste.app/config/whispaste/models/stt',
     ),
+    ManualParagraph((l) => l.manualC13S8OpenFolder),
+    ManualParagraph(
+      (l) => l.manualC13S8SmartMode(
+        ltrIsolate(smartModeModel.filename),
+        smartModeModel.sizeLabel,
+      ),
+    ),
+    ManualCode('model-url-smart-mode', (l) => smartModeModel.url),
     ManualParagraph((l) => l.manualC13S8B4),
     ManualTip((l) => l.manualC13S8Tip),
   ],
@@ -216,6 +290,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
               ltrIsolate('Cmd+Shift+Space'),
             ),
           ),
+          ManualParagraph((l) => l.manualC02S1B3),
         ],
       ),
       ManualSection(
@@ -238,6 +313,8 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             (l) => l.manualC02S3B2I2,
             (l) => l.manualC02S3B2I3,
             (l) => l.manualC02S3B2I4,
+            (l) => l.manualC02S3B2I5,
+            (l) => l.manualC02S3B2I6,
           ]),
           ManualParagraph((l) => l.manualC02S3B3),
         ],
@@ -256,11 +333,13 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ManualTip((l) => l.manualC02S4B4),
           ManualParagraph((l) => l.manualC02S4B5),
           ManualParagraph((l) => l.manualC02S4B6),
+          ManualParagraph((l) => l.manualC02S4B10),
           ManualParagraph((l) => l.manualC02S4B7),
           ManualParagraph((l) => l.manualC02S4B8),
           ManualParagraph((l) => l.manualC02S4B9),
         ],
       ),
+      manualCommandLineSection,
     ],
   ),
   ManualChapter(
@@ -272,6 +351,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
         blocks: <ManualBlock>[
           ManualParagraph((l) => l.manualC03S1B1),
           ManualParagraph((l) => l.manualC03S1B2),
+          ManualParagraph((l) => l.manualC03S1B3),
         ],
       ),
       ManualSection(
@@ -395,6 +475,12 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ManualParagraph((l) => l.manualC05S4B3),
           ManualParagraph((l) => l.manualC05S4B4),
           ManualParagraph((l) => l.manualC05S4B5),
+          ManualParagraph((l) => l.manualC05S4B6),
+          ManualParagraph((l) => l.manualC05S4B7),
+          ManualParagraph((l) => l.manualC05S4B11),
+          ManualParagraph((l) => l.manualC05S4B8),
+          ManualParagraph((l) => l.manualC05S4B9),
+          ManualParagraph((l) => l.manualC05S4B10),
         ],
       ),
       ManualSection(
@@ -472,6 +558,14 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ),
         ],
       ),
+      ManualSection(
+        heading: (l) => l.manualC06S8Heading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualC06S8B1)],
+      ),
+      ManualSection(
+        heading: (l) => l.manualC06S9Heading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualC06S9B1)],
+      ),
     ],
   ),
   ManualChapter(
@@ -510,7 +604,10 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
       ),
       ManualSection(
         heading: (l) => l.manualC07S5Heading,
-        blocks: <ManualBlock>[ManualParagraph((l) => l.manualC07S5B1)],
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualC07S5B1),
+          ManualParagraph((l) => l.manualC07S5B2),
+        ],
       ),
       ManualSection(
         heading: (l) => l.manualC07S6Heading,
@@ -552,6 +649,12 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
               ltrIsolate('shorter:'),
             ),
           ]),
+          ManualParagraph(
+            (l) => l.manualC08S2B3(
+              ltrIsolate(mainShortcutLabel('K')),
+              l.contentSearchTitle,
+            ),
+          ),
           ManualTip(
             (l) => l.manualC08S2B2(l.settingsIndexRebuild, l.settingsHistory),
           ),
@@ -595,6 +698,38 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
         heading: (l) => l.manualC08S7Heading,
         blocks: <ManualBlock>[
           ManualParagraph((l) => l.manualC08S7B1(l.settingsHistory)),
+        ],
+      ),
+      // Saved views (#658): the same rule engine for recordings and notes,
+      // the labels come from the UI so the text cannot drift from it.
+      ManualSection(
+        heading: (l) => l.manualC08S8Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualC08S8B1(l.smartViewGroup, l.smartViewNew),
+          ),
+          ManualParagraph((l) => l.manualC08S8B2(l.smartViewLeave)),
+        ],
+      ),
+      // Note folders (#659, ADR 0034); labels come from the UI.
+      ManualSection(
+        heading: (l) => l.manualC08S9Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualC08S9B1(l.notesMoveToFolder)),
+          ManualParagraph((l) => l.manualC08S9B2(l.notesFolderDeleteKeep)),
+        ],
+      ),
+      // Listening sentence by sentence (#672); labels come from the UI.
+      ManualSection(
+        heading: (l) => l.manualC08S10Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualC08S10B1(
+              l.historyAudioShowSentences,
+              ltrIsolate(mainShortcutLabel('Shift+P')),
+            ),
+          ),
+          ManualParagraph((l) => l.manualC08S10B2),
         ],
       ),
     ],
@@ -711,6 +846,14 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             (l) => l.manualC11S1B2I10(l.settingsAdvanced),
             (l) => l.manualC11S1B2I11(l.pageAboutTitle),
           ]),
+          // #1511: pause or turn down media while dictating.
+          ManualParagraph(
+            (l) => l.manualC11S1MediaWhileRecording(
+              l.settingsMediaWhileRecording,
+              l.settingsMediaWhileRecordingPause,
+              l.settingsMediaWhileRecordingDuck,
+            ),
+          ),
         ],
       ),
       ManualSection(
@@ -724,7 +867,10 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
       ),
       ManualSection(
         heading: (l) => l.manualLangFavHeading,
-        blocks: <ManualBlock>[ManualParagraph((l) => l.manualLangFavB1)],
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualLangFavB1),
+          ManualParagraph((l) => l.manualLangFavB2),
+        ],
       ),
       ManualSection(
         heading: (l) => l.manualLangTrayHeading,
@@ -768,6 +914,13 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
         blocks: <ManualBlock>[
           ManualParagraph((l) => l.manualC12S2B1(l.settingsAreaApiKeys)),
           ManualParagraph((l) => l.manualC12S2B2),
+          // Own LLM server for Smart Mode (#1957): the same list the settings
+          // offer as a shortcut, so the addresses cannot drift apart.
+          ManualParagraph((l) => l.manualC12S2Servers),
+          ManualBullets(<ManualText>[
+            for (final server in kCustomEndpointServerPresets)
+              (_) => '${server.name}: ${ltrIsolate(server.url)}',
+          ]),
           ManualParagraph((l) => l.manualC12S2B3),
           ManualParagraph((l) => l.manualC12S2B4),
         ],
@@ -782,6 +935,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
               l.settingsPrivacy,
             ),
           ),
+          ManualParagraph((l) => l.manualC12S3B2),
         ],
       ),
       ManualSection(
@@ -810,10 +964,15 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ManualParagraph(
             (l) => l.manualC12S4B6(l.dataKeyRestore, l.dataKeyNewAction),
           ),
+          // A lost key at start: empty start, data set aside, export offer
+          // (#1023).
+          ManualParagraph((l) => l.manualC12S4B8),
           // 1.5 encrypts the database and kept audio (#1020, #1021); 1.4.x
           // cannot read either and has no guard, so the way out of a bad 1.5
           // build is fix-forward, never a downgrade (#1637).
           ManualParagraph((l) => l.manualC12S4B7),
+          // The switch of #1022: on by default, applied at the next start.
+          ManualParagraph((l) => l.manualC12S4B9(l.settingsEncryption)),
         ],
       ),
       // Permissions overview, with Input Monitoring withdrawn later (#1200).
@@ -853,6 +1012,18 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             (l) => l.manualC12S7B1(l.overviewWeatherTitle, l.overviewCustomize),
           ),
           ManualParagraph((l) => l.manualC12S7B2(l.overviewWeatherSearch)),
+        ],
+      ),
+      // Moving the overview cards by drag or keyboard (#1970).
+      ManualSection(
+        heading: (l) => l.manualC12S8Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualC12S8B1(
+              l.overviewCustomize,
+              l.overviewCustomizeResetOrder,
+            ),
+          ),
         ],
       ),
     ],
@@ -908,7 +1079,12 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
       ),
       ManualSection(
         heading: (l) => l.manualC13S5Heading,
-        blocks: <ManualBlock>[ManualParagraph((l) => l.manualC13S5B1)],
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualC13S5B1),
+          ManualParagraph((l) => l.manualC13S5B2),
+          ManualParagraph((l) => l.manualC13S5B3),
+          ManualParagraph((l) => l.manualC13S5B4),
+        ],
       ),
       ManualSection(
         heading: (l) => l.manualC13S6Heading,
@@ -1211,6 +1387,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ManualBullets(<ManualText>[
             (l) => l.manualC15S1B3I1,
             (l) => l.manualC15S1B3I2(ltrIsolate(mainShortcutLabel('?'))),
+            (l) => l.manualC15S1B3I3(ltrIsolate(mainShortcutLabel('K'))),
           ]),
         ],
       ),
@@ -1254,6 +1431,9 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ManualParagraph(
             (l) => l.manualC15S5B1(ltrIsolate('Esc'), ltrIsolate('F12')),
           ),
+          ManualParagraph(
+            (l) => l.manualC15S5B2(l.settingsOverlayKeyHintsAlways),
+          ),
         ],
       ),
       ManualSection(
@@ -1262,14 +1442,82 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
       ),
       ManualSection(
         heading: (l) => l.manualViewMemoryHeading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualViewMemoryB1)],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorTextViewHeading,
         blocks: <ManualBlock>[
           ManualParagraph(
-            (l) => l.manualViewMemoryB1(
+            (l) => l.manualEditorTextViewB1(
               ltrIsolate(mainShortcutLabel('+')),
               ltrIsolate(mainShortcutLabel('-')),
               ltrIsolate(mainShortcutLabel('0')),
             ),
           ),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorOutlineHeading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualEditorOutlineB1(
+              ltrIsolate(mainShortcutLabel('Shift+G')),
+              ltrIsolate(_headingStepLabel(next: true)),
+              ltrIsolate(_headingStepLabel(next: false)),
+            ),
+          ),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorLinksHeading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualEditorLinksB1)],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorFindHeading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualEditorFindB1(
+              ltrIsolate(mainShortcutLabel('Shift+F')),
+              ltrIsolate('F3'),
+              ltrIsolate('Shift+F3'),
+              ltrIsolate(mainShortcutLabel('F')),
+            ),
+          ),
+          ManualParagraph(
+            (l) =>
+                l.manualEditorFindB2(ltrIsolate('F3'), ltrIsolate('Shift+F3')),
+          ),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorCountHeading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) =>
+                l.manualEditorCountB1(ltrIsolate(mainShortcutLabel('Shift+W'))),
+          ),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorSmartActionHeading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) =>
+                l.manualEditorSmartActionB1(ltrIsolate(mainShortcutLabel('J'))),
+          ),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualEditorSpellHeading,
+        blocks: <ManualBlock>[
+          ManualParagraph(
+            (l) => l.manualEditorSpellB1(
+              ltrIsolate('F7'),
+              ltrIsolate('Shift+F7'),
+              ltrIsolate('Shift+F10'),
+            ),
+          ),
+          ManualParagraph((l) => l.manualEditorSpellB2),
         ],
       ),
       ManualSection(
@@ -1377,6 +1625,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
       ManualSection(
         heading: (l) => l.manualC16S3Heading,
         blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualC16S3B0),
           ManualParagraph(
             (l) => l.manualC16S3B1(
               l.settingsInterface,
@@ -1422,6 +1671,15 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
     ],
   ),
 ];
+
+/// The next/previous heading key of the editor outline (#645), spelled as
+/// the rest of the reference: Option+Cmd+arrow on macOS (most Mac keyboards
+/// have no Page Down), Ctrl+Page Down/Up on Windows and Linux.
+String _headingStepLabel({required bool next, bool? mac}) {
+  final isMac = mac ?? defaultTargetPlatform == TargetPlatform.macOS;
+  if (isMac) return next ? 'Option+Cmd+↓' : 'Option+Cmd+↑';
+  return next ? 'Ctrl+Page Down' : 'Ctrl+Page Up';
+}
 
 /// A shortcut with the platform's own main modifier: Cmd on macOS, Ctrl on
 /// Windows and Linux. The reference must not name Ctrl on a Mac (UIA-HLP-03).

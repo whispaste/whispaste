@@ -32,12 +32,13 @@ const Map<String, String> kDownloadHostAllowlist = {
       'HuggingFace Xet CDN, the 302 target of every huggingface.co resolve/ '
       'URL above. Signed, anonymous URLs.',
   'github.com':
-      'CUDA pack archive (releases/download/cuda-*), which answers with a 302 '
+      'CUDA pack archive (releases/download/cuda-*) and the signed model '
+      'catalog (releases/download/model-catalog/*), which answer with a 302 '
       'to the release-asset CDN. Also the stable appcast URL that the native '
       'updater reads.',
   'release-assets.githubusercontent.com':
       'GitHub release-asset CDN, the 302 target of github.com release '
-      'downloads (CUDA pack).',
+      'downloads (CUDA pack, model catalog).',
   'objects.githubusercontent.com':
       'Older GitHub release-asset CDN host, still served for some assets.',
   'api.github.com':
@@ -56,6 +57,10 @@ const Map<String, String> kDownloadDomainAllowlist = {
   'huggingface.co': 'HuggingFace LFS CDN hosts (cdn-lfs.huggingface.co).',
 };
 
+/// Whether [host] is on the fixed allowlist (exact host or domain). Hosts
+/// outside it need the user's confirmation for a model of their own (#1789).
+bool isOnDownloadAllowlist(String host) => _isAllowedHost(host.toLowerCase());
+
 bool _isAllowedHost(String host) =>
     kDownloadHostAllowlist.containsKey(host) ||
     kDownloadDomainAllowlist.keys.any((domain) => host.endsWith('.$domain'));
@@ -71,6 +76,15 @@ class DownloadUrlRejectedException implements Exception {
   String toString() => message;
 }
 
+/// A host outside the fixed allowlist that the user has not confirmed for
+/// their own model (#1789). [host] is shown so they can confirm it and retry.
+class DownloadHostNotConfirmedException extends DownloadUrlRejectedException {
+  DownloadHostNotConfirmedException(this.host)
+    : super('Download blocked: host "$host" is not confirmed.');
+
+  final String host;
+}
+
 /// Redirects followed before giving up. Matches Dio's default.
 const int kMaxDownloadRedirects = 5;
 
@@ -78,7 +92,12 @@ const Set<int> _redirectStatuses = {301, 302, 303, 307, 308};
 
 /// Throws [DownloadUrlRejectedException] unless [uri] is an HTTPS URL on the
 /// default port whose host is allowed (see the library doc).
-void assertAllowedDownloadUri(Uri uri) {
+///
+/// [confirmedHosts] is the second, separate way in (#1789): hosts the user
+/// confirmed for a model of their own. They are matched exactly, never as a
+/// domain, and a host outside both lists throws
+/// [DownloadHostNotConfirmedException] when [confirmedHosts] is given.
+void assertAllowedDownloadUri(Uri uri, {Set<String>? confirmedHosts}) {
   if (uri.scheme != 'https') {
     throw DownloadUrlRejectedException(
       'Download blocked: only HTTPS is allowed (${uri.scheme}://${uri.host}).',
@@ -90,7 +109,11 @@ void assertAllowedDownloadUri(Uri uri) {
       'Download blocked: unexpected address "${uri.authority}".',
     );
   }
+  if (confirmedHosts != null && confirmedHosts.contains(host.toLowerCase())) {
+    return;
+  }
   if (!_isAllowedHost(host)) {
+    if (confirmedHosts != null) throw DownloadHostNotConfirmedException(host);
     throw DownloadUrlRejectedException(
       'Download blocked: host "$host" is not on the download allowlist.',
     );
@@ -108,11 +131,12 @@ Future<Response<T>> getWithAllowlistedRedirects<T>(
   String url, {
   Options? options,
   CancelToken? cancelToken,
+  Set<String>? confirmedHosts,
 }) async {
   var uri = Uri.parse(url);
   final base = options ?? Options();
   for (var hop = 0; ; hop++) {
-    assertAllowedDownloadUri(uri);
+    assertAllowedDownloadUri(uri, confirmedHosts: confirmedHosts);
     final response = await dio.get<T>(
       uri.toString(),
       cancelToken: cancelToken,

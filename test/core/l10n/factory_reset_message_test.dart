@@ -68,6 +68,27 @@ const _coreTermsByLanguage = <String, List<String>>{
     'Статистика',
     'ключи API',
   ],
+  'fr': [
+    'transcriptions',
+    'notes',
+    'Dictionnaire',
+    'Snippets',
+    'Profils',
+    'observations de corrections',
+    'Statistiques',
+    'clés API',
+  ],
+  'it': [
+    'Trascrizioni',
+    'note',
+    'Dizionario',
+    'Snippet',
+    'Profili',
+    'osservazioni sulle correzioni',
+    'Statistiche',
+    'chiavi API',
+  ],
+  'zh': ['转写文本', '笔记', '词典', '文本片段', '配置文件', '更正观察记录', '统计', 'API 密钥'],
 };
 
 void main() {

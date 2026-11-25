@@ -202,7 +202,9 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     border-radius: var(--wp-radius-pill);
     border: 1px solid var(--wp-border-strong);
     font-size: var(--wp-font-size-sm);
-    color: var(--wp-card-meta);
+    /* card-meta (frost-400) measured 4.3:1 on the card over the section's
+       violet gradient stop; card-text clears AA (6.2:1, #1911). */
+    color: var(--wp-card-text);
   }
   .fh-desc {
     margin: 0;

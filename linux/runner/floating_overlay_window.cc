@@ -1,10 +1,19 @@
 #include "floating_overlay_window.h"
 
 #include <gdk/gdk.h>
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
+
+#include "overlay_edit_focus.h"
 
 #include "secondary_engine.h"
 #include "secondary_plugin_registrant.h"
 #include "positioned_window_type.h"
+#include "system_motion_host.h"
+#ifdef GDK_WINDOWING_X11
+#include "x11_window.h"
+#endif
 
 FloatingOverlayWindow::FloatingOverlayWindow() = default;
 
@@ -26,8 +35,10 @@ void FloatingOverlayWindow::Create() {
   // Always float above other windows.
   gtk_window_set_keep_above(GTK_WINDOW(window_), TRUE);
 
-  // Never steal keyboard focus — the overlay is a pure HUD.
+  // Never steal keyboard focus — the overlay is a pure HUD. The only
+  // exception is the write preview's edit field (SetEditFocus, #254).
   gtk_window_set_accept_focus(GTK_WINDOW(window_), FALSE);
+  gtk_window_set_focus_on_map(GTK_WINDOW(window_), FALSE);
 
   // TUNING: GDK_WINDOW_TYPE_HINT_NOTIFICATION is the most WM-friendly hint
   // for always-on-top HUDs on GNOME/XWayland. Alternatives if Mutter resets
@@ -67,6 +78,7 @@ void FloatingOverlayWindow::Create() {
   // fl_view_new takes its own strong ref to project; g_autoptr releases ours.
   FlView* view = fl_view_new(project);
   secondary_view_watch_first_frame(view, "Floating overlay");
+  system_motion_attach(view);
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   // Transparent Flutter surface: the Dart painter composites over clear pixels.
@@ -134,8 +146,67 @@ void FloatingOverlayWindow::Hide() {
   gtk_widget_hide(window_);
 }
 
+// static
+bool FloatingOverlayWindow::SessionSupportsEditFocus() {
+#ifdef GDK_WINDOWING_X11
+  GdkDisplay* display = gdk_display_get_default();
+  const bool x11 = display != nullptr && GDK_IS_X11_DISPLAY(display);
+  const gchar* type = g_getenv("XDG_SESSION_TYPE");
+  const gchar* wayland_display = g_getenv("WAYLAND_DISPLAY");
+  const bool wayland =
+      (type != nullptr && g_ascii_strcasecmp(type, "wayland") == 0) ||
+      (wayland_display != nullptr && wayland_display[0] != '\0');
+  return OverlayEditFocusSupported(
+      x11, wayland, x11 && PositionedHelperWindowType() == GTK_WINDOW_TOPLEVEL,
+      x11 && X11HasActiveWindowHint(display));
+#else
+  return false;
+#endif
+}
+
+void FloatingOverlayWindow::SetEditFocus(bool focus) {
+  if (window_ == nullptr || focus == edit_focus_) return;
+  if (focus && !EditFocusSupported()) return;
+#ifdef GDK_WINDOWING_X11
+  edit_focus_ = focus;
+  GtkWindow* window = GTK_WINDOW(window_);
+  GdkDisplay* display = gtk_widget_get_display(window_);
+  GdkWindow* gdk_window = gtk_widget_get_window(window_);
+  const Window own =
+      gdk_window != nullptr && GDK_IS_X11_WINDOW(gdk_window)
+          ? GDK_WINDOW_XID(gdk_window)
+          : 0;
+  if (focus) {
+    edit_focus_previous_ = X11ActiveWindow(display);
+    gtk_window_set_accept_focus(window, TRUE);
+    gtk_window_set_focus_on_map(window, TRUE);
+    // The WM drops a plain present of a background app (focus-stealing
+    // prevention); the EWMH request with source "pager" gets through, the
+    // same way activateTarget brings the paste target back.
+    if (gdk_window != nullptr) {
+      gtk_window_present_with_time(window,
+                                   gdk_x11_get_server_time(gdk_window));
+    }
+    if (own != 0) X11RequestActivation(display, own);
+    g_message("[overlay-host] edit focus on (previous 0x%lx)",
+              edit_focus_previous_);
+    return;
+  }
+  gtk_window_set_accept_focus(window, FALSE);
+  gtk_window_set_focus_on_map(window, FALSE);
+  const unsigned long restore = OverlayFocusRestoreWindow(
+      X11ActiveWindow(display), own, edit_focus_previous_);
+  if (restore != 0 && X11WindowExists(display, restore)) {
+    X11RequestActivation(display, restore);
+  }
+  g_message("[overlay-host] edit focus off (restored 0x%lx)", restore);
+  edit_focus_previous_ = 0;
+#endif
+}
+
 void FloatingOverlayWindow::Destroy() {
   if (window_) {
+    SetEditFocus(false);
     gtk_widget_destroy(window_);
     window_ = nullptr;
     fl_view_ = nullptr;  // Destroyed with window_.

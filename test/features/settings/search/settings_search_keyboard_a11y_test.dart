@@ -226,14 +226,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // `settingsSearchFieldLabel` ("Search settings") is `settingsSearchHint`
-      // ("Search settings…") minus its trailing ellipsis — [WpSearchField]
-      // recognizes that as the same wording and skips stacking a second,
-      // redundant `Semantics(label:)` on top of the field's own hint-derived
-      // one (see its library docs), so the accessible name announced is the
-      // hint itself, exactly once.
+      // The field is named by `settingsSearchFieldLabel` ("Search
+      // settings"); the placeholder ("Search settings…") is visual only, so
+      // the name stays when text hides it (#1916).
       expect(
-        find.bySemanticsLabel(l10n.settingsSearchHint),
+        find.bySemanticsLabel(l10n.settingsSearchFieldLabel),
         findsWidgets,
         reason: 'Search field must expose its accessible label',
       );

@@ -26,6 +26,7 @@ import '../../../widgets/wp_app_row.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 import 'wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 /// Apps the user dictated into recently, newest first, one per app. Derived
 /// from the history target apps, so the picker needs no extra storage.
@@ -160,14 +161,16 @@ class AutoPasteBlocklistField extends ConsumerWidget {
                     identifier: entry,
                     name: watchAppName(ref, entry),
                     leading: WpAppIcon(identifier: entry),
-                    trailing: IconButton(
+                    trailing: WpIconButton.ghost(
                       key: ValueKey(
                         'settings-paste-blocklist-remove-${_idPart(entry)}',
                       ),
+                      testId:
+                          'settings-paste-blocklist-remove-${_idPart(entry)}',
                       tooltip: l10n.settingsPasteBlocklistRemoveTooltip(
                         watchAppName(ref, entry),
                       ),
-                      icon: const Icon(LucideIcons.x, size: WpIconSize.sm),
+                      icon: LucideIcons.x,
                       onPressed: () => _writeBlocklist(
                         ref,
                         autoPasteBlocklistWithout(raw, entry),

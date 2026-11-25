@@ -9,7 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/logging/app_logger.dart';
+import '../../../services/dictation_quality_telemetry.dart';
+import '../../../services/model_telemetry_identity.dart'
+    show UndoAfterPasteSource;
 import '../../../services/paste/paster.dart';
+import '../../../services/review_streak_provider.dart';
 import '../../../services/selection_edit/selection_undo.dart';
 import '../../../services/smart_mode/smart_mode_name_change_notice.dart';
 import '../../../core/theme/tokens.dart';
@@ -19,6 +24,8 @@ import '../../../widgets/wp_notice_bar.dart';
 import '../data/history_detail_provider.dart';
 import '../../../widgets/wp_page_notice.dart';
 import '../../../widgets/wp_banner.dart';
+
+final _log = AppLogger('SmartModeUndoActions');
 
 /// Shows the done notice with a one-click undo for [entryId].
 void showSmartModeUndoToast({
@@ -48,6 +55,9 @@ Future<void> _undoFromToast(
   WidgetRef ref,
   String entryId,
 ) async {
+  // The user takes the dictation back right after the insert: a quality
+  // signal for the model (#1791), counted at the click, whatever follows.
+  _recordUndo(ref, UndoAfterPasteSource.smartMode);
   final detail = historyDetailProvider(entryId);
   final panelBusy =
       ref.exists(detail) &&
@@ -72,6 +82,19 @@ Future<void> _undoFromToast(
     lock.release(entryId);
   }
   ref.invalidate(detail);
+}
+
+/// Counts an undo right after a paste for the usage statistics (#1791).
+/// Telemetry never breaks the undo.
+void _recordUndo(WidgetRef ref, UndoAfterPasteSource source) {
+  // The text was taken back: no good moment for the rating dialog (#2185).
+  ref.read(reviewStreakProvider.notifier).noteSetback();
+  try {
+    ref.read(dictationQualityTelemetryProvider).recordUndoAfterPaste(source);
+  } on Object catch (e) {
+    // Statistics only.
+    _log.debug('Undo after paste not counted', e);
+  }
 }
 
 /// Says so instead of dropping the tap silently (DEV-175).
@@ -216,6 +239,7 @@ Future<void> _undoSelectionEdit(
   WidgetRef ref,
   SelectionUndoTicket ticket,
 ) async {
+  _recordUndo(ref, UndoAfterPasteSource.selectionEdit);
   ref.read(smartModeNameChangeNoticeProvider.notifier).clear();
   final paster = ref.read(pasterProvider);
   if (paster == null) {

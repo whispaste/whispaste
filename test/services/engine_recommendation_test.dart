@@ -78,6 +78,31 @@ void main() {
       );
     });
 
+    test('favorite languages follow the chosen language, before the system '
+        'languages; auto and duplicates are skipped (#1953)', () {
+      final languages = recommendationLanguages(
+        sttLanguageCode: 'de',
+        favoriteLanguages: ['de', 'ja_JP', 'auto', 'en'],
+        systemLanguages: ['en-US', 'fr'],
+        uiLocale: 'de',
+      );
+      expect(languages, ['de', 'ja', 'en', 'fr']);
+      // A Japanese favorite rules Parakeet out, as a system language does.
+      expect(parakeetRecommendedFor(languages), isFalse);
+    });
+
+    test('with automatic detection a favorite stands before the UI locale', () {
+      expect(
+        recommendationLanguages(
+          sttLanguageCode: 'auto',
+          favoriteLanguages: ['es'],
+          systemLanguages: const [],
+          uiLocale: 'de',
+        ),
+        ['es'],
+      );
+    });
+
     test(
       'an unsupported system language is not replaced by the English UI',
       () {

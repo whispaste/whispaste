@@ -100,6 +100,11 @@ class DesktopPasteHost {
   bool receipt_read_ = false;
   // Log-only facts about reads of the armed receipt (#1147).
   int receipt_pre_reads_ = 0;
+  // Reads before the keystroke declined so the target keeps the one render.
+  int receipt_declined_ = 0;
+  // Program file names of those early readers ("?" without a window), so the
+  // receipt log names what took a receipt (clipboard_receipt_policy.h).
+  std::vector<std::wstring> receipt_early_readers_;
   ULONGLONG receipt_keystroke_tick_ = 0;
   long long receipt_first_read_after_ms_ = -1;
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> pending_read_;

@@ -1,6 +1,6 @@
 /// Settings information architecture (ticket, `07-settings-ia.md` §2–4).
 ///
-/// Eight areas in three groups. The navigation shows them, the page renders
+/// The areas, in three groups. The navigation shows them, the page renders
 /// the selected one, and deep links address a **row id** (kebab-case, e.g.
 /// `general-hotkey-dictation`) that resolves to its area and section.
 library;
@@ -17,6 +17,9 @@ enum SettingsArea {
   shortcuts(SettingsGroup.dictation),
   recording(SettingsGroup.dictation),
   speech(SettingsGroup.dictation),
+
+  /// The model library (#1514): every speech and Smart Mode model.
+  models(SettingsGroup.dictation),
   textInsert(SettingsGroup.dictation),
   profiles(SettingsGroup.dictation),
   privacy(SettingsGroup.system),
@@ -61,6 +64,7 @@ const Map<SettingsArea, List<String>> kSettingsAreaSections = {
   SettingsArea.appearance: ['appearance', 'overlay', 'floatingButton'],
   SettingsArea.recording: ['audio', 'recordingSafety', 'sound'],
   SettingsArea.speech: ['stt'],
+  SettingsArea.models: ['models'],
   SettingsArea.textInsert: ['afterTranscription', 'textProcessing'],
   SettingsArea.profiles: ['profiles'],
   SettingsArea.privacy: [

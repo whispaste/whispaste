@@ -19,6 +19,8 @@ import 'package:whispaste/services/automation_api/automation_api_snippet_list_ro
 import 'package:whispaste/services/automation_api/automation_api_snippet_routes.dart';
 import 'package:whispaste/services/automation_api/automation_api_status_routes.dart';
 import 'package:whispaste/services/automation_api/automation_api_transcribe_routes.dart';
+import 'package:whispaste/services/automation_api/automation_write_jobs.dart';
+import 'package:whispaste/services/automation_api/automation_write_routes.dart';
 
 import '../../test_helpers/wav_bytes.dart';
 
@@ -43,7 +45,15 @@ const _expectedRoutes = [
   'POST /v1/snippets/insert',
   'POST /v1/snippets/render',
   'POST /v1/transcriptions',
+  // Write scope (#255): only the separate write token reaches these.
+  'GET /v1/write/status',
+  'POST /v1/write',
 ];
+
+AutomationApiRouteGroup _writeRoutes() => automationWriteRoutes(
+  start: (_) => const AutomationWriteRateLimited(Duration(seconds: 1)),
+  lookup: (_) => null,
+);
 
 Handler _handler() => buildAutomationApiHandler(
   currentToken: () async => _token,
@@ -69,6 +79,7 @@ Handler _handler() => buildAutomationApiHandler(
       renderSnippet: (_, _) async => null,
     ),
     automationTranscribeRoutes(transcribe: (_) async => ''),
+    _writeRoutes(),
   ],
 );
 
@@ -119,6 +130,7 @@ void main() {
         renderSnippet: (_, _) async => null,
       ),
       automationTranscribeRoutes(transcribe: (_) async => ''),
+      _writeRoutes(),
     ]);
     final sorted = [..._expectedRoutes]..sort();
     expect(router.registeredRoutes, sorted);

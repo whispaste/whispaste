@@ -44,6 +44,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  motion_channel_ = std::make_unique<SystemMotionChannel>(
+      flutter_controller_->engine()->messenger());
 
   // Create the native floating button host AFTER plugins are registered.
   floating_button_host_ = std::make_unique<FloatingButtonHost>(
@@ -84,6 +86,10 @@ bool FlutterWindow::OnCreate() {
   system_languages_host_ =
       std::make_unique<SystemLanguagesHost>(flutter_controller_->engine());
 
+  // Editor spell check (whispaste/spell_check, #670).
+  spell_check_host_ =
+      std::make_unique<SpellCheckHost>(flutter_controller_->engine());
+
   // Create the RawInput key-up monitor (push-to-talk on Windows, #39).
   keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
@@ -116,7 +122,13 @@ bool FlutterWindow::OnCreate() {
   clipboard_monitor_host_ = std::make_unique<ClipboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
 
+  autostart_host_ = std::make_unique<AutostartHost>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
   support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
+  system_contacts_host_ = std::make_unique<SystemContactsHost>(
       flutter_controller_->engine()->messenger(), GetHandle());
 
   media_pause_host_ = std::make_unique<MediaPauseHost>(
@@ -211,12 +223,16 @@ void FlutterWindow::OnDestroy() {
     clipboard_monitor_host_.reset();
   }
 
+  autostart_host_.reset();
   support_store_channel_.reset();
+  system_contacts_host_.reset();
   media_pause_host_.reset();
   // Its destructor clears the handler on the engine's messenger, so it must
   // go before the engine (same rule as the channel above).
   system_languages_host_.reset();
+  spell_check_host_.reset();
   audio_routing_host_.reset();
+  motion_channel_.reset();
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -236,6 +252,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       (message == WM_ACTIVATEAPP && wparam)) {
     if (floating_button_host_) floating_button_host_->RefreshTopmost();
     if (floating_overlay_host_) floating_overlay_host_->RefreshTopmost();
+  }
+
+  // "Animation effects" toggled (or any other system setting): every engine
+  // gets the new reduce-motion value (#1756). Never consumed.
+  if (message == WM_SETTINGCHANGE && !is_destroying_) {
+    SystemMotionChannel::OnSettingChange();
   }
 
   // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
@@ -293,9 +315,19 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       field_type_host_->HandleWindowMessage(message, wparam, lparam)) {
     return 0;
   }
-  // Store purchase replies are posted here (see SupportStoreChannel).
+  // Native async replies are posted back to the platform thread.
+  if (autostart_host_ &&
+      autostart_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
   if (support_store_channel_ &&
       support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+
+  // Contact-store replies are posted here (see SystemContactsHost).
+  if (system_contacts_host_ &&
+      system_contacts_host_->HandleWindowMessage(message, wparam, lparam)) {
     return 0;
   }
 

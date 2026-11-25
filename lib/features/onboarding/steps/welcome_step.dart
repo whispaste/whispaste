@@ -8,6 +8,7 @@ import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/text/name_order.dart';
 import '../../../core/config/quality_tier.dart';
 import '../../../core/config/settings_enums.dart' show OnDeviceEngine;
 import '../../../core/config/settings_provider.dart';
@@ -16,11 +17,9 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/onboarding/onboarding_revision.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/engine_recommendation.dart'
-    show recommendationLanguages;
 import '../../../services/onboarding_telemetry.dart';
 import '../../../services/speech_recommendation.dart'
-    show systemLanguageCodesProvider;
+    show dictationLanguagesFor, systemLanguageCodesProvider;
 import '../../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetSupportedLanguages;
 import '../../../services/welcome_sound_service.dart';
@@ -344,10 +343,9 @@ class _WelcomeFullBleed extends ConsumerWidget {
     final localeNames = LocaleNames.of(context);
     // The first language the recommendation is made for names the model's
     // fit; with automatic detection that is the first system language.
-    final dictationCode = recommendationLanguages(
-      sttLanguageCode: settings.sttLanguageCode,
-      systemLanguages: ref.watch(systemLanguageCodesProvider),
-      uiLocale: settings.locale,
+    final dictationCode = dictationLanguagesFor(
+      settings,
+      ref.watch(systemLanguageCodesProvider),
     ).first;
     final dictationName =
         localeNames?.nameOf(dictationCode) ??
@@ -534,7 +532,7 @@ Widget _dictationLanguageSelect(
   final languages = [
     for (final e in whisperLanguages.entries)
       (code: e.key, name: names?.nameOf(e.key) ?? e.value),
-  ]..sort((a, b) => a.name.compareTo(b.name));
+  ]..sort((a, b) => compareDisplayNames(a.name, b.name));
   return OnboardingSelect<String>(
     testId: 'onboarding-welcome-dictation-language',
     label: l10n.onboardingSelectDictationLanguage,

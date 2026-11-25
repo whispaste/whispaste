@@ -10,6 +10,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/features/snippets/widgets/snippet_editor.dart';
 
+import 'package:whispaste/widgets/wp_collection_page.dart';
+import 'package:whispaste/widgets/wp_multi_select_bar.dart';
+
 import '../../fixtures/test_helpers.dart';
 
 Finder _byId(String id) => find.byWidgetPredicate(
@@ -119,6 +122,22 @@ void main() {
     await tester.tap(_byId('snippets-select-toggle'));
     await tester.pumpAndSettle();
     expect(_byId('snippets-multiselect-cancel'), findsOneWidget);
+    // The bar stands with nothing ticked, between search row and list.
+    expect(find.byType(WpMultiSelectBar), findsOneWidget);
+    expect(find.text('0 selected'), findsOneWidget);
+    final bar = tester.getRect(find.byType(WpMultiSelectBar));
+    expect(
+      bar.top,
+      greaterThanOrEqualTo(
+        tester.getRect(find.byType(WpCollectionToolbar)).bottom,
+      ),
+    );
+    expect(
+      bar.bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const ValueKey('snippets-list-area'))).top,
+      ),
+    );
 
     await tester.tap(_byId('snippets-select-toggle'));
     await tester.pumpAndSettle();

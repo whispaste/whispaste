@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/index_maintenance.dart';
 
 void main() {
   late Directory tempDir;
@@ -40,6 +41,14 @@ void main() {
     await openOnce((db) async {
       await db.customStatement('DROP TABLE IF EXISTS note_versions');
       await db.customStatement('DROP TABLE IF EXISTS note_assets');
+      // A v26 build had no notes index (#628): its triggers name the column.
+      for (final t in kNotesSearchIndex.triggerNames) {
+        await db.customStatement('DROP TRIGGER IF EXISTS $t');
+      }
+      await db.customStatement('DROP TABLE IF EXISTS notes_fts');
+      await db.customStatement('DELETE FROM app_meta WHERE key = ?', [
+        kNotesSearchIndex.versionKey,
+      ]);
       await db.customStatement('ALTER TABLE notes DROP COLUMN title');
       await db.customStatement(
         'ALTER TABLE snippets DROP COLUMN source_note_id',

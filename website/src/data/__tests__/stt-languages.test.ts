@@ -22,7 +22,7 @@ describe('stt-languages', () => {
   });
 
   it('mirrors the app’s Parakeet set, all of it inside Whisper’s', () => {
-    const app = dartCodes(repo('lib/services/stt_parakeet/parakeet_model_registry.dart'), 'const Set<String> parakeetSupportedLanguages');
+    const app = dartCodes(repo('lib/core/models/bundled_model_catalog.dart'), 'const Set<String> parakeetSupportedLanguages');
     expect([...PARAKEET_LANGUAGES].sort()).toEqual([...app].sort());
     expect(PARAKEET_LANGUAGES.size).toBe(25);
     for (const code of PARAKEET_LANGUAGES) expect(WHISPER_LANGUAGES).toContain(code);

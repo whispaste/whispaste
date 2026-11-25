@@ -577,6 +577,20 @@ void main() {
       expectHeadingFocused();
     });
 
+    testWidgets('Tab never stops on the heading again (#1845)', (tester) async {
+      await _pumpOverlay(tester, mic: _RecordingMicPermissionNotifier());
+      await tester.pump();
+      expectHeadingFocused();
+
+      final stops = <String?>[];
+      for (var i = 0; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        stops.add(FocusManager.instance.primaryFocus?.debugLabel);
+      }
+      expect(stops, isNot(contains('onboardingHeading')));
+    });
+
     testWidgets('focus follows every page change, forwards and back', (
       tester,
     ) async {

@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/sorting/list_sort.dart';
 import '../../../core/sorting/list_sort_preference.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/views/smart_view.dart';
+import '../../../core/views/smart_view_providers.dart';
 import '../../../widgets/wp_collection_page.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_search_field.dart';
 import '../../../widgets/wp_sort_menu_button.dart';
+import '../../views/smart_view_ui.dart';
 import '../data/notes_view_options.dart';
 import '../data/providers.dart';
+import 'note_folder_dialogs.dart';
 
 // ---------------------------------------------------------------------------
 // Notes head — the page family's toolbar (`WpCollectionToolbar`,
@@ -33,6 +38,7 @@ class NotesSearchBar extends ConsumerWidget {
     required this.onCreate,
     this.selecting = false,
     this.onToggleSelecting,
+    this.onCreateFolder,
   });
 
   final NotesFilter currentFilter;
@@ -55,15 +61,37 @@ class NotesSearchBar extends ConsumerWidget {
   /// Turns multi-select on or off; `null` hides the toggle (empty list).
   final VoidCallback? onToggleSelecting;
 
+  /// Creates the first folder (#659). Offered in the filter popover only
+  /// while no folder exists; afterwards the folder row above the list has
+  /// its own button.
+  final VoidCallback? onCreateFolder;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final textMuted = WpColors.textMuted;
     final isActive = currentFilter == NotesFilter.active;
     final sort = ref.watch(notesSortProvider).value ?? kNotesDefaultSort;
-    final grouped = ref.watch(notesGroupByDateProvider).value ?? false;
     final tagFilter = ref.watch(notesTagFilterProvider);
     final usedTags = ref.watch(notesTagsInUseProvider);
+    // Saved views (#658) narrow the active list only; Archive and Trash
+    // leave the view (see `_setFilter` on the page).
+    const scope = SmartViewScope.notes;
+    final viewShown =
+        isActive && ref.watch(shownSmartViewProvider(scope)) != null;
+    Future<List<Tag>> loadTags() => ref.read(historyDatabaseProvider).allTags();
+    final folders =
+        ref.watch(noteFoldersProvider).value ?? const <NoteFolder>[];
+    final foldersById = ref.watch(noteFoldersByIdProvider);
+    final shownFolderId = isActive && !viewShown
+        ? ref.watch(shownNoteFolderIdProvider)
+        : null;
+    final shownFolder = shownFolderId == null
+        ? null
+        : foldersById[shownFolderId];
+    final viewMark = isActive
+        ? smartViewActiveFilter(context, ref, scope: scope)
+        : null;
 
     String sortLabel(ListSort s) => wpSortOrderLabel(
       l10n,
@@ -84,7 +112,7 @@ class NotesSearchBar extends ConsumerWidget {
     // Every control sits at the place the page family gives it
     // (`WpCollectionToolbar`, concept `internal-notes`, #1201), as on
     // Recordings: one row with search, filter marks, the filter popover
-    // (view, tags), result count, sort, date grouping and "new note".
+    // (view, tags), result count, sort and "new note".
     return WpCollectionToolbar(
       screenId: 'notes',
       search: WpSearchField(
@@ -103,8 +131,11 @@ class NotesSearchBar extends ConsumerWidget {
         key: const ValueKey('notes-new-note'),
         testId: 'notes-new-note',
         icon: LucideIcons.plus,
-        tooltip: l10n.notesNewNote,
-        onPressed: onCreate,
+        // A view only shows what matches its rules, so a new note could
+        // vanish from it at once; creating waits until the view is left, and
+        // the tooltip says so (#658).
+        tooltip: viewShown ? l10n.smartViewCreateLocked : l10n.notesNewNote,
+        onPressed: viewShown ? null : onCreate,
       ),
       filterSections: [
         WpFilterSection(
@@ -119,6 +150,13 @@ class NotesSearchBar extends ConsumerWidget {
               onTap: () => onFilterChanged(NotesFilter.active),
             ),
             WpFilterChip(
+              testId: 'notes-filter-archive',
+              label: l10n.notesArchive,
+              icon: LucideIcons.archive,
+              isActive: currentFilter == NotesFilter.archive,
+              onTap: () => onFilterChanged(NotesFilter.archive),
+            ),
+            WpFilterChip(
               testId: 'notes-filter-trash',
               label: l10n.notesTrash,
               icon: LucideIcons.trash2,
@@ -127,6 +165,31 @@ class NotesSearchBar extends ConsumerWidget {
             ),
           ],
         ),
+        if (isActive)
+          smartViewFilterSection(
+            context,
+            ref,
+            scope: scope,
+            screenId: 'notes',
+            loadTags: loadTags,
+            folders: folders,
+          ),
+        // Folders stay out of sight until someone decides on one (ADR 0034):
+        // the first one starts here, the rest from the folder row.
+        if (isActive && folders.isEmpty && onCreateFolder != null)
+          WpFilterSection(
+            id: 'folders',
+            label: l10n.notesFolders,
+            children: [
+              WpFilterChip(
+                testId: 'notes-filter-folder-new',
+                label: l10n.notesFolderNewEllipsis,
+                icon: LucideIcons.folderPlus,
+                isActive: false,
+                onTap: onCreateFolder!,
+              ),
+            ],
+          ),
         // The trash has no tags to filter by.
         if (isActive && usedTags.isNotEmpty)
           WpFilterSection(
@@ -149,8 +212,18 @@ class NotesSearchBar extends ConsumerWidget {
         if (!isActive)
           WpActiveFilter(
             id: 'view',
-            label: l10n.notesTrash,
+            label: currentFilter == NotesFilter.archive
+                ? l10n.notesArchive
+                : l10n.notesTrash,
             onRemove: () => onFilterChanged(NotesFilter.active),
+          ),
+        ?viewMark,
+        if (shownFolder != null)
+          WpActiveFilter(
+            id: 'folder',
+            label: noteFolderPath(shownFolder, foldersById),
+            onRemove: () =>
+                ref.read(notesFolderFilterProvider.notifier).set(null),
           ),
         if (isActive)
           for (final tag in usedTags)
@@ -163,6 +236,15 @@ class NotesSearchBar extends ConsumerWidget {
               ),
       ],
       status: [
+        if (isActive)
+          ...smartViewStatus(
+            context,
+            ref,
+            scope: scope,
+            screenId: 'notes',
+            loadTags: loadTags,
+            folders: folders,
+          ),
         if (showResultCount)
           Semantics(
             liveRegion: true,
@@ -174,21 +256,21 @@ class NotesSearchBar extends ConsumerWidget {
             ),
           ),
       ],
-      // The trash keeps its deletion order, so it has neither a sort menu nor
-      // a date grouping. Up to three small icons (select, sort, grouping)
-      // stay inline on every width (no overflow button needed).
+      // The trash keeps its deletion order, so it has no sort menu. Select
+      // and sort are the same tools as on Recordings and Snippets; a date
+      // sort brings its day sections itself, as on Recordings.
       tools: [
+        // The bordered icon button every toolbar control shares, as on
+        // Recordings and Snippets; `selected` makes it the toggle and
+        // announces its state (a Semantics wrapper was a second node, #1498).
         if (onToggleSelecting != null)
-          Semantics(
-            toggled: selecting,
-            child: WpIconButton.ghost(
-              key: const ValueKey('notes-select-toggle'),
-              testId: 'notes-select-toggle',
-              icon: selecting ? LucideIcons.checkCheck : LucideIcons.listChecks,
-              tooltip: l10n.notesSelectMode,
-              color: selecting ? WpColors.accent : null,
-              onPressed: onToggleSelecting,
-            ),
+          WpIconButton(
+            key: const ValueKey('notes-select-toggle'),
+            testId: 'notes-select-toggle',
+            icon: selecting ? LucideIcons.checkCheck : LucideIcons.listChecks,
+            tooltip: l10n.notesSelectMode,
+            selected: selecting,
+            onPressed: onToggleSelecting,
           ),
         if (isActive) ...[
           WpSortMenuButton<ListSortField>(
@@ -221,20 +303,6 @@ class NotesSearchBar extends ConsumerWidget {
             onReversedChanged: (reversed) =>
                 chooseSort(ListSort(sort.field, reversed: reversed)),
           ),
-          // Date grouping is a view option, so it sits with the view tools
-          // (Recordings: list/cards/compact) instead of among the filters.
-          // `selected` makes the button itself the toggle; a Semantics
-          // wrapper around it was a second, unnamed checkbox node (#1498).
-          if (canGroupByDate(sort))
-            WpIconButton(
-              key: const ValueKey('notes-group-by-date'),
-              testId: 'notes-group-by-date',
-              icon: LucideIcons.calendarDays,
-              tooltip: l10n.notesGroupByDate,
-              selected: grouped,
-              onPressed: () =>
-                  ref.read(notesGroupByDateProvider.notifier).choose(!grouped),
-            ),
         ],
       ],
     );

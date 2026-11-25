@@ -14,7 +14,7 @@ import 'package:flutter/widgets.dart';
 String localeNativeName(Locale locale) {
   // Match on the lower-cased language code; ignore script/region —
   // WhisPaste ships one variant per language. Portuguese is the Brazilian
-  // variant, so its name says so.
+  // variant and Chinese the Simplified one, so their names say so.
   final code = locale.languageCode.toLowerCase();
   return switch (code) {
     'de' => 'Deutsch',
@@ -24,6 +24,8 @@ String localeNativeName(Locale locale) {
     'es' => 'Español',
     'pt' => 'Português (Brasil)',
     'ru' => 'Русский',
+    'it' => 'Italiano',
+    'zh' => '简体中文',
     _ => code.toUpperCase(),
   };
 }

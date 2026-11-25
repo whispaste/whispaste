@@ -37,6 +37,9 @@ final _oldTerm = <String, RegExp>{
   'pt': RegExp('hist[óo]ric', caseSensitive: false),
   'ru': RegExp('истори', caseSensitive: false),
   'he': RegExp('היסטורי'),
+  'fr': RegExp('historique', caseSensitive: false),
+  'it': RegExp('cronologi', caseSensitive: false),
+  'zh': RegExp('历史'),
 };
 
 void main() {

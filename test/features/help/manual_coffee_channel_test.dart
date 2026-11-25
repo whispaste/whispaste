@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// language, not promise the buttons for every build (PAR-043).
 void main() {
   test('the coffee paragraph separates direct downloads from store builds', () {
-    for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+    for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru', 'fr', 'it', 'zh']) {
       final arb =
           jsonDecode(File('lib/core/l10n/app_$lang.arb').readAsStringSync())
               as Map<String, dynamic>;

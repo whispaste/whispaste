@@ -105,7 +105,10 @@ SpeechModelEngine overviewActiveEngine(AppSettings settings) =>
       SttProviderType.deepgram => SpeechModelEngine.deepgram,
       SttProviderType.customEndpoint => SpeechModelEngine.customEndpoint,
       SttProviderType.onDevice => switch (settings.onDeviceEngine) {
-        OnDeviceEngine.whisper => SpeechModelEngine.whisper,
+        // An own model (#1789) shows like a Whisper model that loads on the
+        // first dictation; its name comes from `displayNameForModel`.
+        OnDeviceEngine.whisper ||
+        OnDeviceEngine.userModel => SpeechModelEngine.whisper,
         OnDeviceEngine.parakeet => SpeechModelEngine.parakeet,
         OnDeviceEngine.system => SpeechModelEngine.system,
       },

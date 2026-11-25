@@ -14,7 +14,6 @@ import '../../core/config/settings_enums.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
-import '../../services/engine_recommendation.dart' show recommendationLanguages;
 import '../../services/free_disk_space.dart';
 import '../../services/model_hardware_telemetry.dart';
 import '../../services/model_download_service.dart';
@@ -59,6 +58,8 @@ class WelcomeSpeechOffer {
     OnDeviceEngine.whisper => l10n.onboardingModelEngineWhisperLabel,
     OnDeviceEngine.parakeet => l10n.onboardingModelEngineParakeetLabel,
     OnDeviceEngine.system => l10n.settingsSttEngineSystem,
+    // Never offered at the start; an own model keeps its own name.
+    OnDeviceEngine.userModel => l10n.modelLibraryOwnModels,
   };
 }
 
@@ -140,8 +141,9 @@ WelcomeSpeechOffer? installedWelcomeOffer({
     OnDeviceEngine.whisper => whisper.any(
       (w) => w.offer.choiceId == recommended.choiceId,
     ),
-    // The welcome step never recommends the Apple engine (opt-in in Settings).
-    OnDeviceEngine.system => false,
+    // The welcome step never recommends the Apple engine (opt-in in Settings)
+    // nor an own model (#1789).
+    OnDeviceEngine.system || OnDeviceEngine.userModel => false,
   };
   if (recommendedInstalled) return recommended;
   if (parakeetUsable) return parakeet;
@@ -165,10 +167,9 @@ final welcomeInstalledOfferProvider = FutureProvider<WelcomeSpeechOffer?>((
     parakeetDownloadProvider.select((s) => s.installed),
   );
   final settings = await ref.watch(settingsProvider.future);
-  final dictationCode = recommendationLanguages(
-    sttLanguageCode: settings.sttLanguageCode,
-    systemLanguages: ref.watch(systemLanguageCodesProvider),
-    uiLocale: settings.locale,
+  final dictationCode = dictationLanguagesFor(
+    settings,
+    ref.watch(systemLanguageCodesProvider),
   ).first;
   return installedWelcomeOffer(
     recommended: recommended,
@@ -223,7 +224,9 @@ Future<bool> startWelcomeSpeechDownload({
       ? OnDeviceEngine.fromValue(settings.stt.engine)
       : offer.engine;
   final whisperModelId = switch (engine) {
-    OnDeviceEngine.parakeet || OnDeviceEngine.system => null,
+    OnDeviceEngine.parakeet ||
+    OnDeviceEngine.system ||
+    OnDeviceEngine.userModel => null,
     OnDeviceEngine.whisper =>
       settingsAlreadySet
           ? settings.stt.model
@@ -244,8 +247,9 @@ Future<bool> startWelcomeSpeechDownload({
   final modelDownload = ref.read(modelDownloadProvider);
   final parakeetDownload = ref.read(parakeetDownloadProvider);
   final installed = switch (engine) {
-    // The system engine downloads its asset in Settings, not here.
-    OnDeviceEngine.system => true,
+    // The system engine downloads its asset in Settings, not here; an own
+    // model (#1789) is on disk already.
+    OnDeviceEngine.system || OnDeviceEngine.userModel => true,
     OnDeviceEngine.whisper =>
       whisperModelId != null &&
           modelDownload.downloadedModels.contains(whisperModelId),
@@ -264,7 +268,7 @@ Future<bool> startWelcomeSpeechDownload({
   // Warn before a download the disk cannot hold, as the model step does. The
   // probe can be wrong, so the user may still go ahead.
   final needed = switch (engine) {
-    OnDeviceEngine.system => 0,
+    OnDeviceEngine.system || OnDeviceEngine.userModel => 0,
     OnDeviceEngine.whisper =>
       findSttModel(whisperModelId ?? '')?.sizeBytes ?? offer.sizeBytes,
     OnDeviceEngine.parakeet => parakeetDownloadBytes(

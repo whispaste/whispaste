@@ -1,9 +1,8 @@
 /// Recognition-language dialog and its row (ticket, spec 06 §5.4, ticket IA §5;
 /// favorites only by star in the dialog since #1610).
 ///
-/// Single select today: the dialog keeps the choice as a list
-/// ([WpLanguageSelection.codes]) so WP-23e2 can extend it to several languages
-/// without changing the shape of the data.
+/// Single selection for a fixed language; optional multiple selection for
+/// the expected languages used by automatic recognition.
 library;
 
 import 'package:flutter/material.dart';
@@ -90,13 +89,21 @@ Future<WpLanguageSelection?> showWpLanguageDialog({
   required BuildContext context,
   required List<WpLanguageOption> options,
   required WpLanguageSelection initial,
+  bool multiple = false,
   List<String> favorites = const [],
   ValueChanged<List<String>>? onFavoritesChanged,
+  String? title,
+  String? subtitle,
+  String? emptySelectionLabel,
 }) {
   return showWpFormDialog<WpLanguageSelection>(
     context: context,
     builder: (ctx, animation) => WpLanguageDialog(
       animation: animation,
+      multiple: multiple,
+      title: title,
+      subtitle: subtitle,
+      emptySelectionLabel: emptySelectionLabel,
       options: options,
       initial: initial,
       favorites: favorites,
@@ -124,10 +131,25 @@ class WpLanguageDialog extends StatefulWidget {
     required this.onSave,
     required this.onCancel,
     this.animation,
+    this.multiple = false,
     this.favorites = const [],
     this.onFavoritesChanged,
+    this.title,
+    this.subtitle,
+    this.emptySelectionLabel,
   });
 
+  final bool multiple;
+
+  /// Heading and line below it; the recognition-language texts when null.
+  /// Other pickers of languages (the Hugging-Face-Suche, #2193) name their
+  /// own purpose.
+  final String? title;
+  final String? subtitle;
+
+  /// What "nothing chosen" means in the multiple mode; "detect
+  /// automatically" when null.
+  final String? emptySelectionLabel;
   final List<WpLanguageOption> options;
   final WpLanguageSelection initial;
   final ValueChanged<WpLanguageSelection> onSave;
@@ -163,7 +185,9 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
   /// Live availability of Save: auto-detect or at least one language. The
   /// footer is outside the rebuilt body's control, so it reads this notifier.
   late final ValueNotifier<bool> _canSave = ValueNotifier(
-    widget.initial.autoDetect || widget.initial.codes.isNotEmpty,
+    widget.multiple ||
+        widget.initial.autoDetect ||
+        widget.initial.codes.isNotEmpty,
   );
 
   @override
@@ -197,7 +221,11 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
   }
 
   void _pick(String code) => setState(() {
-    _codes = [code];
+    if (widget.multiple) {
+      _codes.contains(code) ? _codes.remove(code) : _codes.add(code);
+    } else {
+      _codes = [code];
+    }
     _auto = false;
     _canSave.value = true;
   });
@@ -230,7 +258,9 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
           key: ValueKey('stt-language-dialog-$group-cell-${option.code}'),
           option: option,
           keyPrefix: group == 'all' ? '' : '$group-',
-          selected: option.code == selectedCode,
+          selected: widget.multiple
+              ? _codes.contains(option.code)
+              : option.code == selectedCode,
           onPick: _pick,
           favorite: _favorites.contains(option.code),
           favoriteBlocked: favoritesFull && !_favorites.contains(option.code),
@@ -250,8 +280,12 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
       },
       child: WpFormDialogShell(
         animation: widget.animation ?? kAlwaysCompleteAnimation,
-        title: l10n.settingsRecognitionLanguage,
-        subtitle: l10n.settingsLanguageDialogSubtitle,
+        title: widget.title ?? l10n.settingsRecognitionLanguage,
+        subtitle:
+            widget.subtitle ??
+            (widget.multiple
+                ? l10n.settingsSpokenLanguagesDialogHint
+                : l10n.settingsLanguageDialogSubtitle),
         size: WpDialogSize.wide,
         fields: [
           Row(
@@ -269,20 +303,22 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
                 ),
               ),
               const SizedBox(width: WpSpacing.lg),
-              // The switch carries this name itself; read once, not twice.
-              ExcludeSemantics(
-                child: Text(
-                  l10n.settingsLanguageAutoDetect,
-                  style: theme.textTheme.bodyLarge,
+              if (!widget.multiple) ...[
+                // The switch carries this name itself; read once, not twice.
+                ExcludeSemantics(
+                  child: Text(
+                    l10n.settingsLanguageAutoDetect,
+                    style: theme.textTheme.bodyLarge,
+                  ),
                 ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              settingsToggle(
-                label: l10n.settingsLanguageAutoDetect,
-                key: const ValueKey('stt-language-dialog-auto'),
-                value: _auto,
-                onChanged: _setAuto,
-              ),
+                const SizedBox(width: WpSpacing.sm),
+                settingsToggle(
+                  label: l10n.settingsLanguageAutoDetect,
+                  key: const ValueKey('stt-language-dialog-auto'),
+                  value: _auto,
+                  onChanged: _setAuto,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: WpSpacing.md),
@@ -290,7 +326,7 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
             height: _kGridHeight,
             child: Opacity(
               key: const ValueKey('stt-language-dialog-grid'),
-              opacity: _auto ? _kDimmedOpacity : 1,
+              opacity: _auto && !widget.multiple ? _kDimmedOpacity : 1,
               child: visible.isEmpty
                   ? Center(
                       child: Text(
@@ -352,8 +388,11 @@ class _WpLanguageDialogState extends State<WpLanguageDialog> {
           _SelectedLine(
             key: const ValueKey('stt-language-dialog-selected'),
             title: l10n.settingsLanguageSelectedTitle,
-            value: selectedCode == null
-                ? l10n.settingsLanguageAutoDetect
+            value: widget.multiple && _codes.isNotEmpty
+                ? _codes.map((c) => _option(c).name).join(', ')
+                : selectedCode == null
+                ? (widget.multiple ? widget.emptySelectionLabel : null) ??
+                      l10n.settingsLanguageAutoDetect
                 : _option(selectedCode).name,
           ),
           // Why "Save and close" is greyed out (UIA-SET-10).

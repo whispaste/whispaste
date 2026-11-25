@@ -8,10 +8,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/accessibility/announce.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../widgets/wp_banner.dart';
 import '../../../widgets/wp_page_notice.dart';
+import '../../../widgets/wp_notice_bar.dart';
 
 /// Page id of the settings notice state.
 const kSettingsNoticePage = WpNoticePage.settings;
@@ -34,23 +33,21 @@ void showSettingsNotice(
   bool failed = false,
   Duration confirmFor = kSettingsConfirmationTime,
 }) {
-  final container = ProviderScope.containerOf(context, listen: false);
-  final open = container.read(wpPageNoticeProvider(kSettingsNoticePage));
-  if (open != null && open.autoDismiss == null && !failed) {
-    // A confirmation never pushes out an error that is still open.
-    announce(View.of(context), message, Directionality.of(context));
+  if (!failed) {
+    // A short confirmation stands at the bottom like every other (#1903);
+    // an open error at the section stays.
+    showWpConfirmation(
+      context,
+      id: 'settings-$id',
+      message: message,
+      duration: confirmFor,
+    );
     return;
   }
   showWpPageNotice(
     context,
     page: kSettingsNoticePage,
-    notice: WpPageNotice(
-      id: 'settings-$id',
-      message: message,
-      tone: failed ? WpBannerTone.error : WpBannerTone.info,
-      area: area,
-      autoDismiss: failed ? null : confirmFor,
-    ),
+    notice: WpPageNotice(id: 'settings-$id', message: message, area: area),
   );
 }
 
@@ -70,13 +67,4 @@ class SettingsNoticeSlot extends ConsumerWidget {
       child: WpPageNoticeSlot(page: kSettingsNoticePage, area: area),
     );
   }
-}
-
-/// Drops a confirmation left from an earlier visit. An open error stays until
-/// the user closes it.
-void dropStaleSettingsConfirmation(WidgetRef ref) {
-  const page = kSettingsNoticePage;
-  if (ref.read(wpPageNoticeProvider(page))?.autoDismiss == null) return;
-  final notifier = ref.read(wpPageNoticeProvider(page).notifier);
-  Future.microtask(notifier.dismiss);
 }

@@ -155,7 +155,6 @@ class _SectionHeader extends StatelessWidget {
                 ],
               ),
             ),
-            ?trailing,
             if (isExpanded != null)
               AnimatedRotation(
                 turns: isExpanded! ? 0.5 : 0,
@@ -183,7 +182,12 @@ class _SectionHeader extends StatelessWidget {
     // when it is not collapsible. `expanded` is set only for the collapsible
     // variant, where it is the one piece of state the visual chevron carries
     // and the semantics tree previously did not.
-    return MergeSemantics(
+    //
+    // [trailing] stays outside the merge: MergeSemantics folds every control
+    // below it into the heading node, so the analytics period chips (7 days,
+    // 30 days, 90 days, all) reached assistive tech as one heading with four
+    // labels and no way to pick a single period (#1917).
+    final heading = MergeSemantics(
       child: Semantics(
         header: true,
         identifier: testId,
@@ -197,6 +201,14 @@ class _SectionHeader extends StatelessWidget {
               )
             : inkWell,
       ),
+    );
+    final trailing = this.trailing;
+    if (trailing == null) return heading;
+    return Row(
+      children: [
+        Expanded(child: heading),
+        trailing,
+      ],
     );
   }
 }
@@ -247,6 +259,19 @@ class _CollapsibleSectionState extends State<_CollapsibleSection>
       value: _isExpanded ? 1.0 : 0.0,
     );
     _heightFactor = _controller.drive(CurveTween(curve: Curves.easeInOut));
+  }
+
+  @override
+  void didUpdateWidget(_CollapsibleSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A caller that asks for it open again (a "show" button elsewhere) opens
+    // the section in place, animated, instead of remounting it (#1969).
+    if (widget.initiallyExpanded &&
+        !oldWidget.initiallyExpanded &&
+        !_isExpanded) {
+      _isExpanded = true;
+      _controller.forward();
+    }
   }
 
   @override

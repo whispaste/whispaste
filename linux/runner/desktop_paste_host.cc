@@ -395,6 +395,32 @@ void DesktopPasteHost::HandleMethodCall(FlMethodCall* method_call) {
     g_autoptr(FlValue) result = UndoPlatformSupport();
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
 
+  } else if (strcmp(method, "watchUndoShortcut") == 0) {
+    // The user's own Ctrl+Z in another app after an auto-paste (#2078), on
+    // the raw key presses of the undo watcher the paste just started. Wayland
+    // has no such source: "not watching", the counter reads "unknown".
+    int seconds = 0;
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* v = fl_value_lookup_string(args, "seconds");
+      if (v != nullptr && fl_value_get_type(v) == FL_VALUE_TYPE_INT) {
+        seconds = static_cast<int>(
+            std::clamp<int64_t>(fl_value_get_int(v), 0, 60));
+      }
+    }
+    const bool watching = seconds > 0 && !IsWaylandSessionEnv() &&
+                          button_watcher_.running();
+    const bool seen =
+        button_watcher_.WatchUndoShortcut(watching ? seconds : 0);
+    g_autoptr(FlValue) result = fl_value_new_map();
+    fl_value_set_string_take(result, "watching", fl_value_new_bool(watching));
+    fl_value_set_string_take(result, "seen", fl_value_new_bool(seen));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
+  } else if (strcmp(method, "takeUndoShortcut") == 0) {
+    g_autoptr(FlValue) result =
+        fl_value_new_bool(button_watcher_.TakeUndoShortcut());
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+
   } else if (strcmp(method, "extraKeyHeld") == 0) {
     g_autoptr(FlValue) result = fl_value_new_bool(X11AltHeld());
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));

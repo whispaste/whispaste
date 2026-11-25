@@ -77,6 +77,9 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
 <style>
   .price-grid {
     display: grid;
+    /* Explicit shrinkable column (#1845): the implicit one grew to the
+       cards' content and widened the page past 320 px. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--wp-space-8) var(--wp-space-6);
     padding-top: var(--wp-space-4);
   }

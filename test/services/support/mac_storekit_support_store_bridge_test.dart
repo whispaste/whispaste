@@ -209,5 +209,39 @@ void main() {
       expect(await bridge.hasVerifiedAppPurchase(), isTrue);
       expect(await bridge.hasVerifiedSupportPurchase(), isTrue);
     });
+
+    test('isTestEnvironment forwards the native answer (#2202)', () async {
+      mockNative(
+        (call) async => call.method == 'isTestEnvironment' ? true : null,
+      );
+      expect(await MacStoreKitSupportStoreBridge().isTestEnvironment(), isTrue);
+    });
+
+    test('isTestEnvironment fails closed to the real store', () async {
+      mockNative((call) async => throw PlatformException(code: 'x'));
+      expect(
+        await MacStoreKitSupportStoreBridge().isTestEnvironment(),
+        isFalse,
+      );
+    });
+
+    test('a native purchaseConfirmed push emits a late confirmation', () async {
+      final bridge = MacStoreKitSupportStoreBridge();
+      addTearDown(() => channel.setMethodCallHandler(null));
+      final events = <void>[];
+      final sub = bridge.lateConfirmations.listen(events.add);
+      addTearDown(sub.cancel);
+
+      await messenger.handlePlatformMessage(
+        kMacStoreKitChannelName,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('purchaseConfirmed'),
+        ),
+        (_) {},
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(1));
+    });
   });
 }

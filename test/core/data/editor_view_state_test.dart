@@ -158,12 +158,9 @@ void main() {
       );
     });
 
-    test('zoom steps in tenths within its bounds', () {
-      expect(EditorViewState.stepZoom(1.0, 1), 1.1);
-      expect(EditorViewState.stepZoom(1.1, -1), 1.0);
-      expect(EditorViewState.stepZoom(EditorViewState.maxZoom, 1), 3.0);
-      expect(EditorViewState.stepZoom(EditorViewState.minZoom, -1), 0.5);
+    test('a stored zoom is clamped and kept, not lost', () {
       expect(EditorViewState.clampZoom(double.nan), 1.0);
+      expect(EditorViewState.clampZoom(9), EditorViewState.maxZoom);
     });
 
     test('paragraph helpers agree with each other', () {

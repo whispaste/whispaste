@@ -34,7 +34,7 @@ void main() {
   });
 
   test('the Linux subtitle names no other platform in any app language', () {
-    for (final code in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+    for (final code in ['de', 'en', 'es', 'pt', 'ru', 'he', 'fr', 'it', 'zh']) {
       final l10n = lookupL10n(Locale(code));
       final text = l10n.onboardingPasteSubtitleLinux;
       expect(text.trim(), isNotEmpty, reason: 'app_$code.arb');

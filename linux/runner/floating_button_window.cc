@@ -5,6 +5,7 @@
 #include "secondary_engine.h"
 #include "secondary_plugin_registrant.h"
 #include "positioned_window_type.h"
+#include "system_motion_host.h"
 
 FloatingButtonWindow::FloatingButtonWindow() = default;
 
@@ -60,6 +61,7 @@ void FloatingButtonWindow::Create(const std::vector<std::string>& boot_args) {
   // fl_view_new takes its own strong ref to project; g_autoptr releases ours.
   FlView* view = fl_view_new(project);
   secondary_view_watch_first_frame(view, "Floating button");
+  system_motion_attach(view);
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   // Transparent Flutter surface: the Dart painter composites over clear pixels.

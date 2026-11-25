@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -14,14 +15,17 @@ import '../../core/overview/overview_logic.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/wp_icon_button.dart';
+import 'overview_movable_card.dart' show applyOverviewMove, overviewBlockLabel;
 import 'overview_navigation.dart' show overviewCustomizeRequestProvider;
 import 'overview_providers.dart';
 
 /// Ü3: "Übersicht anpassen" in the page head. Switches the figures, the
 /// recent recordings, the notes, the status cards, the news and the
 /// discovery tips on and off, stored locally, and
-/// brings back a closed first-steps card. No reordering: the order of the
-/// page is part of its design.
+/// brings back a closed first-steps card. The cards are listed in page order;
+/// Alt with the up or down arrow moves the entry in focus, and "Reihenfolge
+/// zurücksetzen" brings back the default order (#1970). Visibility and order
+/// share this one menu; dragging happens on the page itself.
 ///
 /// Built on [WpIconButton] and [MenuAnchor], so the trigger has the shared
 /// 48 px target, tooltip and accessible name. Keyboard: Enter or Space opens
@@ -91,6 +95,23 @@ class _OverviewCustomizeMenuState extends ConsumerState<OverviewCustomizeMenu> {
       child: Text(label),
     );
 
+    void move(OverviewBlock b, {required bool later}) {
+      final order = overviewMoveBlockStep(
+        prefs.blockOrder,
+        b,
+        later: later,
+        peers: OverviewBlock.values,
+      );
+      if (order == null) return;
+      applyOverviewMove(
+        context,
+        ref,
+        block: b,
+        order: order,
+        peers: OverviewBlock.values,
+      );
+    }
+
     return MenuAnchor(
       controller: _controller,
       alignmentOffset: const Offset(0, 4),
@@ -103,70 +124,31 @@ class _OverviewCustomizeMenuState extends ConsumerState<OverviewCustomizeMenu> {
         ),
       ),
       menuChildren: [
-        block(
-          'figures',
-          l10n.overviewFiguresTitle,
-          focusNode: _firstEntry,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.figures),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.figures, visible: on),
-        ),
-        block(
-          'recent',
-          l10n.overviewRecentTitle,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.recent),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.recent, visible: on),
-        ),
-        block(
-          'notes',
-          l10n.navNotes,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.notes),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.notes, visible: on),
-        ),
-        block(
-          'dictation',
-          l10n.overviewLastDictationTitle,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.dictation),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.dictation, visible: on),
-        ),
-        block(
-          'storage',
-          l10n.overviewStorageTitle,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.storage),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.storage, visible: on),
-        ),
-        block(
-          'system',
-          l10n.overviewSystemTitle,
-          on: prefs.isBlockShown(OverviewBlock.system),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.system, visible: on),
-        ),
-        block(
-          'news',
-          l10n.overviewNewsTitle,
-          on: prefs.isBlockShown(OverviewBlock.news),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.news, visible: on),
-        ),
-        block(
-          'weather',
-          l10n.overviewWeatherTitle,
-          on: prefs.isBlockShown(OverviewBlock.weather),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.weather, visible: on),
-        ),
-        block(
-          'community',
-          l10n.overviewCommunityMenu,
-          on: !prefs.hiddenBlocks.contains(OverviewBlock.community),
-          set: (on) =>
-              notifier.setBlockVisible(OverviewBlock.community, visible: on),
-        ),
+        // The cards in page order (#1970); Alt with an arrow key moves the
+        // entry in focus, the same move as the card's grip.
+        for (final (i, b) in prefs.blockOrder.indexed)
+          CallbackShortcuts(
+            key: ValueKey('overview-customize-move-${b.id}'),
+            bindings: {
+              const SingleActivator(
+                LogicalKeyboardKey.arrowUp,
+                alt: true,
+              ): () =>
+                  move(b, later: false),
+              const SingleActivator(
+                LogicalKeyboardKey.arrowDown,
+                alt: true,
+              ): () =>
+                  move(b, later: true),
+            },
+            child: block(
+              b.id,
+              overviewBlockLabel(l10n, b),
+              focusNode: i == 0 ? _firstEntry : null,
+              on: prefs.isBlockShown(b),
+              set: (on) => notifier.setBlockVisible(b, visible: on),
+            ),
+          ),
         block(
           'tips',
           l10n.overviewCustomizeTips,
@@ -190,6 +172,13 @@ class _OverviewCustomizeMenuState extends ConsumerState<OverviewCustomizeMenu> {
                 )
               : null,
           child: Text(l10n.overviewCustomizeFirstSteps),
+        ),
+        MenuItemButton(
+          key: const ValueKey('overview-customize-reset-order'),
+          onPressed: prefs.layoutIsCustom
+              ? () => unawaited(notifier.resetBlockOrder())
+              : null,
+          child: Text(l10n.overviewCustomizeResetOrder),
         ),
       ],
       builder: (context, controller, child) => WpIconButton(

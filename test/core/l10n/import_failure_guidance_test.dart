@@ -14,15 +14,27 @@ const _guidedKeys = [
 
 void main() {
   test(
-    'import failure messages give a cause and a next step, in all six languages',
+    'import failure messages give a cause and a next step, in every shipped language',
     () {
-      for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+      for (final lang in [
+        'de',
+        'en',
+        'es',
+        'he',
+        'pt',
+        'ru',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         final arb =
             jsonDecode(File('lib/core/l10n/app_$lang.arb').readAsStringSync())
                 as Map<String, dynamic>;
         for (final key in _guidedKeys) {
           final text = (arb[key] as String?)?.trim() ?? '';
-          final sentences = RegExp(r'[.!?](\s|$)').allMatches(text).length;
+          final sentences = RegExp(
+            r'[.!?](\s|$)|[。！？]',
+          ).allMatches(text).length;
           expect(
             sentences,
             greaterThanOrEqualTo(2),

@@ -11,6 +11,11 @@
 /// caret, find-and-replace, formatting and export work on the full text the
 /// same way they do with the single field. Selections that span rows live
 /// only in that controller and are painted into the plain rows.
+///
+/// Heading sections fold (#1344): a fold only hides rows (height 0, out of
+/// the semantics tree), the text and every operation on it stay whole. The
+/// caret, the active find hit and a jump never rest in a hidden row: the
+/// sections around it open.
 library;
 
 import 'dart:async';
@@ -21,17 +26,28 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/accessibility/announce.dart';
+import '../../../core/config/command_shortcut.dart';
+import '../../../core/l10n/generated/app_localizations.dart';
 
 import '../../../core/data/editor_view_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/editor_smart_action_scope.dart';
+import '../../../widgets/editor_spell_check.dart';
+import '../../../widgets/editor_text_view_scope.dart';
 import '../../../widgets/find_replace.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_editor_view_memory.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../blocks/long_note_layout.dart';
 import '../../../core/text/text_undo.dart';
 import '../data/note_highlight_markup.dart';
 import '../blocks/block_document.dart';
+import '../blocks/note_folds.dart';
+import 'note_fold_controller.dart';
 import 'note_markup_controller.dart';
 
 class LongNoteEditor extends StatefulWidget {
@@ -42,6 +58,7 @@ class LongNoteEditor extends StatefulWidget {
     this.scrollToEnd,
     this.semanticsLabel,
     this.readOnly = false,
+    this.folds,
   });
 
   /// The page's controller holding the full note text.
@@ -58,6 +75,21 @@ class LongNoteEditor extends StatefulWidget {
 
   final bool readOnly;
 
+  /// The page's handle for folding all sections from the editor menu.
+  final NoteFoldController? folds;
+
+  /// Width of the column of fold buttons left of the text, shown while the
+  /// note has a section to fold.
+  static const double foldGutter = WpIconButton.compactExtent;
+
+  /// Folds or unfolds the section at the caret.
+  static SingleActivator get foldSectionActivator =>
+      commandActivator(LogicalKeyboardKey.keyK, shift: true);
+
+  /// Folds all sections, or unfolds them when any is folded.
+  static SingleActivator get foldAllActivator =>
+      commandActivator(LogicalKeyboardKey.keyO, shift: true);
+
   /// Rows built beyond the viewport, above and below. They stay in the
   /// semantics tree (hidden), so a screen reader reads on across the edge of
   /// the window without waiting for a scroll.
@@ -68,8 +100,22 @@ class LongNoteEditor extends StatefulWidget {
 }
 
 class LongNoteEditorState extends State<LongNoteEditor>
-    implements WpEditorViewAnchor {
+    implements WpEditorViewAnchor, NoteFoldTarget {
   late NoteRows _rows;
+
+  /// Heading sections of [_rows], the folded ones by ordinal, and which rows
+  /// they hide (#1344).
+  late NoteSections _sections;
+  Set<int> _folded = {};
+  List<bool> _hidden = const [];
+  final ValueNotifier<int> _foldChanges = ValueNotifier(0);
+
+  /// Start of the active find hit last opened, so it opens only once.
+  int? _revealedHit;
+  late final Listenable _viewChanges = Listenable.merge([
+    _scroll,
+    _foldChanges,
+  ]);
   final HeightIndex _heights = HeightIndex();
   final ScrollController _scroll = ScrollController();
 
@@ -123,12 +169,21 @@ class LongNoteEditorState extends State<LongNoteEditor>
   @visibleForTesting
   ScrollController get scrollController => _scroll;
 
+  @visibleForTesting
+  Set<int> get folded => Set.unmodifiable(_folded);
+
+  @visibleForTesting
+  bool isRowHidden(int row) => row < _hidden.length && _hidden[row];
+
   @override
   void initState() {
     super.initState();
     _text = _master.text;
     _adoptHistory();
     _rows = NoteRows.of(_text);
+    _sections = NoteSections.of(_rows);
+    _hidden = List.filled(_rows.length, false);
+    widget.folds?.attach(this);
     _master.addListener(_onMaster);
     widget.scrollToEnd?.addListener(_onScrollToEnd);
     widget.focusNode.addListener(_onOuterFocus);
@@ -157,11 +212,17 @@ class LongNoteEditorState extends State<LongNoteEditor>
       oldWidget.focusNode.removeListener(_onOuterFocus);
       widget.focusNode.addListener(_onOuterFocus);
     }
+    if (oldWidget.folds != widget.folds) {
+      oldWidget.folds?.detach(this);
+      widget.folds?.attach(this);
+    }
   }
 
   @override
   void dispose() {
     _dragTimer?.cancel();
+    widget.folds?.detach(this);
+    _foldChanges.dispose();
     _master.removeListener(_onMaster);
     widget.scrollToEnd?.removeListener(_onScrollToEnd);
     widget.focusNode.removeListener(_onOuterFocus);
@@ -179,7 +240,7 @@ class LongNoteEditorState extends State<LongNoteEditor>
   // A paragraph may span several rows; the remembered place counts
   // paragraphs and the pixels from the paragraph's first row (#678).
   @override
-  Listenable get viewAnchorChanges => _scroll;
+  Listenable get viewAnchorChanges => _viewChanges;
 
   @override
   ({int block, double offset})? captureViewAnchor() {
@@ -208,6 +269,153 @@ class LongNoteEditorState extends State<LongNoteEditor>
     _scroll.jumpTo(
       target.clamp(position.minScrollExtent, position.maxScrollExtent),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Folding (#1344)
+  // ---------------------------------------------------------------------------
+
+  @override
+  List<int> captureFolds() => _folded.toList()..sort();
+
+  @override
+  void restoreFolds(List<int> folded) {
+    final next = _sections.valid(folded);
+    final caret = _caretRow();
+    if (caret != null) {
+      next.removeAll(_sections.foldedAround(caret, next));
+    }
+    _setFolds(next);
+    _parkCaretOutsideFolds();
+  }
+
+  @override
+  bool get hasFoldableSections => _sections.hasFoldable;
+
+  @override
+  bool get hasFoldedSections => _folded.isNotEmpty;
+
+  @override
+  void foldAllSections() {
+    final all = _sections.foldable;
+    if (all.isEmpty) return;
+    _setFolds(all);
+    _parkCaretOutsideFolds();
+    _say(L10n.of(context).notesFoldAllAnnounce);
+  }
+
+  @override
+  void unfoldAllSections() {
+    if (_sections.count == 0) return;
+    _setFolds({});
+    _say(L10n.of(context).notesUnfoldAllAnnounce);
+  }
+
+  /// Folds or unfolds [section] and says which way it went.
+  void toggleSection(int section) {
+    if (section >= _sections.count || !_sections.isFoldable(section)) return;
+    final next = Set.of(_folded);
+    final fold = !next.remove(section);
+    if (fold) next.add(section);
+    _setFolds(next);
+    if (fold) _parkCaretOutsideFolds();
+    final title = _headingTitle(section);
+    final l10n = L10n.of(context);
+    _say(
+      fold
+          ? l10n.notesFoldCollapsedAnnounce(title)
+          : l10n.notesFoldExpandedAnnounce(title),
+    );
+  }
+
+  /// The shortcut: the innermost section around the caret.
+  void _toggleAtCaret() {
+    final row = _caretRow() ?? _active;
+    final section = _sections.innermostAt(row);
+    if (section == null) {
+      _say(L10n.of(context).notesFoldNothing);
+      return;
+    }
+    toggleSection(section);
+  }
+
+  void _toggleAll() =>
+      _folded.isEmpty ? foldAllSections() : unfoldAllSections();
+
+  int? _caretRow() {
+    final sel = _master.selection;
+    if (!sel.isValid) return null;
+    return _rows.segmentOf(_clamp(sel.extentOffset));
+  }
+
+  /// The heading's text without its `#` marks, for announcements.
+  String _headingTitle(int section) {
+    final row = _sections.headingRow(section);
+    final text = _text.substring(_rows.startOf(row), _rows.endOf(row));
+    return text.replaceFirst(RegExp(r'^ {0,3}#{1,6}[ \t]*'), '').trim();
+  }
+
+  void _setFolds(Set<int> folded) {
+    final same = folded.length == _folded.length && folded.containsAll(_folded);
+    _folded = folded;
+    _applyFolds();
+    if (same) return;
+    _foldChanges.value++;
+    widget.folds?.changed();
+    if (mounted) setState(() {});
+  }
+
+  /// Recomputes the hidden rows from [_sections] and [_folded].
+  void _applyFolds() {
+    _hidden = _sections.hiddenRows(_folded, _rows.length);
+    _heights.setHidden(_hidden);
+  }
+
+  /// A fold that swallowed the caret puts it at the end of the visible
+  /// heading that now holds it.
+  void _parkCaretOutsideFolds() {
+    final caret = _caretRow();
+    final row = caret ?? _active;
+    if (!isRowHidden(row)) return;
+    final section = _sections.outermostAround(row);
+    if (section == null) return;
+    var heading = _sections.headingRow(section);
+    while (heading + 1 < _rows.length &&
+        _rows.blockOf(heading + 1) == _rows.blockOf(heading)) {
+      heading++;
+    }
+    if (caret == null) {
+      _activate(heading);
+      setState(() {});
+      return;
+    }
+    _select(TextSelection.collapsed(offset: _rows.endOf(heading)));
+  }
+
+  /// Opens every folded section that hides [row]. Returns whether it did.
+  bool _revealRow(int row) {
+    if (!isRowHidden(row)) return false;
+    final around = _sections.foldedAround(row, _folded);
+    if (around.isEmpty) return false;
+    _setFolds(Set.of(_folded)..removeAll(around));
+    return true;
+  }
+
+  /// Nearest row before (or after) [row] that is not hidden, or null.
+  int? _visibleRow(int row, {required bool forward}) {
+    for (
+      var r = row;
+      forward ? r < _rows.length : r >= 0;
+      forward ? r++ : r--
+    ) {
+      if (!isRowHidden(r)) return r;
+    }
+    return null;
+  }
+
+  void _say(String message) {
+    if (!mounted) return;
+    announce(View.of(context), message, Directionality.of(context));
   }
 
   int _clamp(int offset) => offset.clamp(0, _text.length);
@@ -308,6 +516,7 @@ class LongNoteEditorState extends State<LongNoteEditor>
 
     final old = _segment;
     final end = _segEnd;
+    final oldText = _text;
     final text = _text.replaceRange(start, end, value.text);
     final composing = _globalComposing(value.composing, start);
     _segment = value.text;
@@ -325,7 +534,7 @@ class LongNoteEditorState extends State<LongNoteEditor>
     final changesShape = _deferredReparse || _changesShape(old, value.text);
     if (changesShape && !composingNow) {
       _deferredReparse = false;
-      _reparse();
+      _reparse(oldText);
       final caret = _master.selection.isValid
           ? _clamp(_master.selection.extentOffset)
           : start;
@@ -394,10 +603,25 @@ class LongNoteEditorState extends State<LongNoteEditor>
     return grown > 2 * BlockDocument.softSplitChars;
   }
 
-  void _reparse() {
+  void _reparse(String oldText) {
     final old = _rows;
     _rows = NoteRows.of(_text);
     _heights.rebase(old, _rows, _fontSize);
+    final hadSections = _sections.count > 0 || _folded.isNotEmpty;
+    _sections = NoteSections.of(_rows);
+    final before = _folded;
+    _folded = carryFolds(
+      folded: _folded,
+      oldText: oldText,
+      oldRows: old,
+      newText: _text,
+      newRows: _rows,
+    ).toSet();
+    _applyFolds();
+    if (hadSections || _sections.count > 0) widget.folds?.changed();
+    if (before.length != _folded.length || !before.containsAll(_folded)) {
+      _foldChanges.value++;
+    }
   }
 
   /// Changes made on the page's controller from outside: dictation, find,
@@ -416,10 +640,31 @@ class LongNoteEditorState extends State<LongNoteEditor>
     final textChanged = !identical(text, _text) && text != _text;
     if (textChanged) {
       _deferredReparse = false;
+      final oldText = _text;
       _text = text;
-      _reparse();
+      _reparse(oldText);
     }
     final sel = _master.selection;
+    // A caret (dictation, a jump, a replace) or the active find hit in a
+    // folded section opens it (#1344).
+    final matches = _master.findMatches;
+    final hit = _master.activeFindIndex;
+    final hitStart = hit >= 0 && hit < matches.count
+        ? matches.starts[hit]
+        : null;
+    if (_folded.isNotEmpty) {
+      // A selection across rows (Select all, say) keeps the folds: copying
+      // it takes the folded text along anyway.
+      if (sel.isValid && !_spansRows(sel)) {
+        _revealRow(_rows.segmentOf(_clamp(sel.extentOffset)));
+      }
+      // Only a hit that just became active: folding its section again
+      // while the find bar stays open is the user's choice.
+      if (hitStart != null && hitStart != _revealedHit) {
+        _revealRow(_rows.segmentOf(_clamp(hitStart)));
+      }
+    }
+    _revealedHit = hitStart;
     final cross = _spansRows(sel) ? sel : null;
     final caret = sel.isValid ? _clamp(sel.extentOffset) : null;
     var row = caret == null
@@ -452,7 +697,8 @@ class LongNoteEditorState extends State<LongNoteEditor>
     setState(() {});
   }
 
-  /// Hands the page's find highlight to the active row, shifted into it.
+  /// Hands the page's find highlight and spell-check underline to the
+  /// active row, shifted into it.
   void _syncLocalFind() {
     final matches = _master.findMatches;
     _syncingLocal = true;
@@ -474,6 +720,15 @@ class LongNoteEditorState extends State<LongNoteEditor>
         active,
       );
     }
+    // The spell-check underline (#670) only reaches the active row; the
+    // plain rows around it paint without it.
+    final start = _segStart;
+    final end = _segEnd;
+    _local.setSpellErrors([
+      for (final r in _master.spellErrors)
+        if (r.start >= start && r.end <= end)
+          TextRange(start: r.start - start, end: r.end - start),
+    ]);
     _syncingLocal = false;
   }
 
@@ -571,6 +826,15 @@ class LongNoteEditorState extends State<LongNoteEditor>
       return KeyEventResult.handled;
     }
 
+    if (LongNoteEditor.foldSectionActivator.accepts(event, keys)) {
+      _toggleAtCaret();
+      return KeyEventResult.handled;
+    }
+    if (LongNoteEditor.foldAllActivator.accepts(event, keys)) {
+      _toggleAll();
+      return KeyEventResult.handled;
+    }
+
     if (mod && key == LogicalKeyboardKey.keyA) {
       _select(TextSelection(baseOffset: 0, extentOffset: len));
       return KeyEventResult.handled;
@@ -598,22 +862,33 @@ class LongNoteEditorState extends State<LongNoteEditor>
     final start = _segStart;
     final end = _segEnd;
 
+    // Rows of a folded section are skipped (#1344): the row before or after
+    // is the nearest visible one.
+    final prev = _active > 0 ? _visibleRow(_active - 1, forward: false) : null;
+    final next = _active < last
+        ? _visibleRow(_active + 1, forward: true)
+        : null;
+
     if (shift) {
       int? to;
-      if (key == LogicalKeyboardKey.arrowLeft && atStart && _active > 0) {
-        to = _previousCharacter(start);
+      if (key == LogicalKeyboardKey.arrowLeft && atStart && prev != null) {
+        to = prev == _active - 1
+            ? _previousCharacter(start)
+            : _rows.segmentEnd(prev, len);
       } else if (key == LogicalKeyboardKey.arrowRight &&
           atEnd &&
-          _active < last) {
-        to = _nextCharacter(end);
+          next != null) {
+        to = next == _active + 1
+            ? _nextCharacter(end)
+            : _rows.segmentStart(next);
       } else if (key == LogicalKeyboardKey.arrowUp &&
           _caretOnEdgeLine(first: true) &&
-          _active > 0) {
-        to = _rows.segmentStart(_active - 1);
+          prev != null) {
+        to = _rows.segmentStart(prev);
       } else if (key == LogicalKeyboardKey.arrowDown &&
           _caretOnEdgeLine(first: false) &&
-          _active < last) {
-        to = _rows.segmentEnd(_active + 1, len);
+          next != null) {
+        to = _rows.segmentEnd(next, len);
       }
       if (to == null) return KeyEventResult.ignored;
       _select(TextSelection(baseOffset: anchor, extentOffset: to));
@@ -621,20 +896,30 @@ class LongNoteEditorState extends State<LongNoteEditor>
     }
 
     if (!sel.isCollapsed) return KeyEventResult.ignored;
-    if (key == LogicalKeyboardKey.arrowLeft && atStart && _active > 0) {
-      _select(TextSelection.collapsed(offset: _previousCharacter(start)));
-    } else if (key == LogicalKeyboardKey.arrowRight &&
-        atEnd &&
-        _active < last) {
-      _select(TextSelection.collapsed(offset: _nextCharacter(end)));
+    if (key == LogicalKeyboardKey.arrowLeft && atStart && prev != null) {
+      _select(
+        TextSelection.collapsed(
+          offset: prev == _active - 1
+              ? _previousCharacter(start)
+              : _rows.segmentEnd(prev, len),
+        ),
+      );
+    } else if (key == LogicalKeyboardKey.arrowRight && atEnd && next != null) {
+      _select(
+        TextSelection.collapsed(
+          offset: next == _active + 1
+              ? _nextCharacter(end)
+              : _rows.segmentStart(next),
+        ),
+      );
     } else if (key == LogicalKeyboardKey.arrowUp &&
-        _active > 0 &&
+        prev != null &&
         _caretOnEdgeLine(first: true)) {
-      _moveToRow(_active - 1, atEnd: true);
+      _moveToRow(prev, atEnd: true);
     } else if (key == LogicalKeyboardKey.arrowDown &&
-        _active < last &&
+        next != null &&
         _caretOnEdgeLine(first: false)) {
-      _moveToRow(_active + 1, atEnd: false);
+      _moveToRow(next, atEnd: false);
     } else if (key == LogicalKeyboardKey.backspace &&
         atStart &&
         _active > 0 &&
@@ -658,6 +943,18 @@ class LongNoteEditorState extends State<LongNoteEditor>
       return KeyEventResult.ignored;
     }
     return KeyEventResult.handled;
+  }
+
+  /// [offset] moved out of a folded section: to the end of the visible row
+  /// before it, or the start of the one after it when moving [forward].
+  int _outsideFolds(int offset, {required bool forward}) {
+    final row = _rows.segmentOf(offset);
+    if (!isRowHidden(row)) return offset;
+    final visible = _visibleRow(row, forward: forward);
+    if (visible == null) return offset;
+    return forward
+        ? _rows.segmentStart(visible)
+        : _rows.segmentEnd(visible, _text.length);
   }
 
   int _previousCharacter(int offset) =>
@@ -706,17 +1003,25 @@ class LongNoteEditorState extends State<LongNoteEditor>
     final row = _rows.segmentOf(extent);
     if (shift) {
       int? to;
-      if (key == LogicalKeyboardKey.arrowLeft) to = _previousCharacter(extent);
-      if (key == LogicalKeyboardKey.arrowRight) to = _nextCharacter(extent);
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        to = _outsideFolds(_previousCharacter(extent), forward: false);
+      }
+      if (key == LogicalKeyboardKey.arrowRight) {
+        to = _outsideFolds(_nextCharacter(extent), forward: true);
+      }
       if (key == LogicalKeyboardKey.arrowUp) {
         final top = _rows.segmentStart(row);
-        to = extent > top || row == 0 ? top : _rows.segmentStart(row - 1);
+        final prev = row == 0 ? null : _visibleRow(row - 1, forward: false);
+        to = extent > top || prev == null ? top : _rows.segmentStart(prev);
       }
       if (key == LogicalKeyboardKey.arrowDown) {
         final bottom = _rows.segmentEnd(row, len);
-        to = extent < bottom || row == _rows.length - 1
+        final next = row == _rows.length - 1
+            ? null
+            : _visibleRow(row + 1, forward: true);
+        to = extent < bottom || next == null
             ? bottom
-            : _rows.segmentEnd(row + 1, len);
+            : _rows.segmentEnd(next, len);
       }
       if (key == LogicalKeyboardKey.home) to = _rows.segmentStart(row);
       if (key == LogicalKeyboardKey.end) to = _rows.segmentEnd(row, len);
@@ -960,14 +1265,21 @@ class LongNoteEditorState extends State<LongNoteEditor>
   // Build
   // ---------------------------------------------------------------------------
 
+  /// Line height chosen in the editor text view (#648), refreshed each
+  /// build; rows and their estimates both read it.
+  double _lineHeight = LayoutKey.defaultLineHeight;
+
   TextStyle get _style => WpTextField.styleFor(
     WpTextFieldVariant.bare,
     color: WpColors.textPrimary,
-  );
+  ).copyWith(height: _lineHeight);
 
   @override
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
+    _lineHeight =
+        WpEditorText.maybeOf(context)?.lineSpacing.factor ??
+        LayoutKey.defaultLineHeight;
     final dpr = MediaQuery.devicePixelRatioOf(context);
     _pendingAnchor = null;
     return WpTextFieldSurface(
@@ -1008,10 +1320,15 @@ class LongNoteEditorState extends State<LongNoteEditor>
               explicitChildNodes: true,
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  _gutter = _sections.hasFoldable
+                      ? LongNoteEditor.foldGutter
+                      : 0;
+                  _linePx = scaler.scale(_fontSize) * _lineHeight;
                   final key = LayoutKey(
-                    width: constraints.maxWidth,
+                    width: math.max(0, constraints.maxWidth - _gutter),
                     textScale: scaler.scale(_fontSize) / _fontSize,
                     devicePixelRatio: dpr,
+                    lineHeight: _lineHeight,
                   );
                   final anchor = _scroll.hasClients && _heights.length > 0
                       ? _heights.anchorAt(_scroll.position.pixels)
@@ -1045,7 +1362,19 @@ class LongNoteEditorState extends State<LongNoteEditor>
     );
   }
 
+  /// Width of the fold buttons' column in this build, 0 without sections.
+  double _gutter = 0;
+
+  /// Height of one text line in this build, to centre a fold button on it.
+  double _linePx = 0;
+
   Widget _buildRow(BuildContext context, int row) {
+    // A row of a folded section takes no room and stays out of the
+    // semantics tree; the caret never rests in one.
+    final hidden = isRowHidden(row);
+    if (hidden && row != _active) return const SizedBox.shrink();
+    final section = _gutter > 0 ? _sections.sectionOfHeadingRow(row) : null;
+    final foldable = section != null && _sections.isFoldable(section);
     final Widget child = row == _active
         ? _buildField()
         : _PlainRow(
@@ -1055,20 +1384,66 @@ class LongNoteEditorState extends State<LongNoteEditor>
             ),
             row: row,
             headingLevel: _rows.headingLevelOf(row),
+            expanded: foldable ? !_folded.contains(section) : null,
             style: _style,
             spans: _spansFor(row),
             onTap: (offset) => _tapRow(row, offset),
             onAccessibilityFocus: () => _reveal(row),
           );
-    final shown = _dimmed && row != _active
+    final dimmed = _dimmed && row != _active
         ? Opacity(opacity: NoteMarkupController.dimmedAlpha, child: child)
         : child;
+    final shown = _gutter == 0
+        ? dimmed
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsetsDirectional.only(start: _gutter),
+                child: dimmed,
+              ),
+              if (foldable)
+                PositionedDirectional(
+                  start: 0,
+                  top: (_linePx - WpIconButton.compactExtent) / 2,
+                  child: _foldButton(section),
+                ),
+            ],
+          );
+    final measured = _MeasuredRow(
+      key: _rowKeys.putIfAbsent(row, GlobalKey.new),
+      onLayout: (height) => _onMeasured(row, height),
+      child: shown,
+    );
     return _KeepAliveRow(
       keepAlive: row == _active,
-      child: _MeasuredRow(
-        key: _rowKeys.putIfAbsent(row, GlobalKey.new),
-        onLayout: (height) => _onMeasured(row, height),
-        child: shown,
+      // The text field of a selection that ends in a folded section (Select
+      // all) stays mounted for its keys, unseen.
+      child: Offstage(offstage: hidden, child: measured),
+    );
+  }
+
+  /// The chevron left of a heading: folds or unfolds its section. It takes
+  /// no keyboard focus (Tab would walk through every heading of the note);
+  /// the keyboard way is the shortcut, a screen reader activates it.
+  Widget _foldButton(int section) {
+    final l10n = L10n.of(context);
+    final folded = _folded.contains(section);
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final shortcut = commandShortcutLabel('K', shift: true, l10n: l10n);
+    return ExcludeFocus(
+      child: WpIconButton.ghost(
+        compact: true,
+        icon: folded
+            ? (rtl ? LucideIcons.chevronLeft : LucideIcons.chevronRight)
+            : LucideIcons.chevronDown,
+        tooltip:
+            '${folded ? l10n.notesUnfoldSection : l10n.notesFoldSection} '
+            '($shortcut)',
+        semanticsLabel: l10n.notesFoldSectionLabel(_headingTitle(section)),
+        expanded: !folded,
+        testId: 'notes-editor-fold-$section',
+        onPressed: () => toggleSection(section),
       ),
     );
   }
@@ -1087,6 +1462,17 @@ class LongNoteEditorState extends State<LongNoteEditor>
       keyboardType: TextInputType.multiline,
       style: _style,
       cursorColor: WpColors.accent,
+      // Suggestions for the word at the caret; the check runs on the whole
+      // note, so the row's offsets are moved into it (#670). The Smart Mode
+      // actions follow (#650): the row's selection is mirrored into the
+      // note's controller, which they read.
+      contextMenuBuilder: (context, editable) => spellCheckContextMenu(
+        context,
+        editable,
+        WpEditorSpellCheck.maybeOf(this.context),
+        offsetShift: _segStart,
+        menu: editorContextMenuFor(this.context, readOnly: widget.readOnly),
+      ),
     ),
   );
 
@@ -1139,6 +1525,7 @@ class _PlainRow extends StatelessWidget {
     required this.text,
     required this.row,
     required this.headingLevel,
+    this.expanded,
     required this.style,
     required this.spans,
     required this.onTap,
@@ -1148,6 +1535,10 @@ class _PlainRow extends StatelessWidget {
   final String text;
   final int row;
   final int headingLevel;
+
+  /// Open/closed state of the section a heading starts (#1344), null for
+  /// rows that start none.
+  final bool? expanded;
   final TextStyle style;
   final _RowTint spans;
   final void Function(int offset) onTap;
@@ -1159,6 +1550,7 @@ class _PlainRow extends StatelessWidget {
       identifier: 'notes-editor-row-$row',
       header: headingLevel > 0,
       headingLevel: headingLevel > 0 ? headingLevel : null,
+      expanded: expanded,
       onTap: () => onTap(0),
       onDidGainAccessibilityFocus: onAccessibilityFocus,
       child: GestureDetector(

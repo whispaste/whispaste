@@ -48,6 +48,10 @@ Future<void> setSmartModeHotkeyEnabled(WidgetRef ref, {required bool enabled}) {
         (s) => s.copyWithSections(
           smartModeHotkey: s.smartModeHotkey.copyWith(
             smartModeHotkeyEnabled: enabled,
+            // Set up after the write update: nothing to announce (#248).
+            smartWriteMigrationNoticeShown: enabled
+                ? true
+                : s.smartModeHotkey.smartWriteMigrationNoticeShown,
           ),
         ),
       );

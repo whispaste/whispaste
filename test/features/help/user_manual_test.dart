@@ -8,7 +8,7 @@ import 'package:whispaste/features/help/manual/user_manual_view.dart';
 
 import '../../fixtures/test_helpers.dart';
 
-const _locales = ['de', 'en', 'es', 'pt', 'he', 'ru'];
+const _locales = ['de', 'en', 'es', 'pt', 'he', 'ru', 'fr', 'it', 'zh'];
 const _wide = Size(1280, 800);
 
 String _probeHeading(L10n l) => 'Probe heading';

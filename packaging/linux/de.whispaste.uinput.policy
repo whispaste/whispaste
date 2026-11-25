@@ -14,12 +14,18 @@
     <description xml:lang="pt">Permitir ou remover a colagem automática do WhisPaste</description>
     <description xml:lang="ru">Разрешить или отключить автовставку WhisPaste</description>
     <description xml:lang="he">לאפשר או להסיר הדבקה אוטומטית של WhisPaste</description>
+    <description xml:lang="fr">Autoriser ou retirer le collage automatique de WhisPaste</description>
+    <description xml:lang="it">Consenti o rimuovi l'incolla automatico di WhisPaste</description>
+    <description xml:lang="zh_CN">允许或移除 WhisPaste 的自动粘贴</description>
     <message>WhisPaste needs administrator rights to change access to the virtual keyboard</message>
     <message xml:lang="de">WhisPaste braucht Administratorrechte, um den Zugriff auf die virtuelle Tastatur zu ändern</message>
     <message xml:lang="es">WhisPaste necesita permisos de administrador para cambiar el acceso al teclado virtual</message>
     <message xml:lang="pt">O WhisPaste precisa de permissões de administrador para alterar o acesso ao teclado virtual</message>
     <message xml:lang="ru">WhisPaste нужны права администратора, чтобы изменить доступ к виртуальной клавиатуре</message>
     <message xml:lang="he">WhisPaste צריך הרשאות מנהל כדי לשנות את הגישה למקלדת הווירטואלית</message>
+    <message xml:lang="fr">WhisPaste a besoin des droits d'administrateur pour modifier l'accès au clavier virtuel</message>
+    <message xml:lang="it">WhisPaste ha bisogno dei diritti di amministratore per modificare l'accesso alla tastiera virtuale</message>
+    <message xml:lang="zh_CN">WhisPaste 需要管理员权限才能更改对虚拟键盘的访问</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>

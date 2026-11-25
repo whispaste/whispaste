@@ -38,7 +38,7 @@ The following are in scope for security reports:
 - The auto-update mechanism (download verification, HTTPS enforcement)
 - Local data storage (config, history database, audio cache)
 - API key handling and credential storage
-- WhisPaste API feedback endpoints (`api.whispaste.de`, `/v1/feedback`) and the legacy Supabase backend for older app versions (PostgREST endpoints, RLS policies, database)
+- WhisPaste API feedback endpoints (`api.whispaste.de`, `/v1/feedback`)
 
 The following are **out of scope**:
 

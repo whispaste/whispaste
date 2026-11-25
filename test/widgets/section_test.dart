@@ -45,4 +45,54 @@ void main() {
       expect(tester.widget<Align>(find.byType(Align).last).heightFactor, 0.0);
     });
   });
+
+  // #1917: the trailing controls merged into the heading node, so the four
+  // analytics period chips reached assistive tech as one heading.
+  testWidgets('trailing controls stay their own nodes, outside the heading', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      makeTestable(
+        WpSection(
+          title: 'Overview',
+          testId: 'section-heading',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                identifier: 'chip-a',
+                button: true,
+                selected: true,
+                onTap: () {},
+                child: const Text('7 days'),
+              ),
+              Semantics(
+                identifier: 'chip-b',
+                button: true,
+                selected: false,
+                onTap: () {},
+                child: const Text('All'),
+              ),
+            ],
+          ),
+          child: const SizedBox(),
+        ),
+      ),
+    );
+
+    final heading = tester
+        .getSemantics(find.bySemanticsIdentifier('section-heading'))
+        .getSemanticsData();
+    expect(heading.label, 'Overview');
+    expect(heading.flagsCollection.isHeader, isTrue);
+    for (final (id, label) in [('chip-a', '7 days'), ('chip-b', 'All')]) {
+      final chip = tester
+          .getSemantics(find.bySemanticsIdentifier(id))
+          .getSemanticsData();
+      expect(chip.label, label);
+      expect(chip.flagsCollection.isButton, isTrue);
+    }
+    handle.dispose();
+  });
 }

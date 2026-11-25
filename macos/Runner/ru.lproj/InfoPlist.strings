@@ -1,3 +1,4 @@
 /* Permission reasons shown by macOS (Info.plist keys), per app language. */
 "NSMicrophoneUsageDescription" = "WhisPaste нужен доступ к микрофону, чтобы превращать вашу речь в текст.";
-"NSAppleEventsUsageDescription" = "WhisPaste может использовать это, чтобы вставлять надиктованный текст в другие приложения, когда обычный способ недоступен.";
+"NSAppleEventsUsageDescription" = "WhisPaste может использовать это, чтобы вставлять надиктованный текст в другие приложения, когда обычный способ недоступен, и ставить «Музыку» или Spotify на паузу во время диктовки.";
+"NSContactsUsageDescription" = "WhisPaste читает только имена и названия компаний из ваших контактов — после вашего согласия в приложении, — чтобы диктовка писала их правильно. Они остаются на этом Mac.";

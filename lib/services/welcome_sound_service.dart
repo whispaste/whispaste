@@ -34,6 +34,8 @@
 /// itself through [micTestActiveProvider].
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kDebugMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_soloud/flutter_soloud.dart' show SoundHandle;
@@ -61,6 +63,11 @@ const Duration kWelcomeSoundDeviceSettle = Duration(milliseconds: 300);
 /// SharedPreferences key that marks the logo as used. The name predates the
 /// logo's move from the onboarding to the main window.
 @visibleForTesting
+/// The longest a welcome sound may sound (#1922, WCAG 1.4.2): both assets
+/// run about 4 s, so playback is stopped with the player's short fade at
+/// 3 s. Sounds that end by themselves before are untouched.
+const Duration kWelcomeSoundMaxDuration = Duration(seconds: 3);
+
 const String kLogoSoundPlayedKey = 'welcome_sound_played_firstLaunch';
 
 /// What one welcome sound call did.
@@ -134,7 +141,9 @@ final class WelcomeSoundService {
     required this.isBusy,
     this.ignorePlayedMarker = false,
     Future<void> Function(Duration)? wait,
-  }) : _wait = wait ?? Future<void>.delayed;
+    Future<void> Function(Duration)? capWait,
+  }) : _wait = wait ?? Future<void>.delayed,
+       _capWait = capWait ?? Future<void>.delayed;
 
   final Future<SharedPreferences> Function() prefs;
   final WelcomeSoundPlayer player;
@@ -148,6 +157,9 @@ final class WelcomeSoundService {
   final bool ignorePlayedMarker;
 
   final Future<void> Function(Duration) _wait;
+
+  /// Waits out [kWelcomeSoundMaxDuration] before the cap stops a sound.
+  final Future<void> Function(Duration) _capWait;
 
   Object? _handle;
   final Set<String> _inFlight = {};
@@ -257,6 +269,11 @@ final class WelcomeSoundService {
       }
       stop();
       _handle = handle;
+      unawaited(
+        _capWait(kWelcomeSoundMaxDuration).then((_) {
+          if (identical(_handle, handle)) stop();
+        }),
+      );
       await store?.setBool(key, true);
       return done(WelcomeSoundOutcome.played);
     } catch (e) {

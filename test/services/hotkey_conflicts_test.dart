@@ -656,7 +656,17 @@ void main() {
     });
 
     test('every note has a label and the actions read differently', () async {
-      for (final code in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+      for (final code in [
+        'de',
+        'en',
+        'es',
+        'pt',
+        'ru',
+        'he',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         final l = await L10n.delegate.load(Locale(code));
         for (final note in ConflictNote.values) {
           expect(

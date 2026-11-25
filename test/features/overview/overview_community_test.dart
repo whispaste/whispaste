@@ -4,6 +4,8 @@
 /// default (shown). Layout and wording are judged by eye, not tested.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,6 +194,30 @@ void main() {
         communityUrl(CommunityEntry.support, SupportPlatform.linux),
         isNull,
       );
+    });
+  });
+
+  group('trailer thumbnail', () {
+    test('German UI shows the German thumbnail, others the English one', () {
+      expect(
+        trailerThumbnailAssetFor('de'),
+        'assets/social/trailer-thumb-de.webp',
+      );
+      for (final code in ['en', 'es', 'fr', 'he', 'it', 'pt', 'ru', 'zh']) {
+        expect(
+          trailerThumbnailAssetFor(code),
+          'assets/social/trailer-thumb-en.webp',
+          reason: code,
+        );
+      }
+    });
+
+    test('both thumbnails are bundled and stay small', () {
+      for (final code in ['de', 'en']) {
+        final file = File(trailerThumbnailAssetFor(code));
+        expect(file.existsSync(), isTrue, reason: file.path);
+        expect(file.lengthSync(), lessThan(300 * 1024), reason: file.path);
+      }
     });
   });
 

@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show AsyncData, ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations_en.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/sections/smart_mode_section.dart';
+import 'package:whispaste/features/settings/sections/model_library_section.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
 import 'package:whispaste/services/download_error_kind.dart';
@@ -225,9 +228,55 @@ void main() {
       );
     });
 
-    testWidgets('shows Download action when model is not downloaded', (
-      tester,
-    ) async {
+    testWidgets('local model: the quality hint leads to the OpenAI key, and '
+        'it is shown for the local engine (D6)', (tester) async {
+      const hint = ValueKey('settings-smart-mode-local-quality-hint');
+      const link = ValueKey<String>('settings-smart-mode-openai-link');
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: _FakeSettingsNotifier(AppSettings.defaults),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(hint), findsOneWidget);
+
+      await tester.tap(find.byKey(link));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SmartModeSection)),
+      );
+      expect(container.read(settingsScrollTargetProvider), 'api-keys-openai');
+      expect(container.read(activePageProvider), 'settings');
+    });
+
+    testWidgets('OpenAI as engine: no local quality hint (D6)', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                smartMode: const SmartModeSettings(provider: 'openai'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('settings-smart-mode-local-quality-hint')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('settings-smart-mode-openai-link')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('missing model links to the central library', (tester) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
         makeTestable(
@@ -240,11 +289,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Download'), findsOneWidget);
+      // #2175: the text model row offers the way to the library like the
+      // speech model row; #1845 keeps the locked notice free of a second
+      // download button, #1792 moves the install itself into the library.
+      expect(find.text('Not installed'), findsOneWidget);
+      expect(find.text('Manage models'), findsOneWidget);
       expect(find.text('Delete'), findsNothing);
+      expect(find.byIcon(LucideIcons.download), findsNothing);
     });
 
-    testWidgets('shows Delete action and model label when downloaded', (
+    testWidgets('installed model shows its label and links to management', (
       tester,
     ) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
@@ -259,9 +313,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Delete'), findsOneWidget);
-      expect(find.text('Download'), findsNothing);
-      expect(find.textContaining('Gemma 4 E2B'), findsOneWidget);
+      expect(find.text('Delete'), findsNothing);
+      expect(find.text('Text model'), findsOneWidget);
+      expect(find.text('Manage models'), findsOneWidget);
+      expect(find.text('Download a model'), findsNothing);
+      // #2175: the choice is a dropdown, no status line under it.
+      expect(find.text('Gemma 4 E2B · Recommended'), findsOneWidget);
+      expect(find.text('Not installed'), findsNothing);
       expect(find.textContaining('Q4_K_M'), findsNothing);
     });
 
@@ -350,28 +408,20 @@ void main() {
       expect(find.text('English'), findsOneWidget);
     });
 
-    testWidgets(
-      'shows RAM-footprint and processing-time info next to the model row',
-      (tester) async {
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SmartModeSection()),
-            overrides: _overrides(settings: notifier),
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('processing-time search target remains in Smart Mode', (
+      tester,
+    ) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(settings: notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        expect(
-          find.textContaining('shared with the speech model'),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining('typical 50-word recording'),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(find.textContaining('typical 50-word recording'), findsOneWidget);
+    });
 
     // #1633: a failed download names the category in the app language; the
     // raw technical message (HTTP status, exception text) stays in the log.
@@ -388,52 +438,55 @@ void main() {
       ),
       ('delete', modelDeleteFailedError, DownloadErrorKind.storage),
     ]) {
-      testWidgets('a failed download ($label) shows no raw error text', (
-        tester,
-      ) async {
-        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: SmartModeSection()),
-            overrides: _overrides(
-              settings: notifier,
-              download: SmartModeDownloadState(
-                phase: SmartModeDownloadPhase.error,
-                errorMessage: message,
-                errorKind: kind,
+      testWidgets(
+        'library: a failed download ($label) shows no raw error text',
+        (tester) async {
+          final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: ModelLibrarySection()),
+              overrides: _overrides(
+                settings: notifier,
+                download: SmartModeDownloadState(
+                  phase: SmartModeDownloadPhase.error,
+                  errorMessage: message,
+                  errorKind: kind,
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
+          );
+          await tester.pumpAndSettle();
 
-        final l10n = L10nEn();
-        expect(
-          find.text(
-            kind == DownloadErrorKind.storage
-                ? l10n.modelDeleteFailed
-                : l10n.modelDownloadFailed,
-          ),
-          findsOneWidget,
-        );
-        // The translated text reads 'Download failed.'; the raw one has ':'.
-        for (final raw in [
-          'HTTP',
-          'Exception',
-          'Download failed:',
-          'antwortet',
-          'model_',
-        ]) {
-          expect(find.textContaining(raw), findsNothing, reason: raw);
-        }
-      });
+          final l10n = L10nEn();
+          expect(
+            find.text(
+              kind == DownloadErrorKind.storage
+                  ? l10n.modelDeleteFailed
+                  : l10n.modelDownloadFailed,
+            ),
+            findsOneWidget,
+          );
+          // The translated text reads 'Download failed.'; the raw one has ':'.
+          for (final raw in [
+            'HTTP',
+            'Exception',
+            'Download failed:',
+            'antwortet',
+            'model_',
+          ]) {
+            expect(find.textContaining(raw), findsNothing, reason: raw);
+          }
+        },
+      );
     }
 
-    testWidgets('shows progress bar while downloading', (tester) async {
+    testWidgets('library shows progress and cancel while downloading', (
+      tester,
+    ) async {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: SmartModeSection()),
+          const SingleChildScrollView(child: ModelLibrarySection()),
           overrides: _overrides(
             settings: notifier,
             download: const SmartModeDownloadState(
@@ -448,7 +501,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      expect(find.text('Cancel'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('model-library-gemma-cancel')),
+        findsOneWidget,
+      );
     });
   });
 
@@ -583,6 +639,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(notice(), findsOneWidget);
+      // Away from the model row, the notice keeps its download button.
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is WpButton && w.testId == 'smart-mode-locked-action',
+        ),
+        findsOneWidget,
+      );
       handle.dispose();
     });
   });

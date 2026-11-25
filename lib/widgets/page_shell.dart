@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../core/theme/colors.dart';
 import '../core/theme/generated/wp_tokens.g.dart' show WpShellTokens;
 import '../core/theme/tokens.dart';
 
@@ -92,7 +94,7 @@ class WpPageShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final inset = bodyPadding ?? padding;
     final body = scrollable
-        ? SingleChildScrollView(padding: inset, child: child)
+        ? _KeyboardScrollView(padding: inset, child: child)
         // Fixed mode — wrap in Padding, child manages its own height.
         : Padding(padding: inset, child: child);
 
@@ -103,6 +105,160 @@ class WpPageShell extends StatelessWidget {
         Padding(padding: padding.copyWith(bottom: 0), child: header),
         Expanded(child: body),
       ],
+    );
+  }
+}
+
+/// The scroll view of a scrollable page, operable by keyboard (#1845).
+///
+/// Page Up/Down and Ctrl+Home/End scroll the page while focus is anywhere in
+/// it, except in a text field, which keeps those keys. A page without any
+/// focusable control (Statistik) becomes one Tab stop itself, like a scroll
+/// region in a browser, so the keyboard can reach it at all; focused, it also
+/// takes the arrow keys, Space, Home and End. Its focus mark is the scroll
+/// bar itself, shown in the accent colour while the region has keyboard
+/// focus: a ring around the whole content area read as a frame around the
+/// page, not as focus (hp840 retest).
+class _KeyboardScrollView extends StatefulWidget {
+  const _KeyboardScrollView({required this.padding, required this.child});
+
+  final EdgeInsets padding;
+  final Widget child;
+
+  @override
+  State<_KeyboardScrollView> createState() => _KeyboardScrollViewState();
+}
+
+class _KeyboardScrollViewState extends State<_KeyboardScrollView> {
+  final _controller = ScrollController();
+  final _region = FocusNode(debugLabel: 'page-scroll-region');
+
+  /// Arrow-key step, the usual line step of desktop scroll views.
+  static const double _lineStep = 40;
+
+  @override
+  void initState() {
+    super.initState();
+    _region.skipTraversal = true;
+    _region.addListener(_onFocusChange);
+    FocusManager.instance.addHighlightModeListener(_onHighlightMode);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncTabStop());
+  }
+
+  @override
+  void didUpdateWidget(_KeyboardScrollView old) {
+    super.didUpdateWidget(old);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncTabStop());
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeHighlightModeListener(_onHighlightMode);
+    _region.removeListener(_onFocusChange);
+    _controller.dispose();
+    _region.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() => setState(() {});
+
+  void _onHighlightMode(FocusHighlightMode _) => setState(() {});
+
+  /// Keyboard focus on the region itself; a click never shows the mark.
+  bool get _showsFocus =>
+      _region.hasPrimaryFocus &&
+      FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+
+  /// The region is a Tab stop only while the page offers no control of its
+  /// own and has something to scroll; otherwise Tab reaches the page through
+  /// its controls as before, and a short page is no stop at all.
+  void _syncTabStop() {
+    if (!mounted) return;
+    final hasControls = _region.descendants.any(
+      (n) => n.canRequestFocus && !n.skipTraversal,
+    );
+    final scrolls =
+        _controller.hasClients && _controller.position.maxScrollExtent > 0;
+    final skip = hasControls || !scrolls;
+    if (_region.skipTraversal != skip) {
+      setState(() => _region.skipTraversal = skip);
+    }
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (!_controller.hasClients) return KeyEventResult.ignored;
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+      return KeyEventResult.ignored;
+    }
+    final onRegion = focus == _region;
+    final ctrl =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    final position = _controller.position;
+    final page = position.viewportDimension * 0.85;
+    final key = event.logicalKey;
+    double? target;
+    if (key == LogicalKeyboardKey.pageDown) {
+      target = position.pixels + page;
+    } else if (key == LogicalKeyboardKey.pageUp) {
+      target = position.pixels - page;
+    } else if (key == LogicalKeyboardKey.home && (ctrl || onRegion)) {
+      target = position.minScrollExtent;
+    } else if (key == LogicalKeyboardKey.end && (ctrl || onRegion)) {
+      target = position.maxScrollExtent;
+    } else if (onRegion && key == LogicalKeyboardKey.arrowDown) {
+      target = position.pixels + _lineStep;
+    } else if (onRegion && key == LogicalKeyboardKey.arrowUp) {
+      target = position.pixels - _lineStep;
+    } else if (onRegion && key == LogicalKeyboardKey.space) {
+      target = HardwareKeyboard.instance.isShiftPressed
+          ? position.pixels - page
+          : position.pixels + page;
+    }
+    if (target == null) return KeyEventResult.ignored;
+    _controller.jumpTo(
+      target.clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = _showsFocus;
+    return Focus(
+      focusNode: _region,
+      onKeyEvent: _onKey,
+      child: ScrollbarTheme(
+        data: ScrollbarTheme.of(context).copyWith(
+          thumbColor: focused ? WidgetStatePropertyAll(WpColors.accent) : null,
+        ),
+        child: Scrollbar(
+          controller: _controller,
+          thumbVisibility: focused ? true : null,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(scrollbars: false),
+            child: NotificationListener<ScrollMetricsNotification>(
+              onNotification: (_) {
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _syncTabStop(),
+                );
+                return false;
+              },
+              child: SingleChildScrollView(
+                controller: _controller,
+                padding: widget.padding,
+                child: widget.child,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -47,6 +47,14 @@ class X11ButtonWatcher {
   double MouseIdleSeconds() const;
   double MouseIdleOutsideAppSeconds() const;
 
+  // The user's own Ctrl+Z in another app after an auto-paste (#2078). Arms a
+  // watch of [seconds] (0 disarms) and answers whether the previous watch saw
+  // the shortcut; that answer is then forgotten. Needs a running watcher
+  // with keys. Main thread only.
+  bool WatchUndoShortcut(int seconds);
+  // Whether the shortcut came since the watch was armed; ends the watch.
+  bool TakeUndoShortcut();
+
   // Called on the GTK main thread after a button press (not a scroll-wheel
   // step), once per batch of presses. Set before Start(); main thread only.
   using OnClickCallback = void (*)(void* user_data);
@@ -60,6 +68,7 @@ class X11ButtonWatcher {
   static int64_t NowNs();
   static double Since(const std::atomic<int64_t>& stamp);
   static gboolean OnButtonOnMainThread(gpointer user_data);
+  static gboolean OnUndoShortcutOnMainThread(gpointer user_data);
 
   const bool watch_keys_;
   OnClickCallback on_click_cb_ = nullptr;
@@ -73,6 +82,9 @@ class X11ButtonWatcher {
   std::atomic<int64_t> last_key_ns_{0};
   std::atomic<int64_t> last_button_ns_{0};
   std::atomic<int64_t> last_foreign_button_ns_{0};
+  // Undo shortcut watch (#2078): deadline (0 = none) and whether it came.
+  std::atomic<int64_t> shortcut_until_ns_{0};
+  std::atomic<bool> shortcut_seen_{false};
 };
 
 #endif  // RUNNER_X11_BUTTON_WATCHER_H_

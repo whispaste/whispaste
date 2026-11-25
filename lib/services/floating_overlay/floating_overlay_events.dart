@@ -35,8 +35,11 @@ class OverlayContextMenuAction extends FloatingOverlayEvent {
 /// A button of the notice card was clicked (overlay F2). [id] is the wire
 /// name of an `OverlayNoticeActionId`.
 class OverlayNoticeActionClicked extends FloatingOverlayEvent {
-  const OverlayNoticeActionClicked(this.id);
+  const OverlayNoticeActionClicked(this.id, [this.args = const {}]);
   final String id;
+
+  /// What came with [id]: the edit field's `text` and `focused` (#254).
+  final Map<Object?, Object?> args;
 }
 
 /// The render engine painted its first frame for the current show (macOS

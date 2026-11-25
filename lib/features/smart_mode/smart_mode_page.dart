@@ -529,6 +529,23 @@ class _PresetDialogContentState extends State<_PresetDialogContent> {
         ),
         const SizedBox(height: WpSpacing.sm),
         Text(l10n.smartModeCustomPresetInstructionTips, style: muted),
+        // Save stays disabled until both fields are filled; say so instead of
+        // leaving a silent grey button (#1845).
+        ValueListenableBuilder<bool>(
+          valueListenable: draft.valid,
+          builder: (context, valid, _) => valid
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: WpSpacing.xs),
+                  child: Semantics(
+                    identifier: 'smart-mode-custom-dialog-save-needs',
+                    child: Text(
+                      l10n.smartModeCustomPresetSaveNeeds,
+                      style: muted,
+                    ),
+                  ),
+                ),
+        ),
       ],
     );
   }

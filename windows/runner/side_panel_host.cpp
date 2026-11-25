@@ -176,6 +176,7 @@ void SidePanelHost::TeardownActive() {
   if (render_channel_) {
     render_channel_->SetMethodCallHandler(nullptr);
     render_channel_.reset();
+    motion_channel_.reset();
   }
   if (content_window_) {
     content_window_->Destroy();
@@ -459,6 +460,8 @@ bool SidePanelHost::EnsureEngineAndShell() {
   render_project_ = std::move(project);
   render_controller_ = std::move(controller);
   render_channel_ = std::move(render_ch);
+  motion_channel_ = std::make_unique<SystemMotionChannel>(
+      render_controller_->engine()->messenger());
   content_window_ = std::move(shell);
 
   OutputDebugStringW(

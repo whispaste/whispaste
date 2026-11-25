@@ -7,8 +7,10 @@
 // that Flutter's kGtkToLogicalKey maps to the logical key. For Space, F1-F4
 // and the period that is the keypad variant (KP_Space, KP_F1...), which no
 // common keyboard has, so the grab fails. The safe-default hotkey
-// Ctrl+Shift+Space could therefore never be registered. Returns the main
-// keyboard keyval for those keys and every other keyval unchanged.
+// Ctrl+Shift+Space could therefore never be registered. Enter arrives as
+// 3270_Enter, which no layout has either (the write preview's Enter key).
+// Returns the main keyboard keyval for those keys and every other keyval
+// unchanged.
 guint hotkey_keyval_from_flutter(guint64 keyval);
 
 // XKB's default F13 physical position is XF86Tools. Prefer an explicit F13

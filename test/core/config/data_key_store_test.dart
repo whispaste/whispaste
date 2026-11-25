@@ -7,6 +7,11 @@ import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/data_key_store.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
+import 'package:whispaste/core/data/database.dart'
+    show
+        HistoryKeyLostException,
+        HistoryKeyringUnavailableException,
+        historyKeyFromStore;
 
 /// In-memory stand-in for the system key store.
 class _FakeSecureStore extends SecureKeyStore {
@@ -419,6 +424,45 @@ void main() {
     test('the key is neither exported nor erased with the API keys', () {
       expect(apiKeyMapping.values, isNot(contains(dataKeyStorageName)));
       expect(allSecureKeys, isNot(contains(dataKeyStorageName)));
+    });
+  });
+
+  group('historyKeyFromStore', () {
+    test(
+      'a locked or unreachable keyring is told apart from a lost key',
+      () async {
+        await store(linux: true).obtain();
+        for (final state in ['locked', 'unreachable']) {
+          secure.failWith = _keyring(state);
+          await expectLater(
+            historyKeyFromStore(store(linux: true)),
+            throwsA(isA<HistoryKeyringUnavailableException>()),
+          );
+        }
+      },
+    );
+
+    // #1023: a lost key is reported as such, so the open can set the
+    // encrypted file aside instead of showing the locked start screen.
+    test('a lost key is told apart from a missing one', () async {
+      expect(await historyKeyFromStore(store()), isNull); // never created
+      await store().obtain();
+      secure.values.clear();
+      await expectLater(
+        historyKeyFromStore(store()),
+        throwsA(isA<HistoryKeyLostException>()),
+      );
+      secure.values[dataKeyStorageName] = base64Encode(List.filled(32, 7));
+      await expectLater(
+        historyKeyFromStore(store()),
+        throwsA(isA<HistoryKeyLostException>()),
+      );
+    });
+
+    test('a key held back for consent is not lost', () async {
+      await store().obtain();
+      secure.failWith = PlatformException(code: secretNeedsConsentCode);
+      expect(await historyKeyFromStore(store()), isNull);
     });
   });
 }

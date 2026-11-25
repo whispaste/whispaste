@@ -17,7 +17,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../core/config/build_config.dart' show kAutoPasteSupported;
-import '../core/config/settings_enums.dart' show OnDeviceEngine;
+import '../core/config/settings_enums.dart' show OnDeviceEngine, OverlayMode;
 import '../core/config/settings_labels.dart'
     show afterTranscriptionStatusLabel, formatHotkeyShortcut, modifierOnlyLabel;
 import '../core/config/settings_provider.dart';
@@ -36,6 +36,7 @@ import '../core/data/database.dart' show HistoryEntry, historyDatabaseProvider;
 import '../core/data/history_providers.dart';
 import '../features/history/data/history_lock.dart';
 import 'desktop_paste/desktop_paste_controller.dart';
+import 'floating_overlay/overlay_hide_rules.dart';
 import 'audio_service.dart';
 import 'graceful_shutdown.dart';
 import 'quit_deadline.dart';
@@ -62,8 +63,11 @@ import 'tray_icon_state.dart';
 import 'tray_language_menu.dart';
 import 'tray_host_probe.dart';
 import 'tray_mic_menu.dart';
+import 'tray_panel/status_item_name.dart';
 import 'tray_submenu_builder.dart' show trayRadioValueFromKey;
 import 'window_activation.dart';
+import 'user_models/user_model.dart' show UserModel;
+import 'user_models/user_models_provider.dart' show userModelsProvider;
 
 // ---------------------------------------------------------------------------
 // Action-needed menu-item keys
@@ -204,6 +208,8 @@ class TrayService extends Notifier<void> implements TrayListener {
     // The coffee entry of a store build waits for the store's answer.
     ref.listen(supportStoreTipAvailableProvider, (_, _) => _scheduleRebuild());
     ref.listen(profileChoiceProvider, (_, _) => _scheduleRebuild());
+    // The hide hour of the overlay (overlay F) adds and removes its entry.
+    ref.listen(overlayHiddenUntilProvider, (_, _) => _scheduleRebuild());
     ref.listen(appProfilesProvider, (prev, next) {
       if (_profileMenuKey(prev?.value) != _profileMenuKey(next.value)) {
         _scheduleRebuild();
@@ -279,6 +285,19 @@ class TrayService extends Notifier<void> implements TrayListener {
         onNavigate?.call('history');
       case TrayCommandIds.coffee:
         _openCoffee();
+      case TrayCommandIds.overlayShowAgain:
+        ref.read(overlayHiddenUntilProvider.notifier).showAgain();
+      case TrayCommandIds.overlayTurnOn:
+        unawaited(
+          ref
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                (s) => s.copyWith(
+                  overlayMode: OverlayMode.floating.value,
+                  showOverlay: true,
+                ),
+              ),
+        );
       default:
         final recentId = trayRecentIdFromKey(key);
         if (recentId != null) {
@@ -622,6 +641,9 @@ class TrayService extends Notifier<void> implements TrayListener {
       // menu setup below (that left the tray icon visible but inert on Linux —
       // no click, no right-click, no menu).
       await _setToolTip('WhisPaste');
+      // The icon's accessible name on macOS (#1926); the tooltip keeps the
+      // state.
+      await nameMacStatusItem();
       trayManager.addListener(this);
 
       _initialized = true;
@@ -701,6 +723,8 @@ class TrayService extends Notifier<void> implements TrayListener {
       settings.sttProviderType.name,
       // The resume entry appears and leaves with the first-run state.
       settings.onboarding.onboardingCompleted,
+      // The way back to the overlay appears while it is off (overlay F).
+      settings.effectiveOverlayMode.name,
     ].join('|');
   }
 
@@ -844,6 +868,7 @@ class TrayService extends Notifier<void> implements TrayListener {
             l,
             models: ref.read(selectableSpeechModelsProvider),
             missing: ref.read(missingSelectedSpeechModelProvider),
+            own: ref.read(userModelsProvider).models,
           );
     // Locked history never reaches the menu: no items, only the unlock entry.
     final historyLocked = ref.read(historyContentHiddenProvider);
@@ -876,6 +901,12 @@ class TrayService extends Notifier<void> implements TrayListener {
           ref.read(coffeeSupportTargetProvider) != CoffeeSupportTarget.hidden,
       resumeOnboardingAvailable:
           settings != null && !settings.onboarding.onboardingCompleted,
+      overlayRestore: trayOverlayRestore(
+        l,
+        overlayOn: settings?.effectiveOverlayMode != OverlayMode.off,
+        hiddenUntil: ref.read(overlayHiddenUntilProvider),
+        now: ref.read(overlayHideClockProvider)(),
+      ),
     );
     ref.read(trayMenuSnapshotProvider.notifier).publish((
       commands: commands,
@@ -1126,7 +1157,8 @@ List<SttChoice> speechChoicesFor(
   L10n l, {
   required List<SelectableSpeechModel> models,
   required SelectableSpeechModel? missing,
-}) => sttChoicesFrom(models, l, missing: missing);
+  List<UserModel> own = const [],
+}) => sttChoicesFrom(models, l, missing: missing, own: own);
 
 /// The Language submenu, or null where the engine picks the language itself
 /// (Parakeet), as the dock and Settings hide the picker.
@@ -1160,6 +1192,7 @@ List<AppCommand> trayCommandTree(
   required bool sidePanelAvailable,
   bool coffeeAvailable = false,
   bool resumeOnboardingAvailable = false,
+  ({String id, String label})? overlayRestore,
 }) {
   final locked = isDictationBusy(recording.phase);
   return buildTrayCommands(
@@ -1197,11 +1230,33 @@ List<AppCommand> trayCommandTree(
       sidePanelAvailable: sidePanelAvailable,
       coffeeAvailable: coffeeAvailable,
       resumeOnboardingAvailable: resumeOnboardingAvailable,
+      overlayRestore: overlayRestore,
       historyLocked: historyLocked,
       recentRecordings: recentRecordings,
       toggleShortcut: settings == null ? null : trayToggleShortcut(settings, l),
     ),
     trayLabelsFor(l),
+  );
+}
+
+/// The tray's way back to the overlay (overlay F, #194): "Overlay einschalten"
+/// while it is switched off, "Overlay wieder einblenden (bis HH:MM
+/// ausgeblendet)" while the hide hour runs, else null.
+@visibleForTesting
+({String id, String label})? trayOverlayRestore(
+  L10n l, {
+  required bool overlayOn,
+  required DateTime? hiddenUntil,
+  required DateTime now,
+}) {
+  if (!overlayOn) {
+    return (id: TrayCommandIds.overlayTurnOn, label: l.trayOverlayTurnOn);
+  }
+  if (hiddenUntil == null || !now.isBefore(hiddenUntil)) return null;
+  final time = DateFormat.Hm(l.localeName).format(hiddenUntil.toLocal());
+  return (
+    id: TrayCommandIds.overlayShowAgain,
+    label: l.trayOverlayShowAgain(time),
   );
 }
 

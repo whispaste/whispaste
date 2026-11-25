@@ -7,6 +7,7 @@ project(runner LANGUAGES CXX)
 #
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
+  "autostart_host.cpp"
   "app_identity_host.cpp"
   "attention_host.cpp"
   "clipboard_monitor_host.cpp"
@@ -26,12 +27,14 @@ add_executable(${BINARY_NAME} WIN32
   "field_type_host.cpp"
   "field_type_reader.cpp"
   "keyboard_monitor_host.cpp"
+  "spell_check_host.cpp"
   "system_languages_host.cpp"
   "audio_routing_host.cpp"
   "media_pause_host.cpp"
   "main.cpp"
   "native_context_menu.cpp"
   "ole_drag_source.cpp"
+  "outlook_contacts_reader.cpp"
   "power_event_host.cpp"
   "hang_watchdog_host.cpp"
   "side_panel_host.cpp"
@@ -40,6 +43,8 @@ add_executable(${BINARY_NAME} WIN32
   "tray_panel_host.cpp"
   "snippet_picker_window.cpp"
   "support_store_channel.cpp"
+  "system_contacts_host.cpp"
+  "system_motion_channel.cpp"
   "undo_input_watcher.cpp"
   "url_scheme_registration.cpp"
   "utils.cpp"
@@ -88,7 +93,7 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 target_compile_definitions(${BINARY_NAME} PRIVATE "WP_WITH_FLAC=0")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../linux/runner")
 
-# C++/WinRT (support_store_channel.cpp) needs C++20 coroutines; under C++17 it
+# C++/WinRT (support_store_channel.cpp, system_contacts_host.cpp) needs C++20 coroutines; under C++17 it
 # falls back to <experimental/coroutine>, which current MSVC toolsets reject.
 target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 
@@ -97,7 +102,7 @@ target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 include("${CMAKE_CURRENT_SOURCE_DIR}/opus_audio.cmake")
 target_link_libraries(${BINARY_NAME} PRIVATE whispaste_opusfile)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "windowsapp.lib" "mfplat.lib" "mfreadwrite.lib" "mfuuid.lib" "version.lib" "shell32.lib" "shlwapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "oleaut32.lib" "windowsapp.lib" "mfplat.lib" "mfreadwrite.lib" "mfuuid.lib" "version.lib" "shell32.lib" "shlwapi.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Copy the dedicated tray icon next to the executable for dev runs.

@@ -73,6 +73,17 @@ void main() {
         // STT provider selection.
         'lib/services/replacements/target_field_learning.dart',
         'lib/services/review_prompt_service.dart',
+        // Picks the rating way of the review dialog (#2185): the MAS build
+        // asks StoreKit — never STT provider selection.
+        'lib/features/review/review_ask_dialog.dart',
+        // How a user-added model is checked (#1789): the App Sandbox allows
+        // no helper process, so the MAS build checks in this process instead.
+        // Same model, same result — never STT provider selection.
+        'lib/services/user_models/user_model_checker.dart',
+        // CLI file arguments (#1952): the App Sandbox cannot read paths
+        // passed on the command line — import gating only, never STT
+        // provider selection.
+        'lib/services/instance_cli.dart',
       };
 
       final flagPattern = RegExp(r'\b(kIsMasBuild|MAS_BUILD|WHISPASTE_MAS)\b');

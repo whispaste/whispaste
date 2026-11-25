@@ -1,3 +1,4 @@
 /* Permission reasons shown by macOS (Info.plist keys), per app language. */
 "NSMicrophoneUsageDescription" = "‏WhisPaste זקוקה לגישה למיקרופון כדי להמיר את הדיבור שלך לטקסט.";
-"NSAppleEventsUsageDescription" = "‏WhisPaste עשויה להשתמש בכך כדי להדביק את הטקסט המוכתב באפליקציות אחרות כשהשיטה הרגילה אינה זמינה.";
+"NSAppleEventsUsageDescription" = "‏WhisPaste עשויה להשתמש בכך כדי להדביק את הטקסט המוכתב באפליקציות אחרות כשהשיטה הרגילה אינה זמינה, וכדי להשהות את Music או Spotify בזמן ההכתבה.";
+"NSContactsUsageDescription" = "WhisPaste קורא רק את השמות ואת שמות החברות של אנשי הקשר שלך, לאחר שאישרת זאת באפליקציה, כדי שההכתבה תאיית אותם נכון. הם נשארים במק הזה.";

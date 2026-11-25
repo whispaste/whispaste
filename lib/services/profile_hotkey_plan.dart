@@ -4,8 +4,12 @@
 /// hotkeys may be registered, and which are refused because another hotkey of
 /// the app already holds the combination, an earlier profile does, or the
 /// combination has no modifier (a bare key would be grabbed system-wide).
+///
+/// The hotkeys of the favorite languages (#2137) are planned here as well:
+/// they yield to the fixed app hotkeys, and the profiles yield to them.
 library;
 
+import '../core/config/favorite_language_hotkeys.dart';
 import '../core/config/settings_provider.dart';
 import 'app_profiles/app_profile.dart';
 
@@ -27,9 +31,6 @@ class ProfileHotkeyEntry {
 
   /// The hotkey service's action id for this profile.
   String get actionId => profileHotkeyActionId(profileId);
-
-  /// Identifies the registered combination, so a change re-registers it.
-  String get signature => canonicalHotkeyCombo(key, modifiers);
 }
 
 /// Prefix of every profile hotkey action id.
@@ -39,8 +40,27 @@ const kProfileHotkeyActionPrefix = 'profile:';
 String profileHotkeyActionId(String profileId) =>
     '$kProfileHotkeyActionPrefix$profileId';
 
-/// Every hotkey of the app that is switched on, so a profile cannot take it.
+/// Every hotkey of the app that is switched on, so a profile cannot take it:
+/// the fixed app hotkeys, the favorite-language hotkeys that register and
+/// the extra dictation keys (#2055).
 List<({String key, String modifiers})> reservedHotkeysOf(AppSettings s) => [
+  ...hotkeysBeforeDictationKeysOf(s),
+  for (final k in s.hotkey.extraDictationKeys)
+    (key: k.key, modifiers: k.modifiers),
+];
+
+/// What an extra dictation key (#2055) may never take: the fixed app hotkeys
+/// and the favorite-language hotkeys that register.
+List<({String key, String modifiers})> hotkeysBeforeDictationKeysOf(
+  AppSettings s,
+) => [
+  ...fixedAppHotkeysOf(s),
+  for (final entry in planFavoriteLanguageHotkeys(s).entries)
+    (key: entry.key, modifiers: entry.modifiers),
+];
+
+/// The hotkeys with a fixed place in the settings that are switched on.
+List<({String key, String modifiers})> fixedAppHotkeysOf(AppSettings s) => [
   (key: s.hotkeyKey, modifiers: s.hotkeyModifiers),
   if (s.quickNoteHotkey.quickNoteHotkeyEnabled)
     (
@@ -137,4 +157,45 @@ ProfileHotkeyPlan planProfileHotkeys({
     );
   }
   return ProfileHotkeyPlan(entries: entries, refusedIds: refused);
+}
+
+/// The result of [planFavoriteLanguageHotkeys].
+class FavoriteLanguageHotkeyPlan {
+  const FavoriteLanguageHotkeyPlan({
+    required this.entries,
+    required this.refusedCodes,
+  });
+
+  /// Hotkeys to register, in the order of the favorites.
+  final List<({String code, String key, String modifiers})> entries;
+
+  /// Favorites whose stored hotkey is refused.
+  final Set<String> refusedCodes;
+}
+
+/// Decides which favorite-language hotkeys (#2137) are registered: one per
+/// current favorite with a stored key. A combination a fixed app hotkey holds
+/// or an earlier favorite holds is refused. Unlike a profile key, a language
+/// key may be a bare function key: the recording dialog only lets the keys of
+/// `singleKeyWhitelist` through without a modifier, as for every app hotkey.
+FavoriteLanguageHotkeyPlan planFavoriteLanguageHotkeys(AppSettings s) {
+  final taken = {
+    for (final r in fixedAppHotkeysOf(s))
+      canonicalHotkeyCombo(r.key, r.modifiers),
+  };
+  final entries = <({String code, String key, String modifiers})>[];
+  final refused = <String>{};
+  for (final active in activeFavoriteLanguageHotkeys(
+    favorites: s.stt.favoriteLanguages,
+    hotkeys: s.stt.favoriteLanguageHotkeys,
+  )) {
+    final key = active.hotkey.key;
+    final modifiers = active.hotkey.modifiers;
+    if (!taken.add(canonicalHotkeyCombo(key, modifiers))) {
+      refused.add(active.code);
+      continue;
+    }
+    entries.add((code: active.code, key: key, modifiers: modifiers));
+  }
+  return FavoriteLanguageHotkeyPlan(entries: entries, refusedCodes: refused);
 }

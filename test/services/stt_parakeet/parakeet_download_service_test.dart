@@ -92,25 +92,25 @@ String _zeroSha256(int n) => sha256.convert(List<int>.filled(n, 0)).toString();
 final _fakeFiles = [
   ParakeetModelFile(
     filename: 'encoder.int8.onnx',
-    url: 'https://x/e',
+    sources: ['https://x/e'],
     sizeBytes: 8,
     sha256: _zeroSha256(8),
   ),
   ParakeetModelFile(
     filename: 'decoder.int8.onnx',
-    url: 'https://x/d',
+    sources: ['https://x/d'],
     sizeBytes: 4,
     sha256: _zeroSha256(4),
   ),
   ParakeetModelFile(
     filename: 'joiner.int8.onnx',
-    url: 'https://x/j',
+    sources: ['https://x/j'],
     sizeBytes: 4,
     sha256: _zeroSha256(4),
   ),
   ParakeetModelFile(
     filename: 'tokens.txt',
-    url: 'https://x/t',
+    sources: ['https://x/t'],
     sizeBytes: 2,
     sha256: _zeroSha256(2),
   ),
@@ -132,6 +132,50 @@ void main() {
     if (tempDir.existsSync()) {
       await tempDir.delete(recursive: true);
     }
+  });
+
+  test('progress counts against the whole download, never per file '
+      '(#1845)', () async {
+    final fetcher = _FakeFetcher();
+    final container = ProviderContainer(
+      overrides: [
+        parakeetDownloadProvider.overrideWith(() {
+          final notifier = ParakeetDownloadNotifier();
+          notifier.fetcherOverride = fetcher;
+          return notifier;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final seen = <(int, int)>[];
+    container.listen<ParakeetDownloadState>(parakeetDownloadProvider, (
+      _,
+      next,
+    ) {
+      if (next.phase == ParakeetDownloadPhase.downloading) {
+        seen.add((next.bytesDownloaded, next.totalBytes));
+      }
+    });
+
+    await container.read(parakeetDownloadProvider.notifier).downloadBundle();
+
+    final bundle = _fakeFiles.fold(0, (sum, f) => sum + f.sizeBytes);
+    final totals = {for (final (_, total) in seen) total};
+    // One total for the whole run: the bundle, plus the GPU model where
+    // this host wants it, exactly what the download button names.
+    expect(totals, hasLength(1));
+    expect(totals.single, greaterThanOrEqualTo(bundle));
+    final bytes = [for (final (b, _) in seen) b];
+    for (var i = 1; i < bytes.length; i++) {
+      expect(bytes[i], greaterThanOrEqualTo(bytes[i - 1]), reason: '$bytes');
+    }
+    expect(bytes, contains(bundle), reason: 'all four files counted');
+  });
+
+  test('bundle percent holds at 99 until the run finishes', () {
+    expect(bundleProgressPercent(0, 0), 0);
+    expect(bundleProgressPercent(50, 200), 25);
+    expect(bundleProgressPercent(200, 200), 99);
   });
 
   test('a successful downloadBundle() reaps a pre-existing aged orphan .tmp '

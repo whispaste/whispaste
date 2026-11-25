@@ -7,8 +7,12 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/text/text_undo.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/smart_mode/editor_smart_action.dart';
+import 'editor_smart_action_scope.dart';
+import 'editor_text_view_scope.dart';
 import 'find_replace.dart';
 import 'find_replace_bar.dart';
+import 'searchable_list_page.dart' show WpListMenuAction, showWpListMenu;
 import 'wp_focus_ring.dart';
 import 'wp_touch_target.dart';
 
@@ -306,8 +310,10 @@ class WpMarkdownFormatting {
 /// "focus the list search field" shortcut on the History and the Notes page
 /// (`history_page.dart`, `notes_page.dart`), and quietly changing what it does
 /// while a caret sits in the editor would break a shortcut people already use
-/// to filter their list. The toggle button and `Escape`-to-close are the whole
-/// keyboard story until that conflict is resolved on purpose.
+/// to filter their list. Find in the text is `Ctrl/Cmd+Shift+F` instead, with
+/// `F3`/`Shift+F3` for the hits (#647); the editor binds those keys and
+/// reaches the bar through [WpMarkdownToolbar.findCommands]. Opening, by key
+/// or button, takes a one-line selection over as the query.
 class WpMarkdownToolbar extends StatefulWidget {
   const WpMarkdownToolbar({
     super.key,
@@ -319,10 +325,36 @@ class WpMarkdownToolbar extends StatefulWidget {
     this.enabled = true,
     this.undoController,
     this.trailing,
+    this.outlineOpen = false,
+    this.onToggleOutline,
+    this.findCommands,
+    this.onFindReveal,
+    this.onSmartAction,
+    this.smartCommands,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
+
+  /// The host's find keys (#647); this bar attaches to them while mounted.
+  final WpFindCommands? findCommands;
+
+  /// Brings a search hit into view while the caret stays in the text (#653).
+  final ValueChanged<TextSelection>? onFindReveal;
+
+  /// Runs a Smart Mode action on the selection (#650); null hides the
+  /// button. The button opens the menu of the four actions.
+  final ValueChanged<EditorSmartAction>? onSmartAction;
+
+  /// The host's Ctrl/Cmd+J (#650); this bar answers by opening its menu.
+  final WpSmartActionCommands? smartCommands;
+
+  /// Opens or closes the host's outline panel (#645); null hides the button.
+  /// The host owns the panel, so it outlives a remount of this bar.
+  final VoidCallback? onToggleOutline;
+
+  /// Whether the host's outline panel is open: the button's pressed state.
+  final bool outlineOpen;
 
   /// Shares the button row where the width allows (the note's tags, #1498):
   /// the buttons keep their place on the left, [trailing] takes the rest.
@@ -364,6 +396,46 @@ class WpMarkdownToolbar extends StatefulWidget {
 
 class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
   bool _findOpen = false;
+  final GlobalKey<WpFindReplaceBarState> _findKey = GlobalKey();
+
+  /// What the bar opens with: the selection as the query, starting on it.
+  String? _seedQuery;
+  int? _seedAnchor;
+
+  /// Whether the bar opens for a search hit (#653) rather than by key.
+  bool _seedReveal = false;
+
+  /// The button row, whose Smart Mode button anchors the Ctrl/Cmd+J menu.
+  final GlobalKey<_ButtonRowState> _rowKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _attachFind(widget.findCommands);
+    _attachSmart(widget.smartCommands);
+  }
+
+  void _attachSmart(WpSmartActionCommands? commands) => commands?.attach(
+    this,
+    open: () {
+      if (widget.enabled) _rowKey.currentState?._openSmart();
+    },
+  );
+
+  void _attachFind(WpFindCommands? commands) => commands?.attach(
+    this,
+    open: _openFind,
+    next: () => _stepFind(forward: true),
+    previous: () => _stepFind(forward: false),
+    reveal: _revealFind,
+  );
+
+  @override
+  void dispose() {
+    widget.findCommands?.detach(this);
+    widget.smartCommands?.detach(this);
+    super.dispose();
+  }
 
   void _toggleFind() {
     if (_findOpen) {
@@ -372,7 +444,59 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
       _closeFind();
       return;
     }
-    setState(() => _findOpen = true);
+    _openFind();
+  }
+
+  /// Opens the bar with the selection as the query (#647); when it is open
+  /// already, hands it the new selection (or has it select its query).
+  void _openFind() {
+    if (!widget.enabled) return;
+    final controller = widget.controller;
+    final query = WpFindReplaceBar.seedFrom(controller);
+    final anchor = query == null ? null : controller.selection.start;
+    final bar = _findKey.currentState;
+    if (_findOpen && bar != null) {
+      bar.seed(query, anchor: anchor);
+      return;
+    }
+    setState(() {
+      _seedQuery = query;
+      _seedAnchor = anchor;
+      _seedReveal = false;
+      _findOpen = true;
+    });
+  }
+
+  /// Opens the bar on a search hit (#653), or hands the open bar the new
+  /// query; the caret stays in the text, on the hit.
+  void _revealFind(String query, int? anchor) {
+    if (!widget.enabled) return;
+    final bar = _findKey.currentState;
+    if (_findOpen && bar != null) {
+      bar.reveal(query, anchor: anchor);
+      return;
+    }
+    setState(() {
+      _seedQuery = query;
+      _seedAnchor = anchor;
+      _seedReveal = true;
+      _findOpen = true;
+    });
+  }
+
+  /// F3 / Shift+F3: steps when the bar is open, else opens it, which already
+  /// lands on the hit at the caret.
+  void _stepFind({required bool forward}) {
+    final bar = _findKey.currentState;
+    if (!_findOpen || bar == null) {
+      _openFind();
+      return;
+    }
+    if (forward) {
+      bar.next();
+    } else {
+      bar.previous();
+    }
   }
 
   void _closeFind() {
@@ -391,6 +515,14 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
   @override
   void didUpdateWidget(WpMarkdownToolbar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.findCommands != widget.findCommands) {
+      oldWidget.findCommands?.detach(this);
+      _attachFind(widget.findCommands);
+    }
+    if (oldWidget.smartCommands != widget.smartCommands) {
+      oldWidget.smartCommands?.detach(this);
+      _attachSmart(widget.smartCommands);
+    }
     // Leaving editing closes an open find bar: it would otherwise keep a
     // replace field live over text that is now read-only.
     if (oldWidget.enabled && !widget.enabled && _findOpen) {
@@ -412,8 +544,12 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        // The buttons come first: the tags only share the line when the
+        // whole bar still fits beside them, else they move below (#1845).
         if (!constraints.hasBoundedWidth ||
-            width < WpMarkdownToolbar.trailingMinRowWidth) {
+            width < WpMarkdownToolbar.trailingMinRowWidth ||
+            width - WpMarkdownToolbar.trailingMinWidth - WpSpacing.md <
+                _fullButtonsWidth) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,6 +577,22 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
     );
   }
 
+  /// Width of the whole button row on one line, as [_ButtonRow] lays it
+  /// out: undo/redo, eight formatting buttons, the snippet buttons, find
+  /// and text view, with a divider between groups.
+  double get _fullButtonsWidth {
+    final undo = widget.undoController != null;
+    final snippets =
+        (widget.onInsertSnippet != null ? 1 : 0) +
+        (widget.onSaveSelectionAsSnippet != null ? 1 : 0);
+    final outline = widget.onToggleOutline != null ? 1 : 0;
+    final smart = widget.onSmartAction != null ? 1 : 0;
+    final buttons = (undo ? 2 : 0) + 8 + snippets + smart + 2 + outline;
+    final dividers = (undo ? 1 : 0) + 2 + (snippets > 0 ? 1 : 0) + smart + 1;
+    return buttons * _ButtonRowState._buttonExtent +
+        dividers * _ButtonRowState._dividerExtent;
+  }
+
   @override
   Widget build(BuildContext context) {
     // The button row keeps shrink-wrapping (and left-aligning) exactly as it
@@ -453,6 +605,8 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
       children: [
         _withTrailing(
           _ButtonRow(
+            key: _rowKey,
+            onSmartAction: widget.onSmartAction,
             controller: widget.controller,
             focusNode: widget.focusNode,
             findOpen: _findOpen,
@@ -462,14 +616,21 @@ class _WpMarkdownToolbarState extends State<WpMarkdownToolbar> {
             testIdPrefix: widget.testIdPrefix,
             enabled: widget.enabled,
             undoController: widget.undoController,
+            outlineOpen: widget.outlineOpen,
+            onToggleOutline: widget.onToggleOutline,
           ),
         ),
         if (_findOpen && widget.enabled) ...[
           const SizedBox(height: WpSpacing.xs),
           WpFindReplaceBar(
+            key: _findKey,
             controller: widget.controller,
             onClose: _closeFind,
             testIdPrefix: widget.testIdPrefix,
+            initialQuery: _seedQuery,
+            initialAnchor: _seedAnchor,
+            revealInitial: _seedReveal,
+            onReveal: widget.onFindReveal,
           ),
         ],
       ],
@@ -516,13 +677,16 @@ class _ToolbarItem {
   /// Null disables the button: read-only text, or nothing left to undo.
   final VoidCallback? onTap;
 
-  /// Non-null only for the find toggle, the one button with a sticky state.
+  /// Non-null only for the find and outline toggles, the buttons with a
+  /// sticky state.
   final bool? isActive;
   final bool dividerBefore;
 }
 
 class _ButtonRow extends StatefulWidget {
   const _ButtonRow({
+    super.key,
+    this.onSmartAction,
     required this.controller,
     required this.focusNode,
     required this.findOpen,
@@ -532,14 +696,19 @@ class _ButtonRow extends StatefulWidget {
     required this.testIdPrefix,
     required this.enabled,
     required this.undoController,
+    required this.outlineOpen,
+    required this.onToggleOutline,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
+  final bool outlineOpen;
+  final VoidCallback? onToggleOutline;
   final bool findOpen;
   final VoidCallback onToggleFind;
   final VoidCallback? onInsertSnippet;
   final VoidCallback? onSaveSelectionAsSnippet;
+  final ValueChanged<EditorSmartAction>? onSmartAction;
   final String testIdPrefix;
   final bool enabled;
   final TextUndoController? undoController;
@@ -757,17 +926,119 @@ class _ButtonRowState extends State<_ButtonRow> {
           onTap: act(save),
           dividerBefore: widget.onInsertSnippet == null,
         ),
+      // Smart Mode on the selection or the paragraph at the caret (#650).
+      if (widget.onSmartAction != null)
+        _ToolbarItem(
+          id: 'smart-actions',
+          icon: LucideIcons.sparkles,
+          label: l10n.editorSmartActionMenu(
+            editorSmartActionShortcutLabel(l10n),
+          ),
+          onTap: act(_openSmart),
+          dividerBefore: true,
+        ),
       _ToolbarItem(
         id: 'find',
         icon: LucideIcons.textSearch,
-        label: l10n.findReplaceToggle,
+        label: l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
         onTap: act(widget.onToggleFind),
         isActive: widget.findOpen,
         dividerBefore: true,
       ),
+      // The headings of the text, to jump to (#645).
+      if (widget.onToggleOutline case final toggle?)
+        _ToolbarItem(
+          id: 'outline',
+          icon: LucideIcons.listTree,
+          // The key of WpTextEditor.outlineActivator.
+          label: l10n.editorOutlineToggle(
+            commandShortcutLabel('G', shift: true, l10n: l10n),
+          ),
+          onTap: act(toggle),
+          isActive: widget.outlineOpen,
+        ),
+      // Text size, line length and spacing of the body (#648). Here because
+      // all three editors share this bar; usable while reading, too.
+      _ToolbarItem(
+        id: 'text-view',
+        icon: LucideIcons.aLargeSmall,
+        label: l10n.editorTextViewMenu,
+        onTap: _openTextView,
+      ),
     ];
-    _usable = [for (final item in items) item.onTap != null];
-    _ensureNodes(items.length);
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildRow(
+        context,
+        items,
+        constraints.hasBoundedWidth ? constraints.maxWidth : double.infinity,
+        mutedColor: mutedColor,
+        accent: accent,
+        divColor: divColor,
+      ),
+    );
+  }
+
+  /// Width of one button (its 48 px touch target) and of a group divider.
+  static const double _buttonExtent = 48;
+  static const double _dividerExtent = 1 + 2 * WpSpacing.xxs;
+
+  /// How many [items] fit in [maxWidth] on one line; the rest go into a
+  /// "More" menu at the end, which then needs room of its own.
+  static int _fitting(List<_ToolbarItem> items, double maxWidth) {
+    double widthOf(int count) {
+      var w = 0.0;
+      for (var i = 0; i < count; i++) {
+        if (items[i].dividerBefore && i > 0) w += _dividerExtent;
+        w += _buttonExtent;
+      }
+      return w;
+    }
+
+    if (widthOf(items.length) <= maxWidth) return items.length;
+    var count = items.length - 1;
+    while (count > 0 &&
+        widthOf(count) + _dividerExtent + _buttonExtent > maxWidth) {
+      count--;
+    }
+    return count;
+  }
+
+  Widget _buildRow(
+    BuildContext context,
+    List<_ToolbarItem> items,
+    double maxWidth, {
+    required Color mutedColor,
+    required Color accent,
+    required Color divColor,
+  }) {
+    final l10n = L10n.of(context);
+    // One line on every width: what does not fit moves into "More" instead
+    // of wrapping, so a short editor keeps its height for the text (#1845,
+    // notes at 800x600 showed four rows of buttons and no text).
+    final fit = _fitting(items, maxWidth);
+    final hidden = items.sublist(fit);
+    final shown = [
+      ...items.take(fit),
+      if (hidden.isNotEmpty)
+        _ToolbarItem(
+          id: 'more',
+          icon: LucideIcons.ellipsis,
+          label: l10n.dockOverflow,
+          onTap: () => _openMore(hidden),
+          dividerBefore: true,
+        ),
+    ];
+    _usable = [for (final item in shown) item.onTap != null];
+    _textViewIndex = fit == items.length ? items.length - 1 : shown.length - 1;
+    // The Smart Mode menu opens under its own button, or under "More" when
+    // that button moved in there.
+    final smart = items.indexWhere((item) => item.id == 'smart-actions');
+    _smartIndex = smart < 0
+        ? -1
+        : smart < fit
+        ? smart
+        : shown.length - 1;
+    _ensureNodes(shown.length);
 
     final rtl = Directionality.of(context) == TextDirection.rtl;
     final forward = rtl
@@ -778,9 +1049,9 @@ class _ButtonRowState extends State<_ButtonRow> {
         : LogicalKeyboardKey.arrowLeft;
 
     final children = <Widget>[];
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      if (item.dividerBefore) {
+    for (var i = 0; i < shown.length; i++) {
+      final item = shown[i];
+      if (item.dividerBefore && i > 0) {
         children.add(
           ExcludeSemantics(
             child: Container(
@@ -820,17 +1091,65 @@ class _ButtonRowState extends State<_ButtonRow> {
           SingleActivator(backward): () => _focusAt(_focused - 1, step: -1),
           const SingleActivator(LogicalKeyboardKey.home): () => _focusAt(0),
           const SingleActivator(LogicalKeyboardKey.end): () =>
-              _focusAt(items.length - 1, step: -1),
+              _focusAt(shown.length - 1, step: -1),
         },
-        // Wraps instead of scrolling: with 48 dp targets the bar is wider
-        // than a narrow editor, and a button scrolled out of view is out
-        // of reach for the mouse (#652).
-        child: Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: children,
-        ),
+        // Neither wraps nor scrolls: a scrolled-out button is out of reach
+        // for the mouse (#652), and wrapping took the text's height on a
+        // short editor; the "More" menu holds what does not fit.
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
       ),
     );
+  }
+
+  /// Index of the text view button, the last item; set by [build].
+  int _textViewIndex = 0;
+
+  /// Opens the text view menu under its button.
+  void _openTextView() {
+    final index = _textViewIndex;
+    final buttonContext = index < _nodes.length ? _nodes[index].context : null;
+    if (buttonContext == null || !buttonContext.mounted) return;
+    showWpListMenu(buttonContext, editorTextViewMenuActions(buttonContext));
+  }
+
+  /// Index of the Smart Mode button (or "More" holding it); -1 without one.
+  int _smartIndex = -1;
+
+  /// Opens the menu of the four Smart Mode actions (#650) under its button;
+  /// by click and by Ctrl/Cmd+J alike.
+  void _openSmart() {
+    final onAction = widget.onSmartAction;
+    final index = _smartIndex;
+    if (onAction == null || index < 0 || index >= _nodes.length) return;
+    final buttonContext = _nodes[index].context;
+    if (buttonContext == null || !buttonContext.mounted) return;
+    showWpListMenu(
+      buttonContext,
+      editorSmartActionMenuActions(
+        buttonContext,
+        testIdPrefix: widget.testIdPrefix,
+        onAction: onAction,
+      ),
+    );
+  }
+
+  /// The buttons that did not fit, as a menu under the "More" button.
+  void _openMore(List<_ToolbarItem> hidden) {
+    final index = _nodes.length - 1;
+    final buttonContext = index >= 0 ? _nodes[index].context : null;
+    if (buttonContext == null || !buttonContext.mounted) return;
+    showWpListMenu(buttonContext, [
+      for (final item in hidden)
+        WpListMenuAction(
+          itemKey: ValueKey('${widget.testIdPrefix}-toolbar-more-${item.id}'),
+          label: item.label,
+          icon: item.icon,
+          checked: item.isActive,
+          enabled: item.onTap != null,
+          dividerBefore: item.dividerBefore && item != hidden.first,
+          onSelected: item.onTap ?? () {},
+        ),
+    ]);
   }
 
   /// Like the formatting buttons: act, then hand the caret back.
@@ -862,8 +1181,8 @@ class _ToolbarButton extends StatefulWidget {
   final FocusNode focusNode;
   final String testId;
 
-  /// Sticky pressed state — only the find toggle has one, because only it
-  /// opens something that stays open. The formatting buttons act and are done.
+  /// Sticky pressed state — only the find and outline toggles have one,
+  /// because only they open something that stays open. The formatting buttons act and are done.
   final bool? isActive;
 
   @override

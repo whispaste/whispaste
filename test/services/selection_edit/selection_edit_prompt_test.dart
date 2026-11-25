@@ -4,7 +4,7 @@ import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 
 void main() {
   group('selectionEditQuickActionFor', () {
-    test('maps the spoken keywords of all four UI locales', () {
+    test('maps the spoken keywords of the UI locales', () {
       const cases = {
         // en
         'shorter': SelectionEditQuickAction.shorten,
@@ -24,6 +24,18 @@ void main() {
         'קצר': SelectionEditQuickAction.shorten,
         'שפר.': SelectionEditQuickAction.improve,
         'תרגם': SelectionEditQuickAction.translate,
+        // fr
+        'Plus court.': SelectionEditQuickAction.shorten,
+        'Améliore': SelectionEditQuickAction.improve,
+        'Traduire !': SelectionEditQuickAction.translate,
+        // it
+        'Più breve.': SelectionEditQuickAction.shorten,
+        'migliora': SelectionEditQuickAction.improve,
+        'Traduci': SelectionEditQuickAction.translate,
+        // zh: transcripts end with the full-width full stop
+        '更短。': SelectionEditQuickAction.shorten,
+        '改进': SelectionEditQuickAction.improve,
+        '翻译！': SelectionEditQuickAction.translate,
       };
       for (final MapEntry(:key, :value) in cases.entries) {
         expect(selectionEditQuickActionFor(key), value, reason: key);

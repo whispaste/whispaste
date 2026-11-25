@@ -11,10 +11,23 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
+import 'package:whispaste/core/config/settings_sections.dart'
+    show MediaWhileRecording;
 import 'package:whispaste/features/settings/sections/recording_sections.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/media_pause/media_pause_providers.dart';
 
 import '../../../fixtures/test_helpers.dart';
+
+/// The microphone dropdown: every `DropdownButton<String>` except the media
+/// choice (#1511), which sits in the same card.
+final _micDropdown = find.descendant(
+  of: find.byWidgetPredicate(
+    (w) => w is WpSettingsRow && w.rowId == 'recording-microphone',
+  ),
+  matching: find.byType(DropdownButton<String>),
+);
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -82,7 +95,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Only one device → dropdown is suppressed, no DropdownButton in tree.
-        expect(find.byType(DropdownButton<String>), findsNothing);
+        expect(_micDropdown, findsNothing);
       },
     );
 
@@ -119,7 +132,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      expect(_micDropdown, findsOneWidget);
     });
 
     testWidgets(
@@ -149,7 +162,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(DropdownButton<String>), findsNothing);
+        expect(_micDropdown, findsNothing);
 
         shown.value = false;
         await tester.pumpAndSettle();
@@ -157,7 +170,7 @@ void main() {
         shown.value = true;
         await tester.pumpAndSettle();
 
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(_micDropdown, findsOneWidget);
       },
     );
 
@@ -277,6 +290,39 @@ void main() {
 
       // Banner gone — count reset to 0.
       expect(find.byIcon(LucideIcons.alertTriangle), findsNothing);
+    });
+  });
+
+  group('Media while dictating (#1511)', () {
+    testWidgets('picking a choice stores it', (tester) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: AudioSection()),
+          overrides: [
+            ..._overrides(settings: notifier),
+            mediaPauseAvailableProvider.overrideWith((ref) async => true),
+            mediaDuckAvailableProvider.overrideWith((ref) async => true),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('mediaWhileRecording')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find
+            .byKey(const ValueKey<String>('mediaWhileRecording-item-duck'))
+            .last,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        notifier._settings.audioInput.mediaWhileRecording,
+        MediaWhileRecording.duck,
+      );
     });
   });
 }

@@ -142,6 +142,7 @@ class _WindowButtonState extends State<_WindowButton> {
         onExit: (_) => setState(() => _isHovered = false),
         child: WpFocusRing(
           focusNode: _focusNode,
+          ringColor: WpColors.frame.accent,
           radius: WpRadius.sm,
           child: InkWell(
             onTap: widget.onPressed,
@@ -226,6 +227,7 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
         onExit: (_) => setState(() => _isHovered = false),
         child: WpFocusRing(
           focusNode: _focusNode,
+          ringColor: WpColors.frame.accent,
           radius: WpRadius.sm,
           child: InkWell(
             onTap: () async {

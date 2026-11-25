@@ -31,6 +31,10 @@ void main() {
       expect(SupportLinkSurface.about.wireName, 'about');
       expect(SupportLinkSurface.supportTab.wireName, 'support_tab');
       expect(SupportLinkSurface.tray.wireName, 'tray');
+      expect(
+        SupportLinkSurface.overviewCommunity.wireName,
+        'overview_community',
+      );
     });
 
     test('name is <stelle>.<ziel>', () {
@@ -42,6 +46,16 @@ void main() {
       expect(
         linkOpenedName(SupportLinkSurface.supportTab, 'github'),
         'support_tab.github',
+      );
+    });
+
+    test('the trailer frame counts as overview_community.youtube_video', () {
+      expect(
+        linkOpenedName(
+          SupportLinkSurface.overviewCommunity,
+          kTrailerLinkTarget,
+        ),
+        'overview_community.youtube_video',
       );
     });
   });

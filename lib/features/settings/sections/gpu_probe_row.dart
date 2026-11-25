@@ -8,11 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/gpu_probe_process.dart';
 import '../../../services/stt/whisper/gpu_probe.dart';
 import '../widgets/wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 class SttGpuProbeRow extends ConsumerStatefulWidget {
   const SttGpuProbeRow({super.key});
@@ -51,22 +51,18 @@ class _SttGpuProbeRowState extends ConsumerState<SttGpuProbeRow> {
       rowId: 'speech-gpu-probe',
       title: l10n.settingsGpuProbeTitle,
       subtitle: subtitle,
-      trailing: Semantics(
-        identifier: 'settings-gpu-probe-retry',
-        label: l10n.settingsGpuProbeRetry,
-        button: true,
-        child: IconButton(
-          key: const ValueKey('settings-gpu-probe-retry'),
-          icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
-          tooltip: l10n.settingsGpuProbeRetry,
-          onPressed: () {
-            service.retry(key);
-            setState(() {
-              _record = null;
-              _read = true;
-            });
-          },
-        ),
+      trailing: WpIconButton.ghost(
+        key: const ValueKey('settings-gpu-probe-retry'),
+        testId: 'settings-gpu-probe-retry',
+        icon: LucideIcons.refreshCw,
+        tooltip: l10n.settingsGpuProbeRetry,
+        onPressed: () {
+          service.retry(key);
+          setState(() {
+            _record = null;
+            _read = true;
+          });
+        },
       ),
     );
   }

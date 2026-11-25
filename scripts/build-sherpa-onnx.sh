@@ -69,6 +69,13 @@ if [[ "$actual_commit" != "$SHERPA_COMMIT" ]]; then
   exit 1
 fi
 
+# Registration errors must reach the Dart CPU retry, never silently claim GPU.
+PATCH="$REPO_ROOT/scripts/sherpa-provider.patch"
+if ! git -C "$SRC" apply --reverse --check "$PATCH" 2>/dev/null; then
+  git -C "$SRC" apply --check "$PATCH"
+  git -C "$SRC" apply "$PATCH"
+fi
+
 JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)"
 
 # Configure: shared C API only, TTS and everything else off.
@@ -172,6 +179,12 @@ done
 {
   echo "sherpa-onnx $SHERPA_TAG ($SHERPA_COMMIT)"
   echo "platform: $STAGE_NAME"
+  echo "provider-patch: $(cmake -E sha256sum "$PATCH" | cut -d' ' -f1)"
+  if [[ "$PLATFORM" == macos ]]; then
+    echo "providers: cpu coreml"
+  else
+    echo "providers: cpu"
+  fi
   echo "tts: OFF (no espeak-ng, no piper-phonemize)"
   echo "built: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # SHA-256 of every staged file, checked after the cache restore (GS-007).
@@ -183,6 +196,12 @@ done
     echo "sha256 $name $h"
   done
 } > "$STAGE/BUILD_INFO"
+
+if [[ "$PLATFORM" == macos ]]; then
+  otool -L "$STAGE/libonnxruntime.dylib" | grep -q 'CoreML.framework' || {
+    echo "error: staged ONNX Runtime lacks CoreML" >&2; exit 1;
+  }
+fi
 
 # 5. Refuse to stage anything that does not match the pins, or that still
 # carries espeak-ng.

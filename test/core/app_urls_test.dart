@@ -48,11 +48,17 @@ void main() {
 
   group('app_urls consumer consistency', () {
     // Verification test (grep-based): no source file outside app_urls.dart
-    // may hardcode the sponsors/Ko-fi URL literals — every consumer must
-    // reference the named constants instead, so a single edit here
-    // propagates everywhere.
-    const sponsorsLiteral = "'https://github.com/sponsors/silvio-l'";
-    const kofiLiteral = "'https://ko-fi.com/silviol'";
+    // may hardcode a support provider address (GitHub Sponsors, Ko-fi,
+    // Buy Me a Coffee, PayPal) — every consumer must reference the named
+    // constants instead, so a single edit here propagates everywhere (GR-027).
+    // Matching the host instead of the full literal also catches a second,
+    // diverging handle (for example a typo in the Ko-fi user name).
+    const providerHosts = [
+      'github.com/sponsors/',
+      'ko-fi.com/',
+      'buymeacoffee.com/',
+      'paypal.com/donate',
+    ];
 
     Iterable<File> dartFilesUnder(String dirPath) {
       final dir = Directory(dirPath);
@@ -64,7 +70,7 @@ void main() {
     }
 
     test(
-      'no lib/ file other than app_urls.dart hardcodes the sponsors/Ko-fi URL',
+      'no lib/ file other than app_urls.dart hardcodes a support provider URL',
       () {
         final offenders = <String>[];
         for (final file in dartFilesUnder('lib')) {
@@ -76,8 +82,7 @@ void main() {
             continue;
           }
           final content = file.readAsStringSync();
-          if (content.contains(sponsorsLiteral) ||
-              content.contains(kofiLiteral)) {
+          if (providerHosts.any(content.contains)) {
             offenders.add(file.path);
           }
         }
@@ -85,11 +90,43 @@ void main() {
           offenders,
           isEmpty,
           reason:
-              'These files hardcode the sponsors/Ko-fi URL instead of '
-              'referencing kGitHubSponsorsUrl/kKofiUrl from app_urls.dart: '
+              'These files hardcode a support provider URL instead of '
+              'referencing kGitHubSponsorsUrl/kKofiUrl/kBuyMeACoffeeUrl/'
+              'kPayPalUrl from app_urls.dart: '
               '$offenders',
         );
       },
     );
+  });
+
+  group('trailer on YouTube', () {
+    test('German UI gets the German cut, every other language the English', () {
+      expect(trailerVideoIdFor('de'), kTrailerVideoIdDe);
+      expect(trailerVideoIdFor('DE'), kTrailerVideoIdDe);
+      for (final code in ['en', 'es', 'fr', 'he', 'it', 'pt', 'ru', 'zh']) {
+        expect(trailerVideoIdFor(code), kTrailerVideoIdEn, reason: code);
+      }
+      expect(trailerVideoIdFor(''), kTrailerVideoIdEn);
+    });
+
+    test('the ids are the published trailers', () {
+      expect(kTrailerVideoIdDe, 'UDyacr_B-cA');
+      expect(kTrailerVideoIdEn, 'OU6hfYu06kY');
+    });
+
+    test('the click opens the plain watch page, no campaign parameters', () {
+      expect(
+        youTubeWatchUrl(kTrailerVideoIdDe),
+        'https://www.youtube.com/watch?v=UDyacr_B-cA',
+      );
+      expect(
+        youTubeWatchUrl(kTrailerVideoIdEn),
+        'https://www.youtube.com/watch?v=OU6hfYu06kY',
+      );
+      expect(
+        Uri.parse(youTubeWatchUrl(kTrailerVideoIdEn)).queryParameters.keys,
+        ['v'],
+      );
+    });
   });
 }

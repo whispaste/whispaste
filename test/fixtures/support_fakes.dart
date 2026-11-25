@@ -4,6 +4,7 @@
 library;
 
 import 'package:http/http.dart' as http;
+import 'package:whispaste/features/help/support_value.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/social_stats/social_stats_logic.dart';
 import 'package:whispaste/services/social_stats/social_stats_service.dart';
@@ -102,6 +103,7 @@ List<Object> supportOverrides({
   bool buyMeACoffeeFirst = false,
   TelemetryService? telemetry,
   Future<bool>? pendingCoffeeOrder,
+  SupportValue? value,
 }) => [
   deployChannelProvider.overrideWithValue(channel),
   supportPlatformProvider.overrideWithValue(platform),
@@ -115,6 +117,7 @@ List<Object> supportOverrides({
     return products;
   }),
   telemetryProvider.overrideWithValue(telemetry ?? silentTelemetry()),
+  supportValueProvider.overrideWith((ref) async => value),
   socialStatsProvider.overrideWith(
     () => socialStatsNotifier ?? FakeSocialStatsNotifier(socialStats),
   ),

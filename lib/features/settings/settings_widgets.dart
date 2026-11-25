@@ -15,6 +15,7 @@ import '../../widgets/wp_dropdown.dart';
 import '../../widgets/wp_focus_ring.dart';
 import '../../widgets/wp_text_field.dart';
 import 'widgets/wp_settings_group.dart';
+import '../../widgets/wp_icon_button.dart';
 
 // ---------------------------------------------------------------------------
 // SettingRow — single row with icon, label, optional subtitle, and control
@@ -677,25 +678,12 @@ Widget settingsApiKeyField({
     hintText: 'sk-...',
     obscureText: obscure,
     onChanged: onChanged,
-    suffix: Semantics(
-      identifier: visibilityTestId,
-      label: L10n.of(context).settingsToggleApiKeyVisibility,
-      button: true,
-      child: IconButton(
-        key: visibilityTestId == null ? null : ValueKey(visibilityTestId),
-        icon: Icon(
-          obscure ? LucideIcons.eye : LucideIcons.eyeOff,
-          size: WpIconSize.sm,
-          color: WpColors.textMuted,
-        ),
-        onPressed: onToggle,
-        tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(
-          minWidth: WpLayout.minTouchTarget,
-          minHeight: WpLayout.minTouchTarget,
-        ),
-      ),
+    suffix: WpIconButton.ghost(
+      key: visibilityTestId == null ? null : ValueKey(visibilityTestId),
+      testId: visibilityTestId,
+      icon: obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+      onPressed: onToggle,
+      tooltip: L10n.of(context).settingsToggleApiKeyVisibility,
     ),
   );
   return SizedBox(
@@ -909,15 +897,15 @@ Widget settingsInlineNotice({
             ),
           ),
           if (onDismiss != null)
-            IconButton(
-              icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warning),
-              tooltip: dismissTooltip,
+            WpIconButton.ghost(
+              icon: LucideIcons.x,
+              color: warning,
+              // The tooltip is the button's accessible name, so a caller
+              // without its own wording still gets one.
+              tooltip:
+                  dismissTooltip ??
+                  MaterialLocalizations.of(context).closeButtonTooltip,
               onPressed: onDismiss,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: WpLayout.minTouchTarget,
-                minHeight: WpLayout.minTouchTarget,
-              ),
             ),
         ],
       ),

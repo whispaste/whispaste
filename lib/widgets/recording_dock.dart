@@ -806,6 +806,7 @@ class WpRecordingDock extends ConsumerWidget {
             label: afterTranscriptionDockLabel(action, l10n),
             onTap: () => onAfterActionChanged!(action),
             checked: action == current,
+            choice: true,
           ),
     ];
   }
@@ -843,6 +844,7 @@ class WpRecordingDock extends ConsumerWidget {
               : option,
           onTap: () => onMicrophoneChanged!(option),
           checked: option == current,
+          choice: true,
         ),
     ];
   }

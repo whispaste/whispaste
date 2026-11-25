@@ -83,6 +83,17 @@ ProviderContainer _makeContainer({required _FakeFetcher fetcher}) {
   );
 }
 
+/// A sparse file of the model's pinned size: the installed check reads the
+/// size, so no 3 GB are written.
+void _writePinnedSizePlaceholder(String path) {
+  final raf = File(path).openSync(mode: FileMode.write);
+  try {
+    raf.truncateSync(smartModeModel.sizeBytes);
+  } finally {
+    raf.closeSync();
+  }
+}
+
 void main() {
   late Directory tempDir;
 
@@ -150,11 +161,10 @@ void main() {
       'initial disk scan marks pre-existing correct file as downloaded',
       () async {
         // Cannot fabricate a file matching the real SHA256, so this exercises
-        // the scan-finds-file branch via a placeholder — verification of the
-        // "already downloaded" happy path is left to hash equality, which the
-        // scan itself does not check (see _scanExistingModelAsync).
+        // the scan-finds-file branch via a sparse placeholder of the pinned
+        // size: the scan checks the size only, never the hash (#1513).
         final destPath = p.join(tempDir.path, smartModeModel.filename);
-        await File(destPath).writeAsBytes([0]);
+        _writePinnedSizePlaceholder(destPath);
 
         final fetcher = _FakeFetcher();
         final container = _makeContainer(fetcher: fetcher);
@@ -167,6 +177,22 @@ void main() {
         expect(state.modelDownloaded, isTrue);
       },
     );
+
+    test('a file of another size is not installed (#1513)', () async {
+      final destPath = p.join(tempDir.path, smartModeModel.filename);
+      await File(destPath).writeAsBytes([0]);
+
+      final container = _makeContainer(fetcher: _FakeFetcher());
+      addTearDown(container.dispose);
+
+      await container
+          .read(smartModeDownloadProvider.notifier)
+          .awaitInitialScan();
+      expect(
+        container.read(smartModeDownloadProvider).modelDownloaded,
+        isFalse,
+      );
+    });
   });
 
   group('Network error', () {
@@ -229,7 +255,7 @@ void main() {
   group('deleteModel', () {
     test('removes the file and clears modelDownloaded', () async {
       final destPath = p.join(tempDir.path, smartModeModel.filename);
-      await File(destPath).writeAsBytes([0]);
+      _writePinnedSizePlaceholder(destPath);
 
       final fetcher = _FakeFetcher();
       final container = _makeContainer(fetcher: fetcher);

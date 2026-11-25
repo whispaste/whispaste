@@ -1,83 +1,106 @@
+/// How much of the term list each recognition can take (#622, #1969).
+///
+/// The term list (`stt.customVocabulary`) is written most used first
+/// (`auto_terms.dart`), so every cut here keeps the FRONT and drops whole
+/// terms from the end: the most valuable terms survive, and no term reaches
+/// an engine half cut (a cut "Mac Studio" would bias towards "Mac").
+///
+/// Per recognition:
+/// - On-device Whisper: one `initial_prompt` of
+///   `SttServerStateNotifier.promptTokenBudget` (63) real tokens. Counted
+///   with the loaded model ([vocabularyWithinTokens]); without a count only
+///   a byte-safe prefix is sent ([vocabularyWithinBytes]), because
+///   whisper.cpp itself would keep the LAST tokens, the least used terms.
+/// - OpenAI and the own OpenAI-compatible endpoint: the `prompt` field.
+///   whisper-1 and Whisper-based servers read only the last 224 tokens;
+///   newer models document no limit. [vocabularyForCloudPrompt] keeps an
+///   estimated [kCloudPromptVocabularyTokens], room left for the carried
+///   context, which sits behind it.
+/// - Deepgram and the system recogniser: `deepgramKeyterms` (50 terms,
+///   500 bytes, front first).
+/// - Parakeet: no prompt channel.
+library;
+
 import 'dart:convert' show utf8;
 
-import '../../core/config/settings_enums.dart';
-import '../stt/stt_server_state_notifier.dart' show SttServerStateNotifier;
-import '../transcription/deepgram_transcriber.dart'
-    show kDeepgramKeytermByteBudget, kDeepgramKeytermMaxCount;
 import 'vocabulary_terms.dart';
 
-/// Exact token count of a text with the loaded on-device model, or null when
-/// no model is loaded (the real count is then unknown).
-typedef TermTokenCounter = Future<int?> Function(String text);
-
-/// Index of the first term the active recognition no longer uses, or null
-/// when it uses all of them (or the limit cannot be told).
-///
-/// The terms keep their order of priority: what comes first is used first.
-/// - On-device Whisper: the terms go in as one prompt of
-///   [SttServerStateNotifier.promptTokenBudget] real tokens; the rest is cut.
-///   Each prefix is written with [encodeVocabulary] in the style of [style]
-///   (the stored vocabulary), the same text [vocabularyPrompt] hands to the
-///   recognition, so the list and the engine count alike (#145).
-///   Only the exact count of the loaded model is trusted, so without
-///   [countTokens] (no model loaded) nothing is claimed.
-/// - Deepgram: at most [kDeepgramKeytermMaxCount] terms and
-///   [kDeepgramKeytermByteBudget] bytes (the first term that does not fit).
-/// - Engines without a prompt channel and the OpenAI-style endpoints have no
-///   limit known to the app, so no term is reported as left out.
-Future<int?> firstLeftOutTerm(
-  List<String> terms, {
-  required SttProviderType provider,
-  required OnDeviceEngine engine,
-  String style = '',
-  TermTokenCounter? countTokens,
-}) async {
-  switch (provider) {
-    case SttProviderType.deepgram:
-      // The same choice as `deepgramKeyterms`: a repeated term is not sent
-      // twice, a term past the count limit ends the list, one past the byte
-      // budget is skipped. The line goes before the first term it affects.
-      final seen = <String>{};
-      var sent = 0;
-      var bytes = 0;
-      for (var i = 0; i < terms.length; i++) {
-        if (!seen.add(terms[i].toLowerCase())) continue;
-        if (sent >= kDeepgramKeytermMaxCount) return i;
-        final termBytes = utf8.encode(terms[i]).length;
-        if (bytes + termBytes > kDeepgramKeytermByteBudget) return i;
-        sent++;
-        bytes += termBytes;
-      }
-      return null;
-    case SttProviderType.onDevice when engine == OnDeviceEngine.whisper:
-      if (countTokens == null || terms.isEmpty) return null;
-      const budget = SttServerStateNotifier.promptTokenBudget;
-      // null: the model went away mid-count, so nothing is claimed.
-      Future<bool?> fits(int n) async {
-        final count = await countTokens(
-          encodeVocabulary(terms.take(n), style: style),
-        );
-        return count == null ? null : count <= budget;
-      }
-
-      final all = await fits(terms.length);
-      if (all == null || all) return null;
-      // The prefix length that still fits is monotone: bisect it.
-      var lo = 0; // fits
-      var hi = terms.length; // does not fit
-      while (hi - lo > 1) {
-        final mid = (lo + hi) ~/ 2;
-        final ok = await fits(mid);
-        if (ok == null) return null;
-        if (ok) {
-          lo = mid;
-        } else {
-          hi = mid;
-        }
-      }
-      // The term at [lo] is cut or dropped.
-      return lo;
-    case _:
-      return null;
+/// The units [stored] is cut in, and how a run of them is written: its
+/// terms, or, for a text without a term separator (one free sentence), its
+/// words, so such a prompt is still cut at a word and not dropped whole.
+(List<String>, String Function(Iterable<String>)) _units(String stored) {
+  final terms = vocabularyTerms(stored);
+  if (terms.length == 1 && !stored.contains(RegExp(r'[,\n]'))) {
+    return (
+      stored.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList(),
+      (words) => words.join(' '),
+    );
   }
+  return (terms, (t) => encodeVocabulary(t, style: stored));
 }
+
+/// Estimated tokens the vocabulary may take in a cloud `prompt`: 224
+/// (whisper-1's window) minus about 60 for the carried context of up to 200
+/// characters (`kContinuityContextChars`) and a margin.
+const int kCloudPromptVocabularyTokens = 150;
+
+/// Conservative token estimate without a tokenizer: one token per started
+/// three UTF-8 bytes. Whisper's BPE averages about four characters per token
+/// in Latin script and about one per character in CJK (three bytes), so the
+/// estimate errs high.
+int estimatedPromptTokens(String text) => (utf8.encode(text).length + 2) ~/ 3;
+
+/// The vocabulary [stored] cut to its longest run of leading whole terms
+/// for which [fits] holds, written in its own style. [fits] must be
+/// monotone (a prefix of a fitting text fits).
+Future<String> _leadingTerms(
+  String stored,
+  Future<bool> Function(String text) fits,
+) async {
+  final (terms, write) = _units(stored);
+  String text(int n) => write(terms.take(n));
+  if (terms.isEmpty) return '';
+  if (await fits(text(terms.length))) return text(terms.length);
+  var lo = 0; // fits
+  var hi = terms.length; // does not fit
+  while (hi - lo > 1) {
+    final mid = (lo + hi) ~/ 2;
+    if (await fits(text(mid))) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return text(lo);
+}
+
+/// [stored] cut to the leading whole terms that fit [budget] real tokens of
+/// [countTokens] (the loaded Whisper model).
+Future<String> vocabularyWithinTokens(
+  String stored,
+  int budget,
+  Future<int> Function(String text) countTokens,
+) => _leadingTerms(stored, (t) async => await countTokens(t) <= budget);
+
+/// The leading whole terms of [stored] for which [fits] holds (sync).
+String _leadingTermsSync(String stored, bool Function(String text) fits) {
+  final (terms, write) = _units(stored);
+  var n = 0;
+  while (n < terms.length && fits(write(terms.take(n + 1)))) {
+    n++;
+  }
+  return write(terms.take(n));
+}
+
+/// [stored] cut to the leading whole terms within [maxBytes] UTF-8 bytes.
+/// A Whisper token is never shorter than one byte, so this never exceeds a
+/// token budget of the same size.
+String vocabularyWithinBytes(String stored, int maxBytes) =>
+    _leadingTermsSync(stored, (t) => utf8.encode(t).length <= maxBytes);
+
+/// [stored] cut for a cloud `prompt` to about
+/// [kCloudPromptVocabularyTokens] estimated tokens, whole terms only.
+String vocabularyForCloudPrompt(String stored) => _leadingTermsSync(
+  stored,
+  (t) => estimatedPromptTokens(t) <= kCloudPromptVocabularyTokens,
+);

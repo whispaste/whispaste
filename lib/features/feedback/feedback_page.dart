@@ -20,7 +20,6 @@ import '../../services/feedback_consent_store.dart';
 import '../../services/feedback_submission_service.dart';
 import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
-import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_voice_input_button.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/wp_button.dart';
@@ -72,9 +71,9 @@ String _promptFor(L10n l10n, FeedbackType type) => switch (type) {
   FeedbackType.other => l10n.feedbackPromptOther,
 };
 
-/// Mirrors the server-side CHECK constraint on `user_feedback.contact_email`
-/// (`supabase/migrations/20260717_add_feedback_contact_email.sql`) — a
-/// deliberately loose format check, not full RFC validation. Client-side
+/// Mirrors the server-side format check on the contact e-mail of the
+/// WhisPaste API — a deliberately loose format check, not full RFC
+/// validation. Client-side
 /// only blocks obvious typos; the server is the source of truth.
 final _emailFormat = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
@@ -231,6 +230,9 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
   /// The diagnostics block, when attached (read live: the engine may change).
   String get _diagnosticBlock => ref.read(feedbackDiagnosticBlockProvider);
+
+  String get _diagnosticAttachment =>
+      ref.read(feedbackDiagnosticAttachmentProvider);
 
   /// The text the server receives: the message, plus the opt-in block. The
   /// type travels as `kind`, so the text carries no tag.
@@ -512,10 +514,14 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                     // The text, with a dictation button in the field
                     // (FB-05). Always shown: the type is optional.
                     const SizedBox(height: WpSpacing.xxl - _chipRowSlack),
-                    if (_type != null) ...[
-                      _ChatPrompt(text: _promptFor(l10n, _type!)),
-                      const SizedBox(height: WpSpacing.md),
-                    ],
+                    // Without a chosen type the field still says what goes
+                    // in it; an empty box gave no clue (#1845).
+                    _ChatPrompt(
+                      text: _type == null
+                          ? l10n.feedbackPromptOther
+                          : _promptFor(l10n, _type!),
+                    ),
+                    const SizedBox(height: WpSpacing.md),
                     ...[
                       if (_type == FeedbackType.idea) ...[
                         Text(
@@ -535,25 +541,26 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                       ],
                       if (_type == FeedbackType.idea)
                         const SizedBox(height: WpSpacing.md),
-                      Semantics(
-                        identifier: 'feedback-text-field',
-                        child: WpTextField(
-                          key: const Key('feedbackCommentField'),
-                          controller: _commentController,
-                          variant: WpTextFieldVariant.form,
-                          minLines: 3,
-                          maxLines: 5,
-                          maxLength: _commentMaxLength,
-                          // The app's own dictation button, as in the notes
-                          // editor: the transcript lands in this field.
-                          suffix: Semantics(
-                            identifier: 'feedback-dictate-button',
-                            child: WpVoiceInputButton(
-                              onTranscript: _insertDictation,
-                            ),
+                      WpTextField(
+                        testId: 'feedback-text-field',
+                        key: const Key('feedbackCommentField'),
+                        controller: _commentController,
+                        semanticsLabel: _type == null
+                            ? l10n.feedbackPromptOther
+                            : _promptFor(l10n, _type!),
+                        variant: WpTextFieldVariant.form,
+                        minLines: 3,
+                        maxLines: 5,
+                        maxLength: _commentMaxLength,
+                        // The app's own dictation button, as in the notes
+                        // editor: the transcript lands in this field.
+                        suffix: Semantics(
+                          identifier: 'feedback-dictate-button',
+                          child: WpVoiceInputButton(
+                            onTranscript: _insertDictation,
                           ),
-                          onChanged: (_) => setState(() {}),
                         ),
+                        onChanged: (_) => setState(() {}),
                       ),
 
                       const SizedBox(height: WpSpacing.xxl),
@@ -592,8 +599,15 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                       _DiagnosticsOption(
                         attached: _attachDiagnostics,
                         previewOpen: _showDiagnosticsPreview,
-                        block: _diagnosticBlock,
+                        block: _attachDiagnostics
+                            ? _diagnosticAttachment
+                            : _diagnosticBlock,
                         onAttachedChanged: (value) => _update(() {
+                          if (value) {
+                            ref.invalidate(
+                              feedbackDiagnosticAttachmentProvider,
+                            );
+                          }
                           _attachDiagnostics = value;
                           if (!value) _showDiagnosticsPreview = false;
                         }),
@@ -761,6 +775,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         installHash: consentTokenHash(readInstallId()),
         email: email,
         rating: _rating,
+        diagnostics: _attachDiagnostics ? _diagnosticAttachment : null,
         // Version and system only travel with the opt-in diagnostics.
         appVersion: _attachDiagnostics ? appVersion : null,
         os: _attachDiagnostics ? contactOsName(Platform.operatingSystem) : null,
@@ -1009,24 +1024,29 @@ class _ContactEmailSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.feedbackContactEmailLabel, style: ts.titleSmall),
+        // The field below carries this name; read once, on the field.
+        ExcludeSemantics(
+          child: Text(l10n.feedbackContactEmailLabel, style: ts.titleSmall),
+        ),
         const SizedBox(height: WpSpacing.xs),
         Text(
           l10n.feedbackContactEmailExplanation,
           style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
         ),
         const SizedBox(height: WpSpacing.sm),
-        Semantics(
-          identifier: 'feedback-email-field',
-          child: WpTextField(
-            key: const Key('feedbackEmailField'),
-            controller: emailController,
-            variant: WpTextFieldVariant.form,
-            hintText: l10n.feedbackContactEmailPlaceholder,
-            // An address is never a word the dictionary should second-guess.
-            autocorrect: false,
-            onChanged: (_) => onEmailChanged(),
-          ),
+        WpTextField(
+          testId: 'feedback-email-field',
+          key: const Key('feedbackEmailField'),
+          controller: emailController,
+          variant: WpTextFieldVariant.form,
+          // Named like its visible heading, not only by the placeholder
+          // (#1916); the address itself is the field's purpose.
+          semanticsLabel: l10n.feedbackContactEmailLabel,
+          hintText: l10n.feedbackContactEmailPlaceholder,
+          autofillHints: const [AutofillHints.email],
+          // An address is never a word the dictionary should second-guess.
+          autocorrect: false,
+          onChanged: (_) => onEmailChanged(),
         ),
         if (showInvalidEmail) ...[
           const SizedBox(height: WpSpacing.xs),
@@ -1143,35 +1163,17 @@ class _DiagnosticsOption extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The shared consent checkbox: same box, label and focus ring as the
+        // other optional choices in the form. Its own InkWell drew only the
+        // default grey focus halo, about 1.2:1 on the page (#1845).
         Semantics(
           identifier: 'feedback-diagnostics-checkbox',
-          child: InkWell(
-            borderRadius: WpRadius.borderMd,
-            onTap: () => onAttachedChanged(!attached),
-            child: Row(
-              children: [
-                WpRowCheckbox(
-                  key: const Key('feedback-diagnostics-attach'),
-                  value: attached,
-                  semanticsLabel: l10n.feedbackDiagnosticsLabel,
-                  onChanged: () => onAttachedChanged(!attached),
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Flexible(
-                  child: Text(
-                    l10n.feedbackDiagnosticsLabel,
-                    style: ts.titleSmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: WpRowCheckbox.extent),
-          child: Text(
-            l10n.feedbackDiagnosticsExplanation,
-            style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
+          child: WpConsentCheckbox(
+            key: const Key('feedback-diagnostics-attach'),
+            value: attached,
+            label: l10n.feedbackDiagnosticsLabel,
+            explanation: l10n.feedbackDiagnosticsExplanation,
+            onChanged: onAttachedChanged,
           ),
         ),
         if (attached) ...[

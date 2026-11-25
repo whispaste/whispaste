@@ -17,6 +17,7 @@ import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
 import '../widgets/wp_settings_group.dart';
 import 'cuda_eula_dialog.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 /// Settings row for the optional NVIDIA CUDA pack (see `cuda_pack.dart`):
 /// download with progress and cancel, then an on/off switch and a remove
@@ -78,15 +79,12 @@ class CudaPackRow extends ConsumerWidget {
                 variant: WpButtonVariant.secondary,
                 onPressed: () => _reviewConsent(context, ref),
               ),
-              Semantics(
-                label: l10n.settingsCudaPackRemove,
-                button: true,
-                child: IconButton(
-                  key: const Key('settings-cuda-pack-remove'),
-                  icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-                  tooltip: l10n.settingsCudaPackRemove,
-                  onPressed: () => _confirmRemove(context, notifier),
-                ),
+              WpIconButton.ghost(
+                key: const Key('settings-cuda-pack-remove'),
+                testId: 'settings-cuda-pack-remove',
+                icon: LucideIcons.trash2,
+                tooltip: l10n.settingsCudaPackRemove,
+                onPressed: () => _confirmRemove(context, notifier),
               ),
             ],
           ),
@@ -142,15 +140,12 @@ class CudaPackRow extends ConsumerWidget {
                     ),
                   ),
             ),
-            Semantics(
-              label: l10n.settingsCudaPackRemove,
-              button: true,
-              child: IconButton(
-                key: const Key('settings-cuda-pack-remove'),
-                icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-                tooltip: l10n.settingsCudaPackRemove,
-                onPressed: () => _confirmRemove(context, notifier),
-              ),
+            WpIconButton.ghost(
+              key: const Key('settings-cuda-pack-remove'),
+              testId: 'settings-cuda-pack-remove',
+              icon: LucideIcons.trash2,
+              tooltip: l10n.settingsCudaPackRemove,
+              onPressed: () => _confirmRemove(context, notifier),
             ),
           ],
         ),
@@ -181,15 +176,12 @@ class CudaPackRow extends ConsumerWidget {
                   ),
                 ),
                 if (downloading)
-                  Semantics(
-                    label: l10n.settingsCudaPackCancel,
-                    button: true,
-                    child: IconButton(
-                      key: const Key('settings-cuda-pack-cancel'),
-                      icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
-                      tooltip: l10n.settingsCudaPackCancel,
-                      onPressed: notifier.cancel,
-                    ),
+                  WpIconButton.ghost(
+                    key: const Key('settings-cuda-pack-cancel'),
+                    testId: 'settings-cuda-pack-cancel',
+                    icon: LucideIcons.x,
+                    tooltip: l10n.settingsCudaPackCancel,
+                    onPressed: notifier.cancel,
                   ),
               ],
             ),

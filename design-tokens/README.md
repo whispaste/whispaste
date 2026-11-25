@@ -16,7 +16,8 @@ scales: `WpSpacing`, `WpRadius`, `WpMotion`, `WpColorsDark`).
 
 Illustrations follow `illustration/STYLE.md` (paper-cut layers, #172): palette
 from `primitives.tokens.json`, three flat layers, fixed decor. Prompt template:
-`illustration/master-prompt.md`, reference images in `illustration/refs/`.
+`illustration/master-prompt.md`, reference images in `illustration/refs/`. Traced motifs on the website read
+the `illustration.cut-*` component tokens; the app maps its SVG sources to `WpColors` roles (STYLE.md §12).
 
 The format follows the W3C Design Tokens (DTCG) shape: `$type`, `$value`,
 `$description`, aliases written as `{group.token}`. Fluid sizes carry
@@ -48,7 +49,8 @@ without viewport scaling use `$value`.
 - **Provider colours** (`color.brand.*`): PayPal blue, Ko-fi orange and GitHub
   Sponsors pink, only on the support provider tiles (app `WpBrandTokens`,
   website `support-tile`, #398). Ink per tile: white on PayPal, `navy.900` on
-  the others.
+  the others. YouTube red (`brand.youtube`, white play mark) only on the play
+  button of the trailer frame in the app's "Mitmachen" block (#2026).
 - **Status**: success/warning/error match the app; each has an on-light variant.
 
 ## App overlay presets

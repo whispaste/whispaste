@@ -1449,18 +1449,28 @@ abstract final class OverlayDesignSpec {
   /// follows it.
   static const String fontFamily = 'Inter';
 
-  /// The notice card: as wide as the normal pill, tall enough for a title,
-  /// two body lines and one row of buttons, with air between body and buttons
-  /// (120 clipped the buttons when the body wrapped, e.g. in Russian). It replaces the pill of any size
-  /// while a microphone problem or the duration limit needs a decision.
+  /// The notice card at its smallest: as wide as the normal pill, tall
+  /// enough for a title, two body lines and one row of buttons, with air
+  /// between body and buttons (120 clipped the buttons when the body wrapped,
+  /// e.g. in Russian). It replaces the pill of any size while a microphone
+  /// problem or the duration limit needs a decision. A card whose text or
+  /// buttons need more room grows taller (#1845, [noticeWindowSizeFor]).
   static const Size noticeCardSize = Size(330, 148);
 
-  /// Native-window size of the notice card (`346 × 164`), sent to the shells
-  /// as the size class `notice`. The shells must mirror it exactly.
-  static Size get noticeWindowSize => Size(
+  /// Native-window size of the smallest notice card (`346 × 164`).
+  static Size get noticeWindowSize =>
+      noticeWindowSizeFor(noticeCardSize.height);
+
+  /// Native-window size of a notice card [cardHeight] tall. The snapshot
+  /// sends its height as `noticeHeight` with the size class `notice`; the
+  /// shells size their window from it and fall back to 164 without it.
+  static Size noticeWindowSizeFor(double cardHeight) => Size(
     noticeCardSize.width + 2 * shadowPadding,
-    noticeCardSize.height + 2 * shadowPadding,
+    cardHeight + 2 * shadowPadding,
   );
+
+  /// Gap between stacked notice buttons and between body and footer.
+  static const double noticeStackGap = 8.0;
 
   /// Corner radius of the notice card.
   static const double noticeCardRadius = 16.0;
@@ -1477,8 +1487,10 @@ abstract final class OverlayDesignSpec {
 
   /// Footer of the notice card (#781): font size, gap to the buttons, ink
   /// steps tried from quiet to full (see [OverlayThemeColors.noticeFooterInk])
-  /// and the contrast the footer must reach on the card body.
-  static const double noticeFooterFontSize = noticeBodyFontSize - 1;
+  /// and the contrast the footer must reach on the card body. The font is the
+  /// small type step and never shrinks below it (#1845): a long footer wraps
+  /// and the card grows instead.
+  static const double noticeFooterFontSize = WpTypography.small;
   static const double noticeFooterGap = 6.0;
   static const List<double> noticeFooterInkAlphas = [0.65, 0.82, 1.0];
   static const double noticeFooterMinContrast = 4.5;
@@ -1487,8 +1499,8 @@ abstract final class OverlayDesignSpec {
   static const List<double> noticeBodyInkAlphas = [0.82, 1.0];
 
   /// Largest text scale the notice card follows (system font size, #728).
-  /// The card text grows with the system font up to this factor; the window
-  /// has a fixed size, so beyond it the lines end in an ellipsis.
+  /// The card text grows with the system font up to this factor; the card
+  /// grows with it (#1845).
   static const double noticeMaxTextScale = 1.3;
 
   /// Height of the close cross of the notice card (width follows its label).

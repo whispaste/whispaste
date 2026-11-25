@@ -45,6 +45,7 @@ void main() {
       en.menuBarEditCopy,
       en.menuBarEditPaste,
       en.menuBarEditSelectAll,
+      en.menuBarEditSearch,
     ]);
     SingleActivator shortcut(String label) =>
         _item([edit], label).shortcut! as SingleActivator;
@@ -55,6 +56,9 @@ void main() {
     expect(shortcut(en.menuBarEditCopy).trigger, LogicalKeyboardKey.keyC);
     expect(shortcut(en.menuBarEditPaste).trigger, LogicalKeyboardKey.keyV);
     expect(shortcut(en.menuBarEditSelectAll).trigger, LogicalKeyboardKey.keyA);
+    // #628: the search over every area, Cmd+K as in the app shortcuts.
+    expect(shortcut(en.menuBarEditSearch).trigger, LogicalKeyboardKey.keyK);
+    expect(shortcut(en.menuBarEditSearch).meta, isTrue);
   });
 
   test('the menus come in macOS order and the app language', () {

@@ -70,6 +70,9 @@ class WpNotice {
     this.actionTestId,
     this.duration,
     this.onDismissed,
+    this.messageFor,
+    this.nextStepFor,
+    this.actionLabelFor,
   });
 
   /// Stable name of the situation; `notice-bar-<id>` is its testID.
@@ -97,10 +100,31 @@ class WpNotice {
   /// action, replaced by a newer undo).
   final VoidCallback? onDismissed;
 
+  /// Resolvers of [message], [nextStep] and [actionLabel] in the current
+  /// language. A notice that can outlive a language switch (a warning that
+  /// stays until closed) passes them, so the bar shows it in the language
+  /// now chosen instead of the one it was raised in (#1845). The plain
+  /// strings stay what is read out when the notice appears.
+  final String Function(L10n l10n)? messageFor;
+  final String? Function(L10n l10n)? nextStepFor;
+  final String Function(L10n l10n)? actionLabelFor;
+
   bool get hasAction => actionLabel != null && onAction != null;
 
   /// Text read out and shown: cause, then next step.
   String get spoken => nextStep == null ? message : '$message $nextStep';
+
+  /// [spoken] in the language of [l10n] where resolvers are given.
+  String spokenIn(L10n? l10n) {
+    if (l10n == null) return spoken;
+    final m = messageFor?.call(l10n) ?? message;
+    final next = nextStepFor != null ? nextStepFor!(l10n) : nextStep;
+    return next == null ? m : '$m $next';
+  }
+
+  /// [actionLabel] in the language of [l10n] where a resolver is given.
+  String? actionLabelIn(L10n? l10n) =>
+      l10n == null ? actionLabel : actionLabelFor?.call(l10n) ?? actionLabel;
 
   WpBannerTone get tone => switch (kind) {
     WpNoticeKind.undo => WpBannerTone.info,
@@ -235,6 +259,27 @@ final wpNoticeBarProvider =
     NotifierProvider<WpNoticeBarNotifier, List<WpNotice>>(
       WpNoticeBarNotifier.new,
     );
+
+/// Shows a short confirmation of a done action in the notice bar (#1903).
+///
+/// Every short confirmation stands at the bottom, like an undo, so it never
+/// pushes the list the user is working on (a page notice below the page head
+/// moved search and rows by about 85 px). It closes itself after [duration],
+/// never sooner than [kWpNoticeUndoMinimum]. Errors and hints that must stay
+/// keep their page notice ([showWpPageNotice]).
+void showWpConfirmation(
+  BuildContext context, {
+  required String id,
+  required String message,
+  Duration? duration,
+}) => showWpNotice(
+  context,
+  WpNotice(
+    id: id,
+    message: message,
+    duration: duration ?? kWpNoticeUndoMinimum,
+  ),
+);
 
 /// Shows [notice] in the notice bar and reads it out.
 ///
@@ -462,7 +507,7 @@ class _NoticeRowState extends ConsumerState<_NoticeRow> {
             child: WpBanner(
               key: ValueKey('notice-bar-$id'),
               tone: notice.tone,
-              message: notice.spoken,
+              message: notice.spokenIn(Localizations.of<L10n>(context, L10n)),
               // A Wrap: with the action and the close cross at a large system
               // text size the row breaks instead of overflowing.
               action: Wrap(
@@ -474,7 +519,9 @@ class _NoticeRowState extends ConsumerState<_NoticeRow> {
                   if (notice.hasAction)
                     WpButton(
                       testId: notice.actionTestId ?? 'notice-bar-action-$id',
-                      label: notice.actionLabel!,
+                      label: notice.actionLabelIn(
+                        Localizations.of<L10n>(context, L10n),
+                      )!,
                       variant: WpButtonVariant.ghost,
                       onPressed: _act,
                     ),

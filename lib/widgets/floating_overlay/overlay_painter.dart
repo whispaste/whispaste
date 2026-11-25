@@ -578,12 +578,16 @@ class WpOverlayPainter extends CustomPainter {
     final cancelShift = cancelWidth > 0
         ? cancelWidth + OverlayKeyHints.gap
         : 0.0;
-    final stopLeft =
-        pill.right -
-        layout.padH -
-        layout.stopSize -
-        OverlayKeyHints.gap -
-        _hintWidth(hints.stop);
+    final stopHint = hints.stop;
+    // Without a stop hint (its key is learned) the waveform runs up to the
+    // stop square as usual.
+    final stopLeft = stopHint == null
+        ? pill.right - layout.padH - layout.stopSize
+        : pill.right -
+              layout.padH -
+              layout.stopSize -
+              OverlayKeyHints.gap -
+              _hintWidth(stopHint);
     final textLeft = _recordingTextLeft(base, cancelShift);
     final timerRight = showTimer
         ? textLeft +
@@ -595,7 +599,9 @@ class WpOverlayPainter extends CustomPainter {
         : textLeft;
     final chip = chipFor(pill, timerRight);
     final waveLeft = (chip?.badge.right ?? timerRight) + layout.waveStartGap;
-    final waveRight = stopLeft - OverlayKeyHints.gap;
+    final waveRight = stopHint == null
+        ? pill.right - layout.padH - layout.stopSize - layout.waveEndGap
+        : stopLeft - OverlayKeyHints.gap;
     if (!OverlayKeyHints.fitsWave(waveRight - waveLeft)) return null;
     return (cancelShift: cancelShift, stopLeft: stopLeft, waveRight: waveRight);
   }
@@ -1011,7 +1017,7 @@ class WpOverlayPainter extends CustomPainter {
     );
   }
 
-  /// The transcribing ripple per bar. A label notch ducks the ripple beneath
+  /// The transcribing ripple per bar. A label notch ducks the ripple beside
   /// the status text, so the stream parts around the words.
   List<double> _processingLevels(
     int count,
@@ -1019,12 +1025,38 @@ class WpOverlayPainter extends CustomPainter {
     double barW,
     double? notchStart,
     double? notchEnd,
-  ) => [
+  ) => processingLevels(
+    count: count,
+    left: left,
+    barW: barW,
+    glassPhase: glassPhase,
+    notchStart: notchStart,
+    notchEnd: notchEnd,
+  );
+
+  /// Bar levels of the transcribing stream. A bar whose slot overlaps the
+  /// label band `[notchStart, notchEnd]` gets [WpLevelHistoryBars.hidden] and
+  /// is not painted at all: rest-level dots behind the status text made
+  /// "Wird verarbeitet…" hard to read (#1845, legibility before decoration).
+  /// The shoulders beside the band keep the smoothstep notch.
+  @visibleForTesting
+  static List<double> processingLevels({
+    required int count,
+    required double left,
+    required double barW,
+    required double glassPhase,
+    double? notchStart,
+    double? notchEnd,
+  }) => [
     for (var i = 0; i < count; i++)
       () {
         final raw = transcribingBarLevel(i, count, glassPhase);
         if (notchStart == null || notchEnd == null) return raw;
-        final x = left + i * barW + barW / 2;
+        final slotLeft = left + i * barW;
+        if (slotLeft < notchEnd && slotLeft + barW > notchStart) {
+          return WpLevelHistoryBars.hidden;
+        }
+        final x = slotLeft + barW / 2;
         return OverlayDesignSpec.waveformRestLevel +
             (raw - OverlayDesignSpec.waveformRestLevel) *
                 notchAttenuation(x, notchStart, notchEnd);

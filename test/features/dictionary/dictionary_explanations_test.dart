@@ -100,10 +100,7 @@ void main() {
   testWidgets('a search without a hit offers to create it as a term', (
     tester,
   ) async {
-    final (settings, _) = await pump(
-      tester,
-      settings: AppSettings.defaults.copyWith(customVocabulary: 'Alice'),
-    );
+    final (_, container) = await pump(tester);
 
     await tester.enterText(
       find.byKey(const ValueKey('dictionary-terms-bar')),
@@ -115,10 +112,16 @@ void main() {
     await tester.tap(_button('dictionary-terms-create-from-search'));
     await tester.pumpAndSettle();
 
-    expect(settings.updates.single.stt.customVocabulary, contains('Zebra'));
+    // A term is the entry "Zebra → Zebra" (#1969).
+    final entries = await tester.runAsync(
+      () => container.read(replacementsProvider.future),
+    );
+    expect(entries!.where((r) => r.triggers.single == 'Zebra'), [
+      isA<Replacement>().having((r) => r.replacement, 'text', 'Zebra'),
+    ]);
   });
 
-  testWidgets('an engine without term hints says so and offers a replacement', (
+  testWidgets('an engine without term hints offers a replacement', (
     tester,
   ) async {
     await pump(
@@ -129,12 +132,9 @@ void main() {
         ),
       ),
     );
-    expect(
-      find.byKey(const ValueKey('dictionary-terms-no-hints')),
-      findsOneWidget,
-    );
-
-    await tester.tap(_button('dictionary-terms-as-replacement'));
+    await tester.tap(find.byKey(const ValueKey('dictionary-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('dictionary-add-replacement')));
     await tester.pumpAndSettle();
 
     // The replacements tab is open with the new-replacement dialog on top.
@@ -154,7 +154,10 @@ void main() {
   });
 
   test('search rows open the tab they name', () {
-    expect(dictionaryTabForRow('speech-vocabulary'), DictionaryTab.terms);
+    expect(
+      dictionaryTabForRow('speech-vocabulary'),
+      DictionaryTab.replacements,
+    );
     expect(
       dictionaryTabForRow('dictionary-replacements'),
       DictionaryTab.replacements,

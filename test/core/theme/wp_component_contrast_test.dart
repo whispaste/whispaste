@@ -48,6 +48,26 @@ void main() {
         },
       );
 
+      test('frame icons and focus ring reach 3:1 on the frame and its hover '
+          '(WCAG 1.4.11, #1845)', () {
+        final f = c.frame;
+        for (final ground in f.frameGradient.colors) {
+          final hovered = alphaComposite(f.hover, ground);
+          for (final bg in [ground, hovered]) {
+            expect(
+              contrastRatio(f.accent, bg),
+              greaterThanOrEqualTo(3.0),
+              reason: 'frame focus ring ${f.accent} over $bg',
+            );
+            expect(
+              contrastRatio(f.textMuted, bg),
+              greaterThanOrEqualTo(3.0),
+              reason: 'frame icon ${f.textMuted} over $bg',
+            );
+          }
+        }
+      });
+
       test('control edge is opaque, so the 3:1 check needs no compositing', () {
         expect(c.controlEdge.a, 1.0);
       });

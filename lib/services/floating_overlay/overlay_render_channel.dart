@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'floating_overlay_controller_interface.dart';
+import 'overlay_notice.dart';
 import 'overlay_waveform_payload.dart';
 
 /// Acknowledges the first painted frame after each hidden→visible show.
@@ -64,6 +65,7 @@ class OverlayRenderChannel implements RenderChannel {
     required String name,
     required this.onSnapshot,
     required this.onWaveformBars,
+    this.onEditKey,
     MethodChannel? channel,
     DateTime Function()? clock,
   }) : _channel = channel ?? MethodChannel(name),
@@ -88,6 +90,11 @@ class OverlayRenderChannel implements RenderChannel {
 
   /// Called with the latest pre-computed waveform bar array.
   final void Function(List<double> bars) onWaveformBars;
+
+  /// Called with Return or Escape the native shell caught for the open edit
+  /// field of a card (#254, `editKey`); the macOS shell sends it because the
+  /// embedder's text input does not reliably pass these keys on.
+  final void Function(OverlayNoticeEditKey key)? onEditKey;
 
   Future<dynamic> _handle(MethodCall call) async {
     switch (call.method) {
@@ -121,6 +128,13 @@ class OverlayRenderChannel implements RenderChannel {
           onWaveformBars(bars);
         }
         return null;
+      case 'editKey':
+        final args = call.arguments;
+        final key = OverlayNoticeEditKey.fromWire(
+          args is Map ? args['key'] : null,
+        );
+        if (key != null) onEditKey?.call(key);
+        return null;
       default:
         return null;
     }
@@ -144,9 +158,11 @@ class OverlayRenderChannel implements RenderChannel {
   }
 
   /// Reports a click on a notice-card button (overlay F2); the shell relays
-  /// it to the main engine as `onNoticeAction`.
-  void noticeAction(String id) {
-    _channel.invokeMethod('noticeAction', {'id': id});
+  /// it to the main engine as `onNoticeAction`. The edit field of a card
+  /// (#254) reports through the same call with its [args] next to `id`
+  /// (`text`, `focused`); every shell relays the map unchanged.
+  void noticeAction(String id, [Map<String, dynamic> args = const {}]) {
+    _channel.invokeMethod('noticeAction', {...args, 'id': id});
   }
 
   /// Tells the native shell how wide the pill currently is (logical px), so

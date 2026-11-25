@@ -4,6 +4,7 @@
 library;
 
 import '../../services/model_download_service.dart' show SttModelInfo;
+import '../../services/user_models/user_model.dart';
 import '../l10n/generated/app_localizations.dart';
 import 'selectable_speech_models.dart';
 import 'settings_enums.dart';
@@ -27,9 +28,16 @@ class SttChoice {
   bool get needsDownload => value.startsWith(kSttDownloadChoicePrefix);
 }
 
+/// Choice prefix of an own sherpa-onnx model (#1789): `user_model:<id>`.
+/// Own whisper.cpp models use [kSttModelChoicePrefix] like the catalog ones.
+const kSttUserModelChoicePrefix = 'user_model:';
+
 /// The choice in effect, in the key format of [SttChoice.value].
 String sttChoiceValue(AppSettings settings) {
   if (!settings.sttProviderType.isLocal) return settings.sttProviderType.name;
+  if (settings.onDeviceEngine == OnDeviceEngine.userModel) {
+    return '$kSttUserModelChoicePrefix${settings.effectiveModelId}';
+  }
   if (settings.onDeviceEngine
       case OnDeviceEngine.parakeet || OnDeviceEngine.system) {
     return settings.onDeviceEngine.value;
@@ -44,11 +52,13 @@ String sttChoiceValue(AppSettings settings) {
 /// only the [missing] selected model is offered for download right here
 /// (UIA-MDL-GATE b). A
 /// model being loaded is marked as loading, and the cloud providers are
-/// labelled by their name.
+/// labelled by their name. The user's own speech models that passed their
+/// check ([own], #1789) follow the local ones, under their own name.
 List<SttChoice> sttChoicesFrom(
   List<SelectableSpeechModel> models,
   L10n l10n, {
   SelectableSpeechModel? missing,
+  List<UserModel> own = const [],
 }) => [
   // The selected model is not there: its download comes first, so the
   // selector never stays empty or silent about it (UIA-MDL-GATE b).
@@ -68,7 +78,20 @@ List<SttChoice> sttChoicesFrom(
         label: _dockLabel(model, l10n),
         onDevice: model.group == SpeechModelGroup.local,
       ),
+  for (final model in own)
+    if (model.isReady && model.purpose == UserModelPurpose.speech)
+      SttChoice(
+        value: ownSttChoiceValue(model),
+        label: model.name,
+        onDevice: true,
+      ),
 ];
+
+/// The choice key of own speech model [model].
+String ownSttChoiceValue(UserModel model) =>
+    model.runtime == UserModelRuntime.whispercpp
+    ? '$kSttModelChoicePrefix${model.id}'
+    : '$kSttUserModelChoicePrefix${model.id}';
 
 String _dockLabel(SelectableSpeechModel model, L10n l10n) {
   final state = model.state;
@@ -88,7 +111,16 @@ AppSettings applySttChoice(AppSettings settings, String value) {
       sttModel: value.substring(kSttModelChoicePrefix.length),
     );
   }
-  if (OnDeviceEngine.values.any((e) => e.value == value)) {
+  if (value.startsWith(kSttUserModelChoicePrefix)) {
+    return settings.copyWith(
+      sttProvider: SttProviderType.onDevice.value,
+      sttEngine: OnDeviceEngine.userModel.value,
+      sttModel: value.substring(kSttUserModelChoicePrefix.length),
+    );
+  }
+  // The bare `user_model` engine needs its model id, so it is no choice.
+  if (value != OnDeviceEngine.userModel.value &&
+      OnDeviceEngine.values.any((e) => e.value == value)) {
     return settings.copyWith(
       sttProvider: SttProviderType.onDevice.value,
       sttEngine: value,

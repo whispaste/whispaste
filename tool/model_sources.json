@@ -6,7 +6,8 @@
       "size": 190085487,
       "sha256": "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
       "sources": [
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin"
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin",
+        "https://huggingface.co/osllmai-community/whisper.cpp/resolve/9b8823134f2bff51e5b60e7b5a16a140be0cdb9c/ggml-small-q5_1.bin"
       ]
     },
     {
@@ -14,7 +15,8 @@
       "size": 539212467,
       "sha256": "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
       "sources": [
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium-q5_0.bin"
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium-q5_0.bin",
+        "https://huggingface.co/osllmai-community/whisper.cpp/resolve/9b8823134f2bff51e5b60e7b5a16a140be0cdb9c/ggml-medium-q5_0.bin"
       ]
     },
     {
@@ -22,7 +24,8 @@
       "size": 574041195,
       "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
       "sources": [
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin"
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin",
+        "https://huggingface.co/osllmai-community/whisper.cpp/resolve/9b8823134f2bff51e5b60e7b5a16a140be0cdb9c/ggml-large-v3-turbo-q5_0.bin"
       ]
     },
     {

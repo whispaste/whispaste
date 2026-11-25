@@ -71,5 +71,33 @@ void main() {
     test('handles empty string', () {
       expect(sanitizePaths(''), '');
     });
+
+    test('drops the publisher name from the Store install folder', () {
+      final result = sanitizePaths(
+        r'Programm: C:\Program Files\WindowsApps\'
+        r'12345Publisher.WhisPaste_1.5.2.0_x64__phagqa3gq04kr\whispaste.exe',
+      );
+      expect(
+        result,
+        r'Programm: C:\Program Files\WindowsApps\<msix-package>\whispaste.exe',
+      );
+      expect(result, isNot(contains('Publisher')));
+    });
+
+    test('drops the publisher name from the Store data folder', () {
+      final result = sanitizePaths(
+        r'<localappdata>\Packages\12345Publisher.WhisPaste_phagqa3gq04kr'
+        r'\LocalCache\Roaming\WhisPaste\models',
+      );
+      expect(
+        result,
+        r'<localappdata>\Packages\<msix-package>\LocalCache\Roaming\WhisPaste\models',
+      );
+    });
+
+    test('keeps other Packages folders', () {
+      const input = r'C:\repo\node_modules\Packages\left-pad\index.js';
+      expect(sanitizeMsixPackageNames(input), input);
+    });
   });
 }

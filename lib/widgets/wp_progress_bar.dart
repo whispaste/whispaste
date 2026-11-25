@@ -11,6 +11,7 @@ class WpProgressBar extends StatelessWidget {
     required this.value,
     this.height = 4,
     this.color,
+    this.semanticsLabel,
   });
 
   final double? value;
@@ -18,6 +19,10 @@ class WpProgressBar extends StatelessWidget {
 
   /// Fill colour; defaults to [WpColors.accent].
   final Color? color;
+
+  /// What the bar measures, e.g. "First steps". Without it assistive tech
+  /// announced an unnamed progress bar (#1916).
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +33,7 @@ class WpProgressBar extends StatelessWidget {
         backgroundColor: WpColors.accentBadgeFill,
         color: color ?? WpColors.accent,
         minHeight: height,
+        semanticsLabel: semanticsLabel,
       ),
     );
   }

@@ -13,6 +13,7 @@ import '../../../core/config/build_config.dart' show kAutoPasteSupported;
 import '../../../core/config/settings_enums.dart' show AfterTranscriptionAction;
 import '../../../core/config/settings_labels.dart'
     show afterTranscriptionSettingsLabel;
+import '../../../core/text/name_order.dart';
 import '../../../core/config/selectable_speech_models.dart';
 import '../../../core/config/smart_mode_labels.dart';
 import '../../../core/config/stt_choice.dart';
@@ -72,7 +73,7 @@ List<ProfileOption> profileLanguageOptions({
         value: code,
         label: localeNames?.nameOf(code) ?? whisperLanguages[code]!,
       ),
-  ]..sort((a, b) => a.label.compareTo(b.label));
+  ]..sort((a, b) => compareDisplayNames(a.label, b.label));
   return [(value: 'auto', label: l10n.settingsLanguageAutoDetect), ...named];
 }
 

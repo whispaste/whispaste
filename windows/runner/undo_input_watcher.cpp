@@ -59,6 +59,19 @@ void UndoInputWatcher::Stop() {
   last_key_ = 0;
   last_button_ = 0;
   last_foreign_button_ = 0;
+  shortcut_until_ = 0;
+  shortcut_seen_ = false;
+}
+
+bool UndoInputWatcher::WatchUndoShortcut(ULONGLONG until_tick) {
+  const bool previous = shortcut_seen_.exchange(false);
+  shortcut_until_ = until_tick;
+  return previous;
+}
+
+bool UndoInputWatcher::TakeUndoShortcut() {
+  shortcut_until_ = 0;
+  return shortcut_seen_.exchange(false);
 }
 
 void UndoInputWatcher::MarkInsert(ULONGLONG paste_tick) {
@@ -161,7 +174,25 @@ LRESULT CALLBACK UndoInputWatcher::KeyProc(int code, WPARAM wparam,
       (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN)) {
     // Our own injected paste keys arrive here too; they are told apart with
     // the synthetic-key time.
-    watcher->last_key_ = ::GetTickCount64();
+    const ULONGLONG now = ::GetTickCount64();
+    watcher->last_key_ = now;
+    const auto* info = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lparam);
+    const ULONGLONG until = watcher->shortcut_until_.load();
+    // Only a Z inside the armed watch is looked at further; nothing about
+    // the key is stored, just whether it was the undo shortcut.
+    if (until != 0 && info->vkCode == 'Z') {
+      auto down = [](int vk) { return (::GetAsyncKeyState(vk) & 0x8000) != 0; };
+      DWORD pid = 0;
+      const HWND front = ::GetForegroundWindow();
+      if (front != nullptr) ::GetWindowThreadProcessId(front, &pid);
+      if (CountsAsUndoShortcut(
+              now, until, true, down(VK_CONTROL), down(VK_SHIFT),
+              down(VK_MENU), down(VK_LWIN) || down(VK_RWIN),
+              (info->flags & LLKHF_INJECTED) != 0,
+              pid == ::GetCurrentProcessId())) {
+        watcher->shortcut_seen_ = true;
+      }
+    }
   }
   return ::CallNextHookEx(nullptr, code, wparam, lparam);
 }

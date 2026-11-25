@@ -17,6 +17,7 @@ const _secret = 'Geheimer Text der Notiz';
 Note _note() {
   final t = DateTime(2026, 10, 18, 9);
   return Note(
+    archived: false,
     id: 'n1',
     content: _secret,
     createdAt: t,

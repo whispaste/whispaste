@@ -23,6 +23,8 @@ class MainFlutterWindow: NSWindow {
     UserDefaults.standard.removeObject(forKey: "SUEnableAutomaticChecks")
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    // Before Dart can ask: the main engine reads "Reduce motion" at boot (#1756).
+    SystemMotionHost.attach(flutterViewController.engine.binaryMessenger)
 
     super.awakeFromNib()
   }

@@ -12,6 +12,7 @@ import 'package:intl/intl.dart' show Bidi;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/colors.dart';
 import 'core/theme/persisted_appearance.dart';
@@ -23,6 +24,7 @@ import 'shared_render_engine_helpers.dart'
     show RenderEngineState, detachFromEmbedderAppLifecycle;
 import 'widgets/wp_focus_ring.dart';
 import 'widgets/wp_keycap.dart';
+import 'widgets/wp_row_divider.dart';
 
 const String _renderChannelName = 'com.whispaste.tray_panel_render';
 
@@ -41,7 +43,7 @@ void runTrayPanelEngine() {
   // Same reason as the snippet picker: a bogus embedder `hidden` would wedge
   // this late-booted engine; visibility is relayed in-band instead.
   detachFromEmbedderAppLifecycle();
-  runApp(const TrayPanelRenderApp());
+  runApp(const SystemMotionScope(child: TrayPanelRenderApp()));
 }
 
 /// The tray panel engine's root widget. Public only so a test can pump it
@@ -563,9 +565,9 @@ class _Divider extends StatelessWidget {
   const _Divider();
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: WpSpacing.xs),
-    child: Divider(height: 1, color: WpColors.borderSubtle),
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: WpSpacing.xs),
+    child: WpRowDivider(),
   );
 }
 
@@ -679,7 +681,10 @@ class _PressableState extends State<_Pressable> {
     final radius = widget.radius ?? WpRadius.borderSm;
     return Semantics(
       identifier: widget.testId,
-      button: true,
+      // A row with a checked state is an option of a picker: a radio button,
+      // because the desktop embedders let a button role drop the state.
+      button: widget.checked == null,
+      inMutuallyExclusiveGroup: widget.checked != null ? true : null,
       enabled: widget.enabled,
       checked: widget.checked,
       label: widget.semanticsLabel,

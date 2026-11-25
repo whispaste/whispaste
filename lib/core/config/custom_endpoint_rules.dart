@@ -117,7 +117,69 @@ CustomEndpointUrlCheck checkCustomEndpointUrl(String raw) {
       CustomEndpointUrlProblem.httpToRemoteHost,
     );
   }
-  return CustomEndpointUrlCheck.ok(uri);
+  return CustomEndpointUrlCheck.ok(customEndpointApiBase(uri));
+}
+
+/// Request paths that people copy from a server's help page together with the
+/// address. They are dropped, so the base is what is left before them.
+const List<String> _customEndpointRequestPaths = [
+  '/chat/completions',
+  '/completions',
+  '/audio/transcriptions',
+  '/models',
+];
+
+/// The API base of an entered address (#1957). Every server WhisPaste names
+/// (Ollama, LM Studio, llama.cpp, Jan, LocalAI, vLLM, text-generation-webui,
+/// KoboldCpp, GPT4All) serves its OpenAI-compatible API under `/v1`, and their
+/// help pages show either the bare root (`http://localhost:11434`) or a full
+/// request URL (`…/v1/chat/completions`). So trailing slashes and a trailing
+/// request path are dropped, and an address without any path gets `/v1`. Any
+/// other path is kept as entered, for a provider that serves elsewhere.
+Uri customEndpointApiBase(Uri uri) {
+  var path = uri.path.replaceAll(RegExp(r'/+$'), '');
+  for (final suffix in _customEndpointRequestPaths) {
+    if (path.toLowerCase().endsWith(suffix)) {
+      path = path.substring(0, path.length - suffix.length);
+      break;
+    }
+  }
+  path = path.replaceAll(RegExp(r'/+$'), '');
+  return uri.replace(path: path.isEmpty ? '/v1' : path);
+}
+
+/// A well-known local server and its usual address on this device (#1957).
+typedef CustomEndpointServerPreset = ({String name, String url});
+
+/// The servers people most often already run, each with the address it
+/// listens on after a default install (checked against each project's own
+/// docs, Ollama and llama.cpp also live, 2026-11-19). `127.0.0.1`, not
+/// `localhost`: most of them listen on IPv4 only, and `localhost` can resolve
+/// to IPv6 `::1` first. The settings offer them as a shortcut that fills in
+/// the address; the handbook lists the same addresses.
+const List<CustomEndpointServerPreset> kCustomEndpointServerPresets = [
+  (name: 'Ollama', url: 'http://127.0.0.1:11434/v1'),
+  (name: 'LM Studio', url: 'http://127.0.0.1:1234/v1'),
+  // Port 9931 since llama.cpp PR #30159 (October 2026); older builds
+  // listen on 8080, which the handbook mentions.
+  (name: 'llama.cpp (llama-server)', url: 'http://127.0.0.1:9931/v1'),
+  (name: 'Jan', url: 'http://127.0.0.1:1337/v1'),
+  (name: 'LocalAI', url: 'http://127.0.0.1:8080/v1'),
+  (name: 'vLLM', url: 'http://127.0.0.1:8000/v1'),
+  (name: 'text-generation-webui', url: 'http://127.0.0.1:5000/v1'),
+  (name: 'KoboldCpp', url: 'http://127.0.0.1:5001/v1'),
+  (name: 'GPT4All', url: 'http://127.0.0.1:4891/v1'),
+];
+
+/// The preset whose address is entered in [raw], or null. Compares the API
+/// bases, so `http://127.0.0.1:11434` and `…:11434/v1/` both name Ollama.
+CustomEndpointServerPreset? customEndpointServerPresetFor(String raw) {
+  final uri = checkCustomEndpointUrl(raw).uri;
+  if (uri == null) return null;
+  for (final preset in kCustomEndpointServerPresets) {
+    if (checkCustomEndpointUrl(preset.url).uri == uri) return preset;
+  }
+  return null;
 }
 
 /// Whether the endpoint can run a function now: a usable address and a model

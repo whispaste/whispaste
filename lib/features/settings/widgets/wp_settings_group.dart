@@ -14,6 +14,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme.dart' show kWpFontFallback, kWpUiFont;
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_accent_badge.dart';
+import '../../../widgets/wp_row_divider.dart';
 import 'settings_notice.dart';
 
 /// Widest the trailing control may grow before the label gets the rest. Wide
@@ -78,7 +79,9 @@ class SettingsRowHighlight extends InheritedWidget {
 /// 1. Separation is exactly one element: between two rows the group draws
 ///    one divider. Rows and their controls never draw one of their own, and a
 ///    section adds no spacer between rows ([SizedBox] without a child is air,
-///    not a row: it never adds a rule of its own).
+///    not a row: it never adds a rule of its own). A row that builds nothing
+///    (e.g. [SizedBox.shrink] where it does not apply) gets no rule either:
+///    [WpDividedColumn] decides at layout time (#2050).
 /// 2. Two start edges only: the text edge (0) and one dependent step
 ///    ([WpSpacing.xl]). A row that only matters because of the row above
 ///    (a key under its service, a target language under its preset) sets
@@ -108,8 +111,6 @@ class WpSettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = _withDividers(children);
-
     // The one card level of an area: a single step of fill plus a hairline
     // rim. Dark grounds get the same structure as light, never a second fill
     // inside it (rows paint nothing of their own).
@@ -127,11 +128,7 @@ class WpSettingsGroup extends StatelessWidget {
           horizontal: WpSpacing.lg,
           vertical: WpSpacing.xs,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: rows,
-        ),
+        child: WpDividedColumn(ruleBefore: _ruleBefore, children: children),
       ),
     );
 
@@ -167,47 +164,16 @@ class WpSettingsGroup extends StatelessWidget {
   }
 }
 
-/// The group's children with exactly one divider between each pair of rows.
-///
-/// Spacers (a [SizedBox] without a child, e.g. a sub-group break) never count
-/// as rows and never add a rule. Between two rows their height is split around
-/// the single divider, so the rule sits in the middle of the gap. Spacers
-/// before the first row or after the last one keep their height, and a
-/// childless [SizedBox.shrink] next to a row adds neither air nor a rule.
-/// A [WpSettingsDetail] belongs to the row above and gets no divider; the
-/// divider in front of a dependent row starts at that row's indent.
-List<Widget> _withDividers(List<Widget> children) {
-  final out = <Widget>[];
-  var gap = 0.0;
-  var hasRow = false;
-  for (final child in children) {
-    if (child is SizedBox && child.child == null) {
-      gap += child.height ?? 0;
-      continue;
-    }
-    if (hasRow && child is! WpSettingsDetail) {
-      if (gap > 0) out.add(SizedBox(height: gap / 2));
-      out.add(
-        Divider(
-          height: 1,
-          thickness: 1,
-          indent: _isIndented(child) ? WpSpacing.xl : 0,
-          color: WpColors.borderSubtle,
+/// The rule in front of [next]: it starts at the row's indent, so dependent
+/// rows read as one block under their parent. A [WpSettingsDetail] belongs to
+/// the row above and gets none (rule 4).
+Widget? _ruleBefore(Widget next) => next is WpSettingsDetail
+    ? null
+    : WpRowDivider(
+        inset: EdgeInsetsDirectional.only(
+          start: _isIndented(next) ? WpSpacing.xl : 0,
         ),
       );
-      // The 1 px the removed second rule took stays as air, so the rows below
-      // do not move: only the duplicate line goes.
-      if (gap > 0) out.add(SizedBox(height: gap / 2 + 1));
-    } else if (gap > 0) {
-      out.add(SizedBox(height: gap));
-    }
-    gap = 0;
-    hasRow = true;
-    out.add(child);
-  }
-  if (gap > 0) out.add(SizedBox(height: gap));
-  return out;
-}
 
 bool _isIndented(Widget child) => settingsRowIsIndented(child);
 
@@ -522,10 +488,17 @@ class _RenderSettingsRowFit extends RenderBox
       final labelX = _textDirection == TextDirection.rtl
           ? controlWidth + WpSpacing.md
           : 0.0;
-      labelData.offset = Offset(labelX, (height - label.size.height) / 2);
+      // A stacked control (a dropdown with a link under it) is much taller
+      // than its label: centring would float the title beside nothing, so
+      // both start at the top. One-line controls stay centred.
+      final stacked = control.size.height - label.size.height > WpSpacing.xxxl;
+      labelData.offset = Offset(
+        labelX,
+        stacked ? 0 : (height - label.size.height) / 2,
+      );
       controlData.offset = Offset(
         _textDirection == TextDirection.rtl ? 0 : maxWidth - controlWidth,
-        (height - control.size.height) / 2,
+        stacked ? 0 : (height - control.size.height) / 2,
       );
       size = constraints.constrain(Size(maxWidth, height));
     } else {

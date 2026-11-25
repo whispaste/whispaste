@@ -11,9 +11,6 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show Locale;
-import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/l10n/ltr_isolate.dart';
 import 'package:whispaste/services/floating_overlay/overlay_notice_rules.dart'
     show noticeSecondPressWindow;
 import 'package:whispaste/services/audio_service.dart';
@@ -128,12 +125,13 @@ class _RecordingHotkeys extends HotkeyService {
   LogicalKeyboardKey? actionKey;
 
   @override
-  Future<void> registerNoticeActionKey({
+  Future<bool> registerNoticeActionKey({
     required VoidCallback onPressed,
     required LogicalKeyboardKey key,
   }) async {
     onAction = onPressed;
     actionKey = key;
+    return true;
   }
 
   @override
@@ -142,12 +140,13 @@ class _RecordingHotkeys extends HotkeyService {
   }
 
   @override
-  Future<void> registerCancelDictationKey({
+  Future<bool> registerCancelDictationKey({
     required VoidCallback onCancel,
     LogicalKeyboardKey key = LogicalKeyboardKey.escape,
   }) async {
     registered++;
     this.onCancel = onCancel;
+    return true;
   }
 
   @override
@@ -229,6 +228,31 @@ void main() {
       expect(card.actions.map((a) => a.action.id), ['notice_1', 'dismiss']);
       // The button is named by what it does, not by its place.
       expect(card.actions.first.testName, 'open-settings');
+    });
+  });
+
+  test('session-owned preview stays visible during its action', () {
+    run((h, async) {
+      var pressed = false;
+      final draft = DictationNotice(
+        id: 'smart-write-preview',
+        cause: 'Draft',
+        managesOwnKeys: true,
+        offersNewDictation: false,
+        actions: [
+          DictationNoticeAction(
+            id: 'insert',
+            label: 'Insert',
+            onPressed: () => pressed = true,
+          ),
+        ],
+      );
+      h.container.read(dictationNoticeProvider.notifier).show(draft);
+      h.settle(async);
+      h.click(async, 'notice_1');
+      expect(pressed, isTrue);
+      expect(h.container.read(dictationNoticeProvider), same(draft));
+      expect(h.fake.lastSnapshot!.visible, isTrue);
     });
   });
 
@@ -489,16 +513,9 @@ void main() {
         'Open (F12)',
         'Hide (2× F12)',
       ]);
-      final l10n = lookupL10n(const Locale('en'));
-      expect(
-        card.footer,
-        contains(
-          l10n.overlayNoticeFooterTwoButtons(
-            ltrIsolate('F12'),
-            ltrIsolate('2× F12'),
-          ),
-        ),
-      );
+      // The keys stand on the buttons; the footer does not repeat them.
+      expect(card.footer, isNot(contains('F12')));
+      expect(card.footer, isNotEmpty);
       expect(card.actions.map((a) => a.action).take(2), [
         OverlayNoticeActionId.notice1,
         OverlayNoticeActionId.notice2,

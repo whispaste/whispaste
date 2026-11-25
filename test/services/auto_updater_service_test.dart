@@ -229,6 +229,17 @@ void main() {
     );
   });
 
+  group('checkSparkleUpdateQuietly (#1881)', () {
+    test('a manual check runs in the background, so no native '
+        '"up to date" window appears', () async {
+      installSeams(sparklePlatform: true);
+      await checkSparkleUpdateQuietly();
+      expect(feedUrl, appcastFeedUrl());
+      expect(checkCalled, isTrue);
+      expect(checkInBackground, isTrue);
+    });
+  });
+
   group('registerSparkleListener', () {
     // Captured callback invocations for the current test.
     var checkingCalled = false;

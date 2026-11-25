@@ -8,7 +8,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Quoted text in every typographic style the six ARB files use.
+/// Quoted text in every typographic style the ARB files use.
 final _quoted = RegExp(r'„([^“]+)“|“([^”]+)”|«([^»]+)»|"([^"]+)"');
 
 /// Spoken voice-note commands; the app matches these literally.
@@ -17,6 +17,7 @@ final _voiceCommand = RegExp(r'^(tag|correct|korrektur):');
 /// Quotes that are not UI labels, with the reason they stay.
 const _notLabels = <String, String>{
   'OpenAI': 'provider name, not a label',
+  'history_set_aside': 'data folder name of a set-aside history (#1023)',
   'äh': 'example filler word',
   'um': 'example filler word',
   'eh': 'example filler word',
@@ -152,6 +153,102 @@ const _notLabels = <String, String>{
   '': 'ellipsis glyph of the tray panel overflow button, not a text label',
   // Overflow-menu glyph (C06S2B4), an icon rather than a text label.
   '⋮': 'overflow menu icon glyph, not a text label',
+  // French, Italian and Simplified Chinese (#1951): the same kinds of
+  // quotes as above, in the new handbook languages.
+  'termina e incolla': 'key-footer fragment, see overlayNoticeFooterDictating',
+  'ehm': 'example filler word',
+  "Scrivilo come un'e-mail cortese": 'example preset name, not a label',
+  'cmq': 'example replacement trigger, not a label',
+  'comunque': 'example replacement text, not a label',
+  'comunque 👋': 'example replacement text, not a label',
+  'progetti': 'example word form, not a label',
+  'progetto': 'example trigger word, not a label',
+  '呃': 'example filler word',
+  '写成一封礼貌的邮件': 'example preset name, not a label',
+  '签名': 'example snippet name the user says, not a label',
+  'Mostra altre opzioni': 'Windows 11 Explorer menu, not ours',
+  'Apri con': 'Finder/file manager menu, not ours',
+  'Abbreviazione da tastiera': 'macOS System Settings row (Siri), not ours',
+  'Inserimento sicuro da tastiera': 'Terminal menu item, not a WhisPaste label',
+  'Premi il tasto 🌐 per': 'macOS System Settings label (globe key), not ours',
+  'Suggerimento: dispositivo':
+      'mic suggestion with the device name as a placeholder',
+  '显示更多选项': 'Windows 11 Explorer menu, not ours',
+  '打开方式': 'Finder/file manager menu, not ours',
+  'Apple 智能与 Siri': 'macOS System Settings pane, not ours',
+  'Siri 与聚焦': 'macOS System Settings pane (older macOS), not ours',
+  '键盘快捷键': 'macOS System Settings row (Siri), not ours',
+  '安全键盘输入': 'Terminal menu item, not a WhisPaste label',
+  '按下 🌐 键时': 'macOS System Settings label (globe key), not ours',
+  '无操作': 'macOS System Settings option (globe key), not ours',
+  '建议：设备': 'mic suggestion with the device name as a placeholder',
+  '仅通过剪贴板': 'paste status word shown by the test-recording step',
+  'terminer et coller': 'key-footer fragment, see overlayNoticeFooterDictating',
+  'euh': 'example filler word',
+  'Formuler comme un e-mail poli': 'example preset name, not a label',
+  'projets': 'example word form, not a label',
+  'projet': 'example trigger word, not a label',
+  "Afficher plus d'options": 'Windows 11 Explorer menu, not ours',
+  'Ouvrir avec': 'Finder/file manager menu, not ours',
+  'Apple Intelligence et Siri': 'macOS System Settings pane, not ours',
+  'Siri et Spotlight': 'macOS System Settings pane (older macOS), not ours',
+  'Raccourci clavier': 'macOS System Settings row (Siri), not ours',
+  'Entrée clavier sécurisée': 'Terminal menu item, not a WhisPaste label',
+  'Appuyer sur la touche 🌐 pour':
+      'macOS System Settings label (globe key), not ours',
+  'Suggestion\u00a0: appareil':
+      'mic suggestion with the device name as a placeholder',
+  // The macOS contacts paragraph (#2037) quotes the Contacts app and the
+  // System Settings path verbatim; both belong to macOS.
+  '\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b':
+      'Contacts app name (macOS, GNOME), not ours',
+  '\u0421\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0435 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u2192 \u041a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0431\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c \u2192 \u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b':
+      'macOS System Settings path (Contacts), not ours',
+  '\u901a\u8baf\u5f55': 'macOS Contacts app name, not ours',
+  '\u7cfb\u7edf\u8bbe\u7f6e': 'macOS System Settings app name, not ours',
+  '\u7cfb\u7edf\u8bbe\u7f6e \u2192 \u9690\u79c1\u4e0e\u5b89\u5168\u6027 \u2192 \u901a\u8baf\u5f55':
+      'macOS System Settings path (Contacts), not ours',
+  // The Windows and GNOME contacts paragraphs (C05S4B7, C05S4B8) quote the
+  // Windows Settings path and the GNOME Contacts app; both belong to the OS.
+  '\u041f\u0430\u0440\u0430\u043c\u0435\u0442\u0440\u044b \u2192 \u041a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c \u0438 \u0437\u0430\u0449\u0438\u0442\u0430 \u2192 \u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b':
+      'Windows Settings path (Contacts), not ours',
+  '\u8bbe\u7f6e \u2192 \u9690\u79c1\u548c\u5b89\u5168\u6027 \u2192 \u8054\u7cfb\u4eba':
+      'Windows Settings path (Contacts), not ours',
+  '\u8054\u7cfb\u4eba': 'GNOME Contacts app name, not ours',
+  // The overlay hide item (C02S3B2I5, #194): the tray entry reads
+  // trayOverlayShowAgain, "<label> (hidden until {time})"; the handbook
+  // quotes the fixed part, the time is only known at runtime.
+  'Overlay wieder einblenden': 'tray item, see trayOverlayShowAgain ({time})',
+  'Show overlay again': 'tray item, see trayOverlayShowAgain ({time})',
+  'Mostrar de nuevo el overlay': 'tray item, see trayOverlayShowAgain ({time})',
+  "R\u00e9afficher l'overlay": 'tray item, see trayOverlayShowAgain ({time})',
+  "Mostra di nuovo l'overlay": 'tray item, see trayOverlayShowAgain ({time})',
+  'Mostrar overlay novamente': 'tray item, see trayOverlayShowAgain ({time})',
+  '\u0421\u043d\u043e\u0432\u0430 \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u043e\u0432\u0435\u0440\u043b\u0435\u0439':
+      'tray item, see trayOverlayShowAgain ({time})',
+  '\u91cd\u65b0\u663e\u793a\u6d6e\u5c42':
+      'tray item, see trayOverlayShowAgain ({time})',
+  // Example position of the find bar (manualEditorFindB1); the UI string is
+  // findReplaceMatchCount, "{current} of {total}".
+  '3 von 12': 'example value of findReplaceMatchCount',
+  '3 of 12': 'example value of findReplaceMatchCount',
+  '3 de 12': 'example value of findReplaceMatchCount',
+  '3 sur 12': 'example value of findReplaceMatchCount',
+  '3 di 12': 'example value of findReplaceMatchCount',
+  '3 \u0438\u0437 12': 'example value of findReplaceMatchCount',
+  '3/12': 'example value of findReplaceMatchCount',
+  // The back link after following an entry link (manualEditorLinksB1) is
+  // entryLinkBack, "Back to {title}"; the handbook writes the title as "\u2026",
+  // which _trim strips, leaving the fixed part with its trailing space.
+  'Zur\u00fcck zu ': 'fixed part of entryLinkBack ({title})',
+  'Back to ': 'fixed part of entryLinkBack ({title})',
+  'Volver a ': 'fixed part of entryLinkBack ({title})',
+  'Retour \u00e0 ': 'fixed part of entryLinkBack ({title})',
+  'Torna a ': 'fixed part of entryLinkBack ({title})',
+  'Voltar para ': 'fixed part of entryLinkBack ({title})',
+  '\u041d\u0430\u0437\u0430\u0434 \u043a ':
+      'fixed part of entryLinkBack ({title})',
+  '\u8fd4\u56de\u5230 ': 'fixed part of entryLinkBack ({title})',
 };
 
 String _trim(String text) => text.trim().replaceAll(RegExp(r'[.…:]+$'), '');

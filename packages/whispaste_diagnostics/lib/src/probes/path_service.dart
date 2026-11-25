@@ -127,6 +127,31 @@ String appDataDir() {
 /// Directory containing STT model files and whisper-server.
 String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
 
+/// Override the user-model directory for testing (see [userModelsDir]).
+@visibleForTesting
+String? userModelsDirOverride;
+
+/// Prefix of the id of a model the user added from their own source (#1789),
+/// e.g. `user-3f9a1c2e`. Catalog ids never start with it.
+const String userModelIdPrefix = 'user-';
+
+/// Whether [modelId] names a model the user added themselves.
+bool isUserModelId(String modelId) =>
+    modelId.startsWith(userModelIdPrefix) &&
+    modelId.length > userModelIdPrefix.length &&
+    !modelId.contains('/') &&
+    !modelId.contains('\\') &&
+    !modelId.contains('..');
+
+/// Root of the user's own models: one folder per model id, next to the
+/// catalog's `models/stt`. The list itself is `user_models.json` in there.
+String userModelsDir() =>
+    userModelsDirOverride ?? p.join(appDataDir(), 'models', 'user');
+
+/// File name of a user's whisper.cpp model inside its folder, so
+/// [sttModelPath] resolves a user model id without reading the list.
+const String userWhisperModelFilename = 'ggml-model.bin';
+
 /// Root of every folder that holds user audio (retained recordings, parked
 /// dictations, import copies).
 ///
@@ -189,6 +214,9 @@ String whisperServerPath() {
 ///
 /// Returns `null` if the model ID is not in the lookup table.
 String? sttModelPath(String modelId) {
+  if (isUserModelId(modelId)) {
+    return p.join(userModelsDir(), modelId, userWhisperModelFilename);
+  }
   final filename = resolveModelFilename(modelId);
   if (filename == null) return null;
   return p.join(sttDir(), filename);

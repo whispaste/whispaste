@@ -446,6 +446,7 @@ class _NavItemWidgetState extends State<_NavItemWidget> {
         onExit: (_) => setState(() => _isHovered = false),
         child: WpFocusRing(
           focusNode: _focusNode,
+          ringColor: WpColors.frame.accent,
           radius: WpNavRail.activeRadius,
           child: InkWell(
             key: ValueKey('sidebar-nav-${item.id}'),

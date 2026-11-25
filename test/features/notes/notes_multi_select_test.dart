@@ -13,6 +13,9 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
+import 'package:whispaste/widgets/wp_collection_page.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
+import 'package:whispaste/widgets/wp_multi_select_bar.dart';
 import 'package:whispaste/widgets/wp_notice_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -79,6 +82,7 @@ class _BulkActions extends NotesActions {
 Note _note(String id, String content, {bool pinned = false}) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: pinned,
@@ -146,6 +150,34 @@ Future<void> _more(WidgetTester tester, String id) async {
 }
 
 void main() {
+  testWidgets('select toggle is the bordered toolbar button and reports its '
+      'state, like Recordings and Snippets', (tester) async {
+    await _pump(tester);
+    WpIconButton toggle() => tester.widget<WpIconButton>(
+      find.byKey(const ValueKey('notes-select-toggle')),
+    );
+
+    expect(toggle().ghost, isFalse, reason: 'toolbar tools are never ghost');
+    expect(toggle().selected, isFalse);
+    await _tap(tester, 'notes-select-toggle');
+    expect(toggle().selected, isTrue);
+  });
+
+  testWidgets('the default date sort shows day sections without a separate '
+      'grouping button, as Recordings does', (tester) async {
+    await _pump(tester);
+
+    expect(find.byKey(const ValueKey('notes-group-by-date')), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (w) =>
+            w.key is ValueKey<String> &&
+            (w.key! as ValueKey<String>).value.startsWith('notes-group-'),
+      ),
+      findsWidgets,
+    );
+  });
+
   testWidgets('select button + check box: trash asks once, sends every '
       'ticked note in one call, and one undo restores them all', (
     tester,
@@ -244,5 +276,31 @@ void main() {
     await _tap(tester, 'notes-check-n3');
     await _more(tester, 'export');
     expect(exported, ['n1', 'n3']);
+  });
+
+  testWidgets('unticking the last note keeps the bar with 0 selected between '
+      'search row and list', (tester) async {
+    final actions = await _pump(tester);
+
+    await _tap(tester, 'notes-select-toggle');
+    await _tap(tester, 'notes-check-n1');
+    expect(find.byType(WpMultiSelectBar), findsOneWidget);
+    expect(find.text('0 selected'), findsOneWidget);
+    final bar = tester.getRect(find.byType(WpMultiSelectBar));
+    expect(
+      bar.top,
+      greaterThanOrEqualTo(
+        tester.getRect(find.byType(WpCollectionToolbar)).bottom,
+      ),
+    );
+    expect(
+      bar.bottom,
+      lessThanOrEqualTo(
+        tester.getRect(find.byKey(const ValueKey('notes-list-area'))).top,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('notes-multiselect-delete')));
+    await _settle(tester);
+    expect(actions.calls, isEmpty, reason: 'nothing to delete');
   });
 }

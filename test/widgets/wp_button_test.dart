@@ -8,9 +8,12 @@
 /// AC6 — `disabledTooltip` appears only while the button is disabled
 /// AC7 — the filled variant rings in a colour its fill can't swallow
 /// AC8 — `testId` is the identifier of the node that carries the tap action
+/// AC9 — keyboard focus on the button is reported to screen readers
 library;
 
 import 'package:flutter/material.dart';
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/widgets/wp_button.dart';
@@ -154,10 +157,7 @@ void main() {
       );
     });
   });
-}
 
-/// Const-friendly stand-in for "enabled" where the test doesn't count taps.
-void _noop() {
   // -------------------------------------------------------------------------
   // AC8 — testId
   // -------------------------------------------------------------------------
@@ -167,7 +167,6 @@ void _noop() {
         tester,
       ) async {
         final handle = tester.ensureSemantics();
-        addTearDown(handle.dispose);
         await tester.pumpWidget(
           makeTestable(
             WpButton(
@@ -187,7 +186,63 @@ void _noop() {
         );
         expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
         expect(node.label, 'Probe');
+        handle.dispose();
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // AC9 — focus reaches the screen reader
+  // -------------------------------------------------------------------------
+  group('AC9 — focus semantics', () {
+    for (final withTestId in [true, false]) {
+      testWidgets('keyboard focus is reported on the button node '
+          '(testId: $withTestId)', (tester) async {
+        final handle = tester.ensureSemantics();
+        final focus = FocusNode();
+        addTearDown(focus.dispose);
+        await tester.pumpWidget(
+          makeTestable(
+            WpButton(
+              label: 'Schließen',
+              variant: WpButtonVariant.primary,
+              testId: withTestId ? 'probe-close' : null,
+              semanticsLabel: withTestId ? null : 'Dialog schließen',
+              focusNode: focus,
+              onPressed: () {},
+            ),
+          ),
+        );
+        final finder = find.bySemanticsLabel(
+          withTestId ? 'Schließen' : 'Dialog schließen',
+        );
+        expect(
+          tester
+              .getSemantics(finder)
+              .getSemanticsData()
+              .flagsCollection
+              .isFocused,
+          Tristate.isFalse,
+        );
+
+        focus.requestFocus();
+        await tester.pump();
+
+        // Without the focused flag, Windows and Linux screen readers never
+        // hear that Tab moved onto the button (NVDA run, #668).
+        expect(
+          tester
+              .getSemantics(finder)
+              .getSemanticsData()
+              .flagsCollection
+              .isFocused,
+          Tristate.isTrue,
+        );
+        handle.dispose();
       });
     }
   });
 }
+
+/// Const-friendly stand-in for "enabled" where the test doesn't count taps.
+void _noop() {}

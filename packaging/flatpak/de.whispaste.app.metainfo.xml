@@ -89,6 +89,12 @@
   <!-- Per-release: prepend a <release> entry with the tag version + date.
        See packaging/flatpak/README.md (runbook). -->
   <releases>
+    <release version="1.5.2" date="2026-11-17">
+      <url type="details">https://github.com/whispaste/whispaste/releases/tag/v1.5.2</url>
+      <description>
+        <p>Fixes screen-edge mouse blocking, recovery after interrupted transcription, and microphone recovery after waking from sleep.</p>
+      </description>
+    </release>
     <release version="1.5.1" date="2026-11-17">
       <url type="details">https://github.com/whispaste/whispaste/releases/tag/v1.5.1</url>
       <description>

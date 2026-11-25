@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/widgets/find_replace_bar.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
@@ -97,7 +98,9 @@ void main() {
         'code': l10n.markdownToolbarCode(
           WpMarkdownFormatting.codeShortcutLabel(l10n),
         ),
-        'find': l10n.findReplaceToggle,
+        'find': l10n.findReplaceToggle(
+          WpFindReplaceBar.openShortcutLabel(l10n),
+        ),
       };
       expect(find.bySemanticsLabel(l10n.markdownToolbarGroup), findsOneWidget);
       for (final MapEntry(key: id, value: label) in buttons.entries) {

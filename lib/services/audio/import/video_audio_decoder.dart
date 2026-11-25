@@ -12,7 +12,19 @@ import 'package:path/path.dart' as p;
 import 'audio_decode_types.dart';
 import 'pcm_decoder.dart';
 
-const videoImportExtensions = ['mp4', 'mov', 'mkv', 'webm'];
+const videoImportExtensions = [
+  'mp4',
+  'mov',
+  'mkv',
+  'webm',
+  'mpeg',
+  'mpg',
+  'mpe',
+  'vob',
+  'ts',
+  'mts',
+  'm2ts',
+];
 
 class AudioImportCancelled implements Exception {
   const AudioImportCancelled();
@@ -80,9 +92,18 @@ class VideoAudioDecoder {
       process = await _startProcess(_executable, [
         '-nostdin', '-hide_banner', '-nostats', '-xerror',
         '-protocol_whitelist', 'file,pipe',
-        // Force one of the two sniffed containers. A renamed playlist must
+        // Force the sniffed container. A renamed playlist must
         // never get to a different demuxer or open another file/URL.
-        '-f', format == AudioSourceFormat.matroska ? 'matroska' : 'mov',
+        '-f',
+        switch (format) {
+          AudioSourceFormat.mp4 => 'mov',
+          AudioSourceFormat.matroska => 'matroska',
+          AudioSourceFormat.mpeg => 'mpeg',
+          AudioSourceFormat.mpegts => 'mpegts',
+          _ => throw const AudioFormatUnsupportedException(
+            'not a video container',
+          ),
+        },
         '-err_detect', 'explode', '-threads', '1',
         '-i', File(inputPath).absolute.path,
         '-map', '0:a:0', '-vn', '-sn', '-dn',

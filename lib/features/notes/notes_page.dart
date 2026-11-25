@@ -12,6 +12,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/accessibility/announce.dart';
 import '../../core/config/command_shortcut.dart';
 import '../../core/config/settings_provider.dart';
+import '../../core/data/content_metadata.dart' show ContentKind;
 import '../../core/data/database.dart';
 import '../../core/data/text_writer/text_writer.dart';
 import '../../core/data/note_asset_storage.dart';
@@ -20,14 +21,21 @@ import '../../core/logging/app_logger.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/text/text_undo.dart';
 import '../../core/text/markdown_plain_text.dart';
-import '../../core/navigation/page_state.dart' show notesEditorTargetProvider;
+import '../../core/navigation/page_state.dart'
+    show NoteRevealTarget, notesEditorTargetProvider, notesRevealTargetProvider;
 import '../../core/navigation/work_state.dart';
 import '../../core/utils/focus_helpers.dart';
+import '../../core/views/smart_view.dart';
+import '../../core/views/smart_view_providers.dart';
 import '../../services/notes/notes_exporter.dart' as notes_exporter;
+import '../../services/smart_mode/editor_smart_action.dart';
+import '../smart_actions/editor_smart_action_flow.dart';
 import '../../services/recording_orchestrator.dart';
+import '../../widgets/wp_editor_view_memory.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/find_replace.dart';
+import '../../widgets/find_reveal.dart';
 import '../../widgets/wp_favourite_star.dart';
 import '../../widgets/wp_save_status.dart';
 import '../../widgets/wp_banner.dart';
@@ -38,6 +46,7 @@ import '../../widgets/wp_multi_select_bar.dart';
 import '../../widgets/wp_text_field.dart';
 import 'data/note_asset_store.dart';
 import 'data/note_autosave.dart';
+import 'data/note_folder_tree.dart';
 import 'data/note_clipboard_image.dart';
 import 'data/note_title.dart';
 import 'data/note_version_scheduler.dart';
@@ -47,10 +56,14 @@ import 'data/writing_focus.dart';
 import 'data/providers.dart';
 import 'voice_insert.dart';
 import '../history/data/history_lock.dart';
+import '../snippets/snippets_page.dart' show snippetsProvider;
+import 'widgets/note_fold_controller.dart';
 import 'widgets/notes_pin_gate.dart';
 import 'blocks/long_note_layout.dart';
 import 'widgets/go_to_paragraph_dialog.dart';
 import 'widgets/note_editor_panel.dart';
+import 'widgets/note_folder_dialogs.dart';
+import 'widgets/note_folder_strip.dart';
 import 'widgets/note_markup_controller.dart';
 import 'widgets/note_versions_dialog.dart';
 import 'widgets/notes_bulk_tag_dialog.dart';
@@ -134,6 +147,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   /// its hits — a [TextField] only paints a *selection* while focused, and
   /// while a query is being typed the focus is in the find field.
   final NoteMarkupController _editorController = NoteMarkupController();
+
+  /// Folding all sections of a long note from the editor menu (#1344).
+  final NoteFoldController _folds = NoteFoldController();
 
   /// Undo for the open note, across the short and the long editor; each
   /// note keeps its own history while the user switches around (#651).
@@ -272,6 +288,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // never see it change. Post-frame so the editor exists to scroll.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _consumeEditorTarget();
+      _consumeRevealTarget();
     });
     // Back on this page after a switch: same search text in the field (the
     // query itself lives in [notesSearchProvider]) and the same note open
@@ -279,7 +296,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     _searchController.text = ref.read(notesSearchProvider);
     _work = ref.read(notesWorkStateProvider);
     final remembered = _work.selectedNoteId;
-    if (remembered != null && ref.read(notesEditorTargetProvider) == null) {
+    if (remembered != null &&
+        ref.read(notesEditorTargetProvider) == null &&
+        ref.read(notesRevealTargetProvider) == null) {
       unawaited(_reopenRemembered(remembered));
     }
   }
@@ -347,6 +366,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     unawaited(teardown);
     _editorUndo.dispose();
     _editorController.dispose();
+    _folds.dispose();
     // Removed before dispose(): FocusNode.dispose() synchronously unfocuses
     // (and thus notifies listeners) as part of teardown — without this, the
     // blur listener would fire mid-teardown and flush against an _autosave
@@ -595,9 +615,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }
   }
 
-  /// Confirmations close themselves; errors and warnings stay until closed.
-  static const _confirmationTime = Duration(seconds: 4);
-
   void _announce(String message) =>
       announce(View.of(context), message, Directionality.of(context));
 
@@ -630,6 +647,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     WpBannerTone tone = WpBannerTone.info,
     bool confirm = false,
   }) {
+    if (confirm) {
+      // A short confirmation stands at the bottom like every other (#1903).
+      showWpConfirmation(context, id: 'notes-$id', message: message);
+      return;
+    }
     showWpPageNotice(
       context,
       page: WpNoticePage.notes,
@@ -638,7 +660,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
         message: message,
         tone: tone,
         area: noteId,
-        autoDismiss: confirm ? _confirmationTime : null,
       ),
     );
   }
@@ -761,6 +782,26 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }
   }
 
+  /// Smart Mode on the selection or the paragraph at the caret (#650). The
+  /// note as it is now is kept as a version before the result replaces the
+  /// text; the result reaches the next version through the idle snapshot.
+  void _runSmartAction(EditorSmartAction action) {
+    final id = _selectedNoteId;
+    if (id == null) return;
+    unawaited(
+      runEditorSmartAction(
+        context,
+        ref,
+        controller: _editorController,
+        action: action,
+        lockKey: 'note:$id',
+        beforeApply: () async {
+          await _takeVersionSnapshot(id);
+        },
+      ),
+    );
+  }
+
   /// Textbaustein from the selection, or the whole body when nothing is
   /// selected. The snippet keeps a link back to this note.
   Future<void> _createSnippet() async {
@@ -781,11 +822,17 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       );
       return;
     }
+    // Captured before the await: the page may be gone when the row is in.
+    final container = ProviderScope.containerOf(context, listen: false);
     await _actions.createSnippetFromNote(
       noteId: id,
       title: deriveNoteTitle(body, maxLength: 60) ?? l10n.notesUntitled,
       body: body,
     );
+    // The row is written past SnippetsNotifier: without the reload, the
+    // Textbausteine page and the editors' insert chooser kept the old list
+    // until the next start (found on Windows, #664).
+    container.invalidate(snippetsProvider);
     if (!mounted || _selectedNoteId != id) return;
     // The snippet lives on the Textbausteine page, so the result is not
     // visible here: say it where the action was started.
@@ -833,6 +880,80 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     unawaited(_openQuickNoteTarget(targetId));
   }
 
+  /// Consumes a pending search jump ([notesRevealTargetProvider], #628):
+  /// opens the note with the matched text selected and the caret in the
+  /// editor, which scrolls it into view. Cleared synchronously, like
+  /// [_consumeEditorTarget].
+  void _consumeRevealTarget() {
+    if (!mounted) return;
+    final target = ref.read(notesRevealTargetProvider);
+    if (target == null) return;
+    ref.read(notesRevealTargetProvider.notifier).set(null);
+    unawaited(_openRevealTarget(target));
+  }
+
+  Future<void> _openRevealTarget(NoteRevealTarget target) async {
+    final note = await _actions.getNote(target.noteId);
+    if (!mounted || note == null) return;
+    if (_selectedNoteId != note.id) {
+      await _leaveCurrentNote();
+      if (!mounted) return;
+      // Land in the view that lists the note (#656): an archived match opens
+      // in the archive, any other one in the normal notes view. Search never
+      // finds trashed notes, and a selection never crosses views.
+      final view = note.archived ? NotesFilter.archive : NotesFilter.active;
+      if (ref.read(notesFilterProvider) != view) {
+        setState(() {
+          _selecting = false;
+          _checkedIds.clear();
+          _lastClickedId = null;
+        });
+        ref.read(notesFilterProvider.notifier).set(view);
+      }
+      setState(() {
+        _selectedNoteId = note.id;
+        _focusedNoteId = note.id;
+      });
+      _showStored(note);
+    }
+    // The editor holds the text with Windows line endings folded
+    // ([_setEditorText]); move the stored offsets along.
+    int? shift(int? offset) {
+      if (offset == null) return null;
+      final before = note.content.substring(
+        0,
+        offset.clamp(0, note.content.length),
+      );
+      final folded = before.replaceAll('\r\n', '\n').length;
+      return folded.clamp(0, _editorController.text.length);
+    }
+
+    final start = shift(target.start) ?? 0;
+    final end = shift(target.end) ?? start;
+    // The matches are found in the editor, so a note shown for reading
+    // opens for writing (#653).
+    if (end > start) ref.read(noteReadingViewProvider.notifier).edit();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _selectedNoteId != note.id) return;
+      // Through the view memory: it may still be reading the place the note
+      // was left at, which would otherwise land on top of the match.
+      WpEditorViewMemory.place(
+        _editorController,
+        TextSelection(baseOffset: start, extentOffset: end),
+      );
+      _editorFocusNode.requestFocus();
+      // Every match tinted, F3 / Shift+F3 to the others (#653).
+      final text = _editorController.text;
+      if (end > start && end <= text.length) {
+        WpFindReveal.request(
+          (kind: ContentKind.note, id: note.id),
+          text.substring(start, end),
+          anchor: start,
+        );
+      }
+    });
+  }
+
   /// Opens [targetId] in the editor, scrolled to the end.
   ///
   /// The already-open case only scrolls: [_quickNoteLiveOverride] has already
@@ -849,7 +970,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // Coming from the trash view, land in the normal notes view. Drops the
     // selection with it, exactly like _setFilter: carrying a trashed note
     // across the filter boundary would show a note that isn't in the list.
-    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+    if (ref.read(notesFilterProvider) != NotesFilter.active) {
       setState(() => _selectedNoteId = null);
       _setEditorText('');
       ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
@@ -1025,7 +1146,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   void _selectAll(List<Note> notes) {
     if (notes.isEmpty) return;
     if (_selecting && notes.every((n) => _checkedIds.contains(n.id))) {
-      _leaveSelection();
+      // Deselect all keeps select mode on, like Aufnahmen and Textbausteine.
+      setState(() => _checkedIds.removeAll(notes.map((n) => n.id)));
+      _announceSelection();
       return;
     }
     setState(() {
@@ -1049,8 +1172,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       _leaveSelection();
       return;
     }
-    // Start with the open (or keyboard-focused) note ticked, so the mode
-    // never opens on an empty selection the bar could not act on.
+    // Start with the open (or keyboard-focused) note ticked: the note in
+    // hand is the likely first pick. Unticking it keeps the bar (0 selected).
     final start = _selectedNoteId ?? _focusedNoteId;
     final startId = notes.any((n) => n.id == start)
         ? start
@@ -1153,6 +1276,35 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }
   }
 
+  /// Files the selection into the archive, or takes it back out in the
+  /// archive view (#656). The notes leave the current list either way; undo
+  /// flips the archive flag back.
+  Future<void> _archiveChecked(
+    List<Note> notes, {
+    required bool archive,
+  }) async {
+    final ids = _checkedIn(notes);
+    if (ids.isEmpty) return;
+    await _autosave.flush();
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final actions = _actions;
+    try {
+      final count = await actions.setArchivedMany(ids, archived: archive);
+      if (!mounted) return;
+      _closeEditorIfIn(ids);
+      _leaveSelection();
+      _showBulkUndo(
+        archive
+            ? l10n.notesBulkArchived(count)
+            : l10n.notesBulkUnarchived(count),
+        () => actions.setArchivedMany(ids, archived: !archive),
+      );
+    } catch (e) {
+      _bulkFailed(e);
+    }
+  }
+
   /// Trash view: brings the selection back; undo puts it back in the trash.
   Future<void> _restoreChecked(List<Note> notes) async {
     final ids = _checkedIn(notes);
@@ -1228,6 +1380,156 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }
   }
 
+  /// "Move to folder…" (#659) for [ids]. [currentFolderId] marks the folder
+  /// they share ([sharesFolder] false for a mixed selection). The target can
+  /// be created on the spot; the move shows an undo notice.
+  Future<void> _moveNotes(
+    List<String> ids, {
+    String? currentFolderId,
+    bool sharesFolder = true,
+  }) async {
+    if (ids.isEmpty) return;
+    final target = await showMoveToFolderDialog(
+      context,
+      folders: ref.read(noteFoldersProvider).value ?? const <NoteFolder>[],
+      count: ids.length,
+      currentFolderId: currentFolderId,
+      sharesFolder: sharesFolder,
+    );
+    if (target == null || !mounted) return;
+    final l10n = L10n.of(context);
+    final actions = _actions;
+    try {
+      var folderId = target.folderId;
+      var name = '';
+      if (target.createNew) {
+        final picked = await showNoteFolderNameDialog(
+          context,
+          title: l10n.notesFolderNew,
+          confirmLabel: l10n.notesFolderCreate,
+        );
+        if (picked == null || !mounted) return;
+        final folder = await actions.createFolder(picked);
+        folderId = folder.id;
+        name = folder.name;
+      } else if (folderId != null) {
+        final byId = ref.read(noteFoldersByIdProvider);
+        final folder = byId[folderId];
+        if (folder != null) name = noteFolderPath(folder, byId);
+      }
+      await _autosave.flush();
+      final previous = await actions.moveToFolder(ids, folderId);
+      if (!mounted) return;
+      // Moved out of the shown folder, the open note leaves the list.
+      final shownId = ref.read(shownNoteFolderIdProvider);
+      if (shownId != null &&
+          !noteInFolder(folderId, shownId, ref.read(noteFoldersByIdProvider))) {
+        _closeEditorIfIn(ids);
+      }
+      _leaveSelection();
+      _showBulkUndo(
+        folderId == null
+            ? l10n.notesMovedToNoFolder(ids.length)
+            : l10n.notesMovedToFolder(ids.length, name),
+        () => actions.undoMoveToFolder(previous),
+      );
+    } catch (e) {
+      _bulkFailed(e);
+    }
+  }
+
+  void _moveNote(Note note) =>
+      unawaited(_moveNotes([note.id], currentFolderId: note.folderId));
+
+  Future<void> _moveChecked(List<Note> notes) {
+    final ids = _checkedIn(notes);
+    final idSet = ids.toSet();
+    final shared = {
+      for (final n in notes)
+        if (idSet.contains(n.id)) n.folderId,
+    };
+    return _moveNotes(
+      ids,
+      currentFolderId: shared.length == 1 ? shared.first : null,
+      sharesFolder: shared.length == 1,
+    );
+  }
+
+  /// Shows [folderId] (all notes when null). A shown view is left, since a
+  /// view reaches across folders (ADR 0034).
+  void _showFolder(String? folderId) {
+    ref.read(activeSmartViewProvider(SmartViewScope.notes).notifier).clear();
+    ref.read(notesFolderFilterProvider.notifier).set(folderId);
+  }
+
+  /// Creates a folder under [parentId] (top level when null) and shows it.
+  Future<void> _createFolder(String? parentId) async {
+    final l10n = L10n.of(context);
+    final name = await showNoteFolderNameDialog(
+      context,
+      title: parentId == null
+          ? l10n.notesFolderNew
+          : l10n.notesFolderNewSubfolder,
+      confirmLabel: l10n.notesFolderCreate,
+    );
+    if (name == null || !mounted) return;
+    try {
+      final folder = await _actions.createFolder(name, parentId: parentId);
+      if (!mounted) return;
+      _showFolder(folder.id);
+    } catch (e) {
+      _bulkFailed(e);
+    }
+  }
+
+  Future<void> _renameFolder(NoteFolder folder) async {
+    final l10n = L10n.of(context);
+    final name = await showNoteFolderNameDialog(
+      context,
+      title: l10n.notesFolderRename,
+      confirmLabel: l10n.notesFolderRename,
+      initial: folder.name,
+    );
+    if (name == null || name == folder.name || !mounted) return;
+    try {
+      await _actions.renameFolder(folder.id, name);
+    } catch (e) {
+      _bulkFailed(e);
+    }
+  }
+
+  /// Deletes [folder] and its subfolders. Notes are never lost without the
+  /// question (ADR 0034): they stay (moved to the top level) or go to the
+  /// trash, where they can be restored.
+  Future<void> _deleteFolder(NoteFolder folder) async {
+    final count = await _actions.countFolderNotes(folder.id);
+    if (!mounted) return;
+    final choice = await showNoteFolderDeleteDialog(
+      context,
+      name: folder.name,
+      noteCount: count,
+    );
+    if (choice == null || !mounted) return;
+    final l10n = L10n.of(context);
+    final trash = choice == NoteFolderDeleteChoice.trashNotes;
+    try {
+      await _autosave.flush();
+      final ids = await _actions.deleteFolder(folder.id, trashNotes: trash);
+      if (!mounted) return;
+      if (trash) _closeEditorIfIn(ids);
+      final view = _announceView;
+      if (view != null) {
+        announce(
+          view,
+          l10n.notesFolderDeleted(folder.name),
+          _announceDirection,
+        );
+      }
+    } catch (e) {
+      _bulkFailed(e);
+    }
+  }
+
   /// Exports the selection into one file. The list rows hold only a preview
   /// (#639), so the full text is read first.
   Future<void> _exportChecked(List<Note> notes) async {
@@ -1289,14 +1591,16 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   }
 
   /// The selection bar above the list, or null outside multi-select.
-  Widget? _buildSelectionBar(L10n l10n, List<Note> notes, bool isTrash) {
-    if (!_selecting || _checkedIds.isEmpty) return null;
+  Widget? _buildSelectionBar(L10n l10n, List<Note> notes, NotesFilter filter) {
+    final isTrash = filter == NotesFilter.trash;
+    final isArchive = filter == NotesFilter.archive;
+    if (!_selecting) return null;
     final count = _checkedIn(notes).length;
     final checked = notes.where((n) => _checkedIds.contains(n.id));
     final allPinned = checked.isNotEmpty && checked.every((n) => n.pinned);
     return WpMultiSelectBar(
       idPrefix: 'notes-multiselect',
-      isArchiveView: false,
+      isArchiveView: isArchive,
       selectedCount: count,
       totalCount: notes.length,
       isTrashView: isTrash,
@@ -1305,7 +1609,14 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           : null,
       onExport: () => unawaited(_exportChecked(notes)),
       onTag: isTrash ? null : () => unawaited(_tagChecked(notes)),
-      onFavourite: isTrash ? null : () => unawaited(_pinChecked(notes)),
+      onMoveToFolder: isTrash ? null : () => unawaited(_moveChecked(notes)),
+      // Archived notes carry no favourite (#656).
+      onFavourite: isTrash || isArchive
+          ? null
+          : () => unawaited(_pinChecked(notes)),
+      onArchive: isTrash
+          ? null
+          : () => unawaited(_archiveChecked(notes, archive: !isArchive)),
       favouriteLabel: WpFavouriteStar.labelFor(l10n, isFavourite: allPinned),
       favouriteIcon: allPinned ? LucideIcons.starOff : LucideIcons.star,
       // The trash offers no bulk "delete forever": it could not be undone.
@@ -1326,9 +1637,10 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     FocusNode node,
     KeyEvent event,
     List<Note> notes,
-    bool isTrash,
+    NotesFilter filter,
     Note? currentNote,
   ) {
+    final isTrash = filter == NotesFilter.trash;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     // Ctrl/Cmd+C copies the whole open or focused note, but only outside a
@@ -1414,9 +1726,18 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // F: toggle favourite on the focused note (active view only — trash
     // view has no favourite star). Only a bare F: Ctrl/Cmd+F must bubble up
     // to the page-level CallbackShortcuts that focuses the search field.
-    if (key == LogicalKeyboardKey.keyF && !isTrash && noModifierPressed()) {
+    if (key == LogicalKeyboardKey.keyF &&
+        filter == NotesFilter.active &&
+        noModifierPressed()) {
       final note = _focusedNote(notes);
       if (note != null) _toggleFavorite(note);
+      return KeyEventResult.handled;
+    }
+    // A: file the focused note into the archive, or take it back out in the
+    // archive view (#656). Bare A only: Ctrl/Cmd+A stays select-all.
+    if (key == LogicalKeyboardKey.keyA && !isTrash && noModifierPressed()) {
+      final note = _focusedNote(notes);
+      if (note != null) unawaited(_toggleArchive(note));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.escape) {
@@ -1499,7 +1820,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       await _autosave.flush();
       _setEditorText(head);
       await _actions.save(id, head);
-      created = await _actions.create();
+      // The tail stays in the note's folder (#659).
+      final folderId = (await _actions.getNote(id))?.folderId;
+      created = await _actions.create(folderId: folderId);
       await _actions.save(created.id, tail);
     } on Object catch (error, stack) {
       _log.warning('Split note failed: ${errorKind(error)}', null, stack);
@@ -1528,11 +1851,23 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     }
   }
 
+  /// Whether a saved view (#658) narrows the active list right now.
+  bool get _viewShown =>
+      ref.read(notesFilterProvider) == NotesFilter.active &&
+      ref.read(shownSmartViewProvider(SmartViewScope.notes)) != null;
+
   Future<void> _createNote() async {
+    // A view only lists what matches its rules, so nothing is created inside
+    // one (#658): the button is disabled with a tooltip, and Ctrl/Cmd+N and
+    // the empty state end here as well.
+    if (_viewShown) return;
     final Note note;
     try {
       await _autosave.flush();
-      note = await _actions.create();
+      // A new note lands in the shown folder (#659).
+      note = await _actions.create(
+        folderId: ref.read(shownNoteFolderIdProvider),
+      );
     } on Object catch (error, stack) {
       _log.warning('Create note failed: ${errorKind(error)}', null, stack);
       if (!mounted) return;
@@ -1552,7 +1887,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // insert succeeds: a failed insert must leave the list unchanged.
     await _leaveCurrentNote();
     if (!mounted) return;
-    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+    if (ref.read(notesFilterProvider) != NotesFilter.active) {
       ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
     }
     setState(() {
@@ -1587,6 +1922,11 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       _lastClickedId = null;
     });
     _setEditorText('');
+    // Saved views apply to the active notes only; leaving them for Archive
+    // or Trash also leaves the view (#658).
+    if (filter != NotesFilter.active) {
+      ref.read(activeSmartViewProvider(SmartViewScope.notes).notifier).clear();
+    }
     ref.read(notesFilterProvider.notifier).set(filter);
   }
 
@@ -1642,6 +1982,32 @@ class _NotesPageState extends ConsumerState<NotesPage> {
         message: l10n.notesMovedToTrash,
         actionLabel: l10n.notesUndo,
         onAction: () => actions.restore(note.id),
+      ),
+    );
+  }
+
+  /// Files [note] into the archive or takes it back out (#656). Like
+  /// [_moveToTrash] the note leaves the current list, so the editor closes
+  /// when it was open; undo flips only the archive flag back.
+  Future<void> _toggleArchive(Note note) async {
+    await _autosave.flush();
+    final archive = !note.archived;
+    await _actions.setArchived(note.id, archived: archive);
+    if (!mounted) return;
+    if (note.id == _selectedNoteId) {
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+    }
+    final l10n = L10n.of(context);
+    final actions = _actions;
+    showWpNotice(
+      context,
+      WpNotice(
+        id: archive ? 'notes-archived' : 'notes-unarchived',
+        kind: WpNoticeKind.undo,
+        message: archive ? l10n.notesArchived : l10n.notesUnarchived,
+        actionLabel: l10n.notesUndo,
+        onAction: () => actions.setArchived(note.id, archived: !archive),
       ),
     );
   }
@@ -1727,11 +2093,19 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       if (target == null) return;
       _consumeEditorTarget();
     });
+    ref.listen<NoteRevealTarget?>(notesRevealTargetProvider, (_, target) {
+      if (target == null) return;
+      _consumeRevealTarget();
+    });
     final filter = ref.watch(notesFilterProvider);
     final isTrash = filter == NotesFilter.trash;
     // Kept solely for the error-retry invalidate below — the list itself
     // reads from filteredNotesProvider (filter + search combined).
-    final activeStreamProvider = isTrash ? trashNotesProvider : notesProvider;
+    final activeStreamProvider = switch (filter) {
+      NotesFilter.active => notesProvider,
+      NotesFilter.archive => archivedNotesProvider,
+      NotesFilter.trash => trashNotesProvider,
+    };
     final notesAsync = ref.watch(filteredNotesProvider);
     final query = ref.watch(notesSearchProvider).trim();
     final hasQuery = query.isNotEmpty;
@@ -1750,7 +2124,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     // What the arrow keys can reach: the favourites are skipped while their
     // section is folded (#830), as they are not in the list then.
     final navNotes =
-        !isTrash &&
+        filter == NotesFilter.active &&
             !hasQuery &&
             (ref.watch(notesFavoritesCollapsedProvider).value ?? false)
         ? withoutFoldedFavorites(notes)
@@ -1807,7 +2181,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       child: WpCollectionPage(
         screenId: 'notes',
         searchFocusNode: _searchFocusNode,
-        selectionBar: _buildSelectionBar(l10n, notes, isTrash),
+        selectionBar: _buildSelectionBar(l10n, notes, filter),
         // Focus mode swaps the search row for its own bar; the body below
         // keeps its place in the tree, so the editor is not rebuilt.
         toolbar: focusMode
@@ -1844,40 +2218,67 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                   onToggleSelecting: notes.isEmpty
                       ? null
                       : () => _toggleSelecting(navNotes),
+                  onCreateFolder: () => unawaited(_createFolder(null)),
                 ),
               ),
-        body: CallbackShortcuts(
-          // Wraps every notesAsync state, so the selection shortcuts stay
-          // reachable in the empty states too. Ctrl/Cmd+C and the bare keys
-          // live in Focus.onKeyEvent below, which can return
-          // KeyEventResult.ignored while a text field has focus.
-          bindings: _buildListShortcuts(navNotes),
-          child: Focus(
-            focusNode: _listFocusNode,
-            autofocus: true,
-            onKeyEvent: (node, event) => _handleListKeyEvent(
-              node,
-              event,
-              navNotes,
-              isTrash,
-              currentNote,
-            ),
-            child: _buildNotesContent(
-              notesAsync: notesAsync,
-              isTrash: isTrash,
-              hasQuery: hasQuery,
-              query: query,
-              l10n: l10n,
-              tagsByNoteId: tagsByNoteId,
-              currentNote: currentNote,
-              selectedNoteTags: selectedNoteTags,
-              activeStreamProvider: activeStreamProvider,
-              navNotes: navNotes,
-              focusMode: focusMode,
+        body: _withFolderStrip(
+          show: !focusMode && filter == NotesFilter.active,
+          child: CallbackShortcuts(
+            // Wraps every notesAsync state, so the selection shortcuts stay
+            // reachable in the empty states too. Ctrl/Cmd+C and the bare keys
+            // live in Focus.onKeyEvent below, which can return
+            // KeyEventResult.ignored while a text field has focus.
+            bindings: _buildListShortcuts(navNotes),
+            child: Focus(
+              focusNode: _listFocusNode,
+              autofocus: true,
+              onKeyEvent: (node, event) => _handleListKeyEvent(
+                node,
+                event,
+                navNotes,
+                filter,
+                currentNote,
+              ),
+              child: _buildNotesContent(
+                notesAsync: notesAsync,
+                isTrash: isTrash,
+                isArchive: filter == NotesFilter.archive,
+                hasQuery: hasQuery,
+                query: query,
+                l10n: l10n,
+                tagsByNoteId: tagsByNoteId,
+                currentNote: currentNote,
+                selectedNoteTags: selectedNoteTags,
+                activeStreamProvider: activeStreamProvider,
+                navNotes: navNotes,
+                focusMode: focusMode,
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Puts the folder row (#659) above [child] while [show]. The row hides
+  /// itself until a folder exists, so the flat list stays as it was. The
+  /// column is always there, so the list and editor keep their place in the
+  /// tree when the row appears or focus mode starts.
+  Widget _withFolderStrip({required bool show, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (show)
+          NoteFolderStrip(
+            onShow: _showFolder,
+            onCreate: (parentId) => unawaited(_createFolder(parentId)),
+            onRename: (folder) => unawaited(_renameFolder(folder)),
+            onDelete: (folder) => unawaited(_deleteFolder(folder)),
+          )
+        else
+          const SizedBox.shrink(),
+        Expanded(child: child),
+      ],
     );
   }
 
@@ -1917,6 +2318,21 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           unawaited(_mergeChecked(notes));
         }
       },
+      // Ctrl+Shift+M: "Move to folder…" (#659) for the selection, else for
+      // the focused note. Control on every platform, matching Ctrl+M.
+      const SingleActivator(
+        LogicalKeyboardKey.keyM,
+        control: true,
+        shift: true,
+      ): () {
+        if (isTextFieldFocused()) return;
+        if (ref.read(notesFilterProvider) == NotesFilter.trash) return;
+        if (_selecting) {
+          unawaited(_moveChecked(notes));
+        } else if (_focusedNote(notes) case final note?) {
+          _moveNote(note);
+        }
+      },
     };
   }
 
@@ -1928,6 +2344,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   Widget _buildNotesContent({
     required AsyncValue<List<Note>> notesAsync,
     required bool isTrash,
+    required bool isArchive,
     required bool hasQuery,
     required String query,
     required L10n l10n,
@@ -1953,6 +2370,39 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               },
             );
           }
+          if (isArchive) {
+            return WpEmptyState(
+              key: const ValueKey('notes-archive-empty'),
+              icon: LucideIcons.archive,
+              title: l10n.notesArchiveEmpty,
+              hint: l10n.notesArchiveEmptyHint,
+            );
+          }
+          if (!isTrash &&
+              ref.watch(shownSmartViewProvider(SmartViewScope.notes)) != null) {
+            return WpEmptyState(
+              key: const ValueKey('notes-view-empty'),
+              icon: LucideIcons.layers,
+              title: l10n.smartViewEmptyTitle,
+              hint: l10n.smartViewEmptyHint,
+              actionLabel: l10n.smartViewLeave,
+              actionTestId: 'notes-view-leave',
+              onAction: ref
+                  .read(activeSmartViewProvider(SmartViewScope.notes).notifier)
+                  .clear,
+            );
+          }
+          if (!isTrash && ref.watch(shownNoteFolderIdProvider) != null) {
+            return WpEmptyState(
+              key: const ValueKey('notes-folder-empty'),
+              icon: LucideIcons.folderOpen,
+              title: l10n.notesFolderEmptyTitle,
+              hint: l10n.notesFolderEmptyHint,
+              actionLabel: l10n.notesFolderShowAll,
+              actionTestId: 'notes-folder-show-all',
+              onAction: () => _showFolder(null),
+            );
+          }
           if (!isTrash && ref.watch(notesTagFilterProvider).isNotEmpty) {
             return WpEmptyState(
               key: const ValueKey('notes-tag-filter-empty'),
@@ -1971,6 +2421,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           // so its one way on is back to the notes.
           return WpEmptyState(
             icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
+            motif: isTrash ? null : WpEmptyMotif.notes,
             title: isTrash ? l10n.notesTrashEmpty : l10n.notesEmptyTitle,
             hint: isTrash
                 ? l10n.notesTrashEmptyHint(
@@ -2011,6 +2462,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           onCreateSnippet: () => unawaited(_createSnippet()),
           onGoToParagraph: () => unawaited(_goToParagraph()),
           onSplitNote: () => unawaited(_splitNote()),
+          onSmartAction: isTrash ? null : _runSmartAction,
+          folds: _folds,
           onToggleFocusMode: isTrash
               ? null
               : () => unawaited(_toggleWritingFocus()),
@@ -2041,6 +2494,8 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             onRestore: _restoreNote,
             onDeleteForever: _deleteForever,
             onMoveToTrash: _moveToTrash,
+            onToggleArchive: isTrash ? null : _toggleArchive,
+            onMoveToFolder: isTrash ? null : _moveNote,
           ),
           detailBuilder: (context, note) => NoteEditorPanel(
             note: note,
@@ -2056,6 +2511,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
             onMoveToTrash: () => _moveToTrash(note),
             onRestore: () => _restoreNote(note),
             onDeleteForever: () => _deleteForever(note),
+            onToggleArchive: isTrash ? null : () => _toggleArchive(note),
             onAddTag: addTag,
             onRemoveTag: removeTag,
             onExport: exportCurrent,

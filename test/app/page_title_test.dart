@@ -14,4 +14,10 @@ void main() {
     expect(title, isNotEmpty);
     expect(title, l10n.feedbackTitle);
   });
+
+  test('Feedback lights up the Hilfe entry, other pages their own (#1845)', () {
+    expect(wpNavActiveId('feedback'), 'help');
+    expect(wpNavActiveId('help'), 'help');
+    expect(wpNavActiveId('snippets'), 'snippets');
+  });
 }

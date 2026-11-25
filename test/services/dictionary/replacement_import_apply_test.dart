@@ -35,9 +35,8 @@ void main() {
       );
 
   group('HistoryDatabase.applyReplacementImport', () {
-    test('trimmed entry keeps its favourite flag and usage count', () async {
+    test('trimmed entry keeps its usage count', () async {
       await seed('keep', ['mfg', 'mahlzeit']);
-      await db.setReplacementFavourite('keep', value: true);
       await db.addReplacementUsage({'keep': 3});
 
       await db.applyReplacementImport(
@@ -51,7 +50,6 @@ void main() {
       final after = await stored('keep');
       expect(after.triggers, ['mahlzeit']);
       expect(after.row.trigger, 'mahlzeit');
-      expect(after.row.isFavorite, isTrue);
       expect(after.row.usageCount, 3);
     });
 

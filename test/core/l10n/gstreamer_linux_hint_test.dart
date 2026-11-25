@@ -13,7 +13,17 @@ void main() {
   test(
     'the Linux import hint names the GStreamer package in all six languages',
     () {
-      for (final lang in ['de', 'en', 'es', 'he', 'pt', 'ru']) {
+      for (final lang in [
+        'de',
+        'en',
+        'es',
+        'he',
+        'pt',
+        'ru',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         final arb =
             jsonDecode(File('lib/core/l10n/app_$lang.arb').readAsStringSync())
                 as Map<String, dynamic>;

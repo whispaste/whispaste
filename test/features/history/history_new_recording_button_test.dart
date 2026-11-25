@@ -37,6 +37,8 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
 import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
+import 'package:whispaste/services/audio/import/audio_import_providers.dart';
+import 'package:whispaste/services/audio/import/audio_import_queue.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/widgets/wp_icon_button.dart';
@@ -67,6 +69,15 @@ class _FakeOrchestrator extends RecordingOrchestrator {
   }) async => toggles++;
 }
 
+class _FakeQueue extends AudioImportQueueNotifier {
+  _FakeQueue(this.jobs);
+
+  final List<ImportJob> jobs;
+
+  @override
+  List<ImportJob> build() => jobs;
+}
+
 void main() {
   late _FakeOrchestrator orchestrator;
 
@@ -74,8 +85,11 @@ void main() {
 
   Future<WpIconButton> pumpBar(
     WidgetTester tester,
-    RecordingPhase phase,
-  ) async {
+    RecordingPhase phase, {
+    int resultCount = 0,
+    bool multiSelectMode = false,
+    List<ImportJob> importJobs = const [],
+  }) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -87,10 +101,10 @@ void main() {
             activeFilter: HistoryFilter.all,
             onFilterChanged: (_) {},
             onSearchChanged: () {},
-            resultCount: 0,
+            resultCount: resultCount,
             viewMode: HistoryViewMode.list,
             onViewModeChanged: (_) {},
-            multiSelectMode: false,
+            multiSelectMode: multiSelectMode,
             onToggleMultiSelect: () {},
             sortOrder: HistorySortOrder.newest,
             onSortOrderChanged: (_) {},
@@ -108,6 +122,7 @@ void main() {
           pagedHistoryProvider.overrideWith(
             (ref) => Stream.value(const <HistoryEntry>[]),
           ),
+          audioImportQueueProvider.overrideWith(() => _FakeQueue(importJobs)),
         ],
         // Pinned so the label assertion below compares against a known
         // locale rather than whatever the host machine runs.
@@ -117,6 +132,47 @@ void main() {
     await tester.pump();
     return tester.widget<WpIconButton>(_newRecordingButton);
   }
+
+  testWidgets('an open import is a counted icon button in the search row, '
+      'not a line above the search', (tester) async {
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpBar(
+      tester,
+      RecordingPhase.idle,
+      importJobs: const [ImportJob(id: 'a', fileName: 'a.wav')],
+    );
+    final summary = find.byKey(const ValueKey('history-import-summary'));
+    expect(
+      find.descendant(
+        of: find.byType(HistorySearchFilterBar),
+        matching: summary,
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget(summary), isA<WpIconButton>());
+    expect(
+      tester.getCenter(summary).dy,
+      moreOrLessEquals(tester.getCenter(_newRecordingButton).dy),
+      reason: 'same row as the other tools',
+    );
+  });
+
+  testWidgets('the select toggle shows only when there is something to '
+      'select, as on Notes and Snippets', (tester) async {
+    // Wide enough that the tools stay inline instead of in the overflow.
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final toggle = find.byKey(const ValueKey('history-select-toggle'));
+    await pumpBar(tester, RecordingPhase.idle);
+    expect(toggle, findsNothing, reason: 'an empty list has nothing to tick');
+    await pumpBar(tester, RecordingPhase.idle, resultCount: 3);
+    expect(toggle, findsOneWidget);
+    await pumpBar(tester, RecordingPhase.idle, multiSelectMode: true);
+    expect(toggle, findsOneWidget, reason: 'an open selection can be left');
+  });
 
   testWidgets('History offers the new-recording action with its own wording', (
     tester,

@@ -21,19 +21,25 @@ class IdleCapsule {
   static const double hoverWidth = 112;
   static const double hoverHeight = 28;
 
-  /// Hover needs global pointer tracking. Linux under Wayland provides none
-  /// for a plain toplevel, so the capsule stays at rest there and a click
-  /// still starts recording.
+  /// Hover arrives through the window's own pointer events. The runner forces
+  /// the X11 GDK backend (XWayland on a Wayland session), and a compositor
+  /// delivers enter/leave to an XWayland window like to any other, so the
+  /// session type does not matter. Only a GTK forced onto native Wayland
+  /// (`GDK_BACKEND=wayland`) gives a plain toplevel no pointer tracking.
   static bool hoverSupported({
     required bool isLinux,
-    required bool isWayland,
-  }) => !(isLinux && isWayland);
+    required bool nativeWayland,
+  }) => !(isLinux && nativeWayland);
 
-  /// Whether a Linux session runs under Wayland, from the environment
-  /// variables a Wayland session sets. Takes the map so it stays testable.
-  static bool isWaylandSession(Map<String, String> environment) =>
-      environment['XDG_SESSION_TYPE']?.toLowerCase() == 'wayland' ||
-      (environment['WAYLAND_DISPLAY'] ?? '').isNotEmpty;
+  /// Whether GTK runs on the native Wayland backend, from `GDK_BACKEND` (the
+  /// runner sets `x11` when it is unset). Takes the map so it stays testable.
+  static bool isNativeWaylandBackend(Map<String, String> environment) =>
+      (environment['GDK_BACKEND'] ?? '')
+          .split(',')
+          .first
+          .trim()
+          .toLowerCase() ==
+      'wayland';
 
   /// Whether the capsule is expanded for the given pointer state.
   static bool expands({required bool hovered, required bool hoverSupported}) =>

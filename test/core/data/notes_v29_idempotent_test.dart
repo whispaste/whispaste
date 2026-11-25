@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/index_maintenance.dart';
 
 void main() {
   late Directory tempDir;
@@ -31,6 +32,14 @@ void main() {
     );
     // Roll back to what a v26 build leaves: the columns are gone, the tables
     // stay. This is the state an interrupted upgrade can leave behind.
+    // A v26 build had no notes index (#628): its triggers name the column.
+    for (final t in kNotesSearchIndex.triggerNames) {
+      await first.customStatement('DROP TRIGGER IF EXISTS $t');
+    }
+    await first.customStatement('DROP TABLE IF EXISTS notes_fts');
+    await first.customStatement('DELETE FROM app_meta WHERE key = ?', [
+      kNotesSearchIndex.versionKey,
+    ]);
     await first.customStatement('ALTER TABLE notes DROP COLUMN title');
     await first.customStatement(
       'ALTER TABLE snippets DROP COLUMN source_note_id',

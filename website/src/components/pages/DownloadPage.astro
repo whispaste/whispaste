@@ -537,7 +537,7 @@ import PageSheet from "../PageSheet.astro";
                           href={ch.managerInstallUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          class="text-brand-cyan hover:underline"
+                          class="text-brand-cyan underline underline-offset-2"
                           data-testid={`pkg-neverused-link-${ch.id}`}
                         ><span data-i18n="download.pkg.neverUsed.linkText">{t(lang, "download.pkg.neverUsed.linkText")}</span></a>
                       </p>
@@ -616,7 +616,8 @@ import PageSheet from "../PageSheet.astro";
 
             <p class="text-center text-xs text-ink-subtle">
               <span data-i18n="download.diagnose.mailHint">{t(lang, "download.diagnose.mailHint")}</span>
-              <a href={`mailto:${contactMail}?subject=WhisPaste%20Diagnose-Report`} class="text-brand-cyan hover:underline">{contactMail}</a>
+              {" "}
+              <a href={`mailto:${contactMail}?subject=WhisPaste%20Diagnose-Report`} class="text-brand-cyan underline underline-offset-2">{contactMail}</a>
             </p>
           </div>
         </details>
@@ -799,6 +800,8 @@ import PageSheet from "../PageSheet.astro";
      and the OS-matched card can span the full width as the featured path. */
   .download-primary-group {
     display: grid;
+    /* Explicit shrinkable column, like .dl-layout (#1845). */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--wp-space-6);
     margin-bottom: var(--wp-space-6);
   }
@@ -876,9 +879,21 @@ import PageSheet from "../PageSheet.astro";
     display: block;
   }
 
+  /* One column that may shrink below its content's min-content width:
+     the implicit auto column grew to the widest helper summary and pushed
+     the page past a 320 px viewport (#1845). */
   .dl-layout {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--wp-space-6);
+  }
+  .dl-main,
+  .dl-rail {
+    min-width: 0;
+  }
+  .tech-helper__summary > .flex-1 {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   @media (min-width: 1280px) {
     .dl-layout {

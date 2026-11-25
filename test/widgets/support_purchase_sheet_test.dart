@@ -11,6 +11,7 @@ import 'package:http/testing.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
+import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support/support_store_bridge.dart';
 import 'package:whispaste/services/telemetry_service.dart';
 import 'package:whispaste/widgets/support_purchase_sheet.dart';
@@ -37,6 +38,8 @@ Future<FakeSupportStatusNotifier> _open(
   Object? productsError,
   SupportPurchaseStatus purchaseResult = SupportPurchaseStatus.succeeded,
   TelemetryService? telemetry,
+  SupportPlatform platform = SupportPlatform.windows,
+  bool testEnvironment = false,
 }) async {
   final notifier = FakeSupportStatusNotifier()..purchaseResult = purchaseResult;
   await tester.pumpWidget(
@@ -51,14 +54,19 @@ Future<FakeSupportStatusNotifier> _open(
         ),
       ),
       locale: const Locale('en'),
-      overrides: supportOverrides(
-        channel: DeployChannel.store,
-        platform: SupportPlatform.windows,
-        status: notifier,
-        products: products,
-        productsError: productsError,
-        telemetry: telemetry,
-      ),
+      overrides: [
+        ...supportOverrides(
+          channel: DeployChannel.store,
+          platform: platform,
+          status: notifier,
+          products: products,
+          productsError: productsError,
+          telemetry: telemetry,
+        ),
+        supportStoreTestEnvironmentProvider.overrideWith(
+          (ref) async => testEnvironment,
+        ),
+      ],
     ),
   );
   await tester.pump();
@@ -238,6 +246,71 @@ void main() {
 
     expect(find.text(l10n.supportSheetUnavailable), findsOneWidget);
     expect(find.byKey(const ValueKey('support-purchase-button')), findsNothing);
+  });
+
+  testWidgets('amounts and currency are exactly the store strings (#2202)', (
+    tester,
+  ) async {
+    await _open(tester);
+
+    expect(find.text('1,99 €'), findsOneWidget);
+    expect(find.text('4,99 €'), findsOneWidget);
+    expect(find.textContaining(r'$'), findsNothing);
+  });
+
+  testWidgets('without store amounts the Microsoft Store build offers the '
+      'external ways right away', (tester) async {
+    await _open(tester, products: const []);
+
+    expect(find.text(l10n.supportSheetUnavailable), findsOneWidget);
+    expect(find.text(l10n.supportSheetOtherWaysHint), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('support-purchase-other-kofi')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('support-purchase-button')), findsNothing);
+  });
+
+  testWidgets('the Mac App Store build never shows an external way', (
+    tester,
+  ) async {
+    await _open(tester, products: const [], platform: SupportPlatform.macos);
+
+    expect(find.text(l10n.supportSheetUnavailable), findsOneWidget);
+    expect(find.text(l10n.supportSheetOtherWaysHint), findsNothing);
+    expect(
+      find.byKey(const ValueKey('support-purchase-other-kofi')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the Mac App Store build has no "Other amount"', (tester) async {
+    await _open(tester, platform: SupportPlatform.macos);
+
+    expect(
+      find.byKey(const ValueKey('support-purchase-other-amount')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the store test environment says purchases are test purchases', (
+    tester,
+  ) async {
+    await _open(tester, platform: SupportPlatform.macos, testEnvironment: true);
+
+    expect(
+      find.byKey(const ValueKey('support-purchase-test-environment')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a real store build shows no test note', (tester) async {
+    await _open(tester, platform: SupportPlatform.macos);
+
+    expect(
+      find.byKey(const ValueKey('support-purchase-test-environment')),
+      findsNothing,
+    );
   });
 
   testWidgets('catalogue error offers a retry', (tester) async {

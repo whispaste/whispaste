@@ -85,6 +85,20 @@ abstract interface class LateConfirmingSupportStoreBridge
   Stream<void> get lateConfirmations;
 }
 
+/// Optional extension of [SupportStoreBridge]: a store that can tell its
+/// test environment apart from the real store. On macOS a build that Apple did
+/// not sign for the Mac App Store (local preview, Xcode run) talks to the App
+/// Store sandbox: prices and currency then come from the sandbox account's
+/// storefront (often the US), and purchases are test purchases. The support
+/// surfaces say so instead of thanking for a store purchase that never
+/// happened (#2202).
+abstract interface class TestEnvironmentAwareSupportStoreBridge
+    implements SupportStoreBridge {
+  /// Whether purchases and prices come from the store's test environment.
+  /// Any failure answers false, so a real store build never claims to be one.
+  Future<bool> isTestEnvironment();
+}
+
 class UnavailableSupportStoreBridge implements SupportStoreBridge {
   const UnavailableSupportStoreBridge();
 

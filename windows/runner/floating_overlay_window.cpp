@@ -224,6 +224,48 @@ void FloatingOverlayWindow::RefreshTopmost() {
   BringToTopmost();
 }
 
+bool FloatingOverlayWindow::IsForeground() const {
+  return hwnd_ && ::GetForegroundWindow() == hwnd_;
+}
+
+void FloatingOverlayWindow::SetEditable(bool editable) {
+  if (!hwnd_ || shutting_down_) return;
+  // Only the transitions act: a click away during the session must not be
+  // undone by the next snapshot.
+  if (editable == editable_) return;
+  editable_ = editable;
+  LONG_PTR style = ::GetWindowLongPtrW(hwnd_, GWL_EXSTYLE);
+  style = editable ? (style & ~static_cast<LONG_PTR>(WS_EX_NOACTIVATE))
+                   : (style | WS_EX_NOACTIVATE);
+  ::SetWindowLongPtrW(hwnd_, GWL_EXSTYLE, style);
+  ::SetWindowPos(hwnd_, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                     SWP_FRAMECHANGED);
+  if (!editable) return;
+
+  // Same AttachThreadInput fallback as SnippetPickerWindow::Show(): a plain
+  // SetForegroundWindow can be refused by the foreground lock when this
+  // process had no recent input (the edit toggle was clicked on a window
+  // that never activates, so the click itself does not count).
+  HWND foreground = ::GetForegroundWindow();
+  const DWORD foreground_thread =
+      foreground ? ::GetWindowThreadProcessId(foreground, nullptr) : 0;
+  const DWORD this_thread = ::GetWindowThreadProcessId(hwnd_, nullptr);
+  bool attached = false;
+  if (foreground_thread != 0 && this_thread != 0 &&
+      foreground_thread != this_thread) {
+    attached =
+        ::AttachThreadInput(foreground_thread, this_thread, TRUE) != FALSE;
+  }
+  ::SetForegroundWindow(hwnd_);
+  ::BringWindowToTop(hwnd_);
+  ::SetActiveWindow(hwnd_);
+  if (attached) {
+    ::AttachThreadInput(foreground_thread, this_thread, FALSE);
+  }
+  if (flutter_child_) ::SetFocus(flutter_child_);
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // Public setters
 // ══════════════════════════════════════════════════════════════════════
@@ -347,8 +389,10 @@ LRESULT FloatingOverlayWindow::HandleMessage(UINT msg, WPARAM wp, LPARAM lp) {
 
   switch (msg) {
     // ── Focus prevention ───────────────────────────────────────────────
+    // During an edit session (#2160) a click into the card activates the
+    // shell, so the edit field keeps or regains the keyboard focus.
     case WM_MOUSEACTIVATE:
-      return MA_NOACTIVATE;
+      return editable_ ? MA_ACTIVATE : MA_NOACTIVATE;
 
     // ── Sticky topmost: pin to the top of the z-order BEFORE the change ──
     // This shell has no Win32 owner (by design, to avoid auto-minimising with

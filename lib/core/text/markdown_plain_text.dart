@@ -1,3 +1,5 @@
+import 'entry_link.dart';
+
 /// Turns the Markdown a note or snippet carries into plain text for apps that
 /// do not render it (issue #644): a mail or chat field should receive
 /// "Hello world", not "**Hello** _world_".
@@ -8,6 +10,8 @@
 ///   only when they really enclose text, so "5 * 3" and "snake_case" survive.
 /// - Links become "text (url)", or just the url when both are the same;
 ///   images become their alt text; `<https://…>` becomes the url.
+/// - Links to notes, recordings and snippets (`[[note:<id>|Label]]`, #660)
+///   become their label; the id means nothing outside the app.
 /// - Code fences disappear, their content stays verbatim.
 /// - Backslash escapes resolve to the escaped character.
 /// - List markers (`- `, `* `, `1. `) stay: they read as plain text and carry
@@ -120,6 +124,10 @@ String _convertLine(String line) {
   text = text.replaceFirst(_hardBreak, '');
   text = text.replaceAllMapped(_escape, (m) => protect(m.group(1)!));
   text = text.replaceAllMapped(_codeSpan, (m) => protect(m.group(2)!));
+  text = text.replaceAllMapped(entryLinkPattern, (m) {
+    if (parseEntryLinkTarget(m.group(1)!) == null) return m.group(0)!;
+    return m.group(2)?.trim() ?? '';
+  });
   text = text.replaceAllMapped(_image, (m) => m.group(1)!);
   text = text.replaceAllMapped(_link, (m) {
     final label = m.group(1)!;

@@ -13,19 +13,25 @@ import 'package:path/path.dart' as p;
 import '../core/config/quality_tier.dart';
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/models/active_model_catalog.dart';
+import '../core/models/bundled_model_catalog.dart';
+import '../core/models/model_catalog.dart';
 import '../core/text/byte_size.dart';
 
 // Re-export QualityTier so existing import sites (e.g. tests) that use
 // `model_download_service.dart` as the source continue to resolve without
 // changes.
 export '../core/config/quality_tier.dart' show QualityTier;
+export '../core/models/model_catalog.dart' show CatalogModel, ModelFile;
 import 'download_disk_space.dart';
+import 'download_fragment_guard.dart';
 import 'download_error_kind.dart';
 import 'file_verification_service.dart';
 import 'free_disk_space.dart';
 import '../core/utils/sharing_violation_retry.dart';
 import 'hardware_info_service.dart' as hw;
 import 'http_model_fetcher.dart';
+import 'model_install_check.dart';
 import 'path_service.dart';
 import 'download_tls_failure.dart';
 import 'tmp_reaper.dart';
@@ -36,40 +42,9 @@ final _log = AppLogger('Download');
 // Model registry — single source of truth for all downloadable assets
 // ---------------------------------------------------------------------------
 
-/// Metadata for a downloadable STT model.
-class SttModelInfo {
-  const SttModelInfo({
-    required this.id,
-    required this.label,
-    required this.filename,
-    required this.sizeBytes,
-    required this.url,
-    required this.sha256,
-    this.mirrorUrls = const [],
-  });
-
-  final String id;
-
-  /// Technical model name ("small", "medium", ...). Only shown in tooltips and
-  /// details, never as the display name (see `displayNameForModel`).
-  final String label;
-  final String filename;
-  final int sizeBytes;
-
-  /// Primary source, pinned to one Hugging Face commit.
-  final String url;
-  final String sha256;
-
-  /// Further sources of the identical file, tried in order after [url]
-  /// fails (see `HttpModelFetcher.fetchVerified`). Each must be immutable
-  /// and on the download allowlist; every one is checked against [sha256].
-  final List<String> mirrorUrls;
-
-  /// [url] followed by [mirrorUrls].
-  List<String> get sources => [url, ...mirrorUrls];
-
-  String get sizeLabel => formatModelSizeLabel(sizeBytes);
-}
+/// A downloadable Whisper model: a single-file [CatalogModel] of the
+/// bundled catalog (#1513).
+typedef SttModelInfo = CatalogModel;
 
 /// Renders a byte count for the UI — the one shared formatter, see
 /// `formatByteSize` (#1152).
@@ -77,44 +52,30 @@ String formatModelSizeLabel(int sizeBytes, {String? locale}) =>
     formatByteSize(sizeBytes, locale: locale);
 
 /// All STT models the app exposes to the user (quantized, from HuggingFace
-/// whisper.cpp).
+/// whisper.cpp), read from the active catalog (#1792): the bundled one plus
+/// Whisper models a signed catalog file added later.
 ///
-/// One entry per [QualityTier]: `whisper-small` (Compact), `whisper-medium`
-/// (Balanced), `whisper-large-v3-turbo` (Premium). Legacy IDs from earlier
-/// versions (`whisper-tiny`, `whisper-base`, `whisper-large-v3`) are
-/// rewritten on settings load by `_migrateModelId` in `settings_sections.dart`.
-// Whisper URLs are pinned to one commit of ggerganov/whisper.cpp (OW-P18), so
-// a re-upload of `main` cannot break a download. The LFS SHA-256 at that
-// commit equals the value below (checked 2026-10-19 via the HF API).
-const List<SttModelInfo> sttModels = [
-  SttModelInfo(
-    id: 'whisper-small',
-    label: 'small',
-    filename: 'ggml-small-q5_1.bin',
-    sizeBytes: 190085487,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin',
-    sha256: 'ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb',
-  ),
-  SttModelInfo(
-    id: 'whisper-medium',
-    label: 'medium',
-    filename: 'ggml-medium-q5_0.bin',
-    sizeBytes: 539212467,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-medium-q5_0.bin',
-    sha256: '19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f',
-  ),
-  SttModelInfo(
-    id: 'whisper-large-v3-turbo',
-    label: 'large-v3-turbo',
-    filename: 'ggml-large-v3-turbo-q5_0.bin',
-    sizeBytes: 574041195,
-    url:
-        'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin',
-    sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
-  ),
-];
+/// The bundled entries come first, one per [QualityTier]: `whisper-small`
+/// (Compact), `whisper-medium` (Balanced), `whisper-large-v3-turbo`
+/// (Premium). Legacy IDs from earlier versions (`whisper-tiny`,
+/// `whisper-base`, `whisper-large-v3`) are rewritten on settings load by
+/// `_migrateModelId` in `settings_sections.dart`. Widgets that list models
+/// watch `activeModelCatalogProvider` so a later addition shows up.
+List<SttModelInfo> get sttModels => _sttModelsOf(activeModelCatalog);
+
+ModelCatalog? _sttModelsSource;
+List<SttModelInfo> _sttModelsCache = const [];
+
+List<SttModelInfo> _sttModelsOf(ModelCatalog catalog) {
+  if (!identical(catalog, _sttModelsSource)) {
+    _sttModelsSource = catalog;
+    _sttModelsCache = List.unmodifiable([
+      for (final m in catalog.models)
+        if (m.runtime == ModelRuntime.whisperCpp) m,
+    ]);
+  }
+  return _sttModelsCache;
+}
 
 /// Looks up a model by ID. Returns null if not found.
 /// [ModelDownloadState.errorMessage] when a model file stays locked by
@@ -158,9 +119,9 @@ enum TierPerformance {
 /// Returns the model for [tier]. One model per tier — see [sttModels].
 List<SttModelInfo> modelsForTier(QualityTier tier) {
   final id = switch (tier) {
-    QualityTier.compact => 'whisper-small',
-    QualityTier.balanced => 'whisper-medium',
-    QualityTier.premium => 'whisper-large-v3-turbo',
+    QualityTier.compact => CatalogIds.whisperSmall,
+    QualityTier.balanced => CatalogIds.whisperMedium,
+    QualityTier.premium => CatalogIds.whisperLargeV3Turbo,
   };
   return [sttModels.firstWhere((m) => m.id == id)];
 }
@@ -475,7 +436,17 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
 
   /// Resolves to the injected checker or the real `File.exists` implementation.
   Future<bool> Function(String path) get _checker =>
-      existsHookOverride ?? (path) => File(path).exists();
+      existsHookOverride ?? _hasPinnedSize;
+
+  /// A model counts as installed only with the pinned size of its catalog
+  /// entry.
+  static Future<bool> _hasPinnedSize(String path) {
+    final name = p.basename(path);
+    for (final m in sttModels) {
+      if (m.filename == name) return fileHasPinnedSize(path, m.file.sizeBytes);
+    }
+    return File(path).exists();
+  }
 
   /// Guards post-disposal state writes from the deferred scan microtask.
   bool _mounted = false;
@@ -488,6 +459,10 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
   // One fetcher per notifier: cancel and dispose must reach the one that is
   // downloading (UIA-RT-05).
   late final HttpModelFetcher _fetcher = fetcherOverride ?? HttpModelFetcher();
+
+  /// Number of the source the last download tried last (1-based), for the
+  /// usage statistics (#1791); `null` when no source was reached.
+  int? get lastSourceNumber => _fetcher.lastSourceNumber;
 
   FileVerificationService get _verifier =>
       verifierOverride ?? const FileVerificationService();
@@ -582,6 +557,7 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
           model.sha256,
         );
         if (result is VerificationOk) {
+          await clearFragmentIdentity(destPath);
           await _markModelDone(model.id);
           return;
         }
@@ -641,9 +617,14 @@ class ModelDownloadNotifier extends Notifier<ModelDownloadState> {
       // Phase 3: Activate — persist model selection.
       await _markModelDone(model.id);
     } on DioException catch (e) {
-      _handleDioError(e, logFn: _log.error);
+      _handleDioError(
+        e,
+        logFn: isConnectionDownloadFailure(e) ? _log.warning : _log.error,
+      );
     } on Exception catch (e) {
-      _log.error('Download error: $e');
+      isConnectionDownloadFailure(e)
+          ? _log.warning('Download error: $e')
+          : _log.error('Download error: $e');
       state = state.copyWith(
         phase: DownloadPhase.error,
         errorMessage: '$e',

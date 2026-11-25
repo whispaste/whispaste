@@ -49,7 +49,7 @@ void main() {
 
     test('an unsupported language tag falls back to English', () {
       final english = _arb('en', _entry(legacyRowId('interface')).labelKey);
-      expect(_entry(legacyRowId('interface')).title('fr'), english);
+      expect(_entry(legacyRowId('interface')).title('pl'), english);
       expect(_entry(legacyRowId('interface')).title('en-US'), english);
     });
   });

@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/encryption_preference.dart';
 import 'package:whispaste/services/audio/encryption/recording_cipher.dart';
 import 'package:whispaste/services/audio/encryption/recording_migration.dart';
 import 'package:whispaste/services/audio/encryption/recording_vault.dart';
@@ -281,6 +282,45 @@ void main() {
       expect(leftover.existsSync(), isFalse);
     });
 
+    test('after a switch the start converts once, with progress', () async {
+      final a = await attach('e1');
+      final b = await attach('e2');
+      final plainA = a.readAsBytesSync();
+      final vault = _vault();
+      await vault.migrate([a.path, b.path]);
+      final preference = EncryptionPreference(path('appdata'))
+        ..setWanted(false);
+      final seen = <EncryptionConversionProgress?>[];
+      void listener() => seen.add(encryptionConversionProgress.value);
+      encryptionConversionProgress.addListener(listener);
+      addTearDown(() => encryptionConversionProgress.removeListener(listener));
+
+      Future<void> run() => convertRecordingsAfterSwitch(
+        db: db,
+        vault: vault,
+        preference: preference,
+        toPlain: true,
+        audioDir: tmp.path,
+      );
+      await run();
+
+      expect(a.readAsBytesSync(), plainA);
+      expect(isSealedRecording(b.readAsBytesSync()), isFalse);
+      expect(preference.switchPending, isFalse);
+      expect(seen.last, isNull);
+      expect(
+        seen.whereType<EncryptionConversionProgress>().map(
+          (p) => '${p.done}/${p.total}',
+        ),
+        ['0/0', '1/2', '2/2'],
+      );
+
+      // Without the marker a later start does not run it in front again.
+      seen.clear();
+      await run();
+      expect(seen, isEmpty);
+    });
+
     test('without the key nothing changes and a later run seals', () async {
       final a = await attach('e1');
       final plain = a.readAsBytesSync();
@@ -299,6 +339,88 @@ void main() {
         audioDir: tmp.path,
       );
       expect(later, {ProtectOutcome.sealed: 1});
+    });
+  });
+
+  // Encryption switched off in Settings → Privacy (#1022).
+  group('encryption off', () {
+    test('new recordings stay plain while the session is off', () async {
+      final file = plainFile('a.wav');
+      final plain = file.readAsBytesSync();
+      final vault = RecordingVault(
+        dataKey: () async => _dataKey,
+        encryptionOn: () => false,
+      );
+
+      expect(await vault.protect(file.path), ProtectOutcome.encryptionOff);
+      expect(file.readAsBytesSync(), plain);
+    });
+
+    test('unprotect opens a sealed file back into the same WAV', () async {
+      final file = plainFile('a.wav');
+      final plain = file.readAsBytesSync();
+      final vault = _vault();
+      await vault.protect(file.path);
+
+      expect(await vault.unprotect(file.path), ProtectOutcome.unsealed);
+      expect(file.readAsBytesSync(), plain);
+      expect(await vault.unprotect(file.path), ProtectOutcome.alreadyPlain);
+      expect(tmp.listSync(), hasLength(1));
+    });
+
+    test('a failed write keeps the sealed file', () async {
+      final file = plainFile('a.wav');
+      await _vault().protect(file.path);
+      final sealed = file.readAsBytesSync();
+      final vault = _vault(
+        writeTemp: (temp, bytes) =>
+            temp.writeAsBytes(bytes.sublist(0, bytes.length - 3)),
+      );
+
+      expect(await vault.unprotect(file.path), ProtectOutcome.failed);
+      expect(file.readAsBytesSync(), sealed);
+      expect(File('${file.path}$protectTempSuffix').existsSync(), isFalse);
+    });
+
+    test('without the key or with a wrong one nothing changes', () async {
+      final file = plainFile('a.wav');
+      await _vault().protect(file.path);
+      final sealed = file.readAsBytesSync();
+
+      expect(
+        await RecordingVault(dataKey: () async => null).unprotect(file.path),
+        ProtectOutcome.noKey,
+      );
+      expect(
+        await _vault(dataKey: List<int>.filled(32, 9)).unprotect(file.path),
+        ProtectOutcome.failed,
+      );
+      expect(file.readAsBytesSync(), sealed);
+    });
+
+    test('migrate toPlain opens every file and reports progress', () async {
+      final a = plainFile('a.wav');
+      final b = plainFile('b.wav', 2048);
+      final plainA = a.readAsBytesSync();
+      final plainB = b.readAsBytesSync();
+      final vault = _vault();
+      await vault.protect(a.path);
+      final progress = <String>[];
+
+      final counts = await vault.migrate(
+        [a.path, b.path],
+        directories: [tmp.path],
+        toPlain: true,
+        onProgress: (done, total) => progress.add('$done/$total'),
+      );
+
+      expect(counts, {
+        ProtectOutcome.unsealed: 1,
+        ProtectOutcome.alreadyPlain: 1,
+      });
+      expect(progress, ['1/2', '2/2']);
+      expect(a.readAsBytesSync(), plainA);
+      expect(b.readAsBytesSync(), plainB);
     });
   });
 }

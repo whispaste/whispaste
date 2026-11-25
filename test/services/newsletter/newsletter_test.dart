@@ -35,7 +35,17 @@ void main() {
     });
 
     test('every app language is a newsletter language', () {
-      for (final code in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+      for (final code in [
+        'de',
+        'en',
+        'es',
+        'pt',
+        'ru',
+        'he',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         expect(newsletterLocale(code), code);
       }
       expect(newsletterLocale('nl'), 'en');

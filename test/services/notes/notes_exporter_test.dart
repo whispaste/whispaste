@@ -95,6 +95,7 @@ Note _note({
 }) {
   final t = updatedAt ?? DateTime.utc(2026, 5, 14, 12, 0, 0);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: pinned,

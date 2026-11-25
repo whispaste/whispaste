@@ -47,6 +47,7 @@ String redactSensitive(String s) {
 /// - `%USERPROFILE%` / `$HOME` → `<home>`
 /// - `%APPDATA%` → `<appdata>`
 /// - `%USERNAME%` / `$USER` → `<user>`
+/// - Microsoft Store package folders → `<msix-package>`
 String sanitizePaths(String s) {
   var result = s;
   final userProfile =
@@ -62,5 +63,27 @@ String sanitizePaths(String s) {
   if (user != null && user.isNotEmpty) {
     result = result.replaceAll(user, '<user>');
   }
-  return result;
+  return sanitizeMsixPackageNames(result);
 }
+
+/// `…\WindowsApps\<package full name>` (the installed Store app).
+final _msixInstallDir = RegExp(
+  r'([\\/]WindowsApps[\\/])[^\\/\s]+',
+  caseSensitive: false,
+);
+
+/// `…\Packages\<package family name>` (the app's virtualized data folder):
+/// a name, `_`, and the 13-character publisher id.
+final _msixDataDir = RegExp(
+  r'([\\/]Packages[\\/])[^\\/\s]+_[a-z0-9]{13}(?=[\\/\s]|$)',
+  caseSensitive: false,
+);
+
+/// Replaces Microsoft Store package folder names with `<msix-package>`.
+/// Their package identity starts with the publisher's account name
+/// (`12345Publisher.App_1.2.3.0_x64__<publisher id>`), which a report sent with
+/// feedback must not carry. The report names the install variant and version
+/// separately, so nothing needed for support is lost.
+String sanitizeMsixPackageNames(String s) => s
+    .replaceAllMapped(_msixInstallDir, (m) => '${m[1]}<msix-package>')
+    .replaceAllMapped(_msixDataDir, (m) => '${m[1]}<msix-package>');

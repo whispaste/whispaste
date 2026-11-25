@@ -46,6 +46,7 @@ import '../tail_confidence.dart';
 import 'ggml_backend_registry.dart';
 import 'whisper_bindings.dart';
 import 'whisper_language_probe.dart';
+import 'whisper_expected_languages.dart';
 import 'whisper_engine.dart';
 
 final _log = AppLogger('WhisperFfi');
@@ -67,7 +68,7 @@ typedef WhisperNewSegmentCallbackNative =
 /// Native signature of `whisper_full_params.progress_callback` (IMP-PROG-2).
 /// whisper.cpp passes an integer percentage `0..100` of the current
 /// `whisper_full` call. Registered per call in [WhisperFfiEngine._decodeOnce]
-/// and closed only after `whisper_full` has returned (ticket).
+/// and closed only after `whisper_full` has returned.
 typedef WhisperProgressCallbackNative =
     ffi.Void Function(
       ffi.Pointer<whisper_context> ctx,
@@ -270,6 +271,7 @@ class WhisperSegment {
 class WhisperFfiEngine
     implements
         WhisperEngine,
+        ExpectedLanguageSupport,
         PartialTranscriptSource,
         DetectedLanguageSource,
         TailConfidenceSource,
@@ -283,6 +285,9 @@ class WhisperFfiEngine
   }) : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
        _backend = backend ?? WhisperBackend.cpu,
        _confirmedBackend = backend ?? WhisperBackend.cpu;
+
+  @override
+  List<String> expectedLanguages = const [];
 
   final String _libraryPath;
   final WhisperBackend _backend;
@@ -628,7 +633,7 @@ class WhisperFfiEngine
   /// has no guaranteed-valid stderr handle (FLUTTER_WHISPASTE-BB).
   ///
   /// There is no Dart callback in this path any more. The earlier
-  /// `NativeCallable.listener` (ticket) was closed with its isolate: ggml kept
+  /// `NativeCallable.listener` was closed with its isolate: ggml kept
   /// the pointer, and a line logged after a worker isolate had ended — or
   /// logged from a backend module during a load in a fresh worker — called
   /// into a dead Dart callback and aborted the VM (`dart::Assert::Fail`,
@@ -1280,7 +1285,7 @@ class WhisperFfiEngine
   ///
   /// Added to diagnose intermittent "transcription swallowed a sentence"
   /// reports: the app sends the *whole* recording to a single `whisper_full`
-  /// call (no app-level chunking, see `internal-notes` §4.2) and simply
+  /// call (no app-level chunking) and simply
   /// concatenates every segment's text — so a dropped sentence must show up
   /// here as either a missing segment (a timestamp gap vs. the next
   /// segment's t0) or as fewer segments than the audio's duration would
@@ -1946,6 +1951,12 @@ class WhisperFfiEngine
     // before the next native call instead of starting it (#1639).
     final abortFlag = decodeAbortFlag;
     if (abortFlag != null && abortFlag.value != 0) throw _decodeAborted();
+    language = _restrictedLanguage(
+      samples,
+      language,
+      ctx,
+      reducedThreads: reducedThreads,
+    );
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();
@@ -2163,7 +2174,7 @@ class WhisperFfiEngine
       // Same threading model as the segment callback above: whisper.cpp
       // fires it on the thread blocked inside `whisper_full`, which is this
       // isolate's own thread, so `.isolateLocal` is safe. It is closed only
-      // after `whisper_full` returned (ticket): native code may call it at
+      // after `whisper_full` returned: native code may call it at
       // any point before that. Absent when nobody listens.
       final progressSink = onProgress;
       final progressCallable = progressSink == null
@@ -2245,6 +2256,37 @@ class WhisperFfiEngine
       malloc.free(languageC);
       if (promptC != null) malloc.free(promptC);
       if (vadModelPathC != null) malloc.free(vadModelPathC);
+    }
+  }
+
+  String? _restrictedLanguage(
+    Float32List samples,
+    String? language,
+    ffi.Pointer<whisper_context> ctx, {
+    required bool reducedThreads,
+  }) {
+    if (expectedLanguages.isEmpty ||
+        (language != null && language.isNotEmpty && language != 'auto')) {
+      return language;
+    }
+    final pcm = malloc<ffi.Float>(samples.length);
+    try {
+      pcm.asTypedList(samples.length).setAll(0, samples);
+      return detectExpectedLanguage(
+        whisper: ffi.DynamicLibrary.open(_libraryPath),
+        guard: _guard,
+        context: ctx,
+        samples: pcm,
+        count: samples.length,
+        threads: _threadCount(reducedThreads: reducedThreads),
+        allowed: expectedLanguages,
+      );
+    } on WhisperLanguageDetectionFailure catch (e) {
+      throw _whisperFullFailure('whisper_language_detection', e.code);
+    } on NativeCallException catch (e) {
+      throw _nativeInferenceFailure('whisper_language_detection', e);
+    } finally {
+      malloc.free(pcm);
     }
   }
 
@@ -2379,6 +2421,12 @@ class WhisperFfiEngine
     }
     if (samples.isEmpty) return '';
 
+    language = _restrictedLanguage(
+      samples,
+      language,
+      ctx,
+      reducedThreads: true,
+    );
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
     final languageC = (language ?? 'auto').toNativeUtf8();

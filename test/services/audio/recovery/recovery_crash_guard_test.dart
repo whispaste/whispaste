@@ -20,6 +20,7 @@ import 'package:whispaste/services/audio/recovery/recording_journal_provider.dar
 import 'package:whispaste/services/audio/recovery/recording_recovery.dart';
 import 'package:whispaste/services/audio/recovery/recovery_crash_guard.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import '../../../fixtures/telemetry_hits.dart';
 
 void main() {
   late Directory tmp;
@@ -110,7 +111,7 @@ void main() {
         telemetryProvider.overrideWithValue(
           TelemetryService(
             client: MockClient((request) async {
-              sent.add(request.bodyFields);
+              sent.addAll(telemetryHits(request));
               return http.Response('', 204);
             }),
             endpointUrl: 'https://stats.example.invalid',

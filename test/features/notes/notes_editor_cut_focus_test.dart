@@ -17,6 +17,7 @@ import '../../fixtures/test_helpers.dart';
 Note _note(String content, {DateTime? updatedAt}) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: 'n1',
     content: content,
     pinned: false,

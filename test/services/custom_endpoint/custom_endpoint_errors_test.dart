@@ -17,16 +17,24 @@ void main() {
       l10n.errorCustomEndpointUnreachable,
     );
     expect(
-      customEndpointErrorText(l10n, 'smart_mode_custom_timeout'),
-      l10n.errorCustomEndpointUnreachable,
-    );
-    expect(
       customEndpointErrorText(l10n, 'custom_model_missing'),
       customEndpointErrorText(l10n, 'smart_mode_custom_model_missing'),
     );
     expect(
       customEndpointErrorText(l10n, 'custom_bad_response'),
       customEndpointErrorText(l10n, 'smart_mode_custom_bad_format'),
+    );
+  });
+
+  test('a late answer says the model is probably loading, not that the '
+      'server is down (#1957)', () {
+    expect(
+      customEndpointErrorText(l10n, 'smart_mode_custom_timeout'),
+      l10n.errorCustomEndpointSlow,
+    );
+    expect(
+      l10n.errorCustomEndpointSlow,
+      isNot(l10n.errorCustomEndpointUnreachable),
     );
   });
 
@@ -58,7 +66,7 @@ void main() {
         l10n,
         reason: SmartModeFallbackReason.customEndpoint,
         delivery: SmartModeDelivery.clipboard,
-        customEndpointCode: 'smart_mode_custom_unauthorized',
+        errorCode: 'smart_mode_custom_unauthorized',
       );
       expect(
         body,

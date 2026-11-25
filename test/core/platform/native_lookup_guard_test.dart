@@ -45,8 +45,9 @@ const _allowed = <String, (int, String)>{
     'headless package diagnosis, never in the running app',
   ),
   'lib/services/smart_mode/smart_mode_ffi_engine.dart': (
-    6,
-    'engine load from its own library, once per load',
+    7,
+    'engine load from its own library, once per load; includes the optional '
+        'sampled generate entry point (#2204)',
   ),
   'lib/services/stt/native_call_guard.dart': (
     28,
@@ -56,9 +57,15 @@ const _allowed = <String, (int, String)>{
     1,
     'backend registration during engine load, own library',
   ),
+  'lib/services/stt/whisper/whisper_expected_languages.dart': (
+    5,
+    'language probe on the engine\'s own library handle (no RTLD_DEFAULT), '
+        'once per transcription and only with several expected languages',
+  ),
   'lib/services/stt/whisper/whisper_ffi_engine.dart': (
-    19,
-    'engine load from its own library, once per load',
+    20,
+    'engine load from its own library, once per load; plus one reopen of the '
+        'already loaded library per transcription for the language probe',
   ),
   'lib/services/stt_parakeet/parakeet_bindings.dart': (
     8,

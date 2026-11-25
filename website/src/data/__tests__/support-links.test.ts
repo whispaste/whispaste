@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -59,6 +59,23 @@ describe('support links', () => {
       .filter(({ href }) => SUPPORT_PROVIDERS.some((p) => p.href === href));
     expect(links).toEqual(SUPPORT_PROVIDERS.map((p) => ({ href: p.href, name: p.name })));
     expect(section).not.toMatch(/<img[^>]+src="https?:\/\//);
+  });
+
+  it('are the only place in the website sources that names a provider address (GR-027)', () => {
+    const hosts = /github\.com\/sponsors\/|(?<![.\w])ko-fi\.com\/|buymeacoffee\.com\/|paypal\.com\/donate/;
+    const own = join('website', 'src', 'data', 'support-links.ts');
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(repoRoot, dir), { withFileTypes: true })) {
+        const rel = join(dir, entry.name);
+        if (entry.isDirectory()) walk(rel);
+        else if (/\.(astro|ts|tsx|js|mjs|json|md|mdx)$/.test(entry.name) && rel !== own) {
+          if (!rel.includes('__tests__') && hosts.test(read(rel))) offenders.push(rel);
+        }
+      }
+    };
+    walk(join('website', 'src'));
+    expect(offenders, 'use SUPPORT_PROVIDERS / the *_URL constants instead').toEqual([]);
   });
 
   it('list each provider once with an https URL', () => {

@@ -23,6 +23,7 @@ import '../../widgets/wp_hero_button.dart';
 import '../onboarding/app_language_select.dart';
 import '../settings/data_key/data_key_flows.dart';
 import 'startup_screen_frame.dart';
+import '../../widgets/wp_row_divider.dart';
 
 /// Shown instead of the shell when the history file is encrypted but its key
 /// could not be read quietly, for example after the app was replaced by a
@@ -211,7 +212,7 @@ class _DataKeyLockedScreenState extends ConsumerState<DataKeyLockedScreen> {
           ),
         ),
         const SizedBox(height: WpSpacing.xl),
-        Divider(height: 1, color: WpColors.borderSubtle),
+        const WpRowDivider(),
         const SizedBox(height: WpSpacing.lg),
         AppLanguageSelect(
           testId: 'data-key-locked-language',

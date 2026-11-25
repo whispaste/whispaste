@@ -15,6 +15,8 @@ import 'package:flutter/rendering.dart' show RenderEditable, ViewportOffset;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/config/settings_provider.dart';
+import '../../../core/data/database.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
@@ -126,8 +128,20 @@ class _NoteAppendGutterState extends ConsumerState<NoteAppendGutter> {
 
   @override
   Widget build(BuildContext context) {
-    final appends =
-        ref.watch(noteAppendsProvider(widget.noteId)).value ?? const [];
+    // #661: append rows are kept for every style (they mark a note as one
+    // with quick-note dictations); the margin shows them only when the
+    // timestamp style asks for margin marks.
+    final showMarks = ref.watch(
+      settingsProvider.select(
+        (s) => (s.value ?? AppSettings.defaults)
+            .quickNoteHotkey
+            .timestampStyle
+            .recordsMarginMark,
+      ),
+    );
+    final appends = showMarks
+        ? ref.watch(noteAppendsProvider(widget.noteId)).value ?? const []
+        : const <NoteAppend>[];
     final placed = placeAppendMarks(widget.controller.text, [
       for (final a in appends) (anchor: a.anchor, appendedAt: a.appendedAt),
     ]);

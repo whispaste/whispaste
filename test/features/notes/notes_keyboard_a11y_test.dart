@@ -31,9 +31,9 @@ class _RecordingActions extends NotesActions {
   bool createCalled = false;
 
   @override
-  Future<Note> create() {
+  Future<Note> create({String? folderId}) {
     createCalled = true;
-    return super.create();
+    return super.create(folderId: folderId);
   }
 }
 
@@ -54,6 +54,7 @@ Note _sampleNote({
 }) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: pinned,
@@ -385,16 +386,23 @@ void main() {
       await tester.tap(find.text('First note'));
       await _settle(tester);
 
-      // The toolbar scrolls sideways when the panel is narrow; bring the
-      // toggle into reach the way a user would before pressing it.
-      final findToggle = find.bySemanticsLabel(l10n.findReplaceToggle);
-      await tester.ensureVisible(findToggle);
-      await _settle(tester);
-      await tester.tap(findToggle);
+      // On a narrow panel the find toggle sits under "More" (#1845).
+      final findToggle = find.bySemanticsLabel(
+        l10n.findReplaceToggle(WpFindReplaceBar.openShortcutLabel(l10n)),
+      );
+      if (findToggle.evaluate().isEmpty) {
+        await tester.tap(find.byTooltip(l10n.dockOverflow));
+        await _settle(tester);
+        await tester.tap(
+          find.byKey(const ValueKey('notes-editor-toolbar-more-find')),
+        );
+      } else {
+        await tester.tap(findToggle);
+      }
       await _settle(tester);
       expect(find.byType(WpFindReplaceBar), findsOneWidget);
 
-      await tester.tap(find.bySemanticsLabel(l10n.findReplaceFindLabel).first);
+      await tester.tap(findByFieldLabel(l10n.findReplaceFindLabel).first);
       await _settle(tester);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);

@@ -1,6 +1,6 @@
-/// The role packs of [roleTermSuggestion], offered once under the empty term
-/// list: every term preselected, deselect what is not needed, then "Übernehmen"
-/// appends the rest to the custom vocabulary. "Ausblenden" adds nothing. Either
+/// The role packs of [roleTermSuggestion], offered once under the empty
+/// dictionary: every term preselected, deselect what is not needed, then
+/// "Übernehmen" adds the rest as term entries (#1969). "Ausblenden" adds nothing. Either
 /// ends the suggestion for good.
 library;
 
@@ -19,6 +19,7 @@ import '../../../widgets/wp_filter_chip.dart';
 import '../../onboarding/steps/about_step.dart' show aboutRoleLabel;
 import '../dictionary_notice.dart';
 import '../role_terms.dart';
+import '../term_store.dart';
 
 /// The suggestion, or nothing when none is due.
 class RoleTermsCard extends ConsumerWidget {
@@ -57,17 +58,17 @@ class _RoleTermsCardState extends ConsumerState<_RoleTermsCard> {
         if (!_off.contains(t)) t,
   ];
 
-  Future<void> _finish(List<String> add) => ref
-      .read(settingsProvider.notifier)
-      .updateSettings(
-        (s) => s
-            .copyWith(
-              customVocabulary: mergeVocabulary(s.stt.customVocabulary, add),
-            )
-            .copyWithSections(
-              onboarding: s.onboarding.copyWith(roleTermsDone: true),
-            ),
-      );
+  // The terms become term entries (#1969); the suggestion ends for good.
+  Future<void> _finish(List<String> add) async {
+    await addDictionaryTerms(ProviderScope.containerOf(context), add);
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(roleTermsDone: true),
+          ),
+        );
+  }
 
   Future<void> _accept() async {
     final add = _chosen;

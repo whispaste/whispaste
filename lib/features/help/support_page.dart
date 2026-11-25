@@ -23,7 +23,6 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
 import '../../services/support/support_capabilities.dart';
-import '../../services/support/support_share_links.dart';
 import '../../services/support/support_state.dart';
 import '../../services/support_prompt_service.dart';
 import '../../services/social_stats/social_stats_service.dart';
@@ -35,6 +34,8 @@ import '../../widgets/wp_provider_tile.dart';
 import '../settings/sections/review_support_section.dart';
 import '../settings/widgets/wp_settings_group.dart';
 import '../../widgets/wp_copy_feedback.dart';
+import 'recommend_share_buttons.dart';
+import 'support_value.dart';
 import '../overview/overview_providers.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,18 +144,6 @@ class _SupportPageState extends ConsumerState<SupportPage> {
     }
   }
 
-  Future<void> _share(SupportShareTarget target, String shareUrl) async {
-    final l10n = L10n.of(context);
-    final uri = buildSupportShareUri(
-      target,
-      text: l10n.supportShareText,
-      url: shareUrl,
-      subject: 'WhisPaste',
-    );
-    _record(ref, SupportTelemetryEvent.share, name: target.name);
-    await openExternalUrl(context, uri.toString());
-  }
-
   Widget _storeCard({
     required L10n l10n,
     required ThemeData theme,
@@ -166,14 +155,21 @@ class _SupportPageState extends ConsumerState<SupportPage> {
       title: platform == SupportPlatform.macos
           ? l10n.supportStoreTitleMac
           : l10n.supportStoreTitleWindows,
+      // Reasons in the fixed order of the purchase copy (#1941): what the
+      // store version gives on this platform, what it costs, what the money
+      // is for, and that the free version stays complete.
       children: [
-        _Bullet(text: l10n.supportStoreFactManaged),
+        _Bullet(
+          text: platform == SupportPlatform.macos
+              ? l10n.supportStoreFactManagedMac
+              : l10n.supportStoreFactManagedWindows,
+        ),
+        _Bullet(text: l10n.supportStoreFactOneTime),
         _Bullet(text: l10n.supportStoreFactPurchase),
         _Bullet(text: l10n.supportStoreFactSameFeatures),
         const SizedBox(height: WpSpacing.xs),
         Text(
-          '${l10n.supportStorePriceNote}. '
-          '${l10n.supportStoreCoffeeNote}',
+          l10n.supportStoreCoffeeNote,
           style: theme.textTheme.bodySmall?.copyWith(
             color: WpColors.textSecondary,
           ),
@@ -309,7 +305,7 @@ class _SupportPageState extends ConsumerState<SupportPage> {
         ? kMacAppStoreListingUrl
         : isWindowsStore
         ? kMicrosoftStoreListingUrl
-        : websiteHomeUrl(langCode);
+        : websiteLocalizedHomeUrl(langCode);
     final storeListingUrl = platform == SupportPlatform.macos
         ? kMacAppStoreListingUrl
         : kMicrosoftStoreListingUrl;
@@ -407,14 +403,26 @@ class _SupportPageState extends ConsumerState<SupportPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          isStoreBuild
+          !isStoreBuild
+              ? l10n.supportIntroDirect
+              : ref.watch(supportStoreThankYouLineProvider)
               ? l10n.supportStoreThankYouLine
-              : l10n.supportIntroDirect,
+              : l10n.supportStoreTestEnvironment,
           style: theme.textTheme.bodyLarge?.copyWith(
             color: WpColors.textSecondary,
             height: 1.5,
           ),
         ),
+        if (ref.watch(supportValueProvider).value case final value?) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            supportValueText(l10n, langCode, value),
+            key: const ValueKey('support-value-line'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: WpColors.textSecondary,
+            ),
+          ),
+        ],
         if (!isStoreBuild) ...[
           const SizedBox(height: WpSpacing.xs),
           Text(
@@ -561,36 +569,17 @@ class _SupportPageState extends ConsumerState<SupportPage> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
-          child: Wrap(
-            spacing: WpSpacing.xs,
-            runSpacing: WpSpacing.xs,
-            children: [
-              for (final target in SupportShareTarget.values)
-                WpButton(
-                  key: ValueKey('support-share-${target.name}'),
-                  label: _shareLabel(l10n, target),
-                  variant: WpButtonVariant.secondary,
-                  tone: WpButtonTone.neutral,
-                  onPressed: () => _share(target, shareUrl),
-                ),
-            ],
+          child: RecommendShareButtons(
+            baseUrl: shareUrl,
+            languageCode: ref.watch(localeProvider).languageCode,
+            testIdPrefix: 'support-share',
+            onShared: (channel) =>
+                _record(ref, SupportTelemetryEvent.share, name: channel),
           ),
         ),
       ],
     ];
   }
-
-  static String _shareLabel(L10n l10n, SupportShareTarget target) =>
-      switch (target) {
-        SupportShareTarget.x => 'X',
-        SupportShareTarget.facebook => 'Facebook',
-        SupportShareTarget.whatsapp => 'WhatsApp',
-        SupportShareTarget.linkedin => 'LinkedIn',
-        SupportShareTarget.reddit => 'Reddit',
-        SupportShareTarget.telegram => 'Telegram',
-        SupportShareTarget.bluesky => 'Bluesky',
-        SupportShareTarget.email => l10n.supportShareEmail,
-      };
 }
 
 /// Provider tiles side by side at their own content width, flowing into the

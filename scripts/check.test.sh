@@ -212,7 +212,8 @@ if ! gs check "$tree2" dev; then ok "stamp: changed gate config invalidates the 
 printf 'gates v1\n' >"$STAMP_REPO/scripts/ci-gates.sh"
 gs write "$tree2" "$(gitc rev-parse HEAD)" dev
 
-stamp_file="$(ls "$STAMP_REPO/.git/wp-gate-stamps/$tree2.dev."* 2>/dev/null | head -1)"
+stamp_files=("$STAMP_REPO/.git/wp-gate-stamps/$tree2.dev."*)
+stamp_file="${stamp_files[0]}"
 printf 'forged=1\n' >>"$stamp_file"
 if ! gs check "$tree2" dev; then ok "stamp: edited stamp fails its checksum"; else fail "stamp: edited stamp passed"; fi
 : >"$stamp_file"
@@ -436,11 +437,11 @@ if [ "$got" = "$WORK/own" ]; then ok "labctl_find: LABCTL wins"; else fail "labc
 rm "$lhome/.claude/bin/labctl"
 got="$(unset LABCTL; HOME="$lhome" PATH="$WORK/pathbin:$PATH" labctl_find)"
 if [ "$got" = "$WORK/pathbin/labctl" ]; then ok "labctl_find: falls back to PATH"; else fail "labctl_find PATH: '$got'"; fi
-mkdir -p "$lhome/Developer/repos/internal-repo/bin"
-printf '#!/bin/sh\n' >"$lhome/Developer/repos/internal-repo/bin/labctl"
-chmod +x "$lhome/Developer/repos/internal-repo/bin/labctl"
+mkdir -p "$lhome/Developer/repos/lab-org/testlab/bin"
+printf '#!/bin/sh\n' >"$lhome/Developer/repos/lab-org/testlab/bin/labctl"
+chmod +x "$lhome/Developer/repos/lab-org/testlab/bin/labctl"
 got="$(unset LABCTL; HOME="$lhome" PATH="/usr/bin:/bin" labctl_find)"
-if [ "$got" = "$lhome/Developer/repos/internal-repo/bin/labctl" ]; then ok "labctl_find: the lab checkout is the last fallback (#1722)"; else fail "labctl_find testlab: '$got'"; fi
+if [ "$got" = "$lhome/Developer/repos/lab-org/testlab/bin/labctl" ]; then ok "labctl_find: the lab checkout is the last fallback (#1722)"; else fail "labctl_find testlab: '$got'"; fi
 rm -r "$lhome/Developer"
 # Keep the host's Git (Git for Windows uses /mingw64/bin), hiding only
 # labctl. Explicitly forward runtime dependencies through executable wrappers;

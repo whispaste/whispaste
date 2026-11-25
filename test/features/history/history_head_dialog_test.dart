@@ -15,7 +15,7 @@ import 'package:whispaste/features/history/widgets/history_status_row.dart';
 import 'package:whispaste/features/history/widgets/recovery_banner.dart';
 import 'package:whispaste/services/audio/recovery/recording_journal.dart';
 import 'package:whispaste/services/audio/recovery/recording_recovery.dart';
-import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 
 class _FakeRecovery extends RecordingRecovery {
   _FakeRecovery({required this.pending})
@@ -107,7 +107,7 @@ void main() {
     final focused = tester.binding.focusManager.primaryFocus?.context;
     expect(focused, isNotNull);
     expect(
-      focused!.findAncestorWidgetOfExactType<WpButton>()?.testId,
+      focused!.findAncestorWidgetOfExactType<WpIconButton>()?.testId,
       'history-recovery-summary',
     );
   });

@@ -32,6 +32,9 @@ abstract final class WpLevelHistory {
 /// Paints a level history into a zone. Stateless: the caller owns the history,
 /// so the overlay and the onboarding view feed the same numbers.
 abstract final class WpLevelHistoryBars {
+  /// Level marking a slot that is left empty (no bar, no rest dot).
+  static const double hidden = -1;
+
   /// Paints one mirrored capsule per entry of [levels] into [zone].
   ///
   /// [highlightNewest] gives the newest bar the "now" treatment: the wider
@@ -72,6 +75,7 @@ abstract final class WpLevelHistoryBars {
       ..shader = coreShader(OverlayDesignSpec.waveformCoreActiveLightFraction);
     final newest = WpLevelHistory.newestIndex(levels);
     for (var i = 0; i < count; i++) {
+      if (levels[i] < 0) continue;
       final now = highlightNewest && i == newest;
       final x = zone.left + i * barW + barW / 2;
       final wBar = _barWidth(barW, now, lineStrokeMin);

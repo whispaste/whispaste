@@ -86,6 +86,10 @@ class _WpCoffeeButtonState extends State<WpCoffeeButton> {
 
   @override
   Widget build(BuildContext context) {
+    // Brand exception (#1757): Kaffee-Gelb with dark ink comes from its own
+    // component tokens (WpCoffeeTokens). WpButton's tones are the app's
+    // accent/neutral/danger only, and a support CTA must not borrow one of
+    // them; allowlisted in wp_button_raw_material_guard_test.
     final button = FilledButton.icon(
       focusNode: _focusNode,
       autofocus: widget.autofocus,

@@ -7,8 +7,8 @@ library;
 
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -381,6 +381,19 @@ class WpDockSelector extends StatefulWidget {
 class _WpDockSelectorState extends State<WpDockSelector> {
   final FocusNode _focusNode = FocusNode();
 
+  // The chrome's outline reads the focus state in build, so focus changes
+  // must rebuild it; without this the outline kept an old state and two dock
+  // controls looked focused at once (#1845).
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
   /// The entries of the open popup, refreshed when the dock rebuilds.
   final _DockMenuFeed _feed = _DockMenuFeed();
 
@@ -392,7 +405,9 @@ class _WpDockSelectorState extends State<WpDockSelector> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
     super.dispose();
   }
 
@@ -485,6 +500,19 @@ class WpDockOverflow extends StatefulWidget {
 class _WpDockOverflowState extends State<WpDockOverflow> {
   final FocusNode _focusNode = FocusNode();
 
+  // The chrome's outline reads the focus state in build, so focus changes
+  // must rebuild it; without this the outline kept an old state and two dock
+  // controls looked focused at once (#1845).
+  void _onFocusChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
   /// The entries of the open popup, refreshed when the dock rebuilds.
   final _DockMenuFeed _feed = _DockMenuFeed();
 
@@ -496,7 +524,9 @@ class _WpDockOverflowState extends State<WpDockOverflow> {
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _focusNode
+      ..removeListener(_onFocusChange)
+      ..dispose();
     super.dispose();
   }
 
@@ -662,7 +692,8 @@ final class WpDockMenuInfo extends WpDockMenuSpec {
   final String label;
 }
 
-/// An action row. With [checked] it marks the current choice of a radio group.
+/// An action row. With [choice] it is an option of a radio group, and
+/// [checked] marks the current one.
 final class WpDockMenuAction extends WpDockMenuSpec {
   const WpDockMenuAction({
     required this.id,
@@ -670,6 +701,7 @@ final class WpDockMenuAction extends WpDockMenuSpec {
     required this.label,
     this.onTap,
     this.checked = false,
+    this.choice = false,
     this.tooltip,
     this.searchText,
     this.iconColor,
@@ -684,6 +716,11 @@ final class WpDockMenuAction extends WpDockMenuSpec {
   /// Null disables the row.
   final VoidCallback? onTap;
   final bool checked;
+
+  /// The row is one option of a radio group (microphone, language, ...).
+  /// Assistive tech gets a radio button with its checked state then; a
+  /// button role would drop the state on desktop (#1916).
+  final bool choice;
   final String? tooltip;
 
   /// The text a search query is matched against. Null keeps the row listed
@@ -1243,9 +1280,13 @@ class _WpDockMenuActionRowState extends State<_WpDockMenuActionRow> {
     final markColor = item.checked ? _dock.accent : (item.iconColor ?? color);
     final row = Semantics(
       identifier: item.id,
-      button: true,
+      // The desktop embedders derive the role from the flags and let a
+      // button win over a checked state, so the current choice of a menu
+      // was lost. Options of a radio group are radio buttons instead.
+      button: !item.choice,
+      inMutuallyExclusiveGroup: item.choice ? true : null,
       enabled: enabled,
-      checked: item.checked ? true : null,
+      checked: item.choice ? item.checked : (item.checked ? true : null),
       child: WpFocusRing(
         focusNode: _focusNode,
         radius: WpRadius.sm,
@@ -1588,6 +1629,7 @@ WpDockMenuAction _dockChoiceOption(
     icon: set.icon,
     label: choice.label,
     checked: choice.value == set.current,
+    choice: true,
     onTap: pickable ? () => set.onChanged(choice.value) : null,
     tooltip: choiceReason ?? (enabled ? null : set.lockedReason),
     searchText: '${choice.label} ${choice.value}',

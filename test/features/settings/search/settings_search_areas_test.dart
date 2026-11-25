@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/mutable_notice.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -111,6 +112,12 @@ class _CudaPackOffered extends CudaPackNotifier {
 class _TokenIssued extends AutomationApiController {
   @override
   AutomationApiState build() => const AutomationApiState(token: 'test-token');
+}
+
+class _WriteTokenIssued extends AutomationApiController {
+  @override
+  AutomationApiState build() =>
+      const AutomationApiState(token: 'test-token', writeToken: 'write-token');
 }
 
 /// Settings with one change applied on top of [AppSettings.defaults].
@@ -211,6 +218,21 @@ final List<_RowState> _states = [
     ],
   ),
   _RowState(
+    name: 'paste notice switched off',
+    area: SettingsArea.general,
+    rowIds: const {'general-muted-notice-paste-unconfirmed'},
+    overrides: () => [
+      _settingsWith(
+        (s) => s.copyWithSections(
+          interface_: s.interface_.withNoticeMuted(
+            MutableNotice.pasteUnconfirmed,
+            muted: true,
+          ),
+        ),
+      ),
+    ],
+  ),
+  _RowState(
     name: 'smart-mode hotkey on, translate preset',
     area: SettingsArea.shortcuts,
     rowIds: const {
@@ -255,21 +277,6 @@ final List<_RowState> _states = [
     overrides: () => [
       _settingsWith(
         (s) => s.copyWithSections(stt: s.stt.copyWith(idleTimeoutMinutes: 10)),
-      ),
-    ],
-  ),
-  _RowState(
-    name: 'on-device Parakeet',
-    area: SettingsArea.speech,
-    rowIds: const {'speech-parakeet'},
-    overrides: () => [
-      _settingsWith(
-        (s) => s.copyWithSections(
-          stt: s.stt.copyWith(
-            provider: SttProviderType.onDevice.value,
-            engine: OnDeviceEngine.parakeet.value,
-          ),
-        ),
       ),
     ],
   ),
@@ -430,6 +437,26 @@ final List<_RowState> _states = [
         ),
       ),
       automationApiControllerProvider.overrideWith(_TokenIssued.new),
+    ],
+  ),
+  _RowState(
+    name: 'automation API writing on with write token',
+    area: SettingsArea.advanced,
+    rowIds: const {
+      'advanced-automation-write',
+      'advanced-automation-write-token',
+      'advanced-automation-write-protocol',
+    },
+    overrides: () => [
+      _settingsWith(
+        (s) => s.copyWithSections(
+          automationApi: s.automationApi.copyWith(
+            enabled: true,
+            writeEnabled: true,
+          ),
+        ),
+      ),
+      automationApiControllerProvider.overrideWith(_WriteTokenIssued.new),
     ],
   ),
   _RowState(

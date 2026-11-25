@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
-import 'package:whispaste/features/dictionary/role_terms.dart';
+import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/history/widgets/history_detail_panel.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -65,6 +65,7 @@ Future<ProviderContainer> _openCorrectedEntry(
       overrides: [
         settingsProvider.overrideWith(() => _FakeSettingsNotifier(vocabulary)),
       ],
+      noticeBar: true,
     ),
   );
   await tester.pumpAndSettle();
@@ -105,12 +106,24 @@ void main() {
     await tester.tap(find.byKey(const ValueKey(actionId)));
     await tester.pumpAndSettle();
 
-    final vocabulary = container.read(settingsProvider).value!.stt;
-    expect(vocabularyTerms(vocabulary.customVocabulary), [
-      'Acme',
-      'Kubernetes',
-    ]);
+    // A term is the entry "Kubernetes → Kubernetes" (#1969).
+    final entries = await tester.runAsync(
+      () => container.read(replacementsProvider.future),
+    );
+    expect(
+      entries!.where(
+        (r) =>
+            r.triggers.single == 'Kubernetes' && r.replacement == 'Kubernetes',
+      ),
+      hasLength(1),
+    );
     expect(find.byKey(const ValueKey(actionId)), findsNothing);
+    // The confirmation stands in the notice bar at the bottom (#1903).
+    expect(find.byKey(offerKey), findsNothing);
+    expect(
+      find.byKey(const ValueKey('notice-bar-history-add-term')),
+      findsOneWidget,
+    );
     await _tearDown(tester);
   });
 

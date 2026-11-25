@@ -123,7 +123,9 @@ const lang = currentLocale(Astro.currentLocale);
   .wp-store-btn--lg .wp-store-btn__label {
     font-size: var(--wp-font-size-xs);
     font-weight: 400;
-    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
+    /* Full-strength ink: at 68 % alpha this 12 px pre-label measured
+       4.0-4.4:1 on the gradient's light stop, under WCAG AA (#1911). */
+    color: var(--color-brand-darker);
     letter-spacing: 0.01em;
   }
 

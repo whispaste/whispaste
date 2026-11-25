@@ -151,7 +151,7 @@ class HistoryExporter {
       if (format == null) return;
       if (!context.mounted) return;
 
-      final exportRows = entries.map(_toExportEntry).toList(growable: false);
+      final exportRows = entries.map(toExportEntry).toList(growable: false);
 
       final filename = ExportService.defaultFilename(exportRows, format);
       final fullPath = await saveLocationFn(
@@ -182,7 +182,7 @@ class HistoryExporter {
 
   // ── Mapping ────────────────────────────────────────────────────────────
 
-  static ExportEntry _toExportEntry(HistoryEntry e) {
+  static ExportEntry toExportEntry(HistoryEntry e) {
     return ExportEntry(
       id: e.id,
       title: e.title,

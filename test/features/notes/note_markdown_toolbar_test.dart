@@ -25,6 +25,7 @@ import 'package:whispaste/widgets/markdown_toolbar.dart';
 import '../../fixtures/test_helpers.dart';
 
 Note _note() => Note(
+  archived: false,
   id: 'n1',
   content: 'hallo welt',
   createdAt: DateTime(2026, 4, 14, 10, 30),
@@ -94,7 +95,8 @@ void main() {
     await tester.pumpWidget(
       makeTestable(
         _panel(controller: controller, focusNode: focusNode),
-        size: const Size(720, 600),
+        // Wide enough for the whole bar on one line (no "More", #1845).
+        size: const Size(1200, 600),
         locale: locale,
       ),
     );
@@ -358,14 +360,15 @@ void main() {
       await tester.pump();
       expect(focusOn(tester, byId('notes-editor-toolbar-italic')), isTrue);
 
+      // The text view menu (#648) is the last button of the bar.
       await tester.sendKeyEvent(LogicalKeyboardKey.end);
       await tester.pump();
-      expect(focusOn(tester, byId('notes-editor-toolbar-find')), isTrue);
+      expect(focusOn(tester, byId('notes-editor-toolbar-text-view')), isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pump();
       expect(
-        focusOn(tester, byId('notes-editor-toolbar-find')),
+        focusOn(tester, byId('notes-editor-toolbar-text-view')),
         isTrue,
         reason: 'the last button does not wrap',
       );

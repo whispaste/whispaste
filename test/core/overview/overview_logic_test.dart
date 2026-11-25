@@ -5,6 +5,7 @@ import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/overview/overview_logic.dart';
+import 'package:whispaste/features/settings/search/settings_search_entry.dart';
 
 Note _note({
   required String id,
@@ -19,6 +20,7 @@ Note _note({
   title: title,
   pinned: pinned,
   isQuickNote: false,
+  archived: false,
   deletedAt: deletedAt,
   createdAt: DateTime(2026),
   updatedAt: updatedAt,
@@ -55,50 +57,48 @@ HistoryEntry _entry({
 final _now = DateTime(2026, 10, 30, 12);
 
 void main() {
-  group('milestone and rate/share card', () {
+  group('milestone and support card', () {
     final now = DateTime(2026, 10, 30, 10);
     OverviewAskCard? ask({
       int dictations = 25,
       Set<int> seen = const {},
-      bool rateDue = true,
       bool problem = false,
       DateTime? anyShownOn,
     }) => overviewAskCard(
       dictations: dictations,
       milestonesSeen: seen,
-      rateDue: rateDue,
       problemShown: problem,
       anyCardShownOn: anyShownOn,
       now: now,
     );
 
-    test('asks only when the review service finds it due', () {
-      expect(ask(), const OverviewRateShareCard());
-      expect(ask(rateDue: false), isNull);
-    });
-
-    test('a milestone comes first and only once per count', () {
+    test('a milestone comes only once per count', () {
+      expect(ask(), isNull);
       expect(ask(dictations: 120), const OverviewMilestoneCard(100));
-      expect(ask(dictations: 120, seen: {100}), const OverviewRateShareCard());
+      expect(ask(dictations: 120, seen: {100}), isNull);
       expect(
         ask(dictations: 1500, seen: {100}),
         const OverviewMilestoneCard(1000),
       );
       // Past 1,000 the 100 that was never shown no longer comes.
-      expect(ask(dictations: 1500, seen: {1000}, rateDue: false), isNull);
+      expect(ask(dictations: 1500, seen: {1000}), isNull);
     });
 
     test('nothing while a problem shows or after a card today', () {
       expect(ask(dictations: 120, problem: true), isNull);
-      expect(ask(problem: true), isNull);
-      expect(ask(anyShownOn: DateTime(2026, 10, 30, 8)), isNull);
-      expect(ask(anyShownOn: DateTime(2026, 10, 29, 8)), isNotNull);
+      expect(
+        ask(dictations: 120, anyShownOn: DateTime(2026, 10, 30, 8)),
+        isNull,
+      );
+      expect(
+        ask(dictations: 120, anyShownOn: DateTime(2026, 10, 29, 8)),
+        isNotNull,
+      );
     });
 
     OverviewAskCard? support({
       int dictations = 25,
       Set<int> seen = const {},
-      bool rateDue = false,
       bool problem = false,
       DateTime? anyShownOn,
       bool recurring = false,
@@ -106,7 +106,6 @@ void main() {
     }) => overviewAskCard(
       dictations: dictations,
       milestonesSeen: seen,
-      rateDue: rateDue,
       problemShown: problem,
       anyCardShownOn: anyShownOn,
       now: now,
@@ -115,13 +114,12 @@ void main() {
       dictationRunning: running,
     );
 
-    test('support comes last: milestone, then rating, then support', () {
+    test('support comes after the milestone', () {
       expect(support(), const OverviewSupportCard(recurring: false));
       expect(
         support(recurring: true),
         const OverviewSupportCard(recurring: true),
       );
-      expect(support(rateDue: true), const OverviewRateShareCard());
       expect(support(dictations: 120), const OverviewMilestoneCard(100));
     });
 
@@ -222,6 +220,12 @@ void main() {
       expect(overviewWordsPerMinute(figures(2, 600)), isNull);
       expect(overviewWordsPerMinute(figures(3, 59)), isNull);
       expect(overviewWordsPerMinute(figures(3, 60)), 120);
+    });
+
+    test('Statistik uses the same rule: one short dictation shows no tempo '
+        '(#1845)', () {
+      expect(figures(1, 1).wordsPerMinute, isNull);
+      expect(figures(3, 60).wordsPerMinute, 120);
     });
   });
 
@@ -645,28 +649,45 @@ void main() {
       expect(whatsNewKey('1.5.1', kWhatsNewRegistry), '1.5.0');
     });
 
-    test('1.5.0 has 2 to 4 entries with own ids, real targets and text in '
-        'every app language (#1576)', () async {
-      final items = kWhatsNewRegistry['1.5.0']!;
-      expect(items.length, inInclusiveRange(2, 4));
-      expect(items.map((i) => i.id).toSet(), hasLength(items.length));
-      const pages = {'overview', 'snippets', 'notes', 'history', 'smartMode'};
-      for (final item in items) {
-        expect(
-          pages.contains(item.target) ||
-              item.target == kOverviewCustomizeTarget ||
-              item.target.startsWith('settings:'),
-          isTrue,
-          reason: item.id,
-        );
-      }
-      for (final locale in L10n.supportedLocales) {
-        final l10n = await L10n.delegate.load(locale);
+    test('every version has 2 to 5 entries with own ids, real targets and '
+        'text in every app language (#1576)', () async {
+      expect(kWhatsNewRegistry.keys, containsAll(['1.5.0', '1.5.5']));
+      final settingsRows = {for (final e in kSettingsSearchTable) e.rowId};
+      const pages = {
+        'overview',
+        'snippets',
+        'notes',
+        'history',
+        'smartMode',
+        'replacements',
+      };
+      final allIds = <String>[];
+      for (final MapEntry(key: version, value: items)
+          in kWhatsNewRegistry.entries) {
+        expect(items.length, inInclusiveRange(2, 5), reason: version);
+        allIds.addAll(items.map((i) => i.id));
         for (final item in items) {
-          expect(item.title(l10n).trim(), isNotEmpty, reason: '$locale');
-          expect(item.body(l10n).trim(), isNotEmpty, reason: '$locale');
+          final row = item.target.startsWith('settings:')
+              ? item.target.substring('settings:'.length)
+              : null;
+          expect(
+            pages.contains(item.target) ||
+                item.target == kOverviewCustomizeTarget ||
+                (row != null && settingsRows.contains(row)),
+            isTrue,
+            reason: '${item.id} -> ${item.target}',
+          );
+        }
+        for (final locale in L10n.supportedLocales) {
+          final l10n = await L10n.delegate.load(locale);
+          for (final item in items) {
+            expect(item.title(l10n).trim(), isNotEmpty, reason: '$locale');
+            expect(item.body(l10n).trim(), isNotEmpty, reason: '$locale');
+          }
         }
       }
+      // Ids are never reused, across versions too.
+      expect(allIds.toSet(), hasLength(allIds.length));
     });
 
     test('the reviewed version matches the app version in pubspec.yaml', () {

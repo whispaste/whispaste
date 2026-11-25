@@ -88,6 +88,8 @@ class OverviewRecent extends ConsumerWidget {
   }
 }
 
+/// The card's one-sentence empty line, see [OverviewRowsCard.empty] for why
+/// it is not a `WpEmptyState`.
 class _Empty extends ConsumerWidget {
   const _Empty({required this.l10n, required this.reason});
 

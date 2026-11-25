@@ -68,10 +68,14 @@ enum ReplacementDraftProblem {
 /// rules as [checkDictionaryEntry]; unlike a term, a trigger may be symbols
 /// only (`->`, `:)`), which the dialog offers on purpose. A trigger that only
 /// differs from the replacement in case is allowed: it fixes the case.
+/// With [similar] matching a trigger equal to the replacement is allowed
+/// too: that is a term entry (#1969), it turns near misspellings into the
+/// term.
 ({ReplacementDraftProblem problem, String trigger})? checkReplacementDraft(
   List<String> triggers,
-  String replacement,
-) {
+  String replacement, {
+  bool similar = false,
+}) {
   final seen = <String>{};
   final target = replacement.trim();
   for (final raw in triggers) {
@@ -86,7 +90,7 @@ enum ReplacementDraftProblem {
         trigger: trigger,
       );
     }
-    if (trigger == target) {
+    if (!similar && trigger == target) {
       return (
         problem: ReplacementDraftProblem.sameAsReplacement,
         trigger: trigger,

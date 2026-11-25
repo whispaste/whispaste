@@ -164,7 +164,7 @@ Root-Cause-Analysen zuerst zu prüfen:
 
 Zero-Trust-Client-Prinzip: Logs dienen hier ausschließlich
 der Diagnose, nie der Durchsetzung von Limits/Berechtigungen — das bleibt
-Server-seitig (Supabase RLS + Trigger).
+Server-seitig (WhisPaste-API).
 
 ## Konfiguration je Umgebung
 

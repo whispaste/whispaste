@@ -16,6 +16,7 @@ import '../../../core/recording/recording_state.dart';
 import '../../../features/history/data/history_title.dart';
 import '../../path_service.dart';
 import '../../audio_service.dart';
+import '../../telemetry_service.dart';
 import '../../text_transforms.dart';
 import '../../transcription/slice_manifest.dart';
 import '../../transcription/transcriber.dart';
@@ -23,6 +24,7 @@ import 'audio_file_decoder.dart';
 import '../encryption/recording_vault.dart';
 import '../user_audio_dirs.dart';
 import 'audio_import_queue.dart';
+import 'video_audio_decoder.dart' show videoImportExtensions;
 
 /// Scratch directory for in-flight import jobs, inside the app container.
 String importWorkDir() => p.join(importsRootDir(), 'work');
@@ -48,6 +50,29 @@ Future<void> waitForDictationIdle(ProviderContainer container) async {
 }
 
 final _log = AppLogger('AudioImport');
+
+/// How the user started a file import (telemetry id).
+enum ImportStartSource {
+  picker('picker'),
+  drop('drop'),
+  openWith('open_with');
+
+  const ImportStartSource(this.wireName);
+  final String wireName;
+}
+
+/// `ok` or `fail` for a finished job, null while it runs or after a cancel.
+String? importTelemetryOutcome(ImportStatus status) => switch (status) {
+  ImportStatus.done => 'ok',
+  ImportStatus.failed => 'fail',
+  _ => null,
+};
+
+/// `video` or `audio`, by the file's extension only (never the name).
+String importTelemetryKind(String fileName) {
+  final ext = p.extension(fileName).replaceFirst('.', '').toLowerCase();
+  return videoImportExtensions.contains(ext) ? 'video' : 'audio';
+}
 
 /// Owns the single import queue of the app and mirrors its jobs into state.
 class AudioImportQueueNotifier extends Notifier<List<ImportJob>> {
@@ -91,10 +116,40 @@ class AudioImportQueueNotifier extends Notifier<List<ImportJob>> {
   /// Adds the files the user picked. The result says why each refused path
   /// was refused and which jobs were created; the accepted files run in the
   /// background.
+  ///
+  /// [source] says how the user started the import and turns on the content-
+  /// free `import` counters; internal callers (recovery of a crashed
+  /// recording) pass none and are not counted.
   Future<ImportEnqueueResult> addFiles(
     List<String> paths, {
     String? sliceManifestPath,
-  }) => _queue.enqueue(paths, sliceManifestPath: sliceManifestPath);
+    ImportStartSource? source,
+  }) async {
+    final result = await _queue.enqueue(
+      paths,
+      sliceManifestPath: sliceManifestPath,
+    );
+    if (source != null && ref.mounted) {
+      _countImports(result.jobIds, source);
+    }
+    return result;
+  }
+
+  void _countImports(List<String> jobIds, ImportStartSource source) {
+    final agg = ref.read(telemetrySessionAggregatorProvider);
+    final ids = jobIds.toSet();
+    for (final job in _queue.jobs) {
+      if (!ids.contains(job.id)) continue;
+      final outcome = importTelemetryOutcome(job.status);
+      if (outcome == null) continue;
+      agg.count(category: 'import', action: 'source', name: source.wireName);
+      agg.count(
+        category: 'import',
+        action: 'file',
+        name: '${importTelemetryKind(job.fileName)}|$outcome',
+      );
+    }
+  }
 
   void cancel(String id) => _queue.cancel(id);
 

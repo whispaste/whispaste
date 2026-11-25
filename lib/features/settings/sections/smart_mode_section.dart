@@ -1,8 +1,6 @@
-/// Smart Mode section of the Smart Mode page — standard-preset dropdown plus
-/// the local Gemma-4-E2B-it model download.
-///
-/// No live dictation behavior is wired up here — this section only owns
-/// schema (`AppSettings.smartMode`), the download, and the soft RAM warning.
+/// Smart Mode preferences and the choice of installed local text models.
+/// Model installation and removal live in the shared library; contextual
+/// setup shortcuts reuse its download service and RAM precheck.
 library;
 
 import 'dart:async';
@@ -17,19 +15,15 @@ import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/smart_mode_labels.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
-import '../../../core/l10n/download_error_text.dart';
 import '../../../core/navigation/page_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
-import '../../../services/model_download_service.dart'
-    show formatModelSizeLabel;
 import '../../../services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
 import '../../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../../services/smart_mode/smart_mode_presets.dart';
 import '../../../services/smart_mode/smart_mode_text_model.dart';
-import '../../../widgets/wp_progress_bar.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/wp_banner.dart';
 import '../../../widgets/wp_button.dart';
@@ -38,6 +32,7 @@ import '../search/settings_search_entry.dart'
     show SettingsRowArea, settingsRowAnchorFor;
 import '../settings_widgets.dart';
 import 'api_keys_section.dart' show ApiKeyProvider, ApiKeyStatusLinkRow;
+import '../widgets/model_choice_row.dart' show TextModelChoiceRow;
 import '../widgets/custom_endpoint_rows.dart';
 import '../widgets/wp_settings_group.dart';
 
@@ -86,7 +81,6 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
-    final download = ref.watch(smartModeDownloadProvider);
     final provider = SmartModeProviderType.fromValue(
       settings.smartMode.provider,
     );
@@ -128,8 +122,8 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
 
     final targetLanguageLabel = smartModeTargetLanguageLabel(l10n);
 
+    // No heading: the page header above already says "Smart Mode" (#1845).
     return WpSettingsGroup(
-      heading: l10n.settingsSmartMode,
       children: [
         WpSettingsRow(
           rowId: 'text-smart-mode-preset',
@@ -172,7 +166,9 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
         // Part of the preset row: why the presets are locked, readable
         // without hover, with the way out (#1686).
         if (smartModeLockedNoticeShown(textModelStatus))
-          const WpSettingsDetail(child: SmartModeLockedNotice()),
+          const WpSettingsDetail(
+            child: SmartModeLockedNotice(downloadInline: true),
+          ),
         if (smartModePresetExampleAfter(settings.smartMode.standardPreset, l10n)
             case final after?)
           // Part of the preset row (layout rule 4): no divider in front.
@@ -219,7 +215,7 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
           ),
         WpSettingsRow(
           rowId: 'text-smart-mode-service',
-          title: l10n.settingsService,
+          title: l10n.settingsSmartModeService,
           trailing: settingsDropdown(
             context: context,
             value: SmartModeProviderType.fromValue(
@@ -271,11 +267,47 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
             color: WpColors.textMuted,
             text: l10n.smartModeLocalUnavailable,
           ),
+        // The installed text models and the way to the library, the same row
+        // as "Sprachmodell" (#2175); its explanation line carries the
+        // processing-time example.
+        if (isLocal && localAvailable) const TextModelChoiceRow(),
+        // D6 (#251): the small local model writes free text only roughly; the
+        // hint says so and leads to the OpenAI key, where the better model is.
+        // A detail of the text model row (no divider, same start edge), not a
+        // row of its own.
         if (isLocal && localAvailable)
-          SettingsRowFrame(
-            rowId: 'text-smart-mode-model',
-            indent: true,
-            child: _ModelDownloadRow(download: download, l10n: l10n),
+          WpSettingsDetail(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: WpSpacing.xs,
+              runSpacing: WpSpacing.xs,
+              children: [
+                Semantics(
+                  identifier: 'settings-smart-mode-local-quality-hint',
+                  child: Text(
+                    l10n.smartWriteLocalQualityHint,
+                    key: const ValueKey(
+                      'settings-smart-mode-local-quality-hint',
+                    ),
+                    style: TextStyle(
+                      fontSize: WpTypography.caption,
+                      color: WpColors.textMuted,
+                    ),
+                  ),
+                ),
+                WpButton(
+                  testId: 'settings-smart-mode-openai-link',
+                  label: l10n.settingsAreaApiKeys,
+                  variant: WpButtonVariant.ghost,
+                  onPressed: () {
+                    ref
+                        .read(settingsScrollTargetProvider.notifier)
+                        .set('api-keys-openai');
+                    ref.read(activePageProvider.notifier).setPage('settings');
+                  },
+                ),
+              ],
+            ),
           ),
         WpSettingsRow(
           rowId: 'text-smart-mode-shortcut',
@@ -303,123 +335,26 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
             },
           ),
         ),
+        // #252 (ADR 0015 D10, D11): writing can start from a snippet named by
+        // its title. Only a hint, no switch: the gate decides per run.
+        SettingsRowFrame(
+          rowId: 'text-smart-mode-write-snippet',
+          indent: true,
+          child: Semantics(
+            identifier: 'settings-write-snippet-hint',
+            child: Text(
+              l10n.smartWriteSnippetSettingsHint,
+              key: const ValueKey('settings-write-snippet-hint'),
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                color: WpColors.textMuted,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
-}
-
-class _ModelDownloadRow extends ConsumerWidget {
-  const _ModelDownloadRow({required this.download, required this.l10n});
-
-  final SmartModeDownloadState download;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(smartModeDownloadProvider.notifier);
-
-    return Padding(
-      // Same vertical inset as a WpSettingsRow; the dependent indent comes
-      // from the row frame (layout rule 2 of WpSettingsGroup).
-      padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  // The label is the display name; the quantisation tag
-                  // stays in the id and file name.
-                  '${smartModeModel.label} · ${smartModeModel.sizeLabel}',
-                  style: TextStyle(
-                    fontSize: WpTypography.body,
-                    color: WpColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  l10n.smartModeMemoryFootprintInfo,
-                  style: TextStyle(
-                    fontSize: WpTypography.caption,
-                    color: WpColors.textMuted,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                Text(
-                  l10n.smartModeFactGuardHint,
-                  style: TextStyle(
-                    fontSize: WpTypography.caption,
-                    color: WpColors.textMuted,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                SettingsRowFrame(
-                  rowId: 'text-smart-mode-speed',
-                  child: Text(
-                    l10n.smartModeSpeedExampleInfo,
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      color: WpColors.textMuted,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                if (download.isBusy) ...[
-                  const SizedBox(height: WpSpacing.xs),
-                  _ProgressInfo(download: download, l10n: l10n),
-                ] else if (download.isError) ...[
-                  const SizedBox(height: WpSpacing.xs),
-                  Text(
-                    downloadFailureText(
-                      l10n,
-                      message: download.errorMessage,
-                      kind: download.errorKind,
-                    ),
-                    style: TextStyle(
-                      fontSize: WpTypography.caption,
-                      color: WpColors.error,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: WpSpacing.md),
-          _ActionButton(
-            download: download,
-            l10n: l10n,
-            onDownload: () => _startDownload(context, notifier),
-            onCancel: notifier.cancelDownload,
-            onDelete: () async {
-              final confirmed = await showWpConfirmDialog(
-                context: context,
-                title: l10n.modelDeleteConfirm,
-                message: l10n.modelDeleteConfirmMessage,
-                confirmLabel: l10n.actionDelete,
-                cancelLabel: l10n.actionCancel,
-                destructive: true,
-              );
-              if (confirmed) notifier.deleteModel();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _startDownload(
-    BuildContext context,
-    SmartModeDownloadNotifier notifier,
-  ) => startSmartModeDownloadWithRamCheck(
-    context: context,
-    notifier: notifier,
-    l10n: l10n,
-  );
 }
 
 /// The Settings row that unlocks the Smart Mode presets for [status]: the fix
@@ -468,7 +403,12 @@ void answerLockedSmartModePreset(
 /// the way to the key or endpoint. While the model downloads it shows the
 /// progress instead; the presets unlock by themselves when it is done.
 class SmartModeLockedNotice extends ConsumerWidget {
-  const SmartModeLockedNotice({super.key});
+  const SmartModeLockedNotice({super.key, this.downloadInline = false});
+
+  /// True where the model row with its own download button sits in the same
+  /// card (the Smart Mode page): the notice then offers no second download
+  /// button for the same model (#1845). Key and endpoint fixes keep theirs.
+  final bool downloadInline;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -483,6 +423,11 @@ class SmartModeLockedNotice extends ConsumerWidget {
       banner = WpBanner(
         tone: WpBannerTone.info,
         message: l10n.smartModeLockedDownloading(download.progressPercent),
+      );
+    } else if (local && downloadInline) {
+      banner = WpBanner(
+        tone: WpBannerTone.info,
+        message: l10n.smartModeLockedNotice,
       );
     } else {
       banner = WpBanner(
@@ -537,93 +482,6 @@ Future<void> startSmartModeDownloadWithRamCheck({
     if (!proceed) return;
   }
   unawaited(notifier.downloadModel());
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.download,
-    required this.l10n,
-    required this.onDownload,
-    required this.onCancel,
-    required this.onDelete,
-  });
-
-  final SmartModeDownloadState download;
-  final L10n l10n;
-  final VoidCallback onDownload;
-  final VoidCallback onCancel;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    if (download.isBusy) {
-      return WpButton(
-        label: l10n.actionCancel,
-        testId: 'smart-mode-download-cancel',
-        variant: WpButtonVariant.secondary,
-        onPressed: onCancel,
-      );
-    }
-    if (download.modelDownloaded) {
-      return WpButton(
-        label: l10n.actionDelete,
-        testId: 'smart-mode-model-delete',
-        variant: WpButtonVariant.secondary,
-        tone: WpButtonTone.danger,
-        icon: LucideIcons.trash2,
-        onPressed: onDelete,
-      );
-    }
-    return WpButton(
-      label: l10n.smartModeDownload,
-      testId: 'smart-mode-model-download',
-      variant: WpButtonVariant.secondary,
-      icon: LucideIcons.download,
-      onPressed: onDownload,
-    );
-  }
-}
-
-class _ProgressInfo extends StatelessWidget {
-  const _ProgressInfo({required this.download, required this.l10n});
-
-  final SmartModeDownloadState download;
-  final L10n l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final isVerifying = download.phase == SmartModeDownloadPhase.verifying;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        WpProgressBar(
-          value: isVerifying ? null : download.progressPercent / 100,
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        Text(
-          isVerifying ? l10n.modelVerifying : _downloadingText(),
-          style: TextStyle(
-            fontSize: WpTypography.caption,
-            color: WpColors.textMuted,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  String _downloadingText() {
-    final parts = <String>[
-      '${formatModelSizeLabel(download.bytesDownloaded)} / '
-          '${formatModelSizeLabel(download.totalBytes)}',
-    ];
-    if (download.speedBytesPerSec > 100) {
-      parts.add('${formatModelSizeLabel(download.speedBytesPerSec.round())}/s');
-    }
-    return parts.join(' · ');
-  }
 }
 
 /// Raw sample and what the standard preset makes of it, so the preset's

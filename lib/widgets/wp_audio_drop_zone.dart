@@ -64,7 +64,9 @@ class _WpAudioDropZoneState extends ConsumerState<WpAudioDropZone> {
     if (split.accepted.isEmpty) return;
     ref.read(activePageProvider.notifier).setPage('history');
     unawaited(
-      ref.read(audioImportQueueProvider.notifier).addFiles(split.accepted),
+      ref
+          .read(audioImportQueueProvider.notifier)
+          .addFiles(split.accepted, source: ImportStartSource.drop),
     );
   }
 

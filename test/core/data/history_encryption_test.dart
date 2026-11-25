@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' show SqliteException, sqlite3;
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/encryption_preference.dart';
 import 'package:whispaste/core/data/history_backups.dart';
 import 'package:whispaste/core/data/history_encryption.dart';
 import 'package:whispaste/core/data/sqlite_copy_check.dart';
@@ -99,8 +100,8 @@ void main() {
         const real = HistoryEncryptionOps();
         Never fail() => throw const FileSystemException('disk full');
         final ops = HistoryEncryptionOps(
-          writeEncryptedCopy: (s, t, k) {
-            real.writeEncryptedCopy(s, t, k);
+          writeCopy: (s, t, k) {
+            real.writeCopy(s, t, k);
             if (step == 'write') fail();
           },
           verifyCopy: (s, t, k) =>
@@ -128,9 +129,7 @@ void main() {
       final run = encryptHistoryDatabase(
         path,
         _key,
-        ops: HistoryEncryptionOps(
-          writeEncryptedCopy: (s, t, k) => File(s).copySync(t),
-        ),
+        ops: HistoryEncryptionOps(writeCopy: (s, t, k) => File(s).copySync(t)),
       );
       expect(run.result, HistoryEncryptionResult.failed);
       expectOriginalKept(path, before);
@@ -187,9 +186,93 @@ void main() {
     },
   );
 
+  group('decryption (#1022)', () {
+    test('turns the encrypted file back into a plain one, every row', () {
+      final path = _seedPlain(dbPath());
+      final before = _rows(path);
+      encryptHistoryDatabase(path, _key);
+
+      final run = decryptHistoryDatabase(path, _key);
+
+      expect(run.result, HistoryEncryptionResult.decrypted);
+      expect(isPlainSqliteFile(path), isTrue);
+      expect(_rows(path), before);
+      expect(File(historyEncryptionStagingPath(path)).existsSync(), isFalse);
+      expect(
+        decryptHistoryDatabase(path, _key).result,
+        HistoryEncryptionResult.notNeeded,
+      );
+    });
+
+    test('a wrong key keeps the encrypted original', () {
+      final path = _seedPlain(dbPath());
+      encryptHistoryDatabase(path, _key);
+      final bytes = File(path).readAsBytesSync();
+
+      final run = decryptHistoryDatabase(path, _otherKey);
+
+      expect(run.result, HistoryEncryptionResult.failed);
+      expect(File(path).readAsBytesSync(), bytes);
+    });
+
+    for (final step in ['write', 'verify', 'swap']) {
+      test('failure in $step keeps the encrypted original', () {
+        final path = _seedPlain(dbPath());
+        final before = _rows(path);
+        encryptHistoryDatabase(path, _key);
+        const real = HistoryEncryptionOps.decrypt();
+        Never fail() => throw const FileSystemException('disk full');
+        final ops = HistoryEncryptionOps.decrypt(
+          writeCopy: (s, t, k) {
+            real.writeCopy(s, t, k);
+            if (step == 'write') fail();
+          },
+          verifyCopy: (s, t, k) =>
+              step == 'verify' ? fail() : real.verifyCopy(s, t, k),
+          swapIn: (f, t) => step == 'swap' ? fail() : real.swapIn(f, t),
+        );
+
+        expect(
+          decryptHistoryDatabase(path, _key, ops: ops).result,
+          HistoryEncryptionResult.failed,
+        );
+        expect(isPlainSqliteFile(path), isFalse);
+        expect(_rows(path, hexKey: _key), before);
+        expect(File(historyEncryptionStagingPath(path)).existsSync(), isFalse);
+        // The next start completes it.
+        expect(
+          decryptHistoryDatabase(path, _key).result,
+          HistoryEncryptionResult.decrypted,
+        );
+        expect(_rows(path), before);
+      });
+    }
+
+    test('a copy that is still encrypted is never swapped in', () {
+      final path = _seedPlain(dbPath());
+      encryptHistoryDatabase(path, _key);
+      final bytes = File(path).readAsBytesSync();
+      final run = decryptHistoryDatabase(
+        path,
+        _key,
+        ops: HistoryEncryptionOps.decrypt(
+          writeCopy: (s, t, k) => File(s).copySync(t),
+        ),
+      );
+      expect(run.result, HistoryEncryptionResult.failed);
+      expect(File(path).readAsBytesSync(), bytes);
+    });
+  });
+
   group('start-up wiring', () {
-    setUp(() => paths.appDataDirOverride = _tmp.path);
-    tearDown(() => paths.appDataDirOverride = null);
+    setUp(() {
+      paths.appDataDirOverride = _tmp.path;
+      resetEncryptionSessionForTesting();
+    });
+    tearDown(() {
+      paths.appDataDirOverride = null;
+      resetEncryptionSessionForTesting();
+    });
 
     Future<void> start(HistoryKeySource keySource) async {
       final db = HistoryDatabase(keySource: keySource);
@@ -218,6 +301,65 @@ void main() {
       expect(versionAfter, historySchemaVersion);
     });
 
+    test('switched off, the next start decrypts; on again encrypts', () async {
+      await start(() async => _key);
+      expect(isPlainSqliteFile(dbPath()), isFalse);
+      final preference = EncryptionPreference(_tmp.path);
+
+      expect(preference.setWanted(false), isTrue);
+      resetEncryptionSessionForTesting(); // the restart
+      final seen = <EncryptionConversionProgress?>[];
+      void listener() => seen.add(encryptionConversionProgress.value);
+      encryptionConversionProgress.addListener(listener);
+      try {
+        await start(() async => _key);
+      } finally {
+        encryptionConversionProgress.removeListener(listener);
+      }
+
+      expect(isPlainSqliteFile(dbPath()), isTrue);
+      expect(seen, [
+        const EncryptionConversionProgress(
+          toPlain: true,
+          step: EncryptionConversionStep.history,
+        ),
+        null,
+      ]);
+      expect(
+        storedSchemaVersion(dbPath()),
+        historySchemaVersion,
+        reason: 'the plain file opens without a key',
+      );
+      // Off stays off: no start encrypts it again.
+      await start(() async => _key);
+      expect(isPlainSqliteFile(dbPath()), isTrue);
+
+      preference.setWanted(true);
+      resetEncryptionSessionForTesting();
+      await start(() async => _key);
+      expect(isPlainSqliteFile(dbPath()), isFalse);
+    });
+
+    test('switched off, a new install creates a plain database', () async {
+      EncryptionPreference(_tmp.path).setWanted(false);
+      resetEncryptionSessionForTesting();
+      await start(() async => _key);
+      expect(isPlainSqliteFile(dbPath()), isTrue);
+    });
+
+    test('switched off without the key, the encrypted file stays', () async {
+      await start(() async => _key);
+      final bytes = File(dbPath()).readAsBytesSync();
+      EncryptionPreference(_tmp.path).setWanted(false);
+      resetEncryptionSessionForTesting();
+
+      await expectLater(
+        start(() async => null),
+        throwsA(isA<HistoryKeyUnavailableException>()),
+      );
+      expect(File(dbPath()).readAsBytesSync(), bytes);
+    });
+
     test('an encrypted database without its key is left untouched', () async {
       await start(() async => _key);
       final bytes = File(dbPath()).readAsBytesSync();
@@ -228,6 +370,10 @@ void main() {
       );
       await expectLater(
         start(() async => throw StateError('store locked')),
+        throwsA(isA<HistoryKeyUnavailableException>()),
+      );
+      await expectLater(
+        start(() async => throw const HistoryKeyringUnavailableException()),
         throwsA(isA<HistoryKeyUnavailableException>()),
       );
       expect(File(dbPath()).readAsBytesSync(), bytes);

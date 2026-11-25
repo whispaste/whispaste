@@ -40,6 +40,7 @@ void showWpDictationMessage(
   String? secondActionLabel,
   VoidCallback? onSecondAction,
   String? secondActionId,
+  String? secondActionConfirmation,
   bool offersNewDictation = true,
 }) {
   final label = action?.label ?? actionLabel;
@@ -85,6 +86,7 @@ void showWpDictationMessage(
             id: secondActionId ?? 'second-action',
             label: secondActionLabel,
             onPressed: onSecondAction,
+            confirmation: secondActionConfirmation,
           ),
       ],
     ),

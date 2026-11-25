@@ -7,14 +7,18 @@ import '../../../core/config/data_key_access.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/settings_sections.dart'
     show kRetainedAudioCountStages;
+import '../../../core/data/encryption_preference.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/logging/crash_reporter.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../services/app_restart_service.dart';
 import '../../../services/audio/retention/audio_retention.dart'
     show kRetainedAudioMaxAge;
 import '../../../services/pending_audio/kept_until_format.dart';
 import '../../../services/pending_audio/pending_audio_providers.dart';
 import '../../../services/telemetry_service.dart';
+import '../../../services/user_models/user_models_provider.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/recording_behavior.dart' show localizeRecordingError;
 import '../../onboarding/data_key_explanation.dart';
@@ -106,6 +110,22 @@ class PrivacySection extends ConsumerWidget {
             },
           ),
         ),
+        // Hugging-Face-Suche (#2047): agreed in the "+" dialog of the model
+        // library, revoked (or given) here. No telemetry on this switch.
+        WpSettingsRow(
+          rowId: 'privacy-hf-search',
+          title: l10n.settingsHfSearch,
+          subtitle: l10n.settingsHfSearchSubtitle,
+          switchNamesRow: true,
+          trailing: settingsToggle(
+            label: l10n.settingsHfSearch,
+            value: ref.watch(
+              userModelsProvider.select((s) => s.hfSearchConsent),
+            ),
+            onChanged: (v) =>
+                ref.read(userModelsProvider.notifier).setHfSearchConsent(v),
+          ),
+        ),
         WpSettingsRow(
           rowId: 'privacy-retain-audio',
           title: l10n.settingsRetainRecentAudio,
@@ -179,10 +199,69 @@ class PrivacySection extends ConsumerWidget {
                 ),
           ),
         ),
+        const _EncryptionRow(),
         const _DataKeyRow(),
         const _KeychainMigrationRow(),
         const _PendingAudioRows(),
       ],
+    );
+  }
+}
+
+/// The switch "Encryption" (#1022): history and recordings encrypted at rest,
+/// on by default. The choice applies at the next start (maintainer decision
+/// on #1022), so while it differs from the running state the row says so and
+/// offers the restart next to the switch. Switching back before the restart
+/// simply takes the wish back.
+class _EncryptionRow extends ConsumerWidget {
+  const _EncryptionRow();
+
+  static final _log = AppLogger('PrivacySection');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final setting = ref.watch(encryptionSettingProvider);
+    final subtitle = [
+      setting.wanted
+          ? l10n.settingsEncryptionSubtitleOn
+          : l10n.settingsEncryptionSubtitleOff,
+      if (setting.restartNeeded) l10n.settingsEncryptionRestartHint,
+    ].join(' ');
+    final toggle = settingsToggle(
+      label: l10n.settingsEncryption,
+      testId: 'privacy-encryption-toggle',
+      key: const ValueKey('privacy-encryption-toggle'),
+      value: setting.wanted,
+      onChanged: (v) {
+        if (!ref.read(encryptionSettingProvider.notifier).setWanted(v)) {
+          _log.warning('Encryption switch not saved');
+        }
+      },
+    );
+    return WpSettingsRow(
+      rowId: 'privacy-encryption',
+      title: l10n.settingsEncryption,
+      subtitle: subtitle,
+      subtitleKey: const ValueKey('privacy-encryption-subtitle'),
+      switchNamesRow: true,
+      trailing: setting.restartNeeded
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                WpButton(
+                  testId: 'privacy-encryption-restart',
+                  label: l10n.actionRestartApp,
+                  variant: WpButtonVariant.secondary,
+                  onPressed: () => unawaited(
+                    ref.read(appRestartServiceProvider).requestRestart(),
+                  ),
+                ),
+                const SizedBox(width: WpSpacing.buttonGap),
+                toggle,
+              ],
+            )
+          : toggle,
     );
   }
 }

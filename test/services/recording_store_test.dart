@@ -319,6 +319,28 @@ void main() {
       expect(count, greaterThan(0));
     });
 
+    test('counts a dictation as reworked only when its text changed and '
+        'keeps sub-second duration (#1845)', () async {
+      await store.save(
+        makeInput(
+          transcript: 'one two three',
+          originalTranscript: 'one two three',
+        ),
+      );
+      var row = (await db.select(db.dailyStats).get()).single;
+      expect(row.actionCount, 0);
+      expect(row.totalDurationSec, 5.0);
+
+      await store.save(
+        makeInput(
+          transcript: 'One, two, three.',
+          originalTranscript: 'one two three',
+        ),
+      );
+      row = (await db.select(db.dailyStats).get()).single;
+      expect(row.actionCount, 1);
+    });
+
     test('trims entries when historyMaxEntries is hit', () async {
       // Save 3 entries with limit 2
       await store.save(makeInput(transcript: 'entry one', maxEntries: 2));

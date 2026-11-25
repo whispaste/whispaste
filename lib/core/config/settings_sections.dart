@@ -22,9 +22,14 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/widgets.dart' show StringCharacters;
 
 import 'automation_hooks.dart';
+import 'extra_dictation_keys.dart';
+import 'favorite_language_hotkeys.dart';
 import 'language_favorites.dart' as fav;
+import 'model_sampling.dart';
+import 'mutable_notice.dart';
 import 'quality_tier.dart' show QualityTier;
 import 'settings_enums.dart';
+import 'whisper_languages.dart';
 
 // ---------------------------------------------------------------------------
 // Private helpers (mirrored from settings_provider to keep the file self-contained)
@@ -131,11 +136,14 @@ class InterfaceSettings {
     this.notifyPasteProblems = true,
     this.notifySmartModeFallback = true,
     this.notifyMicrophoneProblems = true,
+    this.mutedNotices = const [],
     this.showBackendUtilization = true,
     this.sidePanelEnabled = false,
     this.sidePanelEdge = SidePanelEdge.left,
     this.clipboardExcludedApps,
     this.appearance = AppearanceMode.navy,
+    this.spellCheckEnabled = true,
+    this.spellCheckLanguage = 'auto',
   });
 
   final String locale;
@@ -155,6 +163,27 @@ class InterfaceSettings {
   /// Category switch under [showNotifications]: the microphone delivers no
   /// signal shortly after the start (possibly muted or the wrong input).
   final bool notifyMicrophoneProblems;
+
+  /// Ids of the notices the user switched off with "Don't show again"
+  /// ([MutableNotice.id], #1852). Empty by default, so nothing changes for an
+  /// existing installation. Unknown ids (from a newer version) are kept and
+  /// written back unchanged.
+  final List<String> mutedNotices;
+
+  /// Whether [notice] is switched off.
+  bool isNoticeMuted(MutableNotice notice) => mutedNotices.contains(notice.id);
+
+  /// A copy with [notice] switched off ([muted]) or shown again.
+  InterfaceSettings withNoticeMuted(
+    MutableNotice notice, {
+    required bool muted,
+  }) {
+    final others = [
+      for (final id in mutedNotices)
+        if (id != notice.id) id,
+    ];
+    return copyWith(mutedNotices: muted ? [...others, notice.id] : others);
+  }
 
   /// Whether the status bar shows the CPU/GPU backend-utilization chip
   /// (`_BackendUtilizationChip` in `status_bar.dart`). Default on: the
@@ -184,6 +213,14 @@ class InterfaceSettings {
   /// Appearance mode (AR-21). Stored under `appearance`, not the retired
   /// `theme_mode` key, so values left over from the old toggle stay inert.
   final AppearanceMode appearance;
+
+  /// Whether the editors underline misspelled words (#670). Default on:
+  /// the check only marks, it never changes text.
+  final bool spellCheckEnabled;
+
+  /// Dictionary for the spell check: `auto` (dictation language if fixed,
+  /// else the app language) or a system dictionary tag such as `de-DE`.
+  final String spellCheckLanguage;
 
   static const InterfaceSettings defaults = InterfaceSettings();
 
@@ -215,6 +252,7 @@ class InterfaceSettings {
       'notify_microphone_problems',
       defaults.notifyMicrophoneProblems,
     ),
+    mutedNotices: _readStringList(v, 'muted_notices'),
     showBackendUtilization: _readBool(
       v,
       'show_backend_utilization',
@@ -228,6 +266,13 @@ class InterfaceSettings {
     sidePanelEdge: SidePanelEdge.fromValue(v['side_panel_edge']),
     clipboardExcludedApps: v['clipboard_excluded_apps'],
     appearance: AppearanceMode.fromValue(v['appearance']),
+    spellCheckEnabled: _readBool(
+      v,
+      'spell_check_enabled',
+      defaults.spellCheckEnabled,
+    ),
+    spellCheckLanguage:
+        v['spell_check_language'] ?? defaults.spellCheckLanguage,
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -242,11 +287,14 @@ class InterfaceSettings {
     'notify_paste_problems': '$notifyPasteProblems',
     'notify_smart_mode_fallback': '$notifySmartModeFallback',
     'notify_microphone_problems': '$notifyMicrophoneProblems',
+    'muted_notices': jsonEncode(mutedNotices),
     'show_backend_utilization': '$showBackendUtilization',
     'side_panel_enabled': '$sidePanelEnabled',
     'side_panel_edge': sidePanelEdge.value,
     'clipboard_excluded_apps': ?clipboardExcludedApps,
     'appearance': appearance.value,
+    'spell_check_enabled': '$spellCheckEnabled',
+    'spell_check_language': spellCheckLanguage,
   };
 
   InterfaceSettings copyWith({
@@ -257,11 +305,14 @@ class InterfaceSettings {
     bool? notifyPasteProblems,
     bool? notifySmartModeFallback,
     bool? notifyMicrophoneProblems,
+    List<String>? mutedNotices,
     bool? showBackendUtilization,
     bool? sidePanelEnabled,
     SidePanelEdge? sidePanelEdge,
     String? clipboardExcludedApps,
     AppearanceMode? appearance,
+    bool? spellCheckEnabled,
+    String? spellCheckLanguage,
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
@@ -272,12 +323,15 @@ class InterfaceSettings {
         notifySmartModeFallback ?? this.notifySmartModeFallback,
     notifyMicrophoneProblems:
         notifyMicrophoneProblems ?? this.notifyMicrophoneProblems,
+    mutedNotices: mutedNotices ?? this.mutedNotices,
     showBackendUtilization:
         showBackendUtilization ?? this.showBackendUtilization,
     sidePanelEnabled: sidePanelEnabled ?? this.sidePanelEnabled,
     sidePanelEdge: sidePanelEdge ?? this.sidePanelEdge,
     clipboardExcludedApps: clipboardExcludedApps ?? this.clipboardExcludedApps,
     appearance: appearance ?? this.appearance,
+    spellCheckEnabled: spellCheckEnabled ?? this.spellCheckEnabled,
+    spellCheckLanguage: spellCheckLanguage ?? this.spellCheckLanguage,
   );
 
   @override
@@ -291,11 +345,14 @@ class InterfaceSettings {
           notifyPasteProblems == other.notifyPasteProblems &&
           notifySmartModeFallback == other.notifySmartModeFallback &&
           notifyMicrophoneProblems == other.notifyMicrophoneProblems &&
+          _sameStrings(mutedNotices, other.mutedNotices) &&
           showBackendUtilization == other.showBackendUtilization &&
           sidePanelEnabled == other.sidePanelEnabled &&
           sidePanelEdge == other.sidePanelEdge &&
           clipboardExcludedApps == other.clipboardExcludedApps &&
-          appearance == other.appearance;
+          appearance == other.appearance &&
+          spellCheckEnabled == other.spellCheckEnabled &&
+          spellCheckLanguage == other.spellCheckLanguage;
 
   @override
   int get hashCode => Object.hash(
@@ -306,11 +363,14 @@ class InterfaceSettings {
     notifyPasteProblems,
     notifySmartModeFallback,
     notifyMicrophoneProblems,
+    Object.hashAll(mutedNotices),
     showBackendUtilization,
     sidePanelEnabled,
     sidePanelEdge,
     clipboardExcludedApps,
     appearance,
+    spellCheckEnabled,
+    spellCheckLanguage,
   );
 }
 
@@ -323,14 +383,30 @@ class InterfaceSettings {
 const cancelDictationKeyEscape = 'escape';
 const cancelDictationKeyChoices = [cancelDictationKeyEscape, 'f12'];
 
-/// Default Hold-or-Tap threshold (Automatisch): 250 ms, per product decision.
-const defaultHoldOrTapThresholdMs = 250;
+/// Default Hold-or-Tap threshold (Automatisch): 400 ms (#779, measured in
+/// `benchmarks/services/hotkey_thresholds_bench_test.dart`). At 250 ms one
+/// in seven taps of a key combination ran as push-to-talk.
+const defaultHoldOrTapThresholdMs = 400;
 const minHoldOrTapThresholdMs = 150;
 const maxHoldOrTapThresholdMs = 1500;
+
+/// Default before #779. Settings always store the full map, so a stored
+/// 250 without [holdOrTapThresholdRevKey] is the former default, not a
+/// choice, and reads as the current default.
+const _formerHoldOrTapThresholdMs = 250;
+
+/// Marks a stored threshold as written after #779: from then on any stored
+/// value, 250 included, is the user's.
+const holdOrTapThresholdRevKey = 'hold_or_tap_threshold_rev';
+const _holdOrTapThresholdRev = '2';
 
 int _readHoldOrTapThresholdMs(Map<String, String> v) {
   final raw = int.tryParse(v['hold_or_tap_threshold_ms'] ?? '');
   if (raw == null) return defaultHoldOrTapThresholdMs;
+  if (raw == _formerHoldOrTapThresholdMs &&
+      v[holdOrTapThresholdRevKey] == null) {
+    return defaultHoldOrTapThresholdMs;
+  }
   return raw.clamp(minHoldOrTapThresholdMs, maxHoldOrTapThresholdMs);
 }
 
@@ -362,6 +438,34 @@ bool _readAutoLevel(Map<String, String> v) {
   return readInputGain(v['input_gain']) == 1.0;
 }
 
+/// What WhisPaste does with running media while a dictation records
+/// (#563, #1511).
+enum MediaWhileRecording {
+  /// Leave playback alone.
+  off,
+
+  /// Pause what is playing and resume exactly that afterwards.
+  pause,
+
+  /// Turn playing audio down and restore the exact previous volume afterwards
+  /// ("Leiser stellen", ducking).
+  duck,
+}
+
+/// Reads [MediaWhileRecording] from a settings map. Without the
+/// `media_while_recording` key (settings written before #1511) the older
+/// switch decides: `pause_media_while_recording = true` stays "pause", so
+/// existing users keep what they chose.
+MediaWhileRecording readMediaWhileRecording(Map<String, String> v) {
+  final raw = v['media_while_recording'];
+  for (final mode in MediaWhileRecording.values) {
+    if (mode.name == raw) return mode;
+  }
+  return v['pause_media_while_recording'] == 'true'
+      ? MediaWhileRecording.pause
+      : MediaWhileRecording.off;
+}
+
 class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
@@ -373,7 +477,7 @@ class AudioInputSettings {
     this.inputGain = 1.0,
     this.autoLevel = true,
     this.microphonePriority = const [],
-    this.pauseMediaWhileRecording = false,
+    this.mediaWhileRecording = MediaWhileRecording.off,
   });
 
   /// Key that cancels a running dictation. One of [cancelDictationKeyChoices].
@@ -388,9 +492,12 @@ class AudioInputSettings {
 
   final bool pushToTalk;
 
-  /// Pause running music/video while recording and resume what was paused
-  /// afterwards (#563). Opt-in.
-  final bool pauseMediaWhileRecording;
+  /// What happens to running music/video while recording (#563, #1511):
+  /// nothing, pause and resume, or turn it down and restore the volume.
+  /// Opt-in. Stored as `media_while_recording`; settings written before that
+  /// key read the older switch `pause_media_while_recording`, see
+  /// [readMediaWhileRecording].
+  final MediaWhileRecording mediaWhileRecording;
 
   /// Hold-or-Tap hybrid (sub-option of [pushToTalk]): with both on, a short
   /// tap toggles and a longer hold acts as push-to-talk. Ignored while
@@ -440,11 +547,7 @@ class AudioInputSettings {
         inputGain: readInputGain(v['input_gain']),
         autoLevel: _readAutoLevel(v),
         microphonePriority: _readStringList(v, 'microphone_priority'),
-        pauseMediaWhileRecording: _readBool(
-          v,
-          'pause_media_while_recording',
-          defaults.pauseMediaWhileRecording,
-        ),
+        mediaWhileRecording: readMediaWhileRecording(v),
       );
 
   Map<String, String> toMap() => {
@@ -452,12 +555,16 @@ class AudioInputSettings {
     'push_to_talk': '$pushToTalk',
     'hold_or_tap': '$holdOrTap',
     'hold_or_tap_threshold_ms': '$holdOrTapThresholdMs',
+    holdOrTapThresholdRevKey: _holdOrTapThresholdRev,
     'short_press_hint_hidden': '$shortPressHintHidden',
     'cancel_dictation_key': cancelDictationKey,
     'input_gain': '$inputGain',
     'auto_level': '$autoLevel',
     'microphone_priority': jsonEncode(microphonePriority),
-    'pause_media_while_recording': '$pauseMediaWhileRecording',
+    'media_while_recording': mediaWhileRecording.name,
+    // Still written so an older build after a downgrade keeps pausing.
+    'pause_media_while_recording':
+        '${mediaWhileRecording == MediaWhileRecording.pause}',
   };
 
   AudioInputSettings copyWith({
@@ -470,7 +577,7 @@ class AudioInputSettings {
     double? inputGain,
     bool? autoLevel,
     List<String>? microphonePriority,
-    bool? pauseMediaWhileRecording,
+    MediaWhileRecording? mediaWhileRecording,
   }) => AudioInputSettings(
     microphone: microphone ?? this.microphone,
     pushToTalk: pushToTalk ?? this.pushToTalk,
@@ -481,8 +588,7 @@ class AudioInputSettings {
     inputGain: inputGain ?? this.inputGain,
     autoLevel: autoLevel ?? this.autoLevel,
     microphonePriority: microphonePriority ?? this.microphonePriority,
-    pauseMediaWhileRecording:
-        pauseMediaWhileRecording ?? this.pauseMediaWhileRecording,
+    mediaWhileRecording: mediaWhileRecording ?? this.mediaWhileRecording,
   );
 
   @override
@@ -498,7 +604,7 @@ class AudioInputSettings {
           inputGain == other.inputGain &&
           autoLevel == other.autoLevel &&
           _sameStrings(microphonePriority, other.microphonePriority) &&
-          pauseMediaWhileRecording == other.pauseMediaWhileRecording;
+          mediaWhileRecording == other.mediaWhileRecording;
 
   @override
   int get hashCode => Object.hash(
@@ -511,7 +617,7 @@ class AudioInputSettings {
     inputGain,
     autoLevel,
     Object.hashAll(microphonePriority),
-    pauseMediaWhileRecording,
+    mediaWhileRecording,
   );
 }
 
@@ -638,11 +744,23 @@ class SttSettings {
     this.spokenPunctuation = false,
     this.writtenForms = const WrittenFormSettings(),
     this.favoriteLanguages = const [],
+    this.expectedLanguages = const [],
     this.languageCycleHotkeyEnabled = false,
     this.languageCycleHotkeyKey = 'L',
     this.languageCycleHotkeyKeyDisplay = '',
     this.languageCycleHotkeyModifiers = 'ctrl+shift',
+    this.favoriteLanguageHotkeys = const {},
+    this.termsMigrated = false,
+    this.manualVocabularyArchive = '',
   });
+
+  /// True once the hand-kept term list became replacements (#1969). From
+  /// then on [customVocabulary] is filled from the most-used replacements.
+  final bool termsMigrated;
+
+  /// The hand-kept term list as it was before that one-time step, kept
+  /// unchanged (additive) and read by nothing else.
+  final String manualVocabularyArchive;
 
   final String provider;
   final String model;
@@ -653,6 +771,24 @@ class SttSettings {
   /// the "next favorite language" hotkey. Empty by default.
   final List<String> favoriteLanguages;
 
+  /// Optional restriction for automatic recognition, independent of favorites.
+  final List<String> expectedLanguages;
+
+  /// The languages automatic recognition may choose from (#2015); empty
+  /// means every language. The explicit [expectedLanguages] win; without
+  /// them two or more [favoriteLanguages] restrict detection, so a short,
+  /// ambiguous dictation never lands in a language the user never speaks.
+  /// A single favorite does not: picking "Automatisch" next to it means
+  /// the user wants other languages too. Only read while the language is
+  /// `auto`; a fixed language always has precedence.
+  List<String> get autoDetectLanguages {
+    if (expectedLanguages.isNotEmpty) return expectedLanguages;
+    final favorites = favoriteLanguages
+        .where(whisperLanguages.containsKey)
+        .toList(growable: false);
+    return favorites.length >= 2 ? favorites : const [];
+  }
+
   /// Off by default. When on, the "next favorite language" hotkey cycles the
   /// recognition language through [favoriteLanguages]. Stored like the other
   /// secondary hotkeys (see [SnippetPickerHotkeySettings]).
@@ -660,6 +796,12 @@ class SttSettings {
   final String languageCycleHotkeyKey;
   final String languageCycleHotkeyKeyDisplay;
   final String languageCycleHotkeyModifiers;
+
+  /// One hotkey per favorite language (#2137), keyed by language code. A
+  /// press switches straight to that language. Kept when a language is
+  /// unpinned; only current favorites register their key (see
+  /// `activeFavoriteLanguageHotkeys`). Empty by default.
+  final Map<String, FavoriteLanguageHotkey> favoriteLanguageHotkeys;
 
   static const int maxFavoriteLanguages = fav.maxFavoriteLanguages;
 
@@ -761,6 +903,9 @@ class SttSettings {
       defaults.idleTimeoutMinutes,
     ),
     customVocabulary: v['custom_vocabulary'] ?? defaults.customVocabulary,
+    termsMigrated: _readBool(v, 'stt_terms_migrated', defaults.termsMigrated),
+    manualVocabularyArchive:
+        v['stt_manual_vocabulary_archive'] ?? defaults.manualVocabularyArchive,
     engine: v['stt_engine'] ?? defaults.engine,
     punctuationPriming: _readBool(
       v,
@@ -809,6 +954,13 @@ class SttSettings {
         defaults.writtenForms.money,
       ),
     ),
+    expectedLanguages: List.unmodifiable(
+      (v['stt_expected_languages'] ?? '')
+          .split(',')
+          .map((c) => c.trim())
+          .where(whisperLanguages.containsKey)
+          .toSet(),
+    ),
     favoriteLanguages: parseFavoriteLanguages(
       v['stt_favorite_languages'] ?? '',
     ),
@@ -822,6 +974,9 @@ class SttSettings {
         v['stt_language_cycle_hotkey_key_display'] ?? '',
     languageCycleHotkeyModifiers:
         v['stt_language_cycle_hotkey_modifiers'] ?? 'ctrl+shift',
+    favoriteLanguageHotkeys: parseFavoriteLanguageHotkeys(
+      v['stt_favorite_language_hotkeys'] ?? '',
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -830,6 +985,8 @@ class SttSettings {
     'stt_language': language,
     'stt_idle_timeout_minutes': '$idleTimeoutMinutes',
     'custom_vocabulary': customVocabulary,
+    'stt_terms_migrated': '$termsMigrated',
+    'stt_manual_vocabulary_archive': manualVocabularyArchive,
     'stt_engine': engine,
     'stt_punctuation_priming': '$punctuationPriming',
     'stt_strip_punctuation': '$stripPunctuation',
@@ -845,10 +1002,14 @@ class SttSettings {
     'stt_written_form_time': '${writtenForms.time}',
     'stt_written_form_money': '${writtenForms.money}',
     'stt_favorite_languages': favoriteLanguages.join(','),
+    'stt_expected_languages': expectedLanguages.join(','),
     'stt_language_cycle_hotkey_enabled': '$languageCycleHotkeyEnabled',
     'stt_language_cycle_hotkey_key': languageCycleHotkeyKey,
     'stt_language_cycle_hotkey_key_display': languageCycleHotkeyKeyDisplay,
     'stt_language_cycle_hotkey_modifiers': languageCycleHotkeyModifiers,
+    'stt_favorite_language_hotkeys': encodeFavoriteLanguageHotkeys(
+      favoriteLanguageHotkeys,
+    ),
   };
 
   SttSettings copyWith({
@@ -867,11 +1028,18 @@ class SttSettings {
     bool? spokenPunctuation,
     WrittenFormSettings? writtenForms,
     List<String>? favoriteLanguages,
+    List<String>? expectedLanguages,
     bool? languageCycleHotkeyEnabled,
     String? languageCycleHotkeyKey,
     String? languageCycleHotkeyKeyDisplay,
     String? languageCycleHotkeyModifiers,
+    Map<String, FavoriteLanguageHotkey>? favoriteLanguageHotkeys,
+    bool? termsMigrated,
+    String? manualVocabularyArchive,
   }) => SttSettings(
+    termsMigrated: termsMigrated ?? this.termsMigrated,
+    manualVocabularyArchive:
+        manualVocabularyArchive ?? this.manualVocabularyArchive,
     provider: provider ?? this.provider,
     model: model ?? this.model,
     language: language ?? this.language,
@@ -886,6 +1054,11 @@ class SttSettings {
     voiceLineBreaks: voiceLineBreaks ?? this.voiceLineBreaks,
     spokenPunctuation: spokenPunctuation ?? this.spokenPunctuation,
     writtenForms: writtenForms ?? this.writtenForms,
+    expectedLanguages: expectedLanguages == null
+        ? this.expectedLanguages
+        : List.unmodifiable(
+            expectedLanguages.where(whisperLanguages.containsKey).toSet(),
+          ),
     favoriteLanguages: favoriteLanguages == null
         ? this.favoriteLanguages
         : List.unmodifiable(favoriteLanguages),
@@ -897,6 +1070,9 @@ class SttSettings {
         languageCycleHotkeyKeyDisplay ?? this.languageCycleHotkeyKeyDisplay,
     languageCycleHotkeyModifiers:
         languageCycleHotkeyModifiers ?? this.languageCycleHotkeyModifiers,
+    favoriteLanguageHotkeys: favoriteLanguageHotkeys == null
+        ? this.favoriteLanguageHotkeys
+        : Map.unmodifiable(favoriteLanguageHotkeys),
   );
 
   @override
@@ -918,11 +1094,18 @@ class SttSettings {
           spokenPunctuation == other.spokenPunctuation &&
           writtenForms == other.writtenForms &&
           listEquals(favoriteLanguages, other.favoriteLanguages) &&
+          listEquals(expectedLanguages, other.expectedLanguages) &&
           languageCycleHotkeyEnabled == other.languageCycleHotkeyEnabled &&
           languageCycleHotkeyKey == other.languageCycleHotkeyKey &&
           languageCycleHotkeyKeyDisplay ==
               other.languageCycleHotkeyKeyDisplay &&
-          languageCycleHotkeyModifiers == other.languageCycleHotkeyModifiers;
+          languageCycleHotkeyModifiers == other.languageCycleHotkeyModifiers &&
+          favoriteLanguageHotkeysEqual(
+            favoriteLanguageHotkeys,
+            other.favoriteLanguageHotkeys,
+          ) &&
+          termsMigrated == other.termsMigrated &&
+          manualVocabularyArchive == other.manualVocabularyArchive;
 
   @override
   int get hashCode => Object.hashAll([
@@ -931,6 +1114,8 @@ class SttSettings {
     language,
     idleTimeoutMinutes,
     customVocabulary,
+    termsMigrated,
+    manualVocabularyArchive,
     engine,
     punctuationPriming,
     stripPunctuation,
@@ -941,10 +1126,12 @@ class SttSettings {
     spokenPunctuation,
     writtenForms,
     Object.hashAll(favoriteLanguages),
+    Object.hashAll(expectedLanguages),
     languageCycleHotkeyEnabled,
     languageCycleHotkeyKey,
     languageCycleHotkeyKeyDisplay,
     languageCycleHotkeyModifiers,
+    encodeFavoriteLanguageHotkeys(favoriteLanguageHotkeys),
   ]);
 }
 
@@ -1157,6 +1344,8 @@ class OverlaySettings {
     this.showFloatingButton = false,
     this.overlayShowLiveTranscript = false,
     this.overlayQuietHint = true,
+    this.overlayKeyHintsAlways = false,
+    this.overlayHideFromCapture = false,
     this.overlayForm = 'pill',
     this.overlayWaveStyle = 'bars',
     this.overlayWaveFluid = false,
@@ -1243,6 +1432,17 @@ class OverlaySettings {
   /// Settings > Overlay turns the hint off and on.
   final bool overlayQuietHint;
 
+  /// Whether the stop and cancel key hints in the recording pill always show
+  /// (overlay E). Off: each hint goes away once its key is learned (see
+  /// `OverlayHintLearning`).
+  final bool overlayKeyHintsAlways;
+
+  /// Whether screen sharing, screen recordings and screenshots leave the
+  /// overlay out while the user still sees it (overlay F, #194). macOS and
+  /// Windows only; Settings does not offer it on Linux. Default off
+  /// (maintainer, 2026-11-17): tutorials and recordings keep showing the pill.
+  final bool overlayHideFromCapture;
+
   static const OverlaySettings defaults = OverlaySettings();
 
   factory OverlaySettings.fromMap(Map<String, String> raw) {
@@ -1311,6 +1511,16 @@ class OverlaySettings {
         'overlay_quiet_hint',
         defaults.overlayQuietHint,
       ),
+      overlayKeyHintsAlways: _readBool(
+        v,
+        'overlay_key_hints_always',
+        defaults.overlayKeyHintsAlways,
+      ),
+      overlayHideFromCapture: _readBool(
+        v,
+        'overlay_hide_from_capture',
+        defaults.overlayHideFromCapture,
+      ),
     );
   }
 
@@ -1335,6 +1545,8 @@ class OverlaySettings {
     'overlay_button_idle_capsule': '$floatingButtonIdleCapsule',
     'overlay_show_live_transcript': '$overlayShowLiveTranscript',
     'overlay_quiet_hint': '$overlayQuietHint',
+    'overlay_key_hints_always': '$overlayKeyHintsAlways',
+    'overlay_hide_from_capture': '$overlayHideFromCapture',
   };
 
   // loam-ignore: complexity-hotspots – one `??` per field, no logic.
@@ -1359,6 +1571,8 @@ class OverlaySettings {
     bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
     bool? overlayQuietHint,
+    bool? overlayKeyHintsAlways,
+    bool? overlayHideFromCapture,
   }) => OverlaySettings(
     floatingButtonIdleCapsule:
         floatingButtonIdleCapsule ?? this.floatingButtonIdleCapsule,
@@ -1383,6 +1597,9 @@ class OverlaySettings {
     overlayShowLiveTranscript:
         overlayShowLiveTranscript ?? this.overlayShowLiveTranscript,
     overlayQuietHint: overlayQuietHint ?? this.overlayQuietHint,
+    overlayKeyHintsAlways: overlayKeyHintsAlways ?? this.overlayKeyHintsAlways,
+    overlayHideFromCapture:
+        overlayHideFromCapture ?? this.overlayHideFromCapture,
   );
 
   @override
@@ -1408,10 +1625,12 @@ class OverlaySettings {
           showFloatingButton == other.showFloatingButton &&
           floatingButtonIdleCapsule == other.floatingButtonIdleCapsule &&
           overlayShowLiveTranscript == other.overlayShowLiveTranscript &&
-          overlayQuietHint == other.overlayQuietHint;
+          overlayQuietHint == other.overlayQuietHint &&
+          overlayKeyHintsAlways == other.overlayKeyHintsAlways &&
+          overlayHideFromCapture == other.overlayHideFromCapture;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     showOverlay,
     overlayMode,
     overlayStartPosition,
@@ -1432,7 +1651,9 @@ class OverlaySettings {
     floatingButtonIdleCapsule,
     overlayShowLiveTranscript,
     overlayQuietHint,
-  );
+    overlayKeyHintsAlways,
+    overlayHideFromCapture,
+  ]);
 }
 
 // ===========================================================================
@@ -2244,7 +2465,13 @@ class HotkeySettings {
     this.hotkeyModifiers = 'ctrl+shift',
     this.hotkeyDoubleTapKey = '',
     this.hotkeyDoubleTap = true,
+    this.extraDictationKeys = const [],
   });
+
+  /// Extra dictation keys with a language of their own (#2055), at most
+  /// [kMaxExtraDictationKeys]. Empty by default: nothing extra is registered
+  /// and the main hotkey behaves as before.
+  final List<ExtraDictationKey> extraDictationKeys;
 
   /// Single key that is the dictation trigger (one of
   /// [modifierOnlyHotkeyChoices]), or empty when the dictation trigger is the
@@ -2289,6 +2516,9 @@ class HotkeySettings {
       'hotkey_double_tap',
       defaults.hotkeyDoubleTap,
     ),
+    extraDictationKeys: ExtraDictationKey.listFromJson(
+      v['hotkey_extra_dictation_keys'],
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -2298,6 +2528,9 @@ class HotkeySettings {
     'hotkey_modifiers': hotkeyModifiers,
     'hotkey_double_tap_key': hotkeyDoubleTapKey,
     'hotkey_double_tap': '$hotkeyDoubleTap',
+    'hotkey_extra_dictation_keys': ExtraDictationKey.listToJson(
+      extraDictationKeys,
+    ),
   };
 
   HotkeySettings copyWith({
@@ -2307,6 +2540,7 @@ class HotkeySettings {
     String? hotkeyModifiers,
     String? hotkeyDoubleTapKey,
     bool? hotkeyDoubleTap,
+    List<ExtraDictationKey>? extraDictationKeys,
   }) => HotkeySettings(
     hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
     hotkeyKey: hotkeyKey ?? this.hotkeyKey,
@@ -2314,6 +2548,9 @@ class HotkeySettings {
     hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
     hotkeyDoubleTapKey: hotkeyDoubleTapKey ?? this.hotkeyDoubleTapKey,
     hotkeyDoubleTap: hotkeyDoubleTap ?? this.hotkeyDoubleTap,
+    extraDictationKeys: extraDictationKeys == null
+        ? this.extraDictationKeys
+        : List.unmodifiable(extraDictationKeys.take(kMaxExtraDictationKeys)),
   );
 
   @override
@@ -2325,7 +2562,8 @@ class HotkeySettings {
           hotkeyKeyDisplay == other.hotkeyKeyDisplay &&
           hotkeyModifiers == other.hotkeyModifiers &&
           hotkeyDoubleTapKey == other.hotkeyDoubleTapKey &&
-          hotkeyDoubleTap == other.hotkeyDoubleTap;
+          hotkeyDoubleTap == other.hotkeyDoubleTap &&
+          listEquals(extraDictationKeys, other.extraDictationKeys);
 
   @override
   int get hashCode => Object.hash(
@@ -2335,6 +2573,7 @@ class HotkeySettings {
     hotkeyModifiers,
     hotkeyDoubleTapKey,
     hotkeyDoubleTap,
+    Object.hashAll(extraDictationKeys),
   );
 }
 
@@ -2355,6 +2594,7 @@ class QuickNoteHotkeySettings {
     this.quickNoteHotkeyModifiers = 'ctrl+shift',
     this.openNoteInMainWindow = false,
     this.timestampStyle = QuickNoteTimestampStyle.marginMark,
+    this.destination = QuickNoteDestination.markedNote,
   });
 
   /// Off by default — an existing user must opt in, never gets a system-wide
@@ -2369,6 +2609,10 @@ class QuickNoteHotkeySettings {
   /// How each appended dictation is dated (#803). Margin mark by default:
   /// the note text stays clean, the moment lives in `note_appends`.
   final QuickNoteTimestampStyle timestampStyle;
+
+  /// Which note a quick-note dictation lands in (#661). The marked quick note
+  /// by default, the behaviour every existing user already has.
+  final QuickNoteDestination destination;
 
   /// Canonical storage token for the non-modifier key, as consumed by
   /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
@@ -2405,6 +2649,9 @@ class QuickNoteHotkeySettings {
         timestampStyle: QuickNoteTimestampStyle.fromValue(
           v['quick_note_timestamp_style'],
         ),
+        destination: QuickNoteDestination.fromValue(
+          v['quick_note_destination'],
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -2414,6 +2661,7 @@ class QuickNoteHotkeySettings {
     'quick_note_hotkey_modifiers': quickNoteHotkeyModifiers,
     'quick_note_open_in_main_window': '$openNoteInMainWindow',
     'quick_note_timestamp_style': timestampStyle.value,
+    'quick_note_destination': destination.value,
   };
 
   QuickNoteHotkeySettings copyWith({
@@ -2423,6 +2671,7 @@ class QuickNoteHotkeySettings {
     String? quickNoteHotkeyModifiers,
     bool? openNoteInMainWindow,
     QuickNoteTimestampStyle? timestampStyle,
+    QuickNoteDestination? destination,
   }) => QuickNoteHotkeySettings(
     quickNoteHotkeyEnabled:
         quickNoteHotkeyEnabled ?? this.quickNoteHotkeyEnabled,
@@ -2433,6 +2682,7 @@ class QuickNoteHotkeySettings {
         quickNoteHotkeyModifiers ?? this.quickNoteHotkeyModifiers,
     openNoteInMainWindow: openNoteInMainWindow ?? this.openNoteInMainWindow,
     timestampStyle: timestampStyle ?? this.timestampStyle,
+    destination: destination ?? this.destination,
   );
 
   @override
@@ -2444,7 +2694,8 @@ class QuickNoteHotkeySettings {
           quickNoteHotkeyKeyDisplay == other.quickNoteHotkeyKeyDisplay &&
           quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers &&
           openNoteInMainWindow == other.openNoteInMainWindow &&
-          timestampStyle == other.timestampStyle;
+          timestampStyle == other.timestampStyle &&
+          destination == other.destination;
 
   @override
   int get hashCode => Object.hash(
@@ -2454,6 +2705,7 @@ class QuickNoteHotkeySettings {
     quickNoteHotkeyModifiers,
     openNoteInMainWindow,
     timestampStyle,
+    destination,
   );
 }
 
@@ -3411,6 +3663,8 @@ class SmartModeSettings {
     this.targetLanguage = 'en',
     this.provider = 'local',
     this.customPresets = const [],
+    this.localModel = '',
+    this.modelSampling = const {},
   });
 
   /// One of `off` / `cleanup` / `concise` / `translate`, or
@@ -3446,6 +3700,18 @@ class SmartModeSettings {
   /// instruction. Selected through [standardPreset] as `custom:<id>`.
   final List<SmartModeCustomPreset> customPresets;
 
+  /// The text model the `local` [provider] runs: empty for the bundled
+  /// catalog model (Gemma), or the `user-…` id of a GGUF model the user
+  /// added themselves (#1789). An id whose model is gone or failed acts as
+  /// empty (see `smartModeLocalModelPathFor`).
+  final String localModel;
+
+  /// Sampling choice per local text model id (#2204): `gemma` for the
+  /// bundled model, `user-…` for own GGUF models. Missing = WhisPaste's
+  /// rewrite values. Stored as JSON under `smart_mode_model_sampling`;
+  /// device-bound like [localModel] (not in the settings export).
+  final Map<String, ModelSamplingChoice> modelSampling;
+
   /// The custom preset [standardPreset] points at, or null for a built-in
   /// preset or a `custom:` id that no longer exists (which then acts as
   /// `off`, like any other unknown value).
@@ -3471,6 +3737,8 @@ class SmartModeSettings {
     customPresets: SmartModeCustomPreset.listFromJson(
       v['smart_mode_custom_presets'],
     ),
+    localModel: v['smart_mode_local_model'] ?? defaults.localModel,
+    modelSampling: modelSamplingFromJson(v['smart_mode_model_sampling']),
   );
 
   Map<String, String> toMap() => {
@@ -3480,6 +3748,8 @@ class SmartModeSettings {
     'smart_mode_custom_presets': SmartModeCustomPreset.listToJson(
       customPresets,
     ),
+    'smart_mode_local_model': localModel,
+    'smart_mode_model_sampling': modelSamplingToJson(modelSampling),
   };
 
   SmartModeSettings copyWith({
@@ -3487,11 +3757,15 @@ class SmartModeSettings {
     String? targetLanguage,
     String? provider,
     List<SmartModeCustomPreset>? customPresets,
+    String? localModel,
+    Map<String, ModelSamplingChoice>? modelSampling,
   }) => SmartModeSettings(
     standardPreset: standardPreset ?? this.standardPreset,
     targetLanguage: targetLanguage ?? this.targetLanguage,
     provider: provider ?? this.provider,
     customPresets: customPresets ?? this.customPresets,
+    localModel: localModel ?? this.localModel,
+    modelSampling: modelSampling ?? this.modelSampling,
   );
 
   @override
@@ -3501,7 +3775,10 @@ class SmartModeSettings {
           standardPreset == other.standardPreset &&
           targetLanguage == other.targetLanguage &&
           provider == other.provider &&
-          listEquals(customPresets, other.customPresets);
+          listEquals(customPresets, other.customPresets) &&
+          localModel == other.localModel &&
+          modelSamplingToJson(modelSampling) ==
+              modelSamplingToJson(other.modelSampling);
 
   @override
   int get hashCode => Object.hash(
@@ -3509,6 +3786,8 @@ class SmartModeSettings {
     targetLanguage,
     provider,
     Object.hashAll(customPresets),
+    localModel,
+    modelSamplingToJson(modelSampling),
   );
 }
 
@@ -3636,6 +3915,7 @@ class SmartModeHotkeySettings {
     this.smartModeHotkeyModifiers = 'ctrl+shift',
     this.smartModeHotkeyPreset = 'cleanup',
     this.smartModeHotkeyTargetLanguage = 'en',
+    this.smartWriteMigrationNoticeShown = false,
   });
 
   /// Off by default — an existing user must opt in, never gets a system-wide
@@ -3666,6 +3946,11 @@ class SmartModeHotkeySettings {
   /// no-self-translation reason as the standard preset's default.
   final String smartModeHotkeyTargetLanguage;
 
+  /// The one-time hint that this hotkey now writes new text and no longer
+  /// applies [smartModeHotkeyPreset] (#248) was shown. Set when the hotkey is
+  /// set up after the update, so only existing bindings ever see the hint.
+  final bool smartWriteMigrationNoticeShown;
+
   static const SmartModeHotkeySettings defaults = SmartModeHotkeySettings();
 
   factory SmartModeHotkeySettings.fromMap(Map<String, String> v) =>
@@ -3688,6 +3973,11 @@ class SmartModeHotkeySettings {
         smartModeHotkeyTargetLanguage:
             v['smart_mode_hotkey_target_language'] ??
             defaults.smartModeHotkeyTargetLanguage,
+        smartWriteMigrationNoticeShown: _readBool(
+          v,
+          'smart_write_migration_notice_shown',
+          defaults.smartWriteMigrationNoticeShown,
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -3697,6 +3987,7 @@ class SmartModeHotkeySettings {
     'smart_mode_hotkey_modifiers': smartModeHotkeyModifiers,
     'smart_mode_hotkey_preset': smartModeHotkeyPreset,
     'smart_mode_hotkey_target_language': smartModeHotkeyTargetLanguage,
+    'smart_write_migration_notice_shown': '$smartWriteMigrationNoticeShown',
   };
 
   SmartModeHotkeySettings copyWith({
@@ -3706,6 +3997,7 @@ class SmartModeHotkeySettings {
     String? smartModeHotkeyModifiers,
     String? smartModeHotkeyPreset,
     String? smartModeHotkeyTargetLanguage,
+    bool? smartWriteMigrationNoticeShown,
   }) => SmartModeHotkeySettings(
     smartModeHotkeyEnabled:
         smartModeHotkeyEnabled ?? this.smartModeHotkeyEnabled,
@@ -3717,6 +4009,8 @@ class SmartModeHotkeySettings {
     smartModeHotkeyPreset: smartModeHotkeyPreset ?? this.smartModeHotkeyPreset,
     smartModeHotkeyTargetLanguage:
         smartModeHotkeyTargetLanguage ?? this.smartModeHotkeyTargetLanguage,
+    smartWriteMigrationNoticeShown:
+        smartWriteMigrationNoticeShown ?? this.smartWriteMigrationNoticeShown,
   );
 
   @override
@@ -3728,7 +4022,10 @@ class SmartModeHotkeySettings {
           smartModeHotkeyKeyDisplay == other.smartModeHotkeyKeyDisplay &&
           smartModeHotkeyModifiers == other.smartModeHotkeyModifiers &&
           smartModeHotkeyPreset == other.smartModeHotkeyPreset &&
-          smartModeHotkeyTargetLanguage == other.smartModeHotkeyTargetLanguage;
+          smartModeHotkeyTargetLanguage ==
+              other.smartModeHotkeyTargetLanguage &&
+          smartWriteMigrationNoticeShown ==
+              other.smartWriteMigrationNoticeShown;
 
   @override
   int get hashCode => Object.hash(
@@ -3738,6 +4035,7 @@ class SmartModeHotkeySettings {
     smartModeHotkeyModifiers,
     smartModeHotkeyPreset,
     smartModeHotkeyTargetLanguage,
+    smartWriteMigrationNoticeShown,
   );
 }
 
@@ -3849,6 +4147,7 @@ class AutomationApiSettings {
     this.enabled = false,
     this.customPort,
     this.hooks = const [],
+    this.writeEnabled = false,
   });
 
   /// Whether the local automation API server should be running. Off by
@@ -3866,6 +4165,12 @@ class AutomationApiSettings {
   /// `automation_hooks`.
   final List<AutomationHook> hooks;
 
+  /// Whether the separate write token may start a write job that pastes
+  /// straight into the foreground app (#255, ADR 0015 D17/D22). Off by
+  /// default and only effective while [enabled] is on; never imported from
+  /// a settings file.
+  final bool writeEnabled;
+
   static const AutomationApiSettings defaults = AutomationApiSettings();
 
   factory AutomationApiSettings.fromMap(Map<String, String> v) =>
@@ -3873,12 +4178,18 @@ class AutomationApiSettings {
         enabled: _readBool(v, 'automation_api_enabled', defaults.enabled),
         customPort: _readNullableInt(v, 'automation_api_custom_port'),
         hooks: decodeAutomationHooks(v[kAutomationHooksSettingsKey]),
+        writeEnabled: _readBool(
+          v,
+          'automation_api_write_enabled',
+          defaults.writeEnabled,
+        ),
       );
 
   Map<String, String> toMap() => {
     'automation_api_enabled': '$enabled',
     'automation_api_custom_port': customPort?.toString() ?? '',
     kAutomationHooksSettingsKey: encodeAutomationHooks(hooks),
+    'automation_api_write_enabled': '$writeEnabled',
   };
 
   /// [customPort] defaults to the private [_unset] sentinel so
@@ -3890,8 +4201,10 @@ class AutomationApiSettings {
     bool? enabled,
     Object? customPort = _unset,
     List<AutomationHook>? hooks,
+    bool? writeEnabled,
   }) => AutomationApiSettings(
     enabled: enabled ?? this.enabled,
+    writeEnabled: writeEnabled ?? this.writeEnabled,
     customPort: identical(customPort, _unset)
         ? this.customPort
         : customPort as int?,
@@ -3904,10 +4217,12 @@ class AutomationApiSettings {
       other is AutomationApiSettings &&
           enabled == other.enabled &&
           customPort == other.customPort &&
+          writeEnabled == other.writeEnabled &&
           _sameHooks(hooks, other.hooks);
 
   @override
-  int get hashCode => Object.hash(enabled, customPort, Object.hashAll(hooks));
+  int get hashCode =>
+      Object.hash(enabled, customPort, writeEnabled, Object.hashAll(hooks));
 
   static bool _sameHooks(List<AutomationHook> a, List<AutomationHook> b) =>
       a.length == b.length &&

@@ -67,6 +67,7 @@ import '../../../widgets/dialog.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 import '../widgets/wp_settings_group.dart';
+import '../../../widgets/wp_icon_button.dart';
 
 /// Row identities of the two direction rows, shared with the widget tests so
 /// the structural assertion and the widget cannot drift apart via a typo.
@@ -438,24 +439,20 @@ class SettingsPortabilitySection extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: WpSpacing.xxs),
-                        IconButton(
+                        WpIconButton.ghost(
                           key: ValueKey(
                             forExport
                                 ? kPortabilityExportChooserKey
                                 : kPortabilityImportChooserKey,
                           ),
-                          icon: Icon(
-                            LucideIcons.folderPen,
-                            size: WpIconSize.sm,
-                            color: WpColors.textMuted,
-                          ),
+                          icon: LucideIcons.folderPen,
                           // The tooltip does double duty: it names the
                           // icon-only affordance (all three languages) and
                           // states explicitly that choosing only sets the
                           // location — nothing is exported/imported by it.
                           // With the chooser now standing next to the action
                           // instead of a line below it, that separation is
-                          // carried by rank — a muted 16-px glyph against an
+                          // carried by rank — a muted ghost glyph against an
                           // outlined button — and by this sentence.
                           tooltip: forExport
                               ? l10n.settingsPortabilityChooseExportLocation
@@ -463,11 +460,6 @@ class SettingsPortabilitySection extends ConsumerWidget {
                           onPressed: () => _controller(
                             ref,
                           ).chooseNewLocation(forExport: forExport),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: WpLayout.minTouchTarget,
-                            minHeight: WpLayout.minTouchTarget,
-                          ),
                         ),
                       ],
                     ),
@@ -575,19 +567,10 @@ class SettingsPortabilitySection extends ConsumerWidget {
                   ),
                   if (enabled) ...[
                     const SizedBox(width: WpSpacing.xxs),
-                    IconButton(
-                      icon: Icon(
-                        LucideIcons.folderPen,
-                        size: WpIconSize.sm,
-                        color: muted,
-                      ),
+                    WpIconButton.ghost(
+                      icon: LucideIcons.folderPen,
                       tooltip: l10n.settingsAutosaveChooseFolder,
                       onPressed: () => _chooseAutosaveFolder(ref),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: WpLayout.minTouchTarget,
-                        minHeight: WpLayout.minTouchTarget,
-                      ),
                     ),
                   ],
                 ],

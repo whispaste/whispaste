@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
 import 'page_shell.dart';
+import 'wp_fill_column.dart';
 
 /// How the region under the head of a [WpEditorPane] uses its height.
 enum WpEditorPaneBody {
@@ -35,7 +36,11 @@ enum WpEditorPaneBody {
 ///    quick-note marks) can sit in that inset.
 /// 5. [extras] — the optional area below (the recording's edit bar,
 ///    versions and annotations; the interactive snippet's field list).
-/// 6. [footer] — fixed at the bottom (the snippet editor's save actions).
+/// 6. [footer] — at the bottom edge (the snippet editor's hint).
+///
+/// Where the window is too short for all slots (200 % text size, a low
+/// window), the editor keeps its minimum and the whole pane scrolls instead
+/// of overflowing (#1371, [WpFillColumn]).
 ///
 /// The pane owns every inset between the slots: pages set no paddings of
 /// their own. So head title, tool row, surface and status line start on the
@@ -68,7 +73,7 @@ class WpEditorPane extends StatelessWidget {
   final List<Widget> extras;
   final WpEditorPaneBody bodyMode;
 
-  /// Fixed below the content (the snippet editor's hint and save actions).
+  /// At the bottom edge below the content (the snippet editor's hint).
   final Widget? footer;
 
   /// Step between head (or notices) and the first content row.
@@ -97,6 +102,10 @@ class WpEditorPane extends StatelessWidget {
     WpSpacing.md,
   );
 
+  /// Least height of the scrolling region of a [WpEditorPaneBody.scroll]
+  /// pane at 100 % text size, scaled with the text (#1371).
+  static const double minScrollBodyExtent = 160;
+
   @override
   Widget build(BuildContext context) {
     final fills = bodyMode == WpEditorPaneBody.fill;
@@ -107,29 +116,42 @@ class WpEditorPane extends StatelessWidget {
         Padding(padding: sideInset, child: metaRow),
         const SizedBox(height: metaGap),
       ],
-      if (fills) Expanded(child: editor) else editor,
+      if (fills) WpFillSlot(probe: true, child: editor) else editor,
       for (final extra in extras) ...[
         const SizedBox(height: extrasGap),
         Padding(padding: sideInset, child: extra),
       ],
       if (!fills && footer == null) const SizedBox(height: bodyBottom),
     ];
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: fills ? MainAxisSize.max : MainAxisSize.min,
-      children: children,
-    );
+    final Widget body = fills
+        ? WpFillColumn(children: children)
+        : SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: children,
+            ),
+          );
     final end = footer;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        head,
-        ...notices,
-        Expanded(
-          child: fills ? content : SingleChildScrollView(child: content),
+    final scaler = MediaQuery.textScalerOf(context);
+    // Head, body and footer fill the pane like a column; where the window
+    // is too short for them (200 % text size, a low window) the whole pane
+    // scrolls instead of cutting off the editor's bottom (#1371). In a
+    // window that fits there is nothing to scroll and nothing changes.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        primary: false,
+        child: WpFillColumn(
+          viewportExtent: constraints.maxHeight,
+          minFillExtent: fills ? 0 : scaler.scale(minScrollBodyExtent),
+          children: [
+            head,
+            ...notices,
+            WpFillSlot(probe: fills, child: body),
+            if (end != null) Padding(padding: footerPadding, child: end),
+          ],
         ),
-        if (end != null) Padding(padding: footerPadding, child: end),
-      ],
+      ),
     );
   }
 }

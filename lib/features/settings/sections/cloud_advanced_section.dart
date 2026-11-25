@@ -53,7 +53,6 @@ class AdvancedSection extends ConsumerWidget {
     final l10n = L10n.of(context);
 
     return WpSettingsGroup(
-      heading: l10n.settingsAdvanced,
       noticeArea: _kNoticeArea,
       children: [
         WpSettingsRow(

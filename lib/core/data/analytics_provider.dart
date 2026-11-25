@@ -189,9 +189,13 @@ class AnalyticsData {
     }
   }
 
-  /// Words per dictated minute, or null before any dictated time exists.
-  double? get wordsPerMinute =>
-      totalDurationSec < 1 ? null : totalWords / (totalDurationSec / 60);
+  /// Words per dictated minute, or null while it rests on too little to be
+  /// honest: fewer than three dictations or less than a minute of recording.
+  /// One rule for Statistik and Übersicht; a single short dictation showed
+  /// 225 WPM before (#1845).
+  double? get wordsPerMinute => totalRecordings < 3 || totalDurationSec < 60
+      ? null
+      : totalWords / (totalDurationSec / 60);
 }
 
 // ---------------------------------------------------------------------------

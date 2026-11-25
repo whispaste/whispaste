@@ -47,10 +47,12 @@ import '../services/stt_parakeet/parakeet_download_service.dart'
     show parakeetDownloadProvider;
 import '../services/transcription/language_mismatch_hint.dart';
 import '../services/stt_parakeet/parakeet_language_support.dart';
+import '../services/stt_parakeet/parakeet_script_guard.dart';
 import '../services/desktop_paste/desktop_paste_controller_interface.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/clipboard_unsaved_notifier.dart';
 import '../services/paste/paste_failure_notifier.dart';
+import '../services/paste/paste_notice_mute.dart';
 import '../services/paste/paster.dart';
 import '../services/paste/repaste_service.dart';
 import '../services/paste/secure_input_notice.dart';
@@ -74,6 +76,8 @@ import '../core/config/settings_labels.dart';
 import '../services/permissions/tcc_entry_reset_confirm.dart';
 import '../services/system_speech/system_speech_channel.dart';
 import '../services/system_speech/system_speech_status.dart';
+import '../services/user_models/user_model.dart' show UserModelPurpose;
+import '../services/user_models/user_model_use.dart';
 import 'wp_error_notice.dart';
 import 'parakeet_language_notice.dart';
 import 'pending_retry_message.dart';
@@ -158,6 +162,48 @@ String localizeRecordingError(
       return l10n.errorSelectionEditFactsChanged;
     case 'selection_edit_paste_failed':
       return l10n.errorSelectionEditPasteFailed;
+    // Smart Mode: write new text (#248).
+    case 'smart_write_target_changed':
+      return l10n.errorSmartWriteTargetChanged;
+    case 'smart_write_target_unknown':
+      return l10n.errorSmartWriteTargetUnknown;
+    case 'smart_write_keys_failed':
+      return l10n.errorSmartWriteKeysFailed;
+    case 'smart_write_preview_timeout':
+      return l10n.errorSmartWritePreviewTimeout;
+    case 'smart_write_clipboard_failed':
+      return l10n.errorSmartWriteClipboardFailed;
+    case 'smart_write_missing_key':
+      return l10n.errorCloudAuth(
+        settingsRowAreaLabelFor(l10n, 'api-keys-openai')!,
+      );
+    case 'smart_write_keyring_locked':
+      return l10n.dataKeyStatusLocked;
+    case 'smart_write_failed':
+      return l10n.errorSmartWriteFailed;
+    case 'smart_write_timeout':
+      return l10n.errorSmartWriteTimeout;
+    case 'smart_write_empty':
+      return l10n.errorSmartWriteEmpty;
+    case 'smart_write_truncated':
+      return l10n.errorSmartWriteTruncated;
+    // Smart Mode write on OpenAI (#251).
+    case 'smart_write_openai_invalid_key':
+      return l10n.errorSmartWriteOpenAiInvalidKey(
+        settingsRowAreaLabelFor(l10n, 'api-keys-openai')!,
+      );
+    case 'smart_write_openai_rate_limited':
+      return l10n.errorSmartWriteOpenAiRateLimited;
+    case 'smart_write_openai_timeout':
+      return l10n.errorSmartWriteOpenAiTimeout;
+    case 'smart_write_openai_incomplete':
+      return l10n.errorSmartWriteOpenAiIncomplete;
+    case 'smart_write_openai_network':
+      return l10n.errorSmartWriteOpenAiNetwork;
+    case 'smart_write_selection_unknown':
+      return l10n.errorSmartWriteSelectionUnknown;
+    case 'smart_write_paste_failed':
+      return l10n.errorSmartWritePasteFailed;
     case 'transcription_empty':
       return l10n.errorTranscriptionEmpty;
     case 'stt_server_failed':
@@ -253,6 +299,7 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
   'info_pipeline_busy' => l10n.infoPipelineBusy,
   'info_still_processing' => l10n.infoStillProcessing,
   'info_late_dictation_saved' => l10n.infoLateDictationSaved,
+  'info_late_dictation_discarded' => l10n.infoLateDictationDiscarded,
   'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
   'info_stt_cuda_oom_cpu' => l10n.infoSttCudaOomFallbackCpu,
   'info_snippet_picker_empty' => l10n.infoSnippetPickerEmpty,
@@ -268,10 +315,11 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
 /// run replaces text rather than transcribing it, so it gets its own label
 /// (the recording target is kept after the run, see `startRecording`).
 @visibleForTesting
-String doneToastLabel(L10n l10n, RecordingTarget target) =>
-    target == RecordingTarget.selectionEdit
-    ? l10n.statusSelectionEdited
-    : l10n.statusTranscriptionDone;
+String doneToastLabel(L10n l10n, RecordingTarget target) => switch (target) {
+  RecordingTarget.selectionEdit => l10n.statusSelectionEdited,
+  RecordingTarget.smartWrite => l10n.overlayDoneSmartWrite,
+  _ => l10n.statusTranscriptionDone,
+};
 
 /// Invisible wrapper that reacts to [RecordingState] transitions.
 class WpRecordingBehavior extends ConsumerStatefulWidget {
@@ -349,7 +397,32 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
         final notifier = ref.read(pendingAudioNoticeProvider.notifier)..clear();
         notifier.report(pendingAudio);
       }
+      // An own model taken out of use at start (crash marker, #1789).
+      final ownModel = ref.read(userModelFallbackNoticeProvider);
+      if (ownModel != null) _showUserModelFallback(ownModel);
     });
+  }
+
+  /// An own model (#1789) failed and was taken out of use: says so, and
+  /// what happens to the dictation.
+  void _showUserModelFallback(UserModelFallbackNotice notice) {
+    final l10n = L10n.of(context);
+    final text = userModelFallbackMessage(l10n, notice);
+    // A short headline (the card gives it one line next to a body); the
+    // model's name, which can be long, and what happened to the dictation
+    // follow below it. No "dictate again" hint: the recording was not lost.
+    showWpDictationMessage(
+      context,
+      message: text.cause,
+      body: WpErrorNotice(cause: text.cause, nextStep: text.nextStep),
+      type: WpMessageType.warning,
+      duration: const Duration(seconds: 8),
+      testId: 'user-model-fallback-toast',
+      offersNewDictation: false,
+    );
+    Future.microtask(
+      () => ref.read(userModelFallbackNoticeProvider.notifier).clear(),
+    );
   }
 
   @override
@@ -817,6 +890,13 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
           onPressed: () => _openPage('history'),
         ),
       ),
+      // Same reading time as the saved notice; nothing to open, the text
+      // is gone on purpose (saving off, #487).
+      'info_late_dictation_discarded' => (
+        WpMessageType.info,
+        const Duration(seconds: 6),
+        null,
+      ),
       _ => (WpMessageType.info, const Duration(seconds: 4), null),
     };
     showWpDictationMessage(
@@ -1094,6 +1174,37 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       );
     });
 
+    // ── Parakeet wrote a script the user's languages do not use (#2168) ──
+    ref.listen<ParakeetScriptNotice?>(parakeetScriptNoticeProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null) return;
+      if (_dropToastInOnboarding(
+        () => ref.read(parakeetScriptNoticeProvider.notifier).clear(),
+      )) {
+        return;
+      }
+      showWpParakeetScriptToast(
+        context: context,
+        l10n: l10n,
+        languages: next.languages,
+        handledByWhisper: next.handledByWhisper,
+        onSwitch: _switchEngineToWhisper,
+      );
+      Future.microtask(
+        () => ref.read(parakeetScriptNoticeProvider.notifier).clear(),
+      );
+    });
+
+    // ── An own model failed and a checked one took over (#1789) ──
+    ref.listen<UserModelFallbackNotice?>(userModelFallbackNoticeProvider, (
+      prev,
+      next,
+    ) {
+      if (next != null) _showUserModelFallback(next);
+    });
+
     // ── Apple speech handed a recording to Whisper (calm, once per cause) ──
     ref.listen<SystemSpeechFallback?>(systemSpeechFallbackProvider, (
       prev,
@@ -1181,6 +1292,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       openAccessibilitySettings: _openAccessibilitySettings,
       openAutoPasteSettings: () => _openSettings('text-after-dictation-action'),
       repaste: () => unawaited(_repasteFromCard()),
+      mute: () => _mutePasteNotice(outcome),
       resetEntryAndGrant: capNotifier.staleEntryResetCandidate
           ? () => capNotifier.repairAndRequestGrant(
               confirmReset: () => confirmTccEntryReset(l10n: l10n),
@@ -1190,6 +1302,23 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       linuxNoDevice:
           ref.read(pasteCapabilityNotifierProvider).capability?.status ==
           PasteCapabilityStatus.unsupported,
+    );
+  }
+
+  /// "Don't show again" on a paste card (#1852): switches the notice off in
+  /// the settings, where Settings › General shows it with "Show again".
+  void _mutePasteNotice(PasteOutcome outcome) {
+    final notice = mutableNoticeForPaste(outcome);
+    if (notice == null) return;
+    _log.info('Paste notice switched off by the user: ${notice.id}');
+    unawaited(
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.withNoticeMuted(notice, muted: true),
+            ),
+          ),
     );
   }
 
@@ -1575,6 +1704,9 @@ String? settingsRowForRecordingError(
   'whisper_model_not_found' ||
   'whisper_init_failed' ||
   'whisper_library_load_failed' => 'stt-model',
+  'smart_write_missing_key' ||
+  'smart_write_keyring_locked' ||
+  'smart_write_openai_invalid_key' => 'api-keys-openai',
   'cloud_auth_error' when provider == SttProviderType.deepgram =>
     'api-keys-deepgram',
   'cloud_auth_error' when provider == SttProviderType.customEndpoint =>
@@ -1631,6 +1763,10 @@ String? pasteSecureFieldHint(
 /// already-enabled toggle with nothing to do (see
 /// [PasteCapabilityNotifier.grantRequiresEntryReset]).
 ///
+/// [mute] switches the notice off for good ("Don't show again", #1852). The
+/// card offers it only for an outcome the user may mute
+/// ([mutableNoticeForPaste]); a real failure never gets the button.
+///
 /// [staleEntry] only swaps the copy, never the action. It is true when this
 /// process has in-memory proof that a grant already happened and did not take
 /// ([PasteCapabilityNotifier.grantDidNotTakeEffect]) — then the toast can name
@@ -1646,6 +1782,7 @@ void showPasteFailureToast({
   VoidCallback? openAutoPasteSettings,
   VoidCallback? resetEntryAndGrant,
   VoidCallback? repaste,
+  VoidCallback? mute,
   bool staleEntry = false,
   bool linuxNoDevice = false,
   SecureInputHolder? secureInputHolder,
@@ -1763,6 +1900,34 @@ void showPasteFailureToast({
     _ => repaste != null,
   };
   final hasFix = actionLabel != null && onAction != null;
+  // Up to two buttons: the fix or "paste again" first, then "paste again"
+  // as the alternative to a fix. "Don't show again" takes the first free
+  // place on a notice the user may mute (#1852).
+  String? firstLabel = hasFix
+      ? actionLabel
+      : (repasteFits ? l10n.pasteFailureRepaste : null);
+  VoidCallback? firstAction = hasFix
+      ? onAction
+      : (repasteFits ? repaste : null);
+  var firstId = hasFix ? 'paste-failure-toast-action' : 'paste-failure-repaste';
+  String? firstConfirmation;
+  String? secondLabel = hasFix && repasteFits ? l10n.pasteFailureRepaste : null;
+  VoidCallback? secondAction = hasFix && repasteFits ? repaste : null;
+  var secondId = 'paste-failure-repaste';
+  String? secondConfirmation;
+  if (mute != null && mutableNoticeForPaste(outcome) != null) {
+    if (firstLabel == null || firstAction == null) {
+      firstLabel = l10n.noticeMuteAction;
+      firstAction = mute;
+      firstId = kPasteNoticeMuteActionId;
+      firstConfirmation = l10n.noticeMutedConfirmation;
+    } else if (secondLabel == null || secondAction == null) {
+      secondLabel = l10n.noticeMuteAction;
+      secondAction = mute;
+      secondId = kPasteNoticeMuteActionId;
+      secondConfirmation = l10n.noticeMutedConfirmation;
+    }
+  }
   showWpDictationMessage(
     context,
     message: message,
@@ -1771,19 +1936,22 @@ void showPasteFailureToast({
         : WpErrorNotice(cause: headline, nextStep: message),
     type: toastType,
     keepOpen: toastType == WpMessageType.warning,
-    actionLabel: hasFix
-        ? actionLabel
-        : (repasteFits ? l10n.pasteFailureRepaste : null),
-    onAction: hasFix ? onAction : (repasteFits ? repaste : null),
-    actionId: hasFix ? 'paste-failure-toast-action' : 'paste-failure-repaste',
-    secondActionLabel: hasFix && repasteFits ? l10n.pasteFailureRepaste : null,
-    onSecondAction: hasFix && repasteFits ? repaste : null,
-    secondActionId: 'paste-failure-repaste',
+    actionLabel: firstLabel,
+    onAction: firstAction,
+    actionId: firstId,
+    actionConfirmation: firstConfirmation,
+    secondActionLabel: secondLabel,
+    onSecondAction: secondAction,
+    secondActionId: secondId,
+    secondActionConfirmation: secondConfirmation,
     // A paste can come from the snippet picker, side panel or re-paste, where
     // nothing was dictated: the card never offers "dictate again" (#1147).
     offersNewDictation: false,
   );
 }
+
+/// Button id of "Don't show again" on a paste card (#1852).
+const kPasteNoticeMuteActionId = 'paste-notice-mute';
 
 // ---------------------------------------------------------------------------
 // Recovery toast — extracted so widget tests can exercise the action
@@ -2100,4 +2268,26 @@ Future<void> runKeptDictationRetry({
       paste != PasteOutcome.unconfirmedNoBridge) {
     ref.read(pasteFailureNotifierProvider.notifier).report(paste);
   }
+}
+
+/// The words of a [UserModelFallbackNotice].
+({String cause, String nextStep}) userModelFallbackMessage(
+  L10n l10n,
+  UserModelFallbackNotice notice,
+) {
+  final name = notice.modelName;
+  return (
+    cause: l10n.userModelFallbackTitle,
+    nextStep: switch ((notice.purpose, notice.replaced)) {
+      (UserModelPurpose.speech, true) => l10n.userModelFallbackSpeech(name),
+      (UserModelPurpose.speech, false) => l10n.userModelFallbackSpeechNone(
+        name,
+      ),
+      (UserModelPurpose.smartMode, true) => l10n.userModelFallbackSmartMode(
+        name,
+      ),
+      (UserModelPurpose.smartMode, false) =>
+        l10n.userModelFallbackSmartModeNone(name),
+    },
+  );
 }

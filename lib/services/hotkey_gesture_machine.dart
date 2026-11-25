@@ -57,8 +57,8 @@ class HotkeyGestureMachine {
   HotkeyGestureMachine({
     required this.gesture,
     required this._onOutput,
-    this.holdThreshold = const Duration(milliseconds: 250),
-    this.doubleTapWindow = const Duration(milliseconds: 400),
+    this.holdThreshold = const Duration(milliseconds: 400),
+    this.doubleTapWindow = const Duration(milliseconds: 500),
     this.repeatWindow = const Duration(milliseconds: 1200),
     this.doubleTapEnabled = false,
   }) : assert(
@@ -69,13 +69,15 @@ class HotkeyGestureMachine {
   /// Gewählte Geste dieser Hotkey-Zeile.
   final HotkeyGesture gesture;
 
-  /// Ab dieser Haltedauer gilt ein Druck als Halten (Standard 250 ms).
+  /// Ab dieser Haltedauer gilt ein Druck als Halten (Standard 400 ms).
   /// Wird beim Druck eingefroren: eine Änderung während des Drucks gilt erst
   /// für den nächsten Druck.
   Duration holdThreshold;
 
   /// Zwei kurze Drücke gelten als Doppeltipp, wenn der zweite Druck innerhalb
-  /// dieser Zeit nach dem Loslassen des ersten beginnt.
+  /// dieser Zeit nach dem Loslassen des ersten beginnt (500 ms, #779: mit
+  /// einem Tipp von ~100 ms rund 600 ms von Druck zu Druck, wie der
+  /// Doppelklick der Systeme).
   final Duration doubleTapWindow;
 
   /// Ein Down ohne vorheriges Up innerhalb dieses Fensters ist OS-Auto-Repeat.
@@ -93,7 +95,7 @@ class HotkeyGestureMachine {
   bool _held = false;
 
   /// Haltedauer-Schwelle des laufenden Drucks (beim Druck eingefroren).
-  Duration _pressThreshold = const Duration(milliseconds: 250);
+  Duration _pressThreshold = const Duration(milliseconds: 400);
   DateTime? _lastDownAt;
   DateTime? _downAt;
 

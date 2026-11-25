@@ -98,7 +98,17 @@ void main() {
   });
 
   group('the nav label finds the history row', () {
-    for (final locale in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+    for (final locale in [
+      'de',
+      'en',
+      'es',
+      'pt',
+      'ru',
+      'he',
+      'fr',
+      'it',
+      'zh',
+    ]) {
       test('$locale: searching the nav label finds the history row', () async {
         final l10n = await L10n.delegate.load(Locale(locale));
         expect(

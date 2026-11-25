@@ -114,6 +114,21 @@ inline UndoSendCheck DecideUndoSend(const std::string& target_exe,
   return typed || clicked ? UndoSendCheck::kUserInput : UndoSendCheck::kSend;
 }
 
+// Whether a key press seen by the low-level hook is the user's own undo
+// shortcut in another program within the watch after an auto-paste (#2078):
+// Z with Ctrl and no other modifier (Ctrl+Shift+Z is redo, Ctrl+Alt is AltGr),
+// typed (not injected, so WhisPaste's own keys never count), while another
+// program is in front and before the deadline. [until_ms] 0 means no watch.
+// Only the yes/no answer is kept; the key itself is never stored.
+inline bool CountsAsUndoShortcut(unsigned long long now_ms,
+                                 unsigned long long until_ms, bool is_z,
+                                 bool ctrl, bool shift, bool alt, bool win,
+                                 bool injected, bool own_foreground) {
+  if (until_ms == 0 || now_ms > until_ms) return false;
+  if (!is_z || injected || own_foreground) return false;
+  return ctrl && !shift && !alt && !win;
+}
+
 // Status string sendUndoShortcut answers ("sent" only when the keystroke
 // went out; the Dart side takes the clipboard path otherwise).
 inline const char* UndoSendStatus(UndoSendCheck check) {

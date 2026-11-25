@@ -66,13 +66,27 @@ List<String> namedLanguageTags(Iterable<String> raw) {
 
 /// Language code for a first start: the first named system language that
 /// WhisPaste ships a translation for, otherwise English.
+///
+/// Chinese ships in Simplified script only (`app_zh.arb`, #1951). A system set
+/// to Traditional Chinese (script `Hant`, or Taiwan, Hong Kong or Macao
+/// without a script) is not taken over; the next system language decides.
 String initialLocaleCode(Iterable<String> systemLanguages) {
   final supported = L10n.supportedLocales.map((l) => l.languageCode).toSet();
   for (final tag in namedLanguageTags(systemLanguages)) {
     final code = tag.split(RegExp('[_-]')).first.toLowerCase();
+    if (code == 'zh' && isTraditionalChineseTag(tag)) continue;
     if (supported.contains(code)) return code;
   }
   return 'en';
+}
+
+/// Whether the Chinese language [tag] asks for Traditional script: an explicit
+/// `Hant` script, or a Traditional region (TW, HK, MO) without `Hans`.
+bool isTraditionalChineseTag(String tag) {
+  final parts = tag.split(RegExp('[_-]')).map((p) => p.toLowerCase()).toList();
+  if (parts.contains('hant')) return true;
+  if (parts.contains('hans')) return false;
+  return parts.any((p) => p == 'tw' || p == 'hk' || p == 'mo');
 }
 
 /// The app and dictation language of a first start.

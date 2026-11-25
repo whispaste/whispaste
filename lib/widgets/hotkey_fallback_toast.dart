@@ -34,6 +34,7 @@ void showHotkeyFallbackToast({
       kind: WpNoticeKind.warning,
       message: _fallbackMessage(ref, l10n),
       actionLabel: l10n.settingsChangeHotkey,
+      actionLabelFor: (l10n) => l10n.settingsChangeHotkey,
       actionTestId: 'notice-hotkey-fallback-change',
       onAction: () {
         ref
@@ -134,7 +135,11 @@ void showHotkeyConflictToast({
       message: status == HotkeyRegistrationStatus.unknownKey
           ? l10n.hotkeyUnknownKeyActive(actionName)
           : l10n.hotkeyConflictActive(actionName),
+      messageFor: (l10n) => status == HotkeyRegistrationStatus.unknownKey
+          ? l10n.hotkeyUnknownKeyActive(actionName)
+          : l10n.hotkeyConflictActive(actionName),
       actionLabel: l10n.settingsChangeHotkey,
+      actionLabelFor: (l10n) => l10n.settingsChangeHotkey,
       actionTestId: 'notice-hotkey-conflict-change',
       onAction: onChange,
     ),
@@ -167,7 +172,13 @@ void showHotkeyDisturbanceToast({
       kind: WpNoticeKind.warning,
       message: '${text.title}. ${text.body}',
       nextStep: slowTap ? l10n.hotkeyDisturbanceDismissNote : null,
+      messageFor: (l10n) {
+        final text = hotkeyDisturbanceText(l10n, notice);
+        return '${text.title}. ${text.body}';
+      },
+      nextStepFor: (l10n) => slowTap ? l10n.hotkeyDisturbanceDismissNote : null,
       actionLabel: onHelp == null ? null : l10n.hotkeyDisturbanceHelpAction,
+      actionLabelFor: (l10n) => l10n.hotkeyDisturbanceHelpAction,
       actionTestId: 'notice-hotkey-disturbance-help',
       onAction: onHelp,
       onDismissed: onAcknowledged,

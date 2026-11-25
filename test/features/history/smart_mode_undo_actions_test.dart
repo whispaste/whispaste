@@ -527,7 +527,17 @@ Future<void> _settle(WidgetTester tester) async {
 void _shortcutLabelTests() {
   group('pasteShortcutLabelFor (BIZ-62)', () {
     test('macOS uses Cmd+V in every language', () {
-      for (final lang in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+      for (final lang in [
+        'de',
+        'en',
+        'es',
+        'pt',
+        'ru',
+        'he',
+        'fr',
+        'it',
+        'zh',
+      ]) {
         expect(
           pasteShortcutLabelFor(
             platform: TargetPlatform.macOS,
@@ -544,7 +554,7 @@ void _shortcutLabelTests() {
           pasteShortcutLabelFor(platform: platform, languageCode: 'de'),
           'Strg+V',
         );
-        for (final lang in ['en', 'es', 'pt', 'ru', 'he']) {
+        for (final lang in ['en', 'es', 'pt', 'ru', 'he', 'fr', 'it', 'zh']) {
           expect(
             pasteShortcutLabelFor(platform: platform, languageCode: lang),
             'Ctrl+V',

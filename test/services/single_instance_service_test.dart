@@ -365,6 +365,14 @@ void main() {
       );
     });
 
+    test('--start and --stop map to their commands (#1952)', () {
+      expect(
+        InstanceCommand.fromArgs(const ['--start']),
+        InstanceCommand.start,
+      );
+      expect(InstanceCommand.fromArgs(const ['--stop']), InstanceCommand.stop);
+    });
+
     test('flags are found among unrelated arguments', () {
       expect(
         InstanceCommand.fromArgs(const [
@@ -577,6 +585,52 @@ void main() {
       expect(delivered, [InstanceCommand.toggle]);
     });
 
+    test(
+      'start and stop signals are routed to onRemoteCommand (#1952)',
+      () async {
+        final primary = await SingleInstanceService.ensureSingleInstance();
+        expect(primary, isTrue);
+        var focusCalls = 0;
+        SingleInstanceService.onSecondInstanceLaunched = () => focusCalls++;
+        final signal = File(p.join(tmp.path, 'focus.signal'));
+
+        var received = nextCommand();
+        await signal.writeAsString(
+          '2026-11-19T10:00:00.000 1 start',
+          flush: true,
+        );
+        expect(await received, InstanceCommand.start);
+
+        received = nextCommand();
+        await signal.writeAsString(
+          '2026-11-19T10:00:01.000 1 stop',
+          flush: true,
+        );
+        expect(await received, InstanceCommand.stop);
+        expect(focusCalls, 0);
+      },
+    );
+
+    test('the primary launched with --start queues its own start; --stop '
+        'and --cancel queue nothing (no running instance, #1952)', () async {
+      for (final (command, expected) in [
+        (InstanceCommand.start, [InstanceCommand.start]),
+        (InstanceCommand.stop, <InstanceCommand>[]),
+        (InstanceCommand.cancel, <InstanceCommand>[]),
+      ]) {
+        final primary = await SingleInstanceService.ensureSingleInstance(
+          command: command,
+        );
+        expect(primary, isTrue);
+
+        final delivered = <InstanceCommand>[];
+        SingleInstanceService.onRemoteCommand = delivered.add;
+        expect(delivered, expected, reason: command.name);
+        SingleInstanceService.onRemoteCommand = null;
+        await SingleInstanceService.release();
+      }
+    });
+
     test('a plain primary launch queues nothing', () async {
       final primary = await SingleInstanceService.ensureSingleInstance();
       expect(primary, isTrue);
@@ -640,8 +694,8 @@ void main() {
     );
 
     test(
-      'a secondary launched with --toggle forwards the command to the '
-      'process holding the lock',
+      'a secondary launched with a remote-control command forwards it to '
+      'the process holding the lock',
       () async {
         final dart = resolveDartExecutable();
 
@@ -665,16 +719,24 @@ void main() {
             .timeout(const Duration(minutes: 1));
         expect(firstLine, contains('PRIMARY'));
 
-        // ... so this process is the secondary `whispaste --toggle`.
-        final isPrimary = await SingleInstanceService.ensureSingleInstance(
-          command: InstanceCommand.toggle,
-        );
-        expect(isPrimary, isFalse);
+        // ... so this process is the secondary `whispaste --toggle` (and
+        // `--start`, `--stop`, `--cancel`, #1952).
+        for (final command in [
+          InstanceCommand.toggle,
+          InstanceCommand.start,
+          InstanceCommand.stop,
+          InstanceCommand.cancel,
+        ]) {
+          final isPrimary = await SingleInstanceService.ensureSingleInstance(
+            command: command,
+          );
+          expect(isPrimary, isFalse, reason: command.name);
 
-        final signal = await File(
-          p.join(tmp.path, 'focus.signal'),
-        ).readAsString();
-        expect(signal.trim(), endsWith(' toggle'));
+          final signal = await File(
+            p.join(tmp.path, 'focus.signal'),
+          ).readAsString();
+          expect(signal.trim(), endsWith(' ${command.name}'));
+        }
       },
       tags: ['process'],
       timeout: const Timeout(Duration(minutes: 2)),

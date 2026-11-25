@@ -39,21 +39,25 @@ const kNoteSnippetContextAfter = 160;
 /// it), or null when the query is blank or
 /// does not occur there. Line breaks and runs of whitespace collapse to one
 /// space; the excerpt starts at a word boundary, never mid-word.
+///
+/// [pattern], when given, is matched instead of [query] (the search over
+/// every area marks the first word that starts with a query word, #628).
 NoteSearchSnippet? noteSearchSnippet(
   String content,
   String query, {
   int searchFrom = 0,
   int contextBefore = kNoteSnippetContextBefore,
   int contextAfter = kNoteSnippetContextAfter,
+  RegExp? pattern,
 }) {
   final needle = query.trim();
   final from = searchFrom < 0 ? 0 : searchFrom;
-  if (needle.isEmpty || from >= content.length) return null;
-  final hit = RegExp(
-    RegExp.escape(needle),
-    caseSensitive: false,
-  ).firstMatch(content.substring(from));
-  if (hit == null) return null;
+  if ((pattern == null && needle.isEmpty) || from >= content.length) {
+    return null;
+  }
+  final hit = (pattern ?? RegExp(RegExp.escape(needle), caseSensitive: false))
+      .firstMatch(content.substring(from));
+  if (hit == null || hit.end == hit.start) return null;
   final matchStart = hit.start + from;
   final matchEnd = hit.end + from;
 

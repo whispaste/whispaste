@@ -71,7 +71,8 @@ class _FakeFetcher extends HttpModelFetcher {
   /// Set to true when [fetch] is called.
   bool fetchCalled = false;
 
-  /// The [url] passed to the last [fetch] call.
+  /// The [url] passed to the first and to the last [fetch] call.
+  String? firstUrl;
   String? lastUrl;
 
   /// The [destPath] passed to the last [fetch] call.
@@ -88,6 +89,7 @@ class _FakeFetcher extends HttpModelFetcher {
     void Function(FetchProgress)? onProgress,
   }) async {
     fetchCalled = true;
+    firstUrl ??= url;
     lastUrl = url;
     lastDestPath = destPath;
 
@@ -350,9 +352,11 @@ void main() {
       final notifier = container.read(modelDownloadProvider.notifier);
       await notifier.downloadModel(modelId);
 
-      // Fetcher was called (resume attempt).
+      // Fetcher was called (resume attempt), starting with the first source;
+      // the fake bytes fail the hash, so later catalog sources follow.
       expect(fetcher.fetchCalled, isTrue);
-      expect(fetcher.lastUrl, model.url);
+      expect(fetcher.firstUrl, model.url);
+      expect(model.sources, contains(fetcher.lastUrl));
     });
 
     test('fetcher receives correct destPath for resume', () async {
@@ -479,27 +483,33 @@ void main() {
   // ────────────────────────────────────────────────────────────────────────────
 
   group('AC7: Busy guard', () {
-    test('fetcher called exactly once per downloadModel invocation', () async {
-      const modelId = 'whisper-small';
+    test(
+      'fetcher called once per source per downloadModel invocation',
+      () async {
+        const modelId = 'whisper-small';
 
-      final countingFetcher = _CountingFakeFetcher(
-        behaviour: _FetchBehaviour.networkError,
-      );
-      final container = _makeContainer(fetcher: countingFetcher);
-      addTearDown(container.dispose);
+        final countingFetcher = _CountingFakeFetcher(
+          behaviour: _FetchBehaviour.networkError,
+        );
+        final container = _makeContainer(fetcher: countingFetcher);
+        addTearDown(container.dispose);
 
-      final notifier = container.read(modelDownloadProvider.notifier);
+        final notifier = container.read(modelDownloadProvider.notifier);
 
-      // First call (will fail with networkError — that's expected).
-      await notifier.downloadModel(modelId);
+        // First call (will fail with networkError — that's expected).
+        await notifier.downloadModel(modelId);
 
-      // After completion, state is no longer busy.
-      final state = container.read(modelDownloadProvider);
-      expect(state.isBusy, isFalse);
+        // After completion, state is no longer busy.
+        final state = container.read(modelDownloadProvider);
+        expect(state.isBusy, isFalse);
 
-      // Fetcher was called exactly once.
-      expect(countingFetcher.callCount, 1);
-    });
+        // One attempt per catalog source (#1513), no second round.
+        expect(
+          countingFetcher.callCount,
+          findSttModel(modelId)!.sources.length,
+        );
+      },
+    );
   });
 }
 

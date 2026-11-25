@@ -67,7 +67,8 @@ export default defineConfig({
         },
       },
       // /yt/ is a redirect-only short link for YouTube Shorts (src/pages/yt.astro).
-      filter: (page) => !page.endsWith('/yt/') && !/\/newsletter\/(confirm|unsubscribe|device)\/$/.test(page),
+      // 404 pages (#1913) are noindex fallbacks, never a sitemap entry.
+      filter: (page) => !page.endsWith('/yt/') && !/\/404\/$/.test(page) && !/\/newsletter\/(confirm|unsubscribe|device)\/$/.test(page),
       serialize(item) {
         const lastmod = LASTMODS.get(item.url);
         if (lastmod) item.lastmod = lastmod;

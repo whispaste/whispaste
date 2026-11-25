@@ -21,6 +21,12 @@ guint hotkey_keyval_from_flutter(guint64 keyval) {
       return GDK_KEY_F4;
     case GDK_KEY_KP_Decimal:
       return GDK_KEY_period;
+    // Enter arrives as the 3270 terminal keysym (the lowest keyval Flutter
+    // maps to LogicalKeyboardKey.enter), which no layout carries: the write
+    // preview's Enter grab failed on every Linux desktop (#2161).
+    case GDK_KEY_3270_Enter:
+    case GDK_KEY_ISO_Enter:
+      return GDK_KEY_Return;
     default:
       return keyval;
   }

@@ -8,6 +8,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/audio/import/audio_import_providers.dart'
+    show ImportStartSource;
+import '../data/providers.dart' show shownHistorySmartViewProvider;
 import 'audio_import_panel.dart';
 
 /// Lets audio files dragged from the file manager onto the history page start
@@ -34,7 +37,9 @@ class _AudioImportDropZoneState extends ConsumerState<AudioImportDropZone> {
     _setHovering(false);
     final paths = [for (final f in details.files) f.path];
     if (paths.isEmpty) return;
-    unawaited(importAudioFiles(ref, paths));
+    // Inside a saved view nothing new is added (#658); the hint said so.
+    if (ref.read(shownHistorySmartViewProvider) != null) return;
+    unawaited(importAudioFiles(ref, paths, source: ImportStartSource.drop));
   }
 
   @override
@@ -47,8 +52,13 @@ class _AudioImportDropZoneState extends ConsumerState<AudioImportDropZone> {
         children: [
           widget.child,
           if (_hovering)
-            const Positioned.fill(
-              child: IgnorePointer(child: _DropHint(key: dropHintKey)),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: _DropHint(
+                  key: dropHintKey,
+                  locked: ref.watch(shownHistorySmartViewProvider) != null,
+                ),
+              ),
             ),
         ],
       ),
@@ -60,7 +70,10 @@ class _AudioImportDropZoneState extends ConsumerState<AudioImportDropZone> {
 const dropHintKey = ValueKey('history-import-drop-zone');
 
 class _DropHint extends StatelessWidget {
-  const _DropHint({super.key});
+  const _DropHint({required this.locked, super.key});
+
+  /// A saved view is shown, so the drop adds nothing and the hint says why.
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -80,13 +93,15 @@ class _DropHint extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              LucideIcons.fileAudio,
+              locked ? LucideIcons.lock : LucideIcons.fileAudio,
               size: WpIconSize.xl,
               color: WpColors.accent,
             ),
             const SizedBox(height: WpSpacing.sm),
             Text(
-              L10n.of(context).historyImportDropHere,
+              locked
+                  ? L10n.of(context).smartViewCreateLocked
+                  : L10n.of(context).historyImportDropHere,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: WpTypography.body,

@@ -26,6 +26,7 @@ import 'sections/feedback_section.dart';
 import 'sections/history_section.dart';
 import 'sections/interface_appearance_section.dart';
 import 'sections/interface_section.dart';
+import 'sections/model_library_section.dart';
 import 'sections/overlay_button_section.dart';
 import 'sections/permissions_section.dart';
 import 'sections/privacy_section.dart';
@@ -39,7 +40,7 @@ import 'search/settings_search_provider.dart';
 import 'settings_areas.dart';
 import 'settings_widgets.dart';
 import 'widgets/settings_navigation.dart';
-import 'widgets/settings_notice.dart';
+import '../../widgets/section.dart';
 import 'widgets/wp_settings_group.dart';
 import 'widgets/settings_scroll_affordance.dart';
 import 'widgets/settings_search_field.dart';
@@ -85,6 +86,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'interface': GlobalKey(),
     'appearance': GlobalKey(),
     'stt': GlobalKey(),
+    'models': GlobalKey(),
     'profiles': GlobalKey(),
     'audio': GlobalKey(),
     'afterTranscription': GlobalKey(),
@@ -113,7 +115,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    dropStaleSettingsConfirmation(ref);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyScrollTarget();
     });
@@ -286,6 +287,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       'appearance': () =>
           InterfaceAppearanceSection(key: _sectionKeys['appearance']),
       'stt': () => SpeechRecognitionSection(key: _sectionKeys['stt']),
+      'models': () => ModelLibrarySection(key: _sectionKeys['models']),
       'profiles': () => ProfilesSection(key: _sectionKeys['profiles']),
       'audio': () => AudioSection(key: _sectionKeys['audio']),
       'afterTranscription': () =>
@@ -352,11 +354,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ? _SettingsSearchEmpty(l10n: l10n, query: query)
         : SettingsRowHighlight(
             rowId: highlightTarget,
-            // The page title stays the section name ("Einstellungen"); the area is
-            // marked in the navigation column. No second heading here.
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [...children],
+            // Every area starts with its own name (#1845): before, some areas
+            // opened with a group heading of their own, some with a
+            // sub-heading ("Oberfläche", "Audio") and some with only a
+            // description. Groups that repeated the area name dropped it.
+            child: WpSection(
+              key: const ValueKey('settings-area-heading'),
+              testId: 'settings-area-heading',
+              title: settingsAreaLabel(l10n, area),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [...children],
+              ),
             ),
           );
 

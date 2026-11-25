@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/model_catalog/remote_model_catalog.dart'
+    show activeModelCatalogProvider;
 import '../../services/model_download_service.dart';
 import '../../services/stt/stt_bundle.dart';
 import '../../services/stt_parakeet/parakeet_download_service.dart';
@@ -262,6 +264,8 @@ final selectableSpeechModelsProvider = Provider<List<SelectableSpeechModel>>((
   final downloads = ref.watch(modelDownloadProvider);
   final parakeet = ref.watch(parakeetDownloadProvider);
   final sttStatus = ref.watch(localSttBundleProvider);
+  // A downloaded catalog can add Whisper models to [sttModels] (#1792).
+  ref.watch(activeModelCatalogProvider);
   return selectableSpeechModels(
     settings: settings,
     downloads: downloads,

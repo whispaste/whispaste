@@ -8,6 +8,7 @@
 #include "secondary_engine.h"
 #include "secondary_plugin_registrant.h"
 #include "positioned_window_type.h"
+#include "system_motion_host.h"
 
 // ══════════════════════════════════════════════════════════════════════
 // SidePanelSensorWindow
@@ -182,6 +183,7 @@ bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
 
   FlView* view = fl_view_new(project);
   secondary_view_watch_first_frame(view, "Side panel");
+  system_motion_attach(view);
   fl_view_ = view;  // Non-owning; container holds the strong ref.
 
   GdkRGBA transparent = {0.0, 0.0, 0.0, 0.0};

@@ -24,6 +24,7 @@ ContactPayload _payload({
   int? rating,
   String? appVersion,
   String? os,
+  String? diagnostics,
   bool publishConsent = false,
   String? withdrawTokenHash,
 }) => ContactPayload(
@@ -36,6 +37,7 @@ ContactPayload _payload({
   rating: rating,
   appVersion: appVersion,
   os: os,
+  diagnostics: diagnostics,
   publishConsent: publishConsent,
   withdrawTokenHash: withdrawTokenHash,
 );
@@ -98,8 +100,22 @@ void main() {
       final body = _payload().toJson();
       expect(body.containsKey('appVersion'), isFalse);
       expect(body.containsKey('os'), isFalse);
+      expect(body.containsKey('diagnostics'), isFalse);
+      expect(body.containsKey('stepId'), isFalse);
       expect(body['email'], '');
       expect(body['rating'], isNull);
+    });
+
+    test('with diagnostics the attachment is its own field, not the text', () {
+      final body = _payload(
+        appVersion: '1.2.3',
+        os: 'windows',
+        diagnostics: 'App 1.2.3\nlog line',
+      ).toJson();
+      expect(body['appVersion'], '1.2.3');
+      expect(body['os'], 'windows');
+      expect(body['diagnostics'], 'App 1.2.3\nlog line');
+      expect(body['message'], isNot(contains('log line')));
     });
 
     test('an unsupported language falls back to en', () {
@@ -197,6 +213,72 @@ void main() {
         expect(messages.single.extras['status_code'], status);
       });
     }
+
+    group('a server that refuses the attachment', () {
+      Future<(FeedbackSubmissionResult, List<Map<String, Object?>>)> send(
+        http.Response Function(Map<String, Object?> body) respond, {
+        String? diagnostics = 'App 1.2.3\nlog line',
+      }) async {
+        final bodies = <Map<String, Object?>>[];
+        final result = await _service(
+          MockClient((request) async {
+            final body = jsonDecode(request.body) as Map<String, Object?>;
+            bodies.add(body);
+            return respond(body);
+          }),
+        ).submitContact(_payload(diagnostics: diagnostics, os: 'linux'));
+        return (result, bodies);
+      }
+
+      test(
+        '413 (old 16 KiB limit): the message goes again without it',
+        () async {
+          final (result, bodies) = await send(
+            (body) => body.containsKey('diagnostics')
+                ? http.Response('', 413)
+                : http.Response('', 202),
+          );
+          expect(result, isA<FeedbackSent>());
+          expect(bodies, hasLength(2));
+          expect(bodies.last.containsKey('diagnostics'), isFalse);
+          expect(bodies.last['message'], bodies.first['message']);
+          expect(bodies.last['os'], 'linux');
+        },
+      );
+
+      test(
+        '422 naming diagnostics: the message goes again without it',
+        () async {
+          final (result, bodies) = await send(
+            (body) => body.containsKey('diagnostics')
+                ? http.Response(
+                    jsonEncode({'status': 422, 'field': 'diagnostics'}),
+                    422,
+                  )
+                : http.Response('', 202),
+          );
+          expect(result, isA<FeedbackSent>());
+          expect(bodies, hasLength(2));
+        },
+      );
+
+      test('422 naming another field is not retried', () async {
+        final (result, bodies) = await send(
+          (_) => http.Response(jsonEncode({'field': 'email'}), 422),
+        );
+        expect(result, isA<FeedbackServerError>());
+        expect(bodies, hasLength(1));
+      });
+
+      test('413 without an attachment is not retried', () async {
+        final (result, bodies) = await send(
+          (_) => http.Response('', 413),
+          diagnostics: null,
+        );
+        expect(result, isA<FeedbackServerError>());
+        expect(bodies, hasLength(1));
+      });
+    });
 
     test('a network failure is a NetworkError', () async {
       final result = await _service(

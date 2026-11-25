@@ -7,7 +7,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-const _locales = ['de', 'en', 'es', 'pt', 'ru', 'he'];
+const _locales = ['de', 'en', 'es', 'pt', 'ru', 'he', 'fr', 'it', 'zh'];
 
 void main() {
   test('no ARB promises an endless retry or quotes the text', () {

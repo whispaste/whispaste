@@ -140,6 +140,14 @@ WPG_API int wpg_call_int_ptr(wpg_int_ptr_fn fn, const void* arg, int* out,
 WPG_API int wpg_backend_score(const char* path, int* out_score, char* err,
                               size_t err_len);
 
+// Computes language probabilities behind the same exception boundary as decoding.
+typedef int (*wpg_whisper_mel_fn)(struct whisper_context*, const float*, int, int);
+typedef int (*wpg_whisper_detect_fn)(struct whisper_context*, int, int, float*);
+WPG_API int wpg_whisper_language_probs(wpg_whisper_mel_fn mel,
+    wpg_whisper_detect_fn detect, struct whisper_context* ctx,
+    const float* samples, int count, int threads, float* probs, int* out_rc,
+    char* err, size_t err_len);
+
 // Process-wide flags. ggml's backend registry is process-wide, but the Dart
 // statics that remember "already loaded" are per isolate: a worker isolate
 // started after Isolate.exit would load every backend module again. The

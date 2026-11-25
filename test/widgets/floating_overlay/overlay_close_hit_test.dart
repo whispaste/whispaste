@@ -3,6 +3,9 @@ import 'package:whispaste/core/theme/overlay_customization.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/floating_overlay_render_entrypoint.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
+import 'package:whispaste/services/floating_overlay/overlay_notice.dart';
+import 'package:whispaste/services/floating_overlay/overlay_notice_layout.dart';
+import 'package:flutter/widgets.dart';
 
 FloatingOverlaySnapshot _snap({
   OverlaySizeVariant size = OverlaySizeVariant.normal,
@@ -55,6 +58,50 @@ void main() {
       for (final v in [OverlaySizeVariant.mini, OverlaySizeVariant.nano]) {
         expect(isCloseTap(_snap(size: v), xCenter(v)), isFalse, reason: '$v');
       }
+    });
+  });
+
+  group('isNoticeCardTap', () {
+    const notice = OverlayNotice(
+      kind: OverlayNoticeKind.message,
+      tone: OverlayNoticeTone.hint,
+      title: 'Draft',
+      body: 'Hello',
+      actions: [],
+    );
+    FloatingOverlaySnapshot card({bool visible = true}) =>
+        FloatingOverlaySnapshot(
+          visible: visible,
+          state: OverlayVisualState.transcribing,
+          label: '',
+          notice: notice,
+        );
+    const scaler = TextScaler.noScaling;
+    final height = overlayNoticeCardHeight(notice, scaler);
+    const pad = OverlayDesignSpec.shadowPadding;
+
+    test('a click on the card is the card\'s, not a body click', () {
+      expect(
+        isNoticeCardTap(card(), const Offset(pad + 1, pad + 1), scaler),
+        isTrue,
+      );
+      expect(
+        isNoticeCardTap(card(), Offset(pad + 100, pad + height - 1), scaler),
+        isTrue,
+      );
+    });
+
+    test('the shadow margin, a hidden card and the pill stay body clicks', () {
+      expect(isNoticeCardTap(card(), const Offset(2, 2), scaler), isFalse);
+      expect(
+        isNoticeCardTap(card(), Offset(pad + 100, pad + height + 2), scaler),
+        isFalse,
+      );
+      expect(
+        isNoticeCardTap(card(visible: false), const Offset(50, 50), scaler),
+        isFalse,
+      );
+      expect(isNoticeCardTap(_snap(), const Offset(50, 40), scaler), isFalse);
     });
   });
 }

@@ -47,7 +47,7 @@ void main() {
       expect(row.replacement, 'Mit besten Grüßen');
     });
 
-    test('a content edit sets updatedAt, usage and favourite do not', () async {
+    test('a content edit sets updatedAt, usage does not', () async {
       await db.upsertReplacementWithTriggers(
         id: 'r1',
         triggers: const ['mfg'],
@@ -59,7 +59,6 @@ void main() {
       expect(afterCreate.updatedAt, day(2));
 
       await db.addReplacementUsage({'r1': 1});
-      await db.setReplacementFavourite('r1', value: true);
 
       final afterUse = (await db.readAllReplacements()).single.row;
       expect(afterUse.updatedAt, day(2));

@@ -108,6 +108,10 @@ Future<bool> showWpModelRamStartupNotice({
         estimateMB.toString(),
         snapshot!.availableMB.toString(),
       ),
+      messageFor: (l10n) => l10n.modelRamStartupHint(
+        estimateMB.toString(),
+        snapshot.availableMB.toString(),
+      ),
     ),
   );
   return true;

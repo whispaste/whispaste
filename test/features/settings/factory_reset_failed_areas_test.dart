@@ -7,7 +7,7 @@ import 'package:whispaste/services/factory_reset/factory_reset_coordinator.dart'
 
 /// A failed reset names the areas that still hold data, in every language
 /// (BIZ-30, DEV-80). The retry label is the same in every language.
-const _languages = ['de', 'en', 'es', 'pt', 'he', 'ru'];
+const _languages = ['de', 'en', 'es', 'pt', 'he', 'ru', 'fr', 'it', 'zh'];
 
 void main() {
   for (final code in _languages) {

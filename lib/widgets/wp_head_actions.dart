@@ -271,6 +271,9 @@ class WpHeadMenuButton<T> extends StatelessWidget {
         identifier: testId,
         child: SizedBox.square(
           dimension: WpHeadActions.slot,
+          // Menu exception (#1757): WpHeadActions is the design system's
+          // editor-head menu slot with its own fixed square geometry;
+          // allowlisted in wp_raw_component_guard_test.
           child: PopupMenuButton<T>(
             tooltip: tooltip,
             padding: EdgeInsets.zero,

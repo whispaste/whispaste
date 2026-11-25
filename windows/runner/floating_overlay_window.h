@@ -83,6 +83,17 @@ class FloatingOverlayWindow {
   // on WM_SIZE(minimize) and WM_ACTIVATEAPP.
   void RefreshTopmost();
 
+  // Edit session of the write preview (#254, #2160). True lifts
+  // WS_EX_NOACTIVATE, activates the shell (foreground-lock fallback via
+  // AttachThreadInput, like SnippetPickerWindow::Show) and gives the Flutter
+  // view the keyboard focus, so the card's edit field receives the typing.
+  // False restores the non-activating shell. The focus return to the target
+  // app is not done here: DesktopPasteHost::ActivateTarget confirms it.
+  void SetEditable(bool editable);
+  bool IsEditable() const { return editable_; }
+  // Whether the shell is the foreground window right now.
+  bool IsForeground() const;
+
   void SetDisplayChangeCallback(DisplayChangeCallback cb) {
     display_change_cb_ = std::move(cb);
   }
@@ -118,6 +129,7 @@ class FloatingOverlayWindow {
   HWND owner_ = nullptr;          // kept for DPI lookups only
   bool shutting_down_ = false;
   bool visible_ = false;
+  bool editable_ = false;  // edit session: shell may take the focus
   DWORD creating_thread_id_ = 0;
 
   // Logical size in DIPs. Normal 346×80, compact 236×56.

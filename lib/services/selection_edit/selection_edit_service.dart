@@ -103,8 +103,13 @@ sealed class SelectionReadResult {
 }
 
 final class SelectionReadOk extends SelectionReadResult {
-  const SelectionReadOk(this.text);
+  const SelectionReadOk(this.text, {this.clipboardNotRestored = false});
   final String text;
+
+  /// The clipboard held no readable text (an image, a file or nothing) before
+  /// the copy, so the copied selection replaced it and could not be put back.
+  /// The caller tells the user instead of staying silent (#248).
+  final bool clipboardNotRestored;
 }
 
 /// The copy shortcut landed but the clipboard did not change — nothing was
@@ -188,7 +193,7 @@ class SelectionReader {
       if (copied == null || copied.trim().isEmpty) {
         return const SelectionReadEmpty();
       }
-      return SelectionReadOk(copied);
+      return SelectionReadOk(copied, clipboardNotRestored: snapshot == null);
     } on Exception catch (e) {
       _log.warning('Selection read failed', e);
       return const SelectionReadFailed(NativePasteStatus.unknown);
@@ -343,6 +348,10 @@ class SelectionEditService {
   /// Dictionary name terms for the fact guard (matrix 2.5); none when null.
   final Future<List<String>> Function()? factTerms;
 
+  /// Reads the selection once, for the routing between editing and writing
+  /// (#248). The clipboard is restored as in every selection read.
+  Future<SelectionReadResult> readSelection() => _reader.read();
+
   /// Reads the selection, applies [instruction] and pastes the result at
   /// once: [propose] followed by [apply]. The interactive path shows the
   /// proposal in a preview first (#589); this composition stays for tests
@@ -385,10 +394,14 @@ class SelectionEditService {
     SmartModeTargetLanguage translateTarget = SmartModeTargetLanguage.english,
     required String factLanguageCode,
     SelectionEditProposal? refining,
+    String? knownSelection,
   }) async {
     final String selection;
     if (refining != null) {
       selection = refining.edited;
+    } else if (knownSelection != null) {
+      // Routing already read it (#248); the clipboard is not touched again.
+      selection = knownSelection;
     } else {
       final read = await _reader.read();
       switch (read) {

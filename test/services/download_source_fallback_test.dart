@@ -75,6 +75,68 @@ void main() {
   tearDown(() => dir.deleteSync(recursive: true));
 
   group('source fallback', () {
+    test('stalled first source exhausts retries and switches source', () async {
+      final silent = StreamController<Uint8List>();
+      final adapter = _HostAdapter({
+        'huggingface.co': (_) async => ResponseBody(silent.stream, 200),
+        'github.com': (_) async => _ok(good),
+      });
+      final fetcher = HttpModelFetcher(
+        dio: Dio()..httpClientAdapter = adapter,
+        retryBackoff: const [],
+        stallThreshold: const Duration(milliseconds: 40),
+        stallCheckInterval: const Duration(milliseconds: 10),
+      );
+      expect(await run(fetcher), _mirror);
+      await silent.close();
+      expect(File(dest).readAsBytesSync(), good);
+    });
+
+    test(
+      'HTML response is discarded before writing and next source works',
+      () async {
+        final adapter = _HostAdapter({
+          'huggingface.co': (_) async => ResponseBody.fromString(
+            '<html>Sign in</html>',
+            200,
+            headers: {
+              'content-type': ['text/html; charset=utf-8'],
+            },
+          ),
+          'github.com': (_) async => _ok(good),
+        });
+        expect(await run(fetcherWith(adapter)), _mirror);
+        expect(adapter.requests.last.headers['Range'], isNull);
+        expect(File(dest).readAsBytesSync(), good);
+      },
+    );
+
+    test(
+      'wrong announced size never contaminates a resumable fragment',
+      () async {
+        await prepareFragmentIdentity(
+          destPath: dest,
+          sha256: goodSha,
+          sizeBytes: good.length,
+        );
+        File('$dest.tmp').writeAsBytesSync(good.take(20).toList());
+        final adapter = _HostAdapter({
+          'huggingface.co': (_) async => _ok([1, 2, 3]),
+          'github.com': (_) async => ResponseBody(
+            Stream.value(Uint8List.fromList(good.sublist(20))),
+            206,
+            headers: {
+              'content-length': ['44'],
+              'content-range': ['bytes 20-63/64'],
+            },
+          ),
+        });
+        expect(await run(fetcherWith(adapter)), _mirror);
+        expect(adapter.requests.last.headers['Range'], 'bytes=20-');
+        expect(File(dest).readAsBytesSync(), good);
+      },
+    );
+
     test('HTTP error at the primary → the mirror delivers', () async {
       final adapter = _HostAdapter({
         'huggingface.co': (_) async => _status(404),

@@ -1,5 +1,6 @@
-/// Review prompt service — tracks usage milestones and surfaces a rating
-/// prompt after the user has had enough positive experience with the app.
+/// Review prompt service — tracks usage milestones and decides when the
+/// rating dialog is due after the user has had enough positive experience
+/// with the app.
 ///
 /// Uses SharedPreferences to persist prompt history across sessions.
 /// Respects the deploy channel to surface the correct review flow.
@@ -15,27 +16,61 @@ import '../core/app_info.dart' as app_info;
 import '../core/config/build_config.dart';
 import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
+import '../core/review/review_ask.dart';
 import 'deploy_channel_service.dart';
 import 'shared_prefs_safe_read.dart';
+import 'telemetry_service.dart';
 
 // ---------------------------------------------------------------------------
-// Surface: system dialog vs. own card
+// Surface: own dialog vs. own dialog plus the system rating dialog
 // ---------------------------------------------------------------------------
 
-/// How a due rating ask is presented.
+/// How a due rating ask is presented (#2185).
 enum ReviewSurface {
-  /// The own rate/share card in the Übersicht (every build but Mac App Store).
-  ownCard,
+  /// The own rating dialog with its rating button (Microsoft Store dialog or
+  /// GitHub star) and the share buttons; every build but Mac App Store.
+  ownDialog,
 
-  /// The system rating dialog (Mac App Store build only; guideline 5.6.1
-  /// disallows custom review prompts). StoreKit itself caps it at three
-  /// requests per 365 days.
+  /// Mac App Store build: the system rating dialog (StoreKit; guideline
+  /// 5.6.1 allows no own review prompt, StoreKit caps it at three requests
+  /// per 365 days) plus the own dialog with the share buttons only.
   systemDialog,
+}
+
+/// Fixed telemetry id of the surface (`review/*` event name).
+extension ReviewSurfaceWire on ReviewSurface {
+  String get wireName => switch (this) {
+    ReviewSurface.ownDialog => 'own_dialog',
+    ReviewSurface.systemDialog => 'system_dialog',
+  };
+}
+
+/// What happens to the rating ask; the closed set of `review/*` event actions.
+/// Shares are counted per channel through [ReviewPromptNotifier.trackShare].
+enum ReviewAction {
+  /// The ask was put in front of the user.
+  shown,
+
+  /// The user went to rate (store dialog, store page or GitHub star).
+  rate,
+
+  /// The Microsoft Store dialog reported a submitted rating.
+  rated,
+
+  /// The user shared or copied the link (legacy card action; the dialog
+  /// counts `share_<channel>`).
+  share,
+
+  /// "Later" (snooze).
+  later,
+
+  /// "Don't ask again".
+  never,
 }
 
 /// Pure choice of the [ReviewSurface] for a build.
 ReviewSurface reviewSurfaceFor({required bool isMasBuild}) =>
-    isMasBuild ? ReviewSurface.systemDialog : ReviewSurface.ownCard;
+    isMasBuild ? ReviewSurface.systemDialog : ReviewSurface.ownDialog;
 
 /// The surface of this build. Overridable in tests.
 final reviewSurfaceProvider = Provider<ReviewSurface>(
@@ -50,6 +85,26 @@ final systemReviewRequesterProvider = Provider<Future<void> Function()>(
         'com.whispaste.review',
       ).invokeMethod<void>('requestReview'),
 );
+
+/// Opens the Microsoft Store's own rate-and-review dialog through the
+/// Windows runner (`requestRateAndReview` on `com.whispaste.support_store`).
+/// Never throws: a missing channel answers [StoreRateOutcome.unavailable].
+/// Overridable in tests.
+final storeRateRequesterProvider =
+    Provider<Future<StoreRateOutcome> Function()>(
+      (ref) => () async {
+        try {
+          final raw = await const MethodChannel(
+            'com.whispaste.support_store',
+          ).invokeMethod<String>('requestRateAndReview');
+          return parseStoreRateOutcome(raw);
+        } on MissingPluginException {
+          return StoreRateOutcome.unavailable;
+        } on Object {
+          return StoreRateOutcome.error;
+        }
+      },
+    );
 
 // ---------------------------------------------------------------------------
 // State
@@ -88,6 +143,10 @@ const _keyUnpastedEntryIds = 'review_prompt_unpasted_entry_ids';
 // Content-free count of confirmed dictations written while "Aufnahmen
 // speichern" is off (history-off): with no entry there is nothing to count.
 const _keyHistoryFreeCount = 'review_prompt_history_free_count';
+// Set once the Microsoft Store dialog reported a submitted rating (#2185):
+// the rating ask never comes back. Apple reports nothing, so Mac App Store
+// builds never set it and follow the usual pauses.
+const _keyStoreRated = 'review_prompt_store_rated';
 
 /// Minimum recordings before the prompt is eligible to show.
 const _minRecordings = 20;
@@ -121,8 +180,9 @@ const _versionRepromptDaysBetween = 365;
 ///
 /// Call [checkAndMaybePrompt] after a successful transcription to evaluate
 /// whether conditions are met; the Übersicht asks again on each visit. While
-/// [state.shouldShowPrompt] is `true` its hint place shows the rate/share
-/// card, whose actions call [markShown] or [dismiss].
+/// [state.shouldShowPrompt] is `true` the rating dialog may open at the next
+/// good moment (`ReviewAskWatcher`, #2185); its answers call [markShown],
+/// [markStoreRated] or [dismiss].
 class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
   static final _log = AppLogger('ReviewPrompt');
 
@@ -154,6 +214,8 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
       // Safe read: this key can be a bundle-ID-migrated String (see
       // shared_prefs_safe_read.dart).
       if (readBoolPrefSafe(prefs, _keyPermanentlyDismissed) == true) return;
+      // A submitted store rating ends the ask for good, like "never again".
+      if (readBoolPrefSafe(prefs, _keyStoreRated) == true) return;
 
       final db = ref.read(historyDatabaseProvider);
       final count = await countEligibleRecordings(prefs, db);
@@ -256,8 +318,59 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
     }
   }
 
+  /// Sends the `review/<action>` funnel event, named by the surface. Fixed ids
+  /// only; consent-gated inside [TelemetryService]; never throws.
+  void trackAsk(ReviewAction action) {
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(
+            category: 'review',
+            action: action.name,
+            name: ref.read(reviewSurfaceProvider).wireName,
+          );
+    } on Object catch (e) {
+      _log.debug('review telemetry skipped: $e');
+    }
+  }
+
+  /// Sends `review/share_<channel>` for a share through [channel] (a
+  /// share-button id such as `x`, `email`, `youtube`, `copy`). The channel
+  /// only, never the text; consent-gated; never throws.
+  void trackShare(String channel) {
+    if (!RegExp(r'^[a-z]{1,16}$').hasMatch(channel)) return;
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(
+            category: 'review',
+            action: 'share_$channel',
+            name: ref.read(reviewSurfaceProvider).wireName,
+          );
+    } on Object catch (e) {
+      _log.debug('review telemetry skipped: $e');
+    }
+  }
+
+  /// The Microsoft Store reported a submitted rating: counts as an answered
+  /// ask and stops the rating ask for good ([reviewStoreRated]).
+  Future<void> markStoreRated() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyStoreRated, true);
+    } on Exception catch (e) {
+      _log.error('markStoreRated failed: $e', e);
+    }
+    // The rate click already ran [markShown]; this only records the answer.
+    trackAsk(ReviewAction.rated);
+    state = state.copyWith(shouldShowPrompt: false);
+  }
+
   /// Records that the prompt was shown and resets [shouldShowPrompt].
-  Future<void> markShown() async {
+  /// [answer] is the funnel event for the user's choice (null: none, the
+  /// system dialog reports `shown` itself).
+  Future<void> markShown({ReviewAction? answer = ReviewAction.rate}) async {
+    if (answer != null) trackAsk(answer);
     try {
       final prefs = await SharedPreferences.getInstance();
       // Safe read: this key can be a bundle-ID-migrated String (see
@@ -282,6 +395,7 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
   /// materially longer than the [_minDaysBetweenPrompts] cooldown that follows
   /// a completed review action ([markShown]).
   Future<void> dismiss({required bool permanent}) async {
+    trackAsk(permanent ? ReviewAction.never : ReviewAction.later);
     try {
       final prefs = await SharedPreferences.getInstance();
       if (permanent) {
@@ -312,6 +426,12 @@ final reviewPromptProvider =
     NotifierProvider<ReviewPromptNotifier, ReviewPromptState>(
       ReviewPromptNotifier.new,
     );
+
+/// Whether a rating was submitted through the Microsoft Store dialog.
+Future<bool> reviewStoreRated() async {
+  final prefs = await SharedPreferences.getInstance();
+  return readBoolPrefSafe(prefs, _keyStoreRated) == true;
+}
 
 /// Whether the user chose "Don't ask again" for the rating reminder.
 final reviewPromptOptOutProvider = FutureProvider<bool>((ref) async {

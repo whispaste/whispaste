@@ -328,10 +328,13 @@ class SoundFeedbackService extends Notifier<void> {
   /// [onEnd] runs once when playback ends, naturally or by [stopFile].
   /// With [read] the bytes come from it instead of the file, so an encrypted
   /// recording (#1021) plays from memory and is never written out in plain.
+  /// With [from] playback starts at that point instead of the beginning
+  /// (#672: a sentence of the transcript plays from its time mark).
   Future<bool> playFile(
     String path, {
     required void Function() onEnd,
     Future<Uint8List> Function(String path)? read,
+    Duration from = Duration.zero,
   }) async {
     final generation = ++_fileGeneration;
     _releaseFile();
@@ -339,16 +342,29 @@ class SoundFeedbackService extends Notifier<void> {
       await _ensureInit();
       if (!_initialized || generation != _fileGeneration) return false;
       final AudioSource source;
-      if (read == null) {
-        source = await _engine.loadFile(path);
-      } else {
-        final bytes = await read(path);
-        if (generation != _fileGeneration) return false;
-        source = await _engine.loadMem('recording:$path', bytes);
+      _fileLoadsInFlight++;
+      try {
+        if (read == null) {
+          source = await _engine.loadFile(path);
+        } else {
+          final bytes = await read(path);
+          if (generation != _fileGeneration) return false;
+          source = await _engine.loadMem('recording:$path', bytes);
+        }
+      } finally {
+        _fileLoadsInFlight--;
       }
       if (generation != _fileGeneration) {
-        // A newer play or a stop came in during the load.
-        _engine.disposeSource(source);
+        // A newer play or a stop came in during the load. SoLoud hands the
+        // same sound to a second load of the same file
+        // (`fileAlreadyLoaded`), so a quick second click on the same
+        // recording shares this source: freeing it here would cut or mute
+        // the playback that won. Leave it to that load, or to the next
+        // [_releaseFile]; only a source nobody else can hold is freed.
+        final shared =
+            _fileLoadsInFlight > 0 ||
+            _fileSource?.soundHash == source.soundHash;
+        if (!shared) _engine.disposeSource(source);
         return false;
       }
       _fileSource = source;
@@ -358,13 +374,51 @@ class SoundFeedbackService extends Notifier<void> {
           if (identical(_fileSource, source)) _releaseFile();
         }, onError: (Object _) {}),
       );
-      _engine.play(source);
+      if (from > Duration.zero) {
+        // Start paused and seek first, so the beginning never sounds.
+        final handle = _engine.play(source, paused: true);
+        _fileHandle = handle;
+        try {
+          _engine.seek(handle, from);
+        } catch (e) {
+          _log.debug('Recording seek failed, playing from the start: $e');
+        }
+        _engine.setPause(handle, false);
+      } else {
+        _fileHandle = _engine.play(source);
+      }
       _armIdleTimer();
       return true;
     } catch (e) {
       _log.warning('Recording playback error: $e');
       if (generation == _fileGeneration) _releaseFile();
       return false;
+    }
+  }
+
+  /// Moves the running recording to [to]. False when nothing plays.
+  bool seekFile(Duration to) {
+    final handle = _fileHandle;
+    if (handle == null || _fileSource == null) return false;
+    try {
+      if (!_engine.getIsValidVoiceHandle(handle)) return false;
+      _engine.seek(handle, to);
+      return true;
+    } catch (e) {
+      _log.debug('Recording seek failed (non-fatal): $e');
+      return false;
+    }
+  }
+
+  /// Where the running recording is now, or null when nothing plays.
+  Duration? get filePosition {
+    final handle = _fileHandle;
+    if (handle == null || _fileSource == null) return null;
+    try {
+      if (!_engine.getIsValidVoiceHandle(handle)) return null;
+      return _engine.getPosition(handle);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -377,12 +431,17 @@ class SoundFeedbackService extends Notifier<void> {
   /// The source of the recording [playFile] plays; a whole WAV in memory, so
   /// freed on stop, on its natural end and with the engine.
   AudioSource? _fileSource;
+  SoundHandle? _fileHandle;
   void Function()? _fileOnEnd;
   int _fileGeneration = 0;
+
+  /// Loads [playFile] has started and that have not returned yet.
+  int _fileLoadsInFlight = 0;
 
   void _releaseFile() {
     final source = _fileSource;
     _fileSource = null;
+    _fileHandle = null;
     if (source != null) {
       try {
         // Disposing a source also stops its voices.

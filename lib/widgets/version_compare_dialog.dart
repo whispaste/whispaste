@@ -21,6 +21,7 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'dialog.dart';
 import 'wp_button.dart';
+import 'wp_row_divider.dart';
 
 final _log = AppLogger('VersionCompare');
 
@@ -204,7 +205,7 @@ class _CompareBodyState extends State<_CompareBody> {
             identifier: '$p-version-compare-list',
             child: ListView.separated(
               itemCount: result.hunks.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const WpRowDivider(),
               itemBuilder: (context, i) => _HunkTile(
                 idPrefix: p,
                 index: i,

@@ -55,10 +55,8 @@ const _allowlist = <String, Map<String, String>>{
         'Silent macOS Keychain read only; secure_access_gate selects it only on macOS.',
   },
   'com.whispaste.media_pause': {
-    'macos':
-        'Not available on macOS (#1254): createPlatformMediaPauseBackend returns the unavailable backend there; no host is registered.',
     'linux':
-        'Linux uses MprisMediaPauseBackend over D-Bus instead of a native method channel.',
+        'Linux uses MprisMediaPauseBackend over D-Bus and PactlMediaDuckBackend over pactl instead of a native method channel.',
   },
   'com.whispaste.app_lifecycle': {
     'windows':
@@ -129,10 +127,40 @@ const _allowlist = <String, Map<String, String>>{
     'linux':
         'Apple speech recognition (SpeechAnalyzer, macOS 26+) is macOS-only; the engine is not offered elsewhere (systemSpeechOsSupported). Tracked in #1014.',
   },
+  'com.whispaste.autostart': {
+    'macos':
+        'Windows-only: the Store package (MSIX) starts at login through its manifest StartupTask, which only the Windows runner can reach. autostartBackend picks WindowsAutostartBackend only on Windows; macOS keeps launch_at_startup (SMAppService).',
+    'linux':
+        'Windows-only: the Store package (MSIX) starts at login through its manifest StartupTask, which only the Windows runner can reach. autostartBackend picks WindowsAutostartBackend only on Windows; Linux uses its XDG autostart file or the Background portal (linux_autostart.dart).',
+  },
+  'com.whispaste.system_contacts': {
+    'linux':
+        'Linux reads its address books from Dart over D-Bus (GnomeContactSource, Evolution Data Server; KdeContactSource, Akonadi); systemContactSourcesProvider offers the channel sources only on Windows and macOS.',
+  },
 };
 
 /// Intentional method-level gaps: channel -> method -> platform -> reason.
 const _methodAllowlist = <String, Map<String, Map<String, String>>>{
+  'com.whispaste.system_contacts': {
+    'status': {
+      'windows':
+          'Asked only by MacContactSource (CNContactStore authorization, so the page knows whether macOS will prompt); systemContactSourcesProvider offers it only on macOS. Windows shows its consent while reading (WindowsContactSource.read).',
+    },
+  },
+  'com.whispaste.tray_panel': {
+    'nameStatusItem': {
+      'windows':
+          'Accessible name of the macOS menu bar NSStatusItem; nameMacStatusItem returns before the call unless defaultTargetPlatform is macOS. The Windows tray icon carries its name through the tray_manager tooltip.',
+      'linux':
+          'Accessible name of the macOS menu bar NSStatusItem; nameMacStatusItem returns before the call unless defaultTargetPlatform is macOS. The Linux tray icon carries its name through the tray_manager tooltip.',
+    },
+  },
+  'com.whispaste.media_pause': {
+    'requestPlayerAccess': {
+      'windows':
+          'macOS automation permission (#1511); requestMediaPlayerAccess returns early elsewhere.',
+    },
+  },
   'com.whispaste.audio_routing': {
     'setDefaultInputDevice': {
       'windows': 'Switching is macOS-only; isSupported stays false on Windows.',
@@ -186,6 +214,10 @@ const _methodAllowlist = <String, Map<String, Map<String, String>>>{
     },
   },
   'com.whispaste.support_store': {
+    'isTestEnvironment': {
+      'windows':
+          'Only the macOS StoreKit bridge asks whether Apple signed the build for the Mac App Store (#2202). A Microsoft Store build always talks to the real Store; the Windows bridge never invokes this.',
+    },
     'hasVerifiedSupportPurchase': {
       'windows':
           'Only the macOS StoreKit bridge calls this on the channel. The Windows bridge reads the verified state from SharedPreferences and never invokes the channel.',
@@ -266,7 +298,18 @@ final _nativeCompare = RegExp(
   r'|"([A-Za-z]+)"\s*==\s*method\b'
   r'|\bmethod_name\(\)\.compare\(\s*"([A-Za-z]+)"\s*\)\s*==\s*0'
   r'|\b(?:strcmp|g_strcmp0)\(\s*method\s*,\s*"([A-Za-z]+)"\s*\)'
-  r'|\bg_strcmp0\(\s*fl_method_call_get_name\([^()]*\)\s*,\s*"([A-Za-z]+)"\s*\)',
+  r'|\bg_strcmp0\(\s*fl_method_call_get_name\([^()]*\)\s*,\s*"([A-Za-z]+)"\s*\)'
+  // A reject guard (`if (method != "a" && method != "b") NotImplemented`)
+  // lists exactly the names the code below it handles.
+  r'|\bmethod(?:_name\(\))?\s*!=\s*"([A-Za-z]+)"',
+);
+
+/// A local bound to the method name under another name than `method`
+/// (`const auto& name = call.method_name()`, `const gchar* name =
+/// fl_method_call_get_name(call)`): its comparisons are dispatch matches too.
+final _methodNameBinding = RegExp(
+  r'\b([A-Za-z_]\w*)\s*=\s*(?:\w+(?:\.|->))?'
+  r'(?:method_name\(\)|fl_method_call_get_name\([^()]*\))',
 );
 
 /// Method names with a real dispatch match in one native source file, read
@@ -280,9 +323,25 @@ Set<String> nativeHandlersIn(String rawSource) {
     }
   }
   for (final m in _nativeCompare.allMatches(src)) {
-    for (var g = 1; g <= 5; g++) {
+    for (var g = 1; g <= 6; g++) {
       final name = m.group(g);
       if (name != null) names.add(name);
+    }
+  }
+  final bound = {
+    for (final m in _methodNameBinding.allMatches(src)) m.group(1)!,
+  }..remove('method');
+  for (final v in bound) {
+    final compare = RegExp(
+      '\\b$v\\s*[!=]=\\s*"([A-Za-z]+)"'
+      '|"([A-Za-z]+)"\\s*==\\s*$v\\b'
+      '|\\b(?:strcmp|g_strcmp0)\\(\\s*$v\\s*,\\s*"([A-Za-z]+)"\\s*\\)',
+    );
+    for (final m in compare.allMatches(src)) {
+      for (var g = 1; g <= 3; g++) {
+        final name = m.group(g);
+        if (name != null) names.add(name);
+      }
     }
   }
   return names;
@@ -353,21 +412,30 @@ Map<String, Set<String>> nativeMethodsByChannel(Map<String, String> files) {
   final stripped = {
     for (final e in files.entries) e.key: stripComments(e.value),
   };
-  final constants = <String, String>{};
-  for (final src in stripped.values) {
+  // A constant resolves in its own file first: two hosts may both call
+  // theirs `channelName`. Another file's constant counts only when its name
+  // is declared once on the platform.
+  final local = <String, Map<String, String>>{};
+  final shared = <String, Set<String>>{};
+  stripped.forEach((file, src) {
     for (final m in _channelConstDecl.allMatches(src)) {
-      constants[m.group(1)!] = m.group(2)!;
+      local.putIfAbsent(file, () => {})[m.group(1)!] = m.group(2)!;
+      shared.putIfAbsent(m.group(1)!, () => <String>{}).add(m.group(2)!);
     }
-  }
+  });
   final result = <String, Set<String>>{};
-  stripped.forEach((_, src) {
+  stripped.forEach((file, src) {
     final mentions = <(int, String)>[];
     for (final m in _channelLiteral.allMatches(src)) {
       if (_notChannels.containsKey(m.group(1)!)) continue;
       mentions.add((m.start, m.group(1)!));
     }
     for (final m in _identifier.allMatches(src)) {
-      final value = constants[m.group(0)!];
+      final name = m.group(0)!;
+      final values = shared[name];
+      final value =
+          local[file]?[name] ??
+          (values != null && values.length == 1 ? values.single : null);
       if (value == null) continue;
       // The declaration itself is not a registration.
       if (_channelConstDecl.matchAsPrefix(src, m.start) != null) continue;
@@ -410,6 +478,13 @@ final _literalInvoke = RegExp(
 );
 final _variableInvoke = RegExp(
   r'([A-Za-z_][\w.]*)\.invoke(?:Map|List)?Method(?:<[^>]*>)?\(\s*[a-z]\w*\s*[,)]',
+);
+
+/// `this.channel = _defaultChannel` or `MethodChannel channel = kX`: a
+/// channel field or parameter with a default declared as a channel.
+final _channelAlias = RegExp(
+  r'(?:\bthis\.|\bMethodChannel\??\s+)([A-Za-z_]\w*)\s*=\s*'
+  r'([A-Za-z_][\w.]*)\s*[,)}]',
 );
 final _helperDecl = RegExp(r'\b([A-Za-z_]\w*)\(\s*String\s+method\b');
 final _importDirective = RegExp(r"import\s+'([^']+)'");
@@ -476,8 +551,19 @@ DartCalls dartMethodsByChannel(Map<String, String> files) {
     declsByFile[file] = decls;
   });
 
+  // A field or parameter that defaults to a channel declared elsewhere:
+  // `this.channel = _defaultChannel`, `MethodChannel channel = kX`.
+  final aliasesByFile = <String, Map<String, String>>{};
+  stripped.forEach((file, src) {
+    if (!src.contains('.invoke')) return;
+    aliasesByFile[file] = {
+      for (final m in _channelAlias.allMatches(src))
+        m.group(1)!: m.group(2)!.split('.').last,
+    };
+  });
+
   final importsByFile = <String, List<String>>{};
-  String? resolve(String file, String receiver) {
+  String? resolve(String file, String receiver, [int depth = 0]) {
     final name = receiver.split('.').last;
     final local = declsByFile[file]?[name];
     if (local != null) return local;
@@ -488,6 +574,10 @@ DartCalls dartMethodsByChannel(Map<String, String> files) {
     for (final imported in imports) {
       final found = declsByFile[imported]?[name];
       if (found != null) return found;
+    }
+    final alias = aliasesByFile[file]?[name];
+    if (alias != null && alias != name && depth < 3) {
+      return resolve(file, alias, depth + 1);
     }
     return null;
   }
@@ -1042,6 +1132,25 @@ void main() {
       expect(calls.unresolved, isEmpty);
     });
 
+    test('two hosts with the same constant name keep their own channel', () {
+      // Each native host may call its constant `channelName`; a shared
+      // lookup credited one host's cases to the other's channel.
+      final found = nativeMethodsByChannel({
+        'A.swift': '''
+          static let channelName = "com.whispaste.hang_watchdog"
+          channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: m)
+          switch call.method { case "beat": break }
+        ''',
+        'B.swift': '''
+          static let channelName = "com.whispaste.system_motion"
+          channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: m)
+          switch call.method { case "reduceMotion": break }
+        ''',
+      });
+      expect(found['com.whispaste.hang_watchdog'], {'beat'});
+      expect(found['com.whispaste.system_motion'], {'reduceMotion'});
+    });
+
     test('a brace inside a string literal does not end a handler block', () {
       const native = '''
         const ch = "com.whispaste.desktop_paste";
@@ -1058,6 +1167,44 @@ void main() {
         nativeByPlatform: nativeEverywhere({'f.swift': native}),
       );
       expect(problems, isEmpty, reason: problems.join('\n'));
+    });
+
+    test('a channel behind a defaulted field or parameter is resolved', () {
+      final files = {
+        'lib/a/source.dart':
+            "class S { const S({this.channel = _defaultChannel}); static const _defaultChannel = MethodChannel('com.whispaste.desktop_paste'); final MethodChannel channel; Future<void> go() => channel.invokeMethod('sendUndoShortcut'); }",
+        'lib/b/helper.dart':
+            "import '../a/source.dart';\nconst MethodChannel kChannel = MethodChannel('com.whispaste.desktop_paste');\nFuture<void> go({MethodChannel channel = kChannel}) => channel.invokeMethod('undoPlatformSupport');",
+      };
+      final dart = dartMethodsByChannel(files);
+      expect(dart.methods[channel], {
+        'sendUndoShortcut',
+        'undoPlatformSupport',
+      });
+      expect(dart.unresolved, isEmpty);
+    });
+
+    test('a reject guard and a renamed method variable count as handlers', () {
+      expect(
+        nativeHandlersIn(
+          'if (method != "isEnabled" && method != "enable") { NotImplemented(); }',
+        ),
+        {'isEnabled', 'enable'},
+      );
+      expect(
+        nativeHandlersIn(
+          'const auto& name = call.method_name();\nif (name == "languages") {} else if (name == "suggest") {}',
+        ),
+        {'languages', 'suggest'},
+      );
+      expect(
+        nativeHandlersIn(
+          'const gchar* name = fl_method_call_get_name(call);\nif (g_strcmp0(name, "checkWords") == 0) {}',
+        ),
+        {'checkWords'},
+      );
+      // A comparison on an unrelated variable is still no handler.
+      expect(nativeHandlersIn('if (name == "languages") {}'), isEmpty);
     });
 
     test('a channel imported from another file is resolved', () {

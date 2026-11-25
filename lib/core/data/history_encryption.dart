@@ -1,4 +1,5 @@
-/// Encryption of the history database at rest (#1020).
+/// Encryption of the history database at rest (#1020), and its way back
+/// when the user switches encryption off (#1022).
 ///
 /// The history (entries, dictionary, snippets, notes, settings) lives in one
 /// SQLite file. package:sqlite3 is built with SQLite3 Multiple Ciphers
@@ -16,6 +17,11 @@
 /// next start tries again. The caller takes a verified backup through the
 /// #562 path first ([backupBeforeRiskyStep]), so there is a way back even
 /// if the renamed file later turned out unusable.
+///
+/// [decryptHistoryDatabase] is the same staged run in the other direction
+/// (switch "Encryption" off in Settings → Privacy, #1022): an encrypted copy
+/// (`VACUUM INTO` keeps the key), decrypted in place (`PRAGMA rekey = ''`),
+/// checked against the encrypted original and then swapped in.
 library;
 
 import 'dart:convert';
@@ -69,33 +75,42 @@ bool isPlainSqliteFile(String path) {
   }
 }
 
-/// Outcome of [encryptHistoryDatabase].
+/// Outcome of [encryptHistoryDatabase] and [decryptHistoryDatabase].
 enum HistoryEncryptionResult {
-  /// The file was already encrypted, or there is no file.
+  /// The file was already in the wanted form, or there is no file.
   notNeeded,
 
   /// The file was converted; the encrypted file is in place.
   encrypted,
 
-  /// The conversion did not complete; the plain original is still in use.
+  /// The file was converted back; the plain file is in place.
+  decrypted,
+
+  /// The conversion did not complete; the original is still in use.
   failed,
 }
 
-/// The steps of [encryptHistoryDatabase], injectable so tests can fail any
-/// one of them. The defaults are the real operations.
+/// The steps of [encryptHistoryDatabase] (default constructor) and
+/// [decryptHistoryDatabase] ([HistoryEncryptionOps.decrypt]), injectable so
+/// tests can fail any one of them. The defaults are the real operations.
 @visibleForTesting
 class HistoryEncryptionOps {
   const HistoryEncryptionOps({
-    this.writeEncryptedCopy = _writeEncryptedCopy,
+    this.writeCopy = _writeEncryptedCopy,
     this.verifyCopy = _verifyEncryptedCopy,
     this.swapIn = _swapIn,
   });
 
-  /// Writes [source] encrypted with [hexKey] to [staging].
-  final void Function(String source, String staging, String hexKey)
-  writeEncryptedCopy;
+  const HistoryEncryptionOps.decrypt({
+    this.writeCopy = _writeDecryptedCopy,
+    this.verifyCopy = _verifyDecryptedCopy,
+    this.swapIn = _swapIn,
+  });
 
-  /// Throws unless [staging] opens with [hexKey] and equals [source].
+  /// Writes [source] converted with [hexKey] to [staging].
+  final void Function(String source, String staging, String hexKey) writeCopy;
+
+  /// Throws unless [staging] is in the target form and equals [source].
   final void Function(String source, String staging, String hexKey) verifyCopy;
 
   /// Moves [from] over [to] in one step.
@@ -123,10 +138,28 @@ HistoryEncryption encryptHistoryDatabase(
   String path,
   String hexKey, {
   @visibleForTesting HistoryEncryptionOps ops = const HistoryEncryptionOps(),
+}) => _convert(path, hexKey, toPlain: false, ops: ops);
+
+/// Converts the history database at [path], encrypted with [hexKey], back
+/// into a plain SQLite file (#1022). Same guarantees as
+/// [encryptHistoryDatabase]: never throws, the encrypted original stays in
+/// use until a verified plain copy replaces it in one step.
+HistoryEncryption decryptHistoryDatabase(
+  String path,
+  String hexKey, {
+  @visibleForTesting
+  HistoryEncryptionOps ops = const HistoryEncryptionOps.decrypt(),
+}) => _convert(path, hexKey, toPlain: true, ops: ops);
+
+HistoryEncryption _convert(
+  String path,
+  String hexKey, {
+  required bool toPlain,
+  required HistoryEncryptionOps ops,
 }) {
   final staging = historyEncryptionStagingPath(path);
   removeHistoryEncryptionLeftovers(path);
-  if (!File(path).existsSync() || !isPlainSqliteFile(path)) {
+  if (!File(path).existsSync() || isPlainSqliteFile(path) == toPlain) {
     return const HistoryEncryption(HistoryEncryptionResult.notNeeded);
   }
   for (final side in ['-journal', '-wal']) {
@@ -138,10 +171,14 @@ HistoryEncryption encryptHistoryDatabase(
     }
   }
   try {
-    ops.writeEncryptedCopy(path, staging, hexKey);
+    ops.writeCopy(path, staging, hexKey);
     ops.verifyCopy(path, staging, hexKey);
     ops.swapIn(staging, path);
-    return const HistoryEncryption(HistoryEncryptionResult.encrypted);
+    return HistoryEncryption(
+      toPlain
+          ? HistoryEncryptionResult.decrypted
+          : HistoryEncryptionResult.encrypted,
+    );
   } catch (e) {
     removeHistoryEncryptionLeftovers(path);
     return HistoryEncryption(
@@ -151,7 +188,7 @@ HistoryEncryption encryptHistoryDatabase(
   }
 }
 
-/// Removes the staging file of an interrupted [encryptHistoryDatabase].
+/// Removes the staging file of an interrupted conversion.
 /// Never throws.
 void removeHistoryEncryptionLeftovers(String path) {
   final staging = historyEncryptionStagingPath(path);
@@ -195,6 +232,32 @@ void _verifyEncryptedCopy(String source, String staging, String hexKey) {
     throw StateError('the copy is not encrypted');
   }
   verifySqliteCopy(source, staging, copyHexKey: hexKey);
+}
+
+void _writeDecryptedCopy(String source, String staging, String hexKey) {
+  final src = openSqlite(source, mode: OpenMode.readOnly, hexKey: hexKey);
+  try {
+    // VACUUM INTO writes the copy with the key of the source.
+    final quoted = staging.replaceAll("'", "''");
+    src.execute("VACUUM INTO '$quoted'");
+  } finally {
+    src.close();
+  }
+  final dst = openSqlite(staging, mode: OpenMode.readWrite, hexKey: hexKey);
+  try {
+    dst.execute('PRAGMA journal_mode = DELETE');
+    // An empty key removes the encryption from every page.
+    dst.execute("PRAGMA rekey = ''");
+  } finally {
+    dst.close();
+  }
+}
+
+void _verifyDecryptedCopy(String source, String staging, String hexKey) {
+  if (!isPlainSqliteFile(staging)) {
+    throw StateError('the copy is still encrypted');
+  }
+  verifySqliteCopy(source, staging, sourceHexKey: hexKey);
 }
 
 void _swapIn(String from, String to) {

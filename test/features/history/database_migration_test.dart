@@ -1096,6 +1096,35 @@ void main() {
     });
   });
 
+  test(
+    'the backfill leaves imported files out of Statistics (#1930)',
+    () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'dictated',
+          timestamp: DateTime(2026, 1, 1),
+          content: const Value('hello world'),
+        ),
+      );
+      await db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'imported',
+          timestamp: DateTime(2026, 1, 1),
+          content: const Value('from a file'),
+          source: const Value('import'),
+        ),
+      );
+      await db.resetDailyStats();
+      await db.customStatement(
+        "DELETE FROM app_meta WHERE key = 'daily_stats_backfilled'",
+      );
+      await db.backfillDailyStats();
+      expect(await db.analyticsEntryCount(), 1);
+    },
+  );
+
   group('app_meta migration (v27 → v28, UIA-ANA-02)', () {
     late Directory tmpDir;
     late File dbFile;

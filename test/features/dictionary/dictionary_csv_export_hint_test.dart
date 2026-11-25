@@ -42,11 +42,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.dictionaryTabReplacements));
     await tester.pumpAndSettle();
 
     // Export lives in the overflow menu; the disabled row carries the reason.
-    await tester.tap(find.byKey(const ValueKey('replacements-more')));
+    await tester.tap(find.byKey(const ValueKey('dictionary-more')));
     await tester.pumpAndSettle();
 
     final exportItem = tester.widget<PopupMenuItem<WpListMenuAction>>(

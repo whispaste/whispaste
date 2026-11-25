@@ -744,16 +744,21 @@ Future<void> showWpListMenu(
   );
   final chosen = await showMenu<WpListMenuAction>(
     context: buttonContext,
+    popUpAnimationStyle: MediaQuery.disableAnimationsOf(buttonContext)
+        ? AnimationStyle.noAnimation
+        : null,
     position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
     shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
     items: [
-      for (final action in actions)
+      for (final action in actions) ...[
+        if (action.dividerBefore) const PopupMenuDivider(),
         PopupMenuItem<WpListMenuAction>(
           key: action.itemKey,
           value: action,
           enabled: action.enabled,
           child: _ListMenuRow(action: action),
         ),
+      ],
     ],
   );
   chosen?.onSelected();
@@ -773,6 +778,7 @@ class WpListMenuAction {
     this.hint,
     this.checked,
     this.enabled = true,
+    this.dividerBefore = false,
   });
 
   final ValueKey<String> itemKey;
@@ -782,6 +788,10 @@ class WpListMenuAction {
   final bool? checked;
   final bool enabled;
   final VoidCallback onSelected;
+
+  /// Draws a divider above this entry, to start a new group (view, sort,
+  /// selection in the history's tools menu).
+  final bool dividerBefore;
 }
 
 class _ListMenuRow extends StatelessWidget {

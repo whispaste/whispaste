@@ -82,6 +82,48 @@ String errorKind(Object error) => switch (error) {
   _ => '${error.runtimeType}',
 };
 
+/// Sentry fingerprint for an error log line that is escalated automatically.
+///
+/// It used to be the single constant [appLoggerAutoEscalated], so every
+/// `_log.error` of the app landed in one Sentry issue (FLUTTER_WHISPASTE-80,
+/// titled after whichever error came first): recorder failures, timeouts,
+/// hotkey conflicts and download errors could neither be told apart nor
+/// resolved one by one. Now the logger name and the message template make
+/// the group: bracketed session ids and numbers are dropped, and the text
+/// after the first `": "` (usually an interpolated exception) is replaced by
+/// [errorKind] of [error], so one site with one kind of failure stays one
+/// issue across sessions and devices.
+@visibleForTesting
+List<String> autoEscalationFingerprint(
+  String loggerName,
+  String message,
+  Object? error,
+) {
+  var template = message.replaceAll(RegExp(r'\[[^\]]*\]'), ' ');
+  final detail = template.indexOf(': ');
+  if (detail >= 0) template = template.substring(0, detail);
+  template = template
+      .replaceAll(RegExp(r'\d+'), '#')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (template.length > 80) template = template.substring(0, 80);
+  return [
+    appLoggerAutoEscalated,
+    loggerName,
+    template,
+    if (error != null) errorKind(error),
+  ];
+}
+
+/// Severe log records from packages that are not failures. flutter_soloud
+/// logs `PlayerErrors.fileAlreadyLoaded` at severe level, although the
+/// package itself goes on with the loaded sound (it says so in a warning
+/// right after); that alone filled a Sentry issue in 1.5.
+@visibleForTesting
+bool isRecoverablePackageError(LogRecord record) =>
+    record.loggerName.startsWith('flutter_soloud') &&
+    record.message.contains('fileAlreadyLoaded');
+
 // ---------------------------------------------------------------------------
 // Global logging configuration
 // ---------------------------------------------------------------------------
@@ -438,7 +480,7 @@ Future<void> configureLogging() async {
 
     // Auto-escalate errors/fatals to Sentry via crash reporter.
     // Warnings are breadcrumbs only (above) to avoid noise in Sentry quota.
-    if (record.level >= Level.SEVERE) {
+    if (record.level >= Level.SEVERE && !isRecoverablePackageError(record)) {
       final severity = switch (record.level) {
         Level.SEVERE => 'error',
         Level.SHOUT => 'critical',
@@ -451,11 +493,15 @@ Future<void> configureLogging() async {
         stackTrace: record.stackTrace,
         severity: severity,
         type: record.level == Level.SHOUT ? 'fatal' : 'error',
-        // Catch-all fingerprint for un-categorized auto-escalations.
-        // Call sites that want their own grouping must use
-        // CrashReporter.instance.captureError directly with a constant
-        // from crash_fingerprints.dart.
-        fingerprint: const [appLoggerAutoEscalated],
+        // One Sentry issue per log site, not one for the whole app: see
+        // [autoEscalationFingerprint]. Call sites that want their own
+        // grouping use CrashReporter.instance.captureError directly with a
+        // constant from crash_fingerprints.dart.
+        fingerprint: autoEscalationFingerprint(
+          record.loggerName,
+          message,
+          record.error,
+        ),
       );
     }
   });

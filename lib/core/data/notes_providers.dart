@@ -31,6 +31,21 @@ final liveEntryProvider = StreamProvider.autoDispose
       return db.watchLiveEntry(entryId);
     });
 
+/// Live stream of archived (not trashed) notes, most recently updated first
+/// (#656). Archived notes are out of [notesProvider].
+final archivedNotesProvider = StreamProvider<List<Note>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchArchivedNotes();
+});
+
+/// Live stream of the note folders, alphabetically (#659, ADR 0034). Only
+/// the notes area watches it, so folder data never loads on the start or
+/// hotkey path.
+final noteFoldersProvider = StreamProvider<List<NoteFolder>>((ref) {
+  final db = ref.watch(historyDatabaseProvider);
+  return db.watchNoteFolders();
+});
+
 /// Live stream of trashed notes, most recently deleted first.
 final trashNotesProvider = StreamProvider<List<Note>>((ref) {
   final db = ref.watch(historyDatabaseProvider);

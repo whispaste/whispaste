@@ -1,6 +1,6 @@
-/// Feedback of the settings page stands at the section that raised it (#452):
-/// an error stays until it is closed, a confirmation closes itself, and a
-/// notice shows in its own section only.
+/// Feedback of the settings page: an error stands at the section that raised
+/// it and stays until it is closed (#452); a short confirmation stands in the
+/// notice bar at the bottom like every other and closes itself (#1903).
 library;
 
 import 'package:flutter/material.dart';
@@ -11,6 +11,7 @@ import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/features/settings/widgets/overlay_theme_swatches.dart';
 import 'package:whispaste/features/settings/widgets/settings_notice.dart';
 import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
+import 'package:whispaste/widgets/wp_notice_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -56,6 +57,7 @@ void main() {
             },
           ),
           locale: const Locale('en'),
+          noticeBar: true,
         ),
       );
       await tester.pumpAndSettle();
@@ -108,7 +110,9 @@ void main() {
       await tester.pump();
 
       expect(find.text('It failed'), findsOneWidget);
-      expect(find.text('Done'), findsNothing);
+      expect(_inBar('Done'), findsOneWidget);
+      await tester.pump(kWpNoticeUndoMinimum);
+      expect(find.text('It failed'), findsOneWidget);
     });
 
     testWidgets('a confirmation held back by an open error is announced '
@@ -131,22 +135,31 @@ void main() {
         tester.takeAnnouncements().map((a) => a.message),
         contains('Done'),
       );
-      expect(find.text('Done'), findsNothing);
+      expect(find.text('It failed'), findsOneWidget);
+      await tester.pump(kWpNoticeUndoMinimum);
     });
 
-    testWidgets('a confirmation closes itself and a later notice replaces '
-        'an earlier one', (tester) async {
+    testWidgets('a confirmation stands in the notice bar at the bottom, '
+        'not above the rows, and closes itself (#1903)', (tester) async {
       final context = await pumpGroups(tester);
+      final rowTop = tester.getTopLeft(find.text('row-two')).dy;
 
       showSettingsNotice(context, area: 'one', id: 'a', message: 'Done A');
       await tester.pump();
-      showSettingsNotice(context, area: 'two', id: 'b', message: 'Done B');
-      await tester.pump();
-      expect(find.text('Done A'), findsNothing);
-      expect(find.text('Done B'), findsOneWidget);
+      expect(_inBar('Done A'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(WpSettingsGroup),
+          matching: find.text('Done A'),
+        ),
+        findsNothing,
+      );
+      // The rows the user works on keep their place.
+      expect(tester.getTopLeft(find.text('row-two')).dy, rowTop);
 
-      await tester.pump(kSettingsConfirmationTime + const Duration(seconds: 1));
-      expect(find.text('Done B'), findsNothing);
+      await tester.pump(kWpNoticeUndoMinimum + const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Done A'), findsNothing);
     });
   });
 
@@ -187,6 +200,7 @@ void main() {
         ),
         locale: const Locale('en'),
         overrides: [settingsProvider.overrideWith(() => _Settings(settings))],
+        noticeBar: true,
       ),
     );
     await tester.pumpAndSettle();
@@ -195,8 +209,12 @@ void main() {
     await tester.pump();
 
     expect(
-      find.byKey(const ValueKey('page-notice-settings-wave-replaced')),
+      find.byKey(const ValueKey('notice-bar-settings-wave-replaced')),
       findsOneWidget,
     );
+    await tester.pump(kWpNoticeUndoMinimum);
   });
 }
+
+Finder _inBar(String text) =>
+    find.descendant(of: find.byType(WpNoticeBar), matching: find.text(text));

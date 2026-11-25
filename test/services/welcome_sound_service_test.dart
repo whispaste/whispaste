@@ -5,6 +5,8 @@
 /// in `flutter test`.
 library;
 
+import 'dart:async';
+
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -240,6 +242,47 @@ void main() {
       player.calls.clear();
       await service.prewarmIntro();
       expect(player.calls, ['prewarm $kIntroSoundAsset']);
+    });
+  });
+
+  group('length cap (#1922)', () {
+    late Completer<void> cap;
+    late List<Duration> capWaits;
+
+    setUp(() {
+      cap = Completer<void>();
+      capWaits = [];
+      service = WelcomeSoundService(
+        prefs: SharedPreferences.getInstance,
+        player: player,
+        soundsAllowed: () => allowed,
+        isBusy: () => busy,
+        wait: (_) async {},
+        capWait: (d) {
+          capWaits.add(d);
+          return cap.future;
+        },
+      );
+    });
+
+    test('a sound is stopped after at most 3 s', () async {
+      await service.playIntro();
+      expect(capWaits, [const Duration(seconds: 3)]);
+      expect(player.stopped, isEmpty);
+      cap.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(player.stopped, [1]);
+    });
+
+    test('the cap of an earlier sound leaves a later one alone', () async {
+      await service.playIntro();
+      final first = cap;
+      cap = Completer<void>();
+      service.stop();
+      await service.playIntro();
+      first.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(player.stopped, [1]);
     });
   });
 

@@ -19,6 +19,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt/benchmark_freshness.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 
 class _Settings extends SettingsNotifier {
   _Settings(this._s);
@@ -129,7 +130,7 @@ void main() {
     );
     expect(find.textContaining('0,03 s Rechenzeit'), findsOneWidget);
 
-    final button = tester.widget<IconButton>(
+    final button = tester.widget<WpIconButton>(
       find.byKey(const ValueKey('settings-benchmark-run')),
     );
     expect(button.onPressed, isNotNull);
@@ -176,7 +177,7 @@ void main() {
       find.byKey(const ValueKey('settings-benchmark-cancel')),
       findsOneWidget,
     );
-    final button = tester.widget<IconButton>(
+    final button = tester.widget<WpIconButton>(
       find.byKey(const ValueKey('settings-benchmark-run')),
     );
     expect(button.onPressed, isNull);

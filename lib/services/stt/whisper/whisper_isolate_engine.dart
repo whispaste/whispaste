@@ -81,6 +81,7 @@ class _TranscribeRequest {
     required this.requestId,
     required this.audio,
     this.language,
+    this.expectedLanguages = const [],
     this.prompt,
     this.vadEnabled = false,
     this.reducedThreads = false,
@@ -93,6 +94,7 @@ class _TranscribeRequest {
   /// are copied into the worker on send; the path costs nothing.
   final Pcm16WavSource audio;
   final String? language;
+  final List<String> expectedLanguages;
   final String? prompt;
   final bool vadEnabled;
   final bool reducedThreads;
@@ -172,11 +174,13 @@ class _LivePreviewDecodeRequest {
     required this.requestId,
     required this.samples,
     this.language,
+    this.expectedLanguages = const [],
     this.prompt,
   });
   final int requestId;
   final Float32List samples;
   final String? language;
+  final List<String> expectedLanguages;
   final String? prompt;
 }
 
@@ -406,6 +410,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             ? null
             : ffi.Pointer<ffi.Int32>.fromAddress(req.abortFlagAddress);
         try {
+          e.expectedLanguages = req.expectedLanguages;
           final wavPath = req.audio.path;
           final text = wavPath != null
               ? await e.transcribeFile(
@@ -485,6 +490,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           return;
         }
         try {
+          e.expectedLanguages = req.expectedLanguages;
           final text = await e.decodeLivePreview(
             req.samples,
             language: req.language,
@@ -582,6 +588,7 @@ void Function(dynamic message) chainWorkerMessages(
 class WhisperIsolateEngine
     implements
         WhisperEngine,
+        ExpectedLanguageSupport,
         PartialTranscriptSource,
         TranscriptionProgressSource,
         DetectedLanguageSource,
@@ -599,6 +606,9 @@ class WhisperIsolateEngine
          backend: backend ?? WhisperBackend.cpu,
          cudaPackDir: cudaPackDir,
        );
+
+  @override
+  List<String> expectedLanguages = const [];
 
   final _EngineConfig _config;
 
@@ -803,6 +813,7 @@ class WhisperIsolateEngine
         _TranscribeRequest(
           requestId: requestId,
           audio: audio,
+          expectedLanguages: List.of(expectedLanguages),
           language: language,
           prompt: prompt,
           vadEnabled: vadEnabled,
@@ -946,6 +957,7 @@ class WhisperIsolateEngine
       _LivePreviewDecodeRequest(
         requestId: requestId,
         samples: samples,
+        expectedLanguages: List.of(expectedLanguages),
         language: language,
         prompt: prompt,
       ),

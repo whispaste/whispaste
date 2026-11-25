@@ -221,6 +221,94 @@ final class UndoWatch {
   }
 }
 
+/// Whether a key press is the plain undo shortcut: Cmd+Z with no other
+/// modifier (Cmd+Shift+Z is redo). [characters] is the key's letter without
+/// modifiers, so the shortcut follows the keyboard layout (AZERTY included).
+func isUndoShortcut(flags: NSEvent.ModifierFlags, characters: String?) -> Bool {
+  let mods = flags.intersection([.command, .shift, .option, .control])
+  return mods == .command && characters?.lowercased() == "z"
+}
+
+/// The user's own Cmd+Z in another app right after an auto-paste, for the
+/// model telemetry (#2078). A global key monitor runs only for the asked
+/// span and only with the Accessibility permission WhisPaste already has
+/// for pasting (no new prompt; in the sandboxed store build, which pastes
+/// through PostEvent, it is usually missing and the watch reports unknown).
+/// A global monitor only sees events delivered
+/// to other apps, so a Cmd+Z in WhisPaste never counts; our own synthetic
+/// keys are skipped by their source process. Only whether the shortcut came
+/// is kept, never a key or character.
+final class UndoShortcutWatch {
+  private let trusted: () -> Bool
+  private let install: (@escaping (NSEvent) -> Void) -> Any?
+  private let remove: (Any) -> Void
+  private var monitor: Any?
+  private var stopWork: DispatchWorkItem?
+  private(set) var seen = false
+
+  init(
+    trusted: @escaping () -> Bool = { AXIsProcessTrusted() },
+    install: @escaping (@escaping (NSEvent) -> Void) -> Any? = { onKey in
+      NSEvent.addGlobalMonitorForEvents(matching: [.keyDown], handler: onKey)
+    },
+    remove: @escaping (Any) -> Void = { NSEvent.removeMonitor($0) }
+  ) {
+    self.trusted = trusted
+    self.install = install
+    self.remove = remove
+  }
+
+  deinit { end() }
+
+  /// Starts a watch of [seconds]; answers whether it runs and whether the
+  /// previous watch saw the shortcut (that answer is then forgotten).
+  func watch(seconds: Int) -> (watching: Bool, seen: Bool) {
+    let previous = seen
+    end()
+    guard seconds > 0, trusted() else { return (false, previous) }
+    monitor = install { [weak self] event in self?.handle(event) }
+    guard monitor != nil else { return (false, previous) }
+    let work = DispatchWorkItem { [weak self] in self?.stopMonitor() }
+    stopWork = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds), execute: work)
+    return (true, previous)
+  }
+
+  /// Whether the shortcut came since [watch]; ends the watch.
+  func take() -> Bool {
+    let result = seen
+    end()
+    return result
+  }
+
+  private func handle(_ event: NSEvent) {
+    let source = event.cgEvent?.getIntegerValueField(.eventSourceUnixProcessID)
+    note(flags: event.modifierFlags, characters: event.charactersIgnoringModifiers,
+         isRepeat: event.isARepeat, fromSelf: source == Int64(getpid()))
+  }
+
+  /// One key press seen by the monitor; counts only while watching, never a
+  /// held-down repeat or a key WhisPaste sent itself.
+  func note(flags: NSEvent.ModifierFlags, characters: String?, isRepeat: Bool, fromSelf: Bool) {
+    guard monitor != nil, !isRepeat, !fromSelf else { return }
+    if isUndoShortcut(flags: flags, characters: characters) { seen = true }
+  }
+
+  private func stopMonitor() {
+    stopWork?.cancel()
+    stopWork = nil
+    if let monitor { remove(monitor) }
+    monitor = nil
+  }
+
+  private func end() {
+    stopMonitor()
+    seen = false
+  }
+
+  var watching: Bool { monitor != nil }
+}
+
 /// Native macOS host for desktop auto-paste via CGEvent.
 ///
 /// Captures the frontmost application before recording starts, then
@@ -259,6 +347,9 @@ class DesktopPasteHost {
 
   /// Click watch of the keystroke undo (#581).
   private lazy var undoWatch = UndoWatch(clock: { [unowned self] in self.monotonicSeconds() })
+
+  /// The user's own Cmd+Z after an auto-paste, model telemetry (#2078).
+  private let undoShortcutWatch = UndoShortcutWatch()
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
@@ -375,6 +466,16 @@ class DesktopPasteHost {
         "terminalDetection": ready, "outsideMouseIdle": ready,
       ])
 
+    case "watchUndoShortcut":
+      // Model telemetry (#2078): watch for the user's own Cmd+Z in another
+      // app for {seconds} after an auto-paste; {seen} is the previous watch.
+      let seconds = (call.arguments as? [String: Any])?["seconds"] as? Int ?? 0
+      let start = undoShortcutWatch.watch(seconds: min(max(seconds, 0), 60))
+      result(["watching": start.watching, "seen": start.seen])
+
+    case "takeUndoShortcut":
+      result(undoShortcutWatch.take())
+
     case "foregroundWindow":
       result(foregroundWindow())
 
@@ -418,6 +519,7 @@ class DesktopPasteHost {
     case "destroy":
       targetApp = nil
       undoWatch.stop()
+      _ = undoShortcutWatch.take()
       receipt?.resolvePending("superseded")
       receipt = nil
       channel.setMethodCallHandler(nil)
@@ -1306,7 +1408,11 @@ class DesktopPasteHost {
     let inFront = {
       NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
     }
-    if !inFront() {
+    // The overlay's edit field (#254) can hold the keyboard while the target
+    // still counts as frontmost (a click into the non-activating panel):
+    // activating the target then takes the keyboard back as well.
+    let overlayHoldsKeyboard = NSApp.keyWindow is FloatingOverlayPanel
+    if !inFront() || overlayHoldsKeyboard {
       if #available(macOS 14.0, *) {
         app.activate(options: [])
       } else {

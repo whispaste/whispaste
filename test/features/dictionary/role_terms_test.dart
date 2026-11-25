@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
-import 'package:whispaste/features/dictionary/dictionary_terms_tab.dart';
+import 'package:whispaste/features/dictionary/widgets/role_terms_card.dart';
 import 'package:whispaste/features/dictionary/role_terms.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
 
@@ -145,6 +145,8 @@ void main() {
     Finder chip(String testId) =>
         find.byWidgetPredicate((w) => w is WpFilterChip && w.testId == testId);
 
+    late HistoryDatabase db;
+
     Future<_RecordingSettingsNotifier> pump(
       WidgetTester tester, {
       String roles = 'dev',
@@ -157,8 +159,8 @@ void main() {
       );
       await tester.pumpWidget(
         makeTestable(
-          const Scaffold(body: DictionaryTermsTab()),
-          db: HistoryDatabase.forTesting(NativeDatabase.memory()),
+          const Scaffold(body: RoleTermsCard()),
+          db: db = HistoryDatabase.forTesting(NativeDatabase.memory()),
           overrides: [settingsProvider.overrideWith(() => settings)],
           locale: const Locale('en'),
         ),
@@ -180,12 +182,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final saved = settings.updates.single;
-      expect(
-        saved.stt.customVocabulary,
-        mergeVocabulary('', [...dev]..removeAt(1)),
-      );
-      expect(saved.onboarding.roleTermsDone, isTrue);
+      // Terms are term entries "term → term" now (#1969).
+      final rows = await tester.runAsync(db.readAllReplacements);
+      final taken = {
+        for (final r in rows!)
+          if (r.triggers.single == r.row.replacement) r.row.replacement,
+      };
+      expect(taken, containsAll([...dev]..removeAt(1)));
+      expect(taken, isNot(contains(dev[1])));
+      expect(settings.updates.last.onboarding.roleTermsDone, isTrue);
       expect(chip('dictionary-role-terms-dev-0'), findsNothing);
     });
 
@@ -198,15 +203,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final saved = settings.updates.single;
-      expect(saved.stt.customVocabulary, '');
       expect(saved.onboarding.roleTermsDone, isTrue);
       expect(chip('dictionary-role-terms-dev-0'), findsNothing);
     });
 
-    testWidgets('a list that already has terms gets no suggestion', (
+    testWidgets('terms the recogniser already gets are not suggested', (
       tester,
     ) async {
-      await pump(tester, vocabulary: 'Alice');
+      await pump(tester, vocabulary: kRoleTermPacks['dev']!['*']!.join(', '));
 
       expect(chip('dictionary-role-terms-dev-0'), findsNothing);
     });

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../core/search/search_ranker.dart';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +37,7 @@ import '../../services/telemetry_service.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/wp_list_tile_surface.dart';
+import '../../widgets/wp_error_notice.dart';
 import '../../widgets/wp_row_action.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/list_reveal.dart';
@@ -47,18 +49,16 @@ import '../../widgets/wp_button.dart';
 import '../../widgets/wp_page_notice.dart';
 import '../dictionary/dictionary_notice.dart';
 import '../dictionary/dictionary_tab_target.dart';
-import '../../widgets/wp_favourite_star.dart';
 import '../../widgets/wp_segmented_selector.dart';
 import '../../widgets/wp_sort_menu_button.dart';
 import '../../widgets/wp_text_field.dart';
 import 'vocabulary_import_review_page.dart';
 import '../../services/dictionary/replacement_order.dart';
 import '../../widgets/wp_icon_button.dart';
+
 import 'package:whispaste/core/data/database.dart';
 
 import '../../widgets/wp_copy_feedback.dart';
-
-part 'replacement_order_dialog.dart';
 
 // ---------------------------------------------------------------------------
 // Model
@@ -74,8 +74,8 @@ class Replacement implements ListSortable {
     this.matchMode = TextReplacementMatchMode.exact,
     this.fuzzyThreshold,
     this.origin = 'manual',
-    this.isFavorite = false,
     this.usageCount = 0,
+    this.importGroupId,
   });
 
   final String id;
@@ -102,11 +102,13 @@ class Replacement implements ListSortable {
   /// display-only, no behavioral difference (PRD.md User Story 11).
   final String origin;
 
-  /// Pinned by the user in the dictionary (schema v26). Display only.
-  final bool isFavorite;
-
   /// Dictations this entry changed so far (schema v26). Display only.
   final int usageCount;
+
+  /// The contact-name group this entry came in with (#2036), `null` for
+  /// everything else. Such an entry reaches only local engines and leaves
+  /// with its group; an edit takes it out of the group for good.
+  final String? importGroupId;
 
   @override
   String get sortId => id;
@@ -235,6 +237,9 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
       matchMode: matchMode.name,
       fuzzyThreshold: fuzzyThreshold,
       origin: origin,
+      // An edited contact name is the user's own entry now (#2036): removing
+      // or refreshing its contact group no longer touches it.
+      importGroupId: const Value(null),
     );
     await reload();
   }
@@ -292,12 +297,6 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     await reload();
   }
 
-  Future<void> setFavourite(String id, {required bool value}) async {
-    final db = ref.read(historyDatabaseProvider);
-    await db.setReplacementFavourite(id, value: value);
-    await reload();
-  }
-
   /// Saves [orderedIds] as the order the rules are applied in (#1004).
   Future<void> reorder(List<String> orderedIds) async {
     final db = ref.read(historyDatabaseProvider);
@@ -332,7 +331,7 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
   }
 
   /// Writes a planned import (R-08) in one transaction. Entries the plan does
-  /// not touch keep their favourite flag and usage count.
+  /// not touch keep their usage count.
   Future<void> applyImportPlan(ReplacementImportPlan plan) async {
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
@@ -365,17 +364,10 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
         : TextReplacementMatchMode.exact,
     fuzzyThreshold: joined.row.fuzzyThreshold,
     origin: joined.row.origin,
-    isFavorite: joined.row.isFavorite,
     usageCount: joined.row.usageCount,
+    importGroupId: joined.row.importGroupId,
   );
 }
-
-/// Starred entries first, otherwise the order [items] already has — the same
-/// rule as favourites in Snippets and pinned notes (#892).
-List<Replacement> replacementFavouritesFirst(List<Replacement> items) => [
-  ...items.where((r) => r.isFavorite),
-  ...items.where((r) => !r.isFavorite),
-];
 
 final replacementsProvider =
     AsyncNotifierProvider<ReplacementsNotifier, List<Replacement>>(
@@ -423,7 +415,23 @@ final correctionLogProvider =
 
 /// Replacements page — auto-replace words during dictation.
 class ReplacementsPage extends ConsumerStatefulWidget {
-  const ReplacementsPage({super.key, this.leadingMenuActions = const []});
+  const ReplacementsPage({
+    super.key,
+    this.leadingMenuActions = const [],
+    this.dictionaryBuilder,
+    this.query = '',
+  });
+
+  final String query;
+
+  /// Reuse the replacement commands inside the common dictionary workflow.
+  final Widget Function(
+    Widget rows,
+    List<WpListMenuAction> actions,
+    VoidCallback add,
+    Widget sortControl,
+  )?
+  dictionaryBuilder;
 
   /// Actions the parent adds in front of this page's own overflow entries.
   final List<WpListMenuAction> leadingMenuActions;
@@ -478,6 +486,7 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
   );
 
   String _fieldLabel(L10n l10n, ListSortField field) => switch (field) {
+    ListSortField.order => l10n.listSortFieldOrder,
     ListSortField.trigger => l10n.listSortFieldTrigger,
     ListSortField.result => l10n.listSortFieldResult,
     ListSortField.added => l10n.listSortFieldAdded,
@@ -515,8 +524,14 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
         : ref
               .watch(replacementsProvider)
               .whenData(
-                (items) =>
-                    replacementFavouritesFirst(sortListItems(items, sort)),
+                // The order of use is the stored order: no sorting, so what
+                // is shown is what applies and a dragged row lands where it
+                // is dropped (#1969). Dictionary entries carry no favourite
+                // star (#2166): it only reordered the display, never what
+                // applies.
+                (items) => sort.field == ListSortField.order
+                    ? items
+                    : sortListItems(items, sort),
               );
     final hintDismissed =
         ref.watch(
@@ -536,7 +551,20 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
         TriggerOwner(id: r.id, triggers: r.triggers),
     ]);
 
-    return WpSearchableListPage<Replacement>(
+    Widget tile(
+      Replacement r,
+      bool isCursor, {
+      int? dragIndex,
+      ValueChanged<int>? onMove,
+    }) => _tileFor(
+      r,
+      isCursor,
+      duplicateIds: duplicateIds,
+      dragIndex: dragIndex,
+      onMove: onMove,
+    );
+
+    final page = WpSearchableListPage<Replacement>(
       // Header and toolbar, top to bottom: the explanation scrolls away with
       // the rows; the search and Add row stays fixed. The master switch is no
       // longer a card above the list: it sits in the overflow menu, and while
@@ -579,8 +607,8 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
               ),
             ),
           // How the rules interact (#1004): one quiet line, only where order
-          // can matter (feature on, two rules or more), with the way to
-          // change the order right next to the explanation.
+          // can matter (feature on, two rules or more). The order itself is
+          // changed by dragging the rows (#1969).
           if (enabled && allReplacements.length > 1)
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -597,16 +625,6 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
                   message: cascade
                       ? l10n.replacementsCascadeOnHint
                       : l10n.replacementsCascadeOffHint,
-                  action: Semantics(
-                    identifier: 'replacements-order-open',
-                    child: WpButton(
-                      key: const ValueKey('replacements-order-open'),
-                      label: l10n.replacementsOrderAction,
-                      variant: WpButtonVariant.secondary,
-                      size: WpButtonSize.dense,
-                      onPressed: () => showReplacementOrderDialog(context),
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -651,6 +669,12 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
         tooltip: l10n.listSortMenuTooltip(_sortOrderLabel(l10n, sort)),
         current: sort.field,
         options: [
+          WpSortOption(
+            value: ListSortField.order,
+            id: 'order',
+            label: l10n.listSortFieldOrder,
+            icon: LucideIcons.gripVertical,
+          ),
           WpSortOption(
             value: ListSortField.trigger,
             id: 'trigger',
@@ -740,36 +764,105 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage>
           checked: cascade,
           onSelected: () => _setCascade(!cascade),
         ),
-        WpListMenuAction(
-          itemKey: const ValueKey('replacements-order-menu'),
-          label: l10n.replacementsOrderAction,
-          hint: l10n.replacementsOrderActionHint,
-          icon: LucideIcons.arrowUpDown,
-          enabled: allReplacements.length > 1,
-          onSelected: () => showReplacementOrderDialog(context),
-        ),
       ],
       onItemActivate: (r) => _showAddEditDialog(existing: r),
       onItemDelete: _confirmDelete,
-      itemBuilder: (context, r, isCursor) {
-        return WpCopyAnchor(
-          target: 'replacement-${r.id}',
-          child: _ReplacementTile(
-            key: ValueKey('replacements-row-${r.id}'),
-            replacement: r,
-            isCursor: isCursor,
-            isHighlighted: r.id == highlightedId,
-            isDuplicate: duplicateIds.contains(r.id),
-            onTap: () => _showAddEditDialog(existing: r),
-            onCopy: () => _copyReplacement(r),
-            onDuplicate: () => _duplicateReplacement(r),
-            onDelete: () => _confirmDelete(r),
-            onToggleFavourite: () => ref
-                .read(replacementsProvider.notifier)
-                .setFavourite(r.id, value: !r.isFavorite),
-          ),
+      itemBuilder: (context, r, isCursor) => tile(r, isCursor),
+    );
+    final builder = widget.dictionaryBuilder;
+    if (builder == null) return page;
+    final state = asyncAll;
+    final query = widget.query.toLowerCase().trim();
+    // Drag & drop right in the list (#1969): only in the order of use and
+    // without a search, where the rows shown are the rules in their order.
+    final reorderable = sort.field == ListSortField.order && query.isEmpty;
+    final rows = state.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, _) => WpErrorNotice(
+        cause: l10n.errorGeneric,
+        action: WpButton(
+          testId: 'replacements-retry',
+          label: l10n.actionRetry,
+          variant: WpButtonVariant.secondary,
+          onPressed: () => ref.invalidate(replacementsProvider),
+        ),
+      ),
+      data: (items) {
+        if (items.isEmpty) return Text(l10n.replacementsEmpty);
+        if (reorderable && items.length > 1) {
+          final ids = [for (final r in items) r.id];
+          void save(List<String> next) =>
+              ref.read(replacementsProvider.notifier).reorder(next);
+          return ReorderableListView(
+            key: const ValueKey('replacements-reorder-list'),
+            shrinkWrap: true,
+            buildDefaultDragHandles: false,
+            physics: const NeverScrollableScrollPhysics(),
+            onReorderItem: (oldIndex, newIndex) =>
+                save(reorderedReplacementIds(ids, oldIndex, newIndex)),
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Semantics(
+                  key: ValueKey('replacements-reorder-${items[i].id}'),
+                  identifier: 'replacements-row-${items[i].id}',
+                  child: tile(
+                    items[i],
+                    false,
+                    dragIndex: i,
+                    onMove: (delta) =>
+                        save(movedReplacementIds(ids, items[i].id, delta)),
+                  ),
+                ),
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final r in items)
+              if (query.isEmpty ||
+                  [
+                    ...r.triggers,
+                    r.replacement,
+                  ].any((text) => text.toLowerCase().contains(query)))
+                Semantics(
+                  identifier: 'replacements-row-${r.id}',
+                  child: tile(r, false),
+                ),
+          ],
         );
       },
+    );
+    return builder(
+      rows,
+      page.menuActions,
+      () => _showAddEditDialog(),
+      page.sortControl!,
+    );
+  }
+
+  Widget _tileFor(
+    Replacement r,
+    bool isCursor, {
+    required Set<String> duplicateIds,
+    int? dragIndex,
+    ValueChanged<int>? onMove,
+  }) {
+    return WpCopyAnchor(
+      target: 'replacement-${r.id}',
+      child: _ReplacementTile(
+        key: ValueKey('replacements-row-${r.id}'),
+        replacement: r,
+        isCursor: isCursor,
+        dragIndex: dragIndex,
+        onMove: onMove,
+        isHighlighted: r.id == highlightedId,
+        isDuplicate: duplicateIds.contains(r.id),
+        onTap: () => _showAddEditDialog(existing: r),
+        onCopy: () => _copyReplacement(r),
+        onDuplicate: () => _duplicateReplacement(r),
+        onDelete: () => _confirmDelete(r),
+      ),
     );
   }
 
@@ -1108,12 +1201,18 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
 
   late final String _openedDraft;
 
+  /// Everything the dialog would save. Match mode and tolerance belong to it
+  /// (#1969): before, a picked "Similar" was no input, so Escape or a click
+  /// beside the dialog dropped it without asking and the entry looked as if
+  /// it had not saved the choice.
   String get _draftText => [
     for (final c in _triggerCtrls) c.text,
     _replacementCtrl.text,
+    _effectiveMode.name,
+    if (_effectiveMode == TextReplacementMatchMode.fuzzy) '$_fuzzyThreshold',
   ].join('\u0000');
 
-  /// Typed text that a dismiss would throw away (UIA-CMP-03).
+  /// Input that a dismiss would throw away (UIA-CMP-03).
   bool get _hasUnsavedInput => _draftText != _openedDraft;
 
   @override
@@ -1201,7 +1300,11 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
     }
     // The same rules and sentences as the dictionary's quick add path
     // (#623), so an entry is not refused here and accepted there (#892).
-    final draftProblem = checkReplacementDraft(triggers, _replacementCtrl.text);
+    final draftProblem = checkReplacementDraft(
+      triggers,
+      _replacementCtrl.text,
+      similar: _effectiveMode == TextReplacementMatchMode.fuzzy,
+    );
     if (draftProblem != null) {
       final l10n = L10n.of(context);
       final (id, message) = switch (draftProblem.problem) {
@@ -1504,10 +1607,16 @@ class _ReplacementTile extends StatefulWidget {
     required this.onCopy,
     required this.onDuplicate,
     required this.onDelete,
-    required this.onToggleFavourite,
+    this.dragIndex,
+    this.onMove,
   });
 
   final Replacement replacement;
+
+  /// Position in a reorderable list (#1969): the row then leads with a grip
+  /// that drags it, and Alt+Up/Down move it by [onMove].
+  final int? dragIndex;
+  final ValueChanged<int>? onMove;
 
   /// This row is the list's arrow cursor — same contract, same two outlets
   /// and same reasoning as `_SnippetRow.isCursor`, which see.
@@ -1522,7 +1631,6 @@ class _ReplacementTile extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
-  final VoidCallback onToggleFavourite;
 
   @override
   State<_ReplacementTile> createState() => _ReplacementTileState();
@@ -1546,6 +1654,12 @@ class _ReplacementTileState extends State<_ReplacementTile> {
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.delete): widget.onDelete,
         const SingleActivator(LogicalKeyboardKey.backspace): widget.onDelete,
+        if (widget.onMove case final move?) ...{
+          const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true): () =>
+              move(-1),
+          const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true): () =>
+              move(1),
+        },
       },
       child: _buildRow(context),
     );
@@ -1598,18 +1712,8 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               actions: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  WpFavouriteStar(
-                    key: ValueKey(
-                      'replacements-favourite-${widget.replacement.id}',
-                    ),
-                    testId: 'replacements-favourite-${widget.replacement.id}',
-                    isFavourite: widget.replacement.isFavorite,
-                    onToggle: widget.onToggleFavourite,
-                    dense: false,
-                  ),
                   // Trailing chevron: the row opens an editor on tap, so it
                   // carries the same cue as other navigable list rows.
-                  const SizedBox(width: WpSpacing.xxs),
                   Icon(
                     rtl ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
                     size: WpIconSize.sm,
@@ -1649,11 +1753,36 @@ class _ReplacementTileState extends State<_ReplacementTile> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    LucideIcons.arrowRightLeft,
-                    size: WpIconSize.sm,
-                    color: WpColors.accent,
-                  ),
+                  if (widget.dragIndex case final index?)
+                    // The grip drags the row (#1969); replaces the arrows
+                    // icon where the order can be changed.
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Semantics(
+                        identifier:
+                            'replacements-drag-${widget.replacement.id}',
+                        child: Tooltip(
+                          key: ValueKey(
+                            'replacements-drag-${widget.replacement.id}',
+                          ),
+                          message: L10n.of(context).replacementsOrderDragHandle,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: Icon(
+                              LucideIcons.gripVertical,
+                              size: WpIconSize.sm,
+                              color: WpColors.textMuted,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Icon(
+                      LucideIcons.arrowRightLeft,
+                      size: WpIconSize.sm,
+                      color: WpColors.accent,
+                    ),
                   const SizedBox(width: WpSpacing.sm),
                   // Trigger phrases — one chip per phrase, wrapping onto
                   // additional lines when a shortcut has many triggers.
@@ -1679,16 +1808,19 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                       label: L10n.of(context).replacementsMatchModeFuzzy,
                     ),
                   ],
-                  // Every entry says where it came from, so a list mixing
-                  // typed, learned and imported entries reads at a glance
-                  // (#892). Hand-typed entries get the quiet grey tone.
-                  const SizedBox(width: WpSpacing.xxs),
-                  _OriginBadge(
-                    key: ValueKey(
-                      'replacements-row-${widget.replacement.id}-origin',
+                  // Learned and imported entries say where they came from
+                  // (#892). Typed entries carry no mark (#1969): a
+                  // "Manual" badge on nearly every row told nothing, since
+                  // the user creates almost everything by hand.
+                  if (_OriginBadge.marks(widget.replacement.origin)) ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    _OriginBadge(
+                      key: ValueKey(
+                        'replacements-row-${widget.replacement.id}-origin',
+                      ),
+                      origin: widget.replacement.origin,
                     ),
-                    origin: widget.replacement.origin,
-                  ),
+                  ],
                   if (widget.isDuplicate) ...[
                     const SizedBox(width: WpSpacing.xxs),
                     Tooltip(
@@ -1759,20 +1891,23 @@ class _ReplacementTileState extends State<_ReplacementTile> {
   }
 }
 
-/// The origin marker of a replacement row: manual, learned or imported.
+/// The origin marker of a replacement row: learned or imported. Typed
+/// entries have none (#1969).
 class _OriginBadge extends StatelessWidget {
   const _OriginBadge({super.key, required this.origin});
 
   final String origin;
 
+  /// Whether a row of [origin] carries a badge at all.
+  static bool marks(String origin) =>
+      origin == 'imported' || origin == 'learned';
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final (label, tone) = switch (origin) {
-      'imported' => (l10n.replacementsImportedBadge, WpAccentBadgeTone.accent),
-      'learned' => (l10n.replacementsLearnedBadge, WpAccentBadgeTone.highlight),
-      _ => (l10n.replacementsManualBadge, WpAccentBadgeTone.muted),
-    };
+    final (label, tone) = origin == 'imported'
+        ? (l10n.replacementsImportedBadge, WpAccentBadgeTone.accent)
+        : (l10n.replacementsLearnedBadge, WpAccentBadgeTone.highlight);
     return Semantics(
       identifier: 'replacements-origin-$origin',
       child: WpAccentBadge(label: label, tone: tone),

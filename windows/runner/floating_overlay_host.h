@@ -19,6 +19,7 @@
 //     setPosition{x,y,anchorMode}
 //     setContextMenuItems{items:[{id,label}]}   ← BUG FIX: unwrap "items" key
 //     setOpacity{opacity}                       ← accepted as no-op (issue 11)
+//     setCaptureExcluded{excluded}              ← overlay F: WDA_EXCLUDEFROMCAPTURE
 //     destroy
 //   Outbound (host → Dart):
 //     onDragEnded{x,y,anchorMode}
@@ -60,6 +61,7 @@
 #include <utility>
 #include <vector>
 
+#include "system_motion_channel.h"
 #include "native_context_menu.h"
 
 #include "floating_overlay_window.h"
@@ -133,6 +135,8 @@ class FloatingOverlayHost {
   std::unique_ptr<flutter::FlutterViewController> render_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       render_channel_;
+  // "Reduce motion" for this engine (#1756); reset with render_channel_.
+  std::unique_ptr<SystemMotionChannel> motion_channel_;
 
   // ── Shell window ──────────────────────────────────────────────────────
   std::unique_ptr<FloatingOverlayWindow> window_;
@@ -165,6 +169,24 @@ class FloatingOverlayHost {
 
   // ── Context menu (#393) ───────────────────────────────────────────
   NativeMenu context_menu_;
+
+  // ── Capture exclusion (overlay F, #194) ───────────────────────────
+  // "In Bildschirmfreigaben und Screenshots verbergen". Kept across shell
+  // rebuilds; every new shell takes it over (ApplyCaptureExclusion).
+  bool capture_excluded_ = false;
+  // Applies capture_excluded_ to the shell window. Returns false when the
+  // system refused it (Windows older than 10 version 2004).
+  bool ApplyCaptureExclusion();
+
+  // ── Edit session of the write preview (#254, #2160) ───────────────
+  // Follows snapshot["notice"]["edit"]["open"]: while open the shell may
+  // take the keyboard focus. |edit_return_window_| is the foreign window
+  // that was in front when the session began; a session that ends while
+  // the shell still has the focus (Esc, discard) hands it back there. The
+  // insert path does not rely on it: Dart asks DesktopPasteHost to bring the
+  // captured target back and confirm it before anything is pasted.
+  void UpdateEditSession(bool open);
+  HWND edit_return_window_ = nullptr;
 };
 
 #endif  // FLOATING_OVERLAY_HOST_H_

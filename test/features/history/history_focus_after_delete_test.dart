@@ -75,4 +75,62 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('Tab onto the list shows the cursor on a row (#1845)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    for (var i = 0; i < 2; i++) {
+      await db.insertHistoryEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'tab-$i',
+          timestamp: DateTime(2026, 1, 1, 12).subtract(Duration(minutes: i)),
+          content: Value('text $i'),
+          title: Value('Entry 0$i'),
+        ),
+      );
+    }
+    await tester.pumpWidget(
+      makeTestable(
+        const HistoryPage(),
+        locale: const Locale('en'),
+        db: db,
+        overrides: [
+          settingsProvider.overrideWith(() => _FakeSettingsNotifier()),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_focusedRow(), findsNothing);
+
+    // The list starts with the focus; leave it, then walk the page by Tab
+    // until the list itself holds the focus again.
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      isNot('history-list'),
+    );
+    for (var i = 0; i < 60; i++) {
+      if (FocusManager.instance.primaryFocus?.debugLabel == 'history-list') {
+        break;
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+    }
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'history-list');
+    expect(
+      find.descendant(of: _focusedRow(), matching: find.text('Entry 00')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
 }

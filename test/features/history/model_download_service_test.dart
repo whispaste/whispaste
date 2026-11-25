@@ -21,6 +21,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
+import 'package:whispaste/core/models/model_catalog.dart';
 import 'package:whispaste/services/model_download_service.dart';
 
 void main() {
@@ -46,27 +47,11 @@ void main() {
 
     test('sizeLabel formats correctly', () {
       // Sub-GB models render as MB.
-      const mb = SttModelInfo(
-        id: 'fake-mb',
-        label: 'Fake',
-        filename: 'fake.bin',
-        sizeBytes: 190085487,
-        url: 'https://example.invalid/fake.bin',
-        sha256:
-            '0000000000000000000000000000000000000000000000000000000000000000',
-      );
+      final mb = _fakeModel(190085487);
       expect(mb.sizeLabel, contains('MB'));
 
       // ≥1 GiB renders as GB.
-      const gb = SttModelInfo(
-        id: 'fake-gb',
-        label: 'Fake',
-        filename: 'fake.bin',
-        sizeBytes: 1500000000,
-        url: 'https://example.invalid/fake.bin',
-        sha256:
-            '0000000000000000000000000000000000000000000000000000000000000000',
-      );
+      final gb = _fakeModel(1500000000);
       expect(gb.sizeLabel, contains('GB'));
     });
   });
@@ -359,3 +344,24 @@ void main() {
     });
   });
 }
+
+SttModelInfo _fakeModel(int sizeBytes) => CatalogModel(
+  id: 'fake',
+  kind: ModelKind.stt,
+  runtime: ModelRuntime.whisperCpp,
+  label: 'Fake',
+  minAppVersion: '1.0.0',
+  languages: const ['en'],
+  speed: ModelLevel.medium,
+  accuracy: ModelLevel.medium,
+  requirements: const ModelRequirements(),
+  license: 'MIT',
+  files: [
+    ModelFile(
+      filename: 'fake.bin',
+      sizeBytes: sizeBytes,
+      sha256: '0' * 64,
+      sources: const ['https://example.invalid/fake.bin'],
+    ),
+  ],
+);

@@ -19,6 +19,9 @@ const _decimal = {
   'pt': ',',
   'ru': ',',
   'he': '.',
+  'fr': ',',
+  'it': ',',
+  'zh': '.',
 };
 
 String _blockText(ManualBlock block, L10n l) => switch (block) {

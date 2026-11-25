@@ -1,13 +1,13 @@
-/// Which Dictionary tab is open, and requests to open one from elsewhere.
+/// Navigation anchors in the unified dictionary page.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The tabs of the Dictionary page, in the order they are shown.
-enum DictionaryTab { terms, replacements, suggestions }
+/// Historical tab identifiers, retained for existing navigation callers.
+enum DictionaryTab { replacements, suggestions }
 
-/// The tab a jump from elsewhere (settings search, a banner action) wants
-/// open. `DictionaryPage` takes it once and clears it.
+/// The section a jump from elsewhere wants visible. `DictionaryPage`
+/// scrolls to it once and clears the request.
 class DictionaryTabTargetNotifier extends Notifier<DictionaryTab?> {
   @override
   DictionaryTab? build() => null;
@@ -20,8 +20,7 @@ final dictionaryTabTargetProvider =
       DictionaryTabTargetNotifier.new,
     );
 
-/// Set together with the replacements tab: the page opens its "new
-/// replacement" dialog once the tab is shown (the terms banner action).
+/// A request to open the replacement editor when entering the dictionary.
 class DictionaryNewReplacementRequest extends Notifier<bool> {
   @override
   bool build() => false;

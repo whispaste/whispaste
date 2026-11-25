@@ -14,8 +14,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/favorite_language_hotkeys.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../services/dictation_key_plan.dart' show dictationKeyActionId;
 import '../../services/hotkey_service.dart';
 import '../../services/hotkey_conflicts.dart';
 import '../../services/hotkey_key_resolver.dart'
@@ -24,6 +26,7 @@ import '../../services/hotkey_trigger.dart';
 import '../../services/floating_button/floating_button_support.dart'
     show LinuxSessionType, linuxSessionTypeFrom;
 import '../../services/linux_desktop_shortcut.dart';
+import '../../services/tray_language_menu.dart' show languageMenuName;
 import '../../services/modifier_key_monitor.dart';
 import '../../widgets/hotkey_recorder.dart';
 import 'modifier_only_flow.dart';
@@ -143,6 +146,31 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
       actionLabel: l10n.settingsHotkeyActionSelectionEdit,
       key: settings.selectionEditHotkey.selectionEditHotkeyKey,
       modifiers: settings.selectionEditHotkey.selectionEditHotkeyModifiers,
+    ),
+  // One hotkey per favorite language (#2137): only current favorites hold
+  // their combination, a key kept for an unpinned language holds nothing.
+  for (final active in activeFavoriteLanguageHotkeys(
+    favorites: settings.stt.favoriteLanguages,
+    hotkeys: settings.stt.favoriteLanguageHotkeys,
+  ))
+    HotkeyBinding(
+      actionId: favoriteLanguageHotkeyActionId(active.code),
+      actionLabel: l10n.settingsHotkeyActionFavoriteLanguage(
+        languageMenuName(active.code),
+      ),
+      key: active.hotkey.key,
+      modifiers: active.hotkey.modifiers,
+    ),
+  // Extra dictation keys (#2055); the action id matches the hotkey service's
+  // (`dictationKeyActionId`), so a key never collides with itself.
+  for (final k in settings.hotkey.extraDictationKeys)
+    HotkeyBinding(
+      actionId: dictationKeyActionId(k.id),
+      actionLabel: l10n.settingsHotkeyActionDictationKey(
+        k.language.toUpperCase(),
+      ),
+      key: k.key,
+      modifiers: k.modifiers,
     ),
 ];
 

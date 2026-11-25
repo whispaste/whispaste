@@ -231,4 +231,20 @@ void main() {
       expect(keys, isNot(containsAnyOf(legacyRowIds('hotkey'))));
     });
   });
+
+  group('matchSettingsEntries — common words users try (#1845)', () {
+    test('Telemetrie finds the privacy switches', () {
+      expect(
+        _sectionKeysFor('Telemetrie', locale: 'de'),
+        containsAll(['privacy-error-reporting', 'privacy-usage-stats']),
+      );
+    });
+
+    test('hinzuf finds where models and apps are added', () {
+      expect(
+        _sectionKeysFor('hinzuf', locale: 'de'),
+        containsAll(['models-library', 'text-auto-paste-blocklist']),
+      );
+    });
+  });
 }

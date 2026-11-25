@@ -8,7 +8,6 @@
 library;
 
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey, MethodChannel;
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +55,10 @@ import 'package:whispaste/services/audio/import/audio_import_queue.dart';
 import 'package:whispaste/services/audio/recovery/recording_journal.dart';
 import 'package:whispaste/services/audio/recovery/recording_recovery.dart';
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/social_stats/social_stats_logic.dart'
+    show SocialStatsSnapshot;
+import 'package:whispaste/services/social_stats/social_stats_service.dart'
+    show SocialStatsFetcher, socialStatsFetcherProvider;
 import 'package:whispaste/widgets/wp_filter_chip.dart';
 
 import '../features/settings/widgets/settings_golden_board.dart'
@@ -620,9 +623,26 @@ Future<void> _pumpFramed(
       size: size,
       locale: Locale(locale),
       db: db,
-      overrides: overrides,
+      overrides: [
+        // A generator never goes online: the support page asks the server for
+        // the community numbers, and the 5 s timeout of that request outlived
+        // the capture ("A Timer is still pending", #1988).
+        socialStatsFetcherProvider.overrideWithValue(
+          const UxOfflineSocialStatsFetcher(),
+        ),
+        ...overrides,
+      ],
     ),
   );
+}
+
+/// Answers every community-numbers request with "no answer" at once, as an
+/// offline machine would. The support page then shows no numbers.
+class UxOfflineSocialStatsFetcher implements SocialStatsFetcher {
+  const UxOfflineSocialStatsFetcher();
+
+  @override
+  Future<SocialStatsSnapshot?> fetch(DateTime now) async => null;
 }
 
 /// Frames a full-window [body] without the app shell, such as a start
@@ -977,7 +997,7 @@ Future<void> pumpUxShell(
 
 /// Opens a fresh in-memory database and seeds it.
 Future<HistoryDatabase> openSeededUxDatabase(WidgetTester tester) async {
-  final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+  final db = openInMemoryTestDatabase();
   await tester.runAsync(() => seedUxDatabase(db));
   return db;
 }

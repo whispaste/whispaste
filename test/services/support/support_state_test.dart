@@ -15,6 +15,7 @@ import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support/support_store_bridge.dart';
 import 'package:whispaste/services/telemetry_service.dart';
+import '../../fixtures/telemetry_hits.dart';
 
 /// Bridge double. Flags answer the verification queries; [purchaseResult]
 /// answers the purchase call.
@@ -24,8 +25,10 @@ class _FakeBridge implements SupportStoreBridge {
     this.supportPurchase = false,
     this.purchaseResult = SupportPurchaseStatus.succeeded,
     this.products = const [],
+    this.available = true,
   });
 
+  final bool available;
   final bool appPurchase;
   final bool supportPurchase;
   final SupportPurchaseStatus purchaseResult;
@@ -34,7 +37,7 @@ class _FakeBridge implements SupportStoreBridge {
   final catalogueRequests = <List<String>>[];
 
   @override
-  Future<bool> isAvailable() async => true;
+  Future<bool> isAvailable() async => available;
 
   @override
   Future<List<SupportProduct>> loadProducts(List<String> productIds) async {
@@ -68,12 +71,23 @@ class _LateBridge extends _FakeBridge
   Future<void> close() => controller.close();
 }
 
+/// Bridge double that reports the store's test environment (#2202).
+class _TestEnvironmentBridge extends _FakeBridge
+    implements TestEnvironmentAwareSupportStoreBridge {
+  _TestEnvironmentBridge({required this.testEnvironment});
+
+  final bool testEnvironment;
+
+  @override
+  Future<bool> isTestEnvironment() async => testEnvironment;
+}
+
 /// Real telemetry service whose HTTP client records every request body.
 class _RecordingTelemetry {
   _RecordingTelemetry() {
     service = TelemetryService(
       client: MockClient((request) async {
-        bodies.add(request.bodyFields);
+        bodies.addAll(telemetryHits(request));
         return http.Response('', 200);
       }),
       endpointUrl: 'https://matomo.invalid',
@@ -284,6 +298,38 @@ void main() {
       expect(store.read(supportStoreThankYouLineProvider), isTrue);
       expect(portable.read(supportStoreThankYouLineProvider), isFalse);
     });
+
+    test('the store test environment thanks for no purchase (#2202)', () async {
+      final preview = await _container(
+        prefs: const {},
+        channel: DeployChannel.store,
+        bridge: _TestEnvironmentBridge(testEnvironment: true),
+      );
+      final release = await _container(
+        prefs: const {},
+        channel: DeployChannel.store,
+        bridge: _TestEnvironmentBridge(testEnvironment: false),
+      );
+
+      await preview.read(supportStoreTestEnvironmentProvider.future);
+      await release.read(supportStoreTestEnvironmentProvider.future);
+
+      expect(preview.read(supportStoreThankYouLineProvider), isFalse);
+      expect(release.read(supportStoreThankYouLineProvider), isTrue);
+    });
+
+    test('a bridge without environment knowledge is no test store', () async {
+      final container = await _container(
+        prefs: const {},
+        channel: DeployChannel.store,
+        bridge: _FakeBridge(),
+      );
+
+      expect(
+        await container.read(supportStoreTestEnvironmentProvider.future),
+        isFalse,
+      );
+    });
   });
 
   group('native tip products', () {
@@ -320,6 +366,57 @@ void main() {
       expect(bridge.catalogueRequests, [kSupportProductIds]);
       expect(products.single.productId, 'whispaste.support.once.1');
       expect(products.single.title, 'Small tip');
+    });
+
+    test(
+      'prices stay the store strings, never a currency of our own',
+      () async {
+        SharedPreferences.setMockInitialValues(const {});
+        const storePrices = [
+          '1,99 €',
+          '4,99 €',
+          '9,99 €',
+          '19,99 €',
+          '49,99 €',
+        ];
+        final bridge = _FakeBridge(
+          products: [
+            for (var i = 0; i < kSupportProductIds.length; i++)
+              SupportProduct(
+                productId: kSupportProductIds[i],
+                title: 'Tier ${i + 1}',
+                formattedPrice: storePrices[i],
+              ),
+          ],
+        );
+        final container = await containerWith([SupportAsk.nativeTip], bridge);
+
+        final products = await container.read(
+          supportTipProductsProvider.future,
+        );
+
+        expect([for (final p in products) p.formattedPrice], storePrices);
+      },
+    );
+
+    test('a store that cannot sell yields no catalogue and no call', () async {
+      SharedPreferences.setMockInitialValues(const {});
+      final bridge = _FakeBridge(
+        available: false,
+        products: const [
+          SupportProduct(
+            productId: 'whispaste.support.once.1',
+            title: 'Small tip',
+            formattedPrice: '1,99 €',
+          ),
+        ],
+      );
+      final container = await containerWith([SupportAsk.nativeTip], bridge);
+
+      final products = await container.read(supportTipProductsProvider.future);
+
+      expect(products, isEmpty);
+      expect(bridge.catalogueRequests, isEmpty);
     });
 
     test('no store call is made where the native tip is not offered', () async {

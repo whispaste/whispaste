@@ -10,9 +10,19 @@ import '../encryption/recording_vault.dart';
 /// Plays one audio file at a time. The seam the playback logic is tested
 /// through; the app plays through the shared SoLoud engine.
 abstract interface class RecordingPlayer {
-  /// Starts [path], stopping whatever played before. False when it could not
-  /// start; otherwise [onEnd] runs once when playback ends.
-  Future<bool> play(String path, {required void Function() onEnd});
+  /// Starts [path] at [from], stopping whatever played before. False when it
+  /// could not start; otherwise [onEnd] runs once when playback ends.
+  Future<bool> play(
+    String path, {
+    required void Function() onEnd,
+    Duration from = Duration.zero,
+  });
+
+  /// Moves the current playback to [to]. False when nothing plays.
+  bool seek(Duration to);
+
+  /// Where the current playback is, or null when nothing plays.
+  Duration? get position;
 
   /// Stops the current playback, if any.
   void stop();
@@ -26,8 +36,17 @@ final class _SoLoudRecordingPlayer implements RecordingPlayer {
 
   /// Reads through the vault, so encrypted recordings (#1021) play too.
   @override
-  Future<bool> play(String path, {required void Function() onEnd}) =>
-      _sounds.playFile(path, onEnd: onEnd, read: _vault.read);
+  Future<bool> play(
+    String path, {
+    required void Function() onEnd,
+    Duration from = Duration.zero,
+  }) => _sounds.playFile(path, onEnd: onEnd, read: _vault.read, from: from);
+
+  @override
+  bool seek(Duration to) => _sounds.seekFile(to);
+
+  @override
+  Duration? get position => _sounds.filePosition;
 
   @override
   void stop() => _sounds.stopFile();
@@ -58,10 +77,25 @@ class RecordingPlaybackNotifier extends Notifier<String?> {
       stop();
       return;
     }
+    await _start(key, path, Duration.zero);
+  }
+
+  /// Plays [path] for [key] from [from] (#672: a sentence of the transcript).
+  /// When [key] already plays, it jumps there instead of loading again.
+  Future<void> playFrom(String key, String path, Duration from) async {
+    if (state == key && _player.seek(from)) return;
+    await _start(key, path, from);
+  }
+
+  /// Where the recording of [key] is now; null unless [key] plays.
+  Duration? positionOf(String key) => state == key ? _player.position : null;
+
+  Future<void> _start(String key, String path, Duration from) async {
     final generation = ++_generation;
     state = key;
     final started = await _player.play(
       path,
+      from: from,
       onEnd: () {
         if (generation == _generation) state = null;
       },

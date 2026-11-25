@@ -530,8 +530,9 @@ void main() {
   });
 
   group('contact card', () {
-    testWidgets('its button opens the contact form', (tester) async {
-      final pages = <String>[];
+    // #1845: the same contact card led the handbook, introduction and
+    // diagnostics tabs. Contact lives on the Feedback & contact tab only.
+    testWidgets('no tab opens with a repeated contact card', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const HelpPage(),
@@ -539,16 +540,19 @@ void main() {
           overrides: [
             settingsProvider.overrideWith(_OnboardedSettings.new),
             helpTargetProvider.overrideWith(() => _Target(null)),
-            activePageProvider.overrideWith(() => _RecordingPages(pages)),
           ],
         ),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('help-contact-button')));
-      await tester.pumpAndSettle();
-
-      expect(pages, ['feedback']);
+      for (final tab in HelpTab.values) {
+        await tester.tap(find.byKey(ValueKey('help-hub-tab-${tab.name}')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('help-contact-button')),
+          findsNothing,
+          reason: tab.name,
+        );
+      }
     });
   });
 

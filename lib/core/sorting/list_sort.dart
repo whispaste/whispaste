@@ -10,7 +10,18 @@ library;
 import '../utils/search_fold.dart';
 
 /// Fields a list can be sorted by. A list offers a subset, see [ListSort.decode].
-enum ListSortField { title, trigger, result, added, changed, used }
+enum ListSortField {
+  title,
+  trigger,
+  result,
+  added,
+  changed,
+  used,
+
+  /// The list's own order (replacements: the order the rules apply in,
+  /// #1969). Lists with it keep their stored order and do not sort.
+  order,
+}
 
 /// What the comparator needs from one list entry. Text fields compare
 /// [sortTitle] (title, or first trigger) and [sortResult]; date fields use
@@ -103,6 +114,8 @@ int compareListItems(ListSortable a, ListSortable b, ListSort sort) {
     ListSortField.changed => b.sortChangedAt.compareTo(a.sortChangedAt),
     // Most recently used first; entries never used follow all used ones.
     ListSortField.used => _compareUsed(a, b),
+    // Not sorted: the caller keeps the stored order (see the field).
+    ListSortField.order => 0,
   };
   if (sort.reversed) primary = -primary;
   if (primary != 0) return primary;

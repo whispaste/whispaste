@@ -81,6 +81,8 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
         smartModeLocalEngineAvailableProvider,
         smartModeModelDirOverride;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_openai_engine.dart'
+    show SmartModeOpenAiEngine;
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_text_model.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
@@ -88,6 +90,8 @@ import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
 import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_protocol.dart';
 import 'package:whispaste/services/selection_edit/selection_edit_preview.dart';
+import 'package:whispaste/services/smart_mode/write/smart_write_preview.dart';
+import 'package:whispaste/services/smart_mode/write/smart_write_environment.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_service.dart';
@@ -815,6 +819,7 @@ class FakeSmartModeEngine implements SmartModeEngine {
   /// When set, [run] holds here before resolving/throwing until the test
   /// completes it — used to exercise the orchestrator's own timeout.
   Completer<void>? hold;
+  final started = Completer<void>();
 
   int runCalls = 0;
   String? lastSystemPrompt;
@@ -826,6 +831,7 @@ class FakeSmartModeEngine implements SmartModeEngine {
     required String userText,
   }) async {
     runCalls++;
+    if (!started.isCompleted) started.complete();
     lastSystemPrompt = systemPrompt;
     lastUserText = userText;
     final gate = hold;
@@ -4826,7 +4832,7 @@ void main() {
     });
 
     test('with saving off the late result of an abandoned session is dropped '
-        'without a notice or a paste', () async {
+        'under a quiet notice, without a paste', () async {
       container.dispose();
       container = buildContainer(
         const AppSettings(
@@ -4845,7 +4851,10 @@ void main() {
       expect(clipboardText, isNull);
       expect(await db.allEntries(), isEmpty);
       expect(await _pendingTestQueue.retryEntries(), isEmpty);
-      expect(container.read(recordingInfoProvider), isNull);
+      expect(
+        container.read(recordingInfoProvider),
+        'info_late_dictation_discarded',
+      );
     });
 
     test('an abandoned session whose transcription fails late keeps its audio '
@@ -6230,12 +6239,13 @@ void main() {
       expect(marks.single.anchor, 'Buy oat milk');
     });
 
-    test('text line: date line above the dictation, no append row', () async {
+    test('text line: date line above the dictation; the append row is '
+        'still recorded so the note stays recognisable (#661)', () async {
       final content = await appendVia(QuickNoteTimestampStyle.textLine);
       final note = await db.getQuickNote();
 
       expect(content, 'Earlier thought\n\n6. Nov. 14:32\nBuy oat milk');
-      expect(await db.noteAppendsFor(note!.id), isEmpty);
+      expect(await db.noteAppendsFor(note!.id), hasLength(1));
     });
 
     test('both: date line and append row', () async {
@@ -6257,6 +6267,112 @@ void main() {
 
       expect(content, 'Earlier thought\n\n6. Nov. 14:32\nBuy oat milk');
       expect(await db.noteAppendsFor(note!.id), hasLength(1));
+    });
+  });
+
+  // =========================================================================
+  // Quick-note destination (#661) — the marked note (default), the last
+  // edited note, or a fresh note per dictation. Only the marked-note target
+  // ever creates or moves the exclusive mark.
+  // =========================================================================
+
+  group('Quick-note destination', () {
+    Future<void> useDestination(QuickNoteDestination destination) => container
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            quickNoteHotkey: s.quickNoteHotkey.copyWith(
+              destination: destination,
+            ),
+          ),
+        );
+
+    Future<void> dictate(String transcript) async {
+      fakeStt.transcriptToReturn = transcript;
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+    }
+
+    Future<void> editedAt(String noteId, String content, DateTime at) async {
+      await db.updateNoteContent(noteId, content);
+      await (db.update(db.notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(updatedAt: Value(at)),
+      );
+    }
+
+    Future<List<Note>> allNotes() => db.select(db.notes).get();
+
+    test('default stays the marked quick note, created and marked on the '
+        'first dictation', () async {
+      expect(
+        QuickNoteHotkeySettings.defaults.destination,
+        QuickNoteDestination.markedNote,
+      );
+      final other = await db.createNote();
+      await editedAt(other.id, 'Recently edited', DateTime(2030));
+
+      await dictate('First');
+      await dictate('Second');
+
+      final marked = await db.getQuickNote();
+      expect(marked, isNotNull);
+      expect(marked!.id, isNot(other.id));
+      expect(marked.content, 'First\n\nSecond');
+      expect((await db.getNote(other.id))!.content, 'Recently edited');
+    });
+
+    test('last note: appends to the most recently edited note and leaves '
+        'the mark where it is', () async {
+      final marked = await db.createNote();
+      await editedAt(marked.id, 'Marked', DateTime(2026, 1, 1));
+      await db.setQuickNote(marked.id);
+      final last = await db.createNote();
+      await editedAt(last.id, 'Latest', DateTime(2026, 6, 1));
+      final trashed = await db.createNote();
+      await editedAt(trashed.id, 'Trashed', DateTime(2030));
+      await db.softDeleteNote(trashed.id);
+      await useDestination(QuickNoteDestination.lastNote);
+
+      await dictate('More');
+
+      expect((await db.getNote(last.id))!.content, 'Latest\n\nMore');
+      expect((await db.getNote(marked.id))!.content, 'Marked');
+      expect((await db.getNote(trashed.id))!.content, 'Trashed');
+      expect((await db.getQuickNote())!.id, marked.id);
+      expect(await db.noteAppendsFor(last.id), hasLength(1));
+    });
+
+    test('last note without any note creates a plain, unmarked one', () async {
+      await useDestination(QuickNoteDestination.lastNote);
+
+      await dictate('Hello');
+
+      final notes = await allNotes();
+      expect(notes, hasLength(1));
+      expect(notes.single.content, 'Hello');
+      expect(notes.single.isQuickNote, isFalse);
+    });
+
+    test('new note: a fresh unmarked note per dictation', () async {
+      final marked = await db.createNote();
+      await db.setQuickNote(marked.id);
+      await useDestination(QuickNoteDestination.newNote);
+
+      await dictate('One');
+      await dictate('Two');
+
+      final notes = await allNotes();
+      expect(notes, hasLength(3));
+      expect({
+        for (final n in notes) n.content,
+      }, containsAll(<String>['One', 'Two']));
+      expect(notes.where((n) => n.isQuickNote).single.id, marked.id);
+      final withAppends = await db.watchNoteIdsWithAppends().first;
+      expect(withAppends, hasLength(2));
+      expect(withAppends, isNot(contains(marked.id)));
     });
   });
 
@@ -9257,11 +9373,26 @@ void main() {
       bool pasteAvailable = true,
       bool localEngineAvailable = true,
       Future<bool> Function(String path)? scanHook,
+      KeyringAvailability keyring = KeyringAvailability.usable,
     }) async {
       ensureFakeLocalSttFilesExist();
       container.dispose();
       container = ProviderContainer(
         overrides: [
+          smartWriteKeyringProbeProvider.overrideWithValue(() async => keyring),
+          smartWriteEnvironmentProvider.overrideWithValue(
+            SmartWriteEnvironment(
+              wayland: false,
+              target: () async => 'editor',
+              foreground: () async => const ForegroundWindow(id: 'editor'),
+              copy: (text) async {
+                clipboardText = text;
+                return true;
+              },
+              grab: (_, _) async => true,
+              release: () async {},
+            ),
+          ),
           historyDatabaseProvider.overrideWith((ref) {
             ref.onDispose(db.close);
             return db;
@@ -9434,6 +9565,274 @@ void main() {
       expect(engine.runCalls, 0);
       expect(fakeDesktopPaste.pasteCalls, 0);
       expect(clipboardText, 'User clipboard');
+    });
+
+    test('write hotkey with a selection routes to selection editing, not '
+        'writing', () async {
+      final orch = await setUpSelectionEdit();
+      fakeDesktopPaste.onCopySelection = () => clipboardText = 'Selected.';
+      fakeStt.transcriptToReturn = 'make it shorter';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+
+      expect(container.read(selectionEditPreviewProvider), isNotNull);
+      expect(container.read(smartWritePreviewProvider), isNull);
+      expect(engine.lastUserText, contains('Selected.'));
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('write hotkey without a selection: hint, draft waits in the '
+        'preview, Enter pastes, no history entry', () async {
+      final orch = await setUpSelectionEdit();
+      engine.resultToReturn = 'Dear Mr. X, I must decline.';
+      fakeStt.transcriptToReturn = 'decline politely to Mr. X';
+      String? pasted;
+      fakeDesktopPaste.onPasteClipboard = () => pasted = clipboardText;
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(
+        container.read(smartWriteNoticeProvider)?.hint,
+        SmartWriteHint.noSelection,
+      );
+      expect(container.read(selectionEditPreviewProvider), isNull);
+      expect(
+        container.read(smartWritePreviewProvider)?.text,
+        'Dear Mr. X, I must decline.',
+      );
+      expect(fakeDesktopPaste.pasteCalls, 0, reason: 'preview first');
+
+      final outcome = await container
+          .read(smartWritePreviewProvider.notifier)
+          .insert();
+      expect(outcome, PasteOutcome.success);
+      expect(pasted, 'Dear Mr. X, I must decline.');
+      expect(clipboardText, 'User clipboard');
+      expect(await db.allEntries(), isEmpty);
+    });
+
+    test('write hotkey, Esc: nothing is inserted', () async {
+      final orch = await setUpSelectionEdit();
+      fakeStt.transcriptToReturn = 'write a greeting';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+      container.read(smartWritePreviewProvider.notifier).discard();
+
+      expect(container.read(smartWritePreviewProvider), isNull);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(clipboardText, 'User clipboard');
+    });
+
+    test('write hotkey, Esc while writing: the generation is stopped, no '
+        'draft, nothing pasted', () async {
+      final orch = await setUpSelectionEdit();
+      engine.hold = Completer<void>();
+      fakeStt.transcriptToReturn = 'write a greeting';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      final stop = orch.stopRecording();
+      await engine.started.future;
+      expect(engine.runCalls, 1, reason: 'writing has started');
+      await orch.cancelRecording();
+      engine.hold!.complete();
+      await stop;
+
+      expect(engine.cancelCalls, 1);
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(container.read(smartWritePreviewProvider), isNull);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('a new start drops a waiting write draft', () async {
+      final orch = await setUpSelectionEdit();
+      fakeStt.transcriptToReturn = 'write a greeting';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+      expect(container.read(smartWritePreviewProvider), isNotNull);
+
+      await orch.startRecording();
+      expect(container.read(smartWritePreviewProvider), isNull);
+      await orch.cancelRecording();
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('write hotkey, engine returns nothing: error code, no draft, '
+        'nothing pasted, clipboard restored', () async {
+      final orch = await setUpSelectionEdit();
+      engine.resultToReturn = '   ';
+      fakeStt.transcriptToReturn = 'write a greeting';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'smart_write_empty');
+      expect(container.read(smartWritePreviewProvider), isNull);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+      expect(clipboardText, 'User clipboard');
+    });
+
+    test('write hotkey, selection check fails: its own "unknown" error, '
+        'engine never called', () async {
+      final orch = await setUpSelectionEdit();
+      fakeDesktopPaste.copyStatus = NativePasteStatus.postFailed;
+      fakeStt.transcriptToReturn = 'write a greeting';
+
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'smart_write_selection_unknown');
+      expect(engine.runCalls, 0);
+      expect(container.read(smartWritePreviewProvider), isNull);
+    });
+
+    test('write refinement failure keeps the old draft and target', () async {
+      final orch = await setUpSelectionEdit();
+      fakeStt.transcriptToReturn = 'write a greeting';
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+      final previous = container.read(smartWritePreviewProvider)!;
+      engine.errorToThrow = TimeoutException('engine timeout');
+      fakeStt.transcriptToReturn = 'shorten it';
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+      final restored = container.read(smartWritePreviewProvider)!;
+      expect(restored.text, previous.text);
+      expect(restored.target, previous.target);
+      expect(restored.errorCode, 'smart_write_timeout');
+      expect(engine.lastUserText, contains('<draft>'));
+      expect(restored.rounds, previous.rounds, reason: 'no round counted');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    Future<void> refineWrite(
+      RecordingOrchestrator orch,
+      String instruction,
+      String result,
+    ) async {
+      engine.resultToReturn = result;
+      fakeStt.transcriptToReturn = instruction;
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      await orch.stopRecording();
+    }
+
+    test('write refinement: each success counts a round; after three the '
+        'limit stands and a fourth press records nothing (#250)', () async {
+      final orch = await setUpSelectionEdit();
+      await refineWrite(orch, 'write a greeting', 'Hello.');
+      expect(container.read(smartWritePreviewProvider)!.rounds, 0);
+
+      await refineWrite(orch, 'friendlier', 'Hello there.');
+      expect(engine.lastUserText, contains('Hello.'));
+      await refineWrite(orch, 'add a name', 'Hello there, Anna.');
+      await refineWrite(orch, 'shorter', 'Hi Anna.');
+      final limited = container.read(smartWritePreviewProvider)!;
+      expect(limited.text, 'Hi Anna.');
+      expect(limited.rounds, kSmartWriteMaxRefineRounds);
+      expect(limited.refineLimitReached, isTrue);
+
+      final starts = fakeAudio.startCallCount;
+      final runs = engine.runCalls;
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      expect(fakeAudio.startCallCount, starts, reason: 'no 4th recording');
+      expect(engine.runCalls, runs);
+      expect(container.read(recordingProvider).isRecording, isFalse);
+      final kept = container.read(smartWritePreviewProvider)!;
+      expect(kept.text, 'Hi Anna.');
+      expect(kept.serial, limited.serial, reason: 'the card stays as it is');
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('write refinement after editing works on the edited text and '
+        'replaces it with the new version (#254)', () async {
+      final orch = await setUpSelectionEdit();
+      await refineWrite(orch, 'write a greeting', 'Hello.');
+      final preview = container.read(smartWritePreviewProvider.notifier)
+        ..openEditor()
+        ..updateText('Hello, edited by hand.');
+      await refineWrite(orch, 'friendlier', 'Hello there, friend.');
+      expect(engine.lastUserText, contains('Hello, edited by hand.'));
+      final refined = container.read(smartWritePreviewProvider)!;
+      expect(refined.text, 'Hello there, friend.');
+      expect(refined.edited, isFalse);
+      expect(refined.editorOpen, isTrue, reason: 'editing goes on');
+      preview.updateText('Hello there, friend!');
+      expect(
+        container.read(smartWritePreviewProvider)!.text,
+        'Hello there, friend!',
+      );
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('write refinement: Enter while refining inserts nothing, Esc returns '
+        'to the preview with the last draft (#250)', () async {
+      final orch = await setUpSelectionEdit();
+      await refineWrite(orch, 'write a greeting', 'Hello.');
+      await refineWrite(orch, 'friendlier', 'Hello there.');
+      final before = container.read(smartWritePreviewProvider)!;
+
+      engine
+        ..resultToReturn = 'Never shown.'
+        ..hold = Completer<void>();
+      fakeStt.transcriptToReturn = 'shorter';
+      final runs = engine.runCalls;
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      final stop = orch.stopRecording();
+      await _untilTrue(
+        () => engine.runCalls > runs,
+        reason: 'the refinement never reached the engine',
+      );
+
+      // Enter: the card's key no longer holds a draft while refining.
+      final outcome = await container
+          .read(smartWritePreviewProvider.notifier)
+          .insert();
+      expect(outcome, isNull);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+
+      await orch.cancelRecording();
+      engine.hold!.complete();
+      await stop;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      final back = container.read(smartWritePreviewProvider)!;
+      expect(back.text, 'Hello there.');
+      expect(back.rounds, before.rounds);
+      expect(back.target, before.target);
+      expect(back.errorCode, isNull);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('write missing cloud key stops before microphone start', () async {
+      final orch = await setUpSelectionEdit(provider: 'openai');
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      expect(
+        container.read(recordingProvider).errorMessage,
+        'smart_write_missing_key',
+      );
+      expect(fakeAudio.startCallCount, 0);
+    });
+
+    test('write locked keyring stops before microphone start', () async {
+      final orch = await setUpSelectionEdit(
+        provider: 'openai',
+        keyring: KeyringAvailability.locked,
+      );
+      await orch.startRecording(target: RecordingTarget.smartWrite);
+      expect(
+        container.read(recordingProvider).errorMessage,
+        'smart_write_keyring_locked',
+      );
+      expect(fakeAudio.startCallCount, 0);
     });
 
     test('no engine (local model missing): setup hint before recording, '
@@ -9727,6 +10126,47 @@ void main() {
       );
     });
 
+    // #2116: with OpenAI as the Smart Mode engine every dictation reported
+    // only "could not be applied"; the notice now names the error class.
+    test('an OpenAI error names its cause in the Smart Mode notice', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'cleanup',
+            provider: 'openai',
+          ),
+          cloudProvider: CloudProviderSettings(openAiApiKey: 'sk-test'),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.errorToThrow = StateError(
+        'smart_mode_openai_error_403',
+      );
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, no access to the model';
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(clipboardText, 'raw text, no access to the model');
+      final en = lookupL10n(const Locale('en'));
+      expect(
+        fakeAttention.lastBody,
+        startsWith(
+          en.notificationSmartModeSkippedOpenAiNoModelAccess(
+            SmartModeOpenAiEngine.openAiModel,
+          ),
+        ),
+      );
+    });
+
     test('an engine failure (e.g. model load / decode error) falls back to '
         'the raw transcript and fires an OS notification — the paste is '
         'never blocked (ADR 0009)', () async {
@@ -9788,6 +10228,44 @@ void main() {
         );
       },
     );
+
+    test('a timeout on the own endpoint says the server may still be '
+        'loading its model (#1957)', () async {
+      RecordingOrchestrator.smartModeCleanupTimeoutOverride = const Duration(
+        milliseconds: 20,
+      );
+      container.dispose();
+      container = buildSmartModeContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          smartMode: SmartModeSettings(
+            standardPreset: 'cleanup',
+            provider: 'custom',
+          ),
+          cloudProvider: CloudProviderSettings(
+            customEndpointUrl: 'http://127.0.0.1:11434/v1',
+            customEndpointSmartModel: 'qwen3:8b',
+          ),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      final engineHold = fakeSmartModeEngine.hold = Completer<void>();
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, model still loading';
+      await orch.stopRecording();
+      engineHold.complete();
+      await _settleTurns();
+
+      expect(clipboardText, 'raw text, model still loading');
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastBody, startsWith(en.errorCustomEndpointSlow));
+    });
 
     test('a blank engine result is treated as a failure — never pastes an '
         'empty string where the user dictated real content', () async {

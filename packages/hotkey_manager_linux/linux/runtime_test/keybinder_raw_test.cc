@@ -171,6 +171,26 @@ int main(int argc, char** argv) {
   g_free(keypad);
   g_free(mapped);
 
+  // Flutter sends GDK_KEY_3270_Enter for Enter (write preview, #2161).
+  gchar* terminal_enter = gtk_accelerator_name(GDK_KEY_3270_Enter,
+                                               static_cast<GdkModifierType>(0));
+  gchar* enter = gtk_accelerator_name(
+      hotkey_keyval_from_flutter(GDK_KEY_3270_Enter),
+      static_cast<GdkModifierType>(0));
+  if (keybinder_bind(terminal_enter, OnHotkey, nullptr)) {
+    std::printf("FAIL: %s bound, the keyval check proves nothing\n",
+                terminal_enter);
+    failures++;
+  } else if (!keybinder_bind(enter, OnHotkey, nullptr)) {
+    std::printf("FAIL: the mapped Enter key %s does not bind\n", enter);
+    failures++;
+  } else {
+    std::printf("PASS: Enter from Flutter binds as %s\n", enter);
+    keybinder_unbind(enter, OnHotkey);
+  }
+  g_free(terminal_enter);
+  g_free(enter);
+
   g_timeout_add(400, Prepare, nullptr);
   gtk_main();
   return failures == 0 ? 0 : 1;

@@ -177,20 +177,28 @@ void main() {
       });
     });
 
-    test('a Wayland session is detected from the environment', () {
+    test('the backend, not the session type, decides', () {
       expect(
-        IdleCapsule.isWaylandSession({'XDG_SESSION_TYPE': 'wayland'}),
+        IdleCapsule.isNativeWaylandBackend({'GDK_BACKEND': 'wayland'}),
         isTrue,
       );
       expect(
-        IdleCapsule.isWaylandSession({'WAYLAND_DISPLAY': 'wayland-0'}),
+        IdleCapsule.isNativeWaylandBackend({'GDK_BACKEND': 'wayland,x11'}),
         isTrue,
       );
       expect(
-        IdleCapsule.isWaylandSession({'XDG_SESSION_TYPE': 'x11'}),
+        IdleCapsule.isNativeWaylandBackend({
+          'XDG_SESSION_TYPE': 'wayland',
+          'WAYLAND_DISPLAY': 'wayland-0',
+          'GDK_BACKEND': 'x11',
+        }),
         isFalse,
       );
-      expect(IdleCapsule.isWaylandSession(const {}), isFalse);
+      expect(
+        IdleCapsule.isNativeWaylandBackend({'XDG_SESSION_TYPE': 'wayland'}),
+        isFalse,
+      );
+      expect(IdleCapsule.isNativeWaylandBackend(const {}), isFalse);
     });
   });
 

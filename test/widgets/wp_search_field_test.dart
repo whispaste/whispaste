@@ -209,6 +209,26 @@ void main() {
   // AC9 — semanticsLabel names the field itself
   // -------------------------------------------------------------------------
   group('AC9 — semanticsLabel', () {
+    testWidgets('a labelled field keeps its placeholder on one line, so a '
+        'narrow field does not grow taller', (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          Center(
+            child: SizedBox(
+              width: 120,
+              child: _field(controller: controller, semanticsLabel: 'Suche'),
+            ),
+          ),
+        ),
+      );
+      final hint = tester.widget<Text>(find.text('Suchen…'));
+      expect(hint.maxLines, 1);
+      expect(hint.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'a label that genuinely differs from the hint lands on the same node '
       'as the field\'s own actions and state — not on a separate, '
@@ -228,13 +248,12 @@ void main() {
         // above the field's own — that node carries no actions/isFocusable,
         // so a reader would land on it first and never reach an announced,
         // operable field. Asserting label and interaction flags together on
-        // the *same* node is what pins that regression shut. 'Suche Notizen'
-        // says something the hint ('Suchen…') doesn't, so it's kept
-        // alongside it rather than deduplicated away.
+        // the *same* node is what pins that regression shut. The placeholder
+        // ('Suchen…') is visual only, so the label is the whole name.
         expect(
           tester.getSemantics(find.byType(EditableText)),
           matchesSemantics(
-            label: 'Suche Notizen\nSuchen…',
+            label: 'Suche Notizen',
             isTextField: true,
             isFocusable: true,
             hasEnabledState: true,
@@ -263,15 +282,12 @@ void main() {
           ),
         );
 
-        // The field's own `hintText` ('Suchen…') already carries the label
-        // on this merged node. Stacking 'Suchen' on top of it would repeat
-        // the same word twice — the exact bug class this whole a11y sweep
-        // exists to prevent — so this axis suppresses the redundant half
-        // while still applying `MergeSemantics`'s boundary.
+        // The placeholder ('Suchen…') stays out of the tree, so the label is
+        // read once and not followed by the same word again.
         expect(
           tester.getSemantics(find.byType(EditableText)),
           matchesSemantics(
-            label: 'Suchen…',
+            label: 'Suchen',
             isTextField: true,
             isFocusable: true,
             hasEnabledState: true,
@@ -281,6 +297,29 @@ void main() {
           ),
         );
 
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'the label still names the field once text hides the placeholder '
+      '(#1916: the name was the placeholder and vanished with it)',
+      (tester) async {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          makeTestable(
+            _field(controller: controller, semanticsLabel: 'Suche Notizen'),
+          ),
+        );
+        await tester.enterText(find.byType(EditableText), 'Brief');
+        await tester.pumpAndSettle();
+
+        final node = tester.getSemantics(find.byType(EditableText));
+        expect(node.label, 'Suche Notizen');
+        expect(node.value, 'Brief');
         handle.dispose();
       },
     );

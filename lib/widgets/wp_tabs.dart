@@ -335,8 +335,13 @@ class _WpTab extends StatelessWidget {
       fontFamilyFallback: kWpFontFallback,
     );
 
+    // The desktop engines derive the accessibility role from the flags only
+    // and ignore `role`: without `button` a tab reached macOS and Windows as
+    // static text, with no press action and no selection (#1918). `role`
+    // stays for the web and future engines.
     return Semantics(
       role: SemanticsRole.tab,
+      button: true,
       selected: selected,
       identifier: identifier,
       // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).

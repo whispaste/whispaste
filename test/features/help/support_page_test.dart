@@ -14,6 +14,7 @@ import 'package:whispaste/core/overview/overview_logic.dart';
 import 'package:whispaste/features/overview/overview_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/help/support_page.dart';
+import 'package:whispaste/features/help/support_value.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/social_stats/social_stats_logic.dart';
@@ -23,20 +24,11 @@ import 'package:whispaste/services/support/support_state.dart';
 import '../../fixtures/support_fakes.dart';
 import '../../fixtures/test_helpers.dart';
 
-const _externalKeys = [
+const _paymentKeys = [
   'support-sponsors-button',
   'support-kofi-button',
   'support-buy-me-a-coffee-button',
   'support-paypal-button',
-  'support-share-x',
-  'support-share-facebook',
-  'support-share-whatsapp',
-  'support-share-linkedin',
-  'support-share-reddit',
-  'support-share-telegram',
-  'support-share-bluesky',
-  'support-share-email',
-  'support-star-button',
 ];
 
 Future<FakeSupportStatusNotifier> _pump(
@@ -46,6 +38,7 @@ Future<FakeSupportStatusNotifier> _pump(
   SupportStatus status = const SupportStatus(),
   SocialStatsView socialStats = const SocialStatsView(),
   bool buyMeACoffeeFirst = false,
+  SupportValue? value,
 }) async {
   final notifier = FakeSupportStatusNotifier(status);
   await tester.pumpWidget(
@@ -58,6 +51,7 @@ Future<FakeSupportStatusNotifier> _pump(
         status: notifier,
         socialStats: socialStats,
         buyMeACoffeeFirst: buyMeACoffeeFirst,
+        value: value,
       ),
     ),
   );
@@ -120,6 +114,34 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
+  testWidgets('value line names the local figures when there are any (#2202)', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      channel: DeployChannel.portable,
+      platform: SupportPlatform.linux,
+      value: (words: 12345, savedMinutes: 246),
+    );
+
+    expect(
+      find.text(
+        l10n.supportValueLine('12,345', l10n.analyticsDurationHours('4.1')),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('no value line without figures (#2202)', (tester) async {
+    await _pump(
+      tester,
+      channel: DeployChannel.portable,
+      platform: SupportPlatform.linux,
+    );
+
+    expect(find.byKey(_key('support-value-line')), findsNothing);
+  });
+
   testWidgets('macOS direct build shows the Mac App Store card', (
     tester,
   ) async {
@@ -130,9 +152,26 @@ void main() {
     );
 
     expect(find.text(l10n.supportStoreTitleMac), findsOneWidget);
+    expect(find.text(l10n.supportStoreFactManagedMac), findsOneWidget);
+    expect(find.text(l10n.supportStoreFactManagedWindows), findsNothing);
     expect(find.byKey(_key('support-store-cta')), findsOneWidget);
     expect(find.byKey(_key('support-sponsors-button')), findsOneWidget);
     expect(find.byKey(_key('support-native-tip-button')), findsNothing);
+  });
+
+  testWidgets('Windows direct build gives the Windows store reasons', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      channel: DeployChannel.installer,
+      platform: SupportPlatform.windows,
+    );
+
+    expect(find.text(l10n.supportStoreTitleWindows), findsOneWidget);
+    expect(find.text(l10n.supportStoreFactManagedWindows), findsOneWidget);
+    expect(find.text(l10n.supportStoreFactManagedMac), findsNothing);
+    expect(find.text(l10n.supportStoreFactOneTime), findsOneWidget);
   });
 
   testWidgets('Linux build offers sponsoring only, no store card', (
@@ -174,7 +213,7 @@ void main() {
   });
 
   testWidgets(
-    'Mac App Store build offers the native tip first, then every external channel',
+    'Mac App Store build offers the native tip and no external payment link',
     (tester) async {
       await _pump(
         tester,
@@ -185,11 +224,13 @@ void main() {
       expect(find.byKey(_key('support-native-tip-button')), findsOneWidget);
       expect(find.byKey(_key('support-share-link')), findsOneWidget);
       expect(find.byKey(_key('support-rate-button')), findsOneWidget);
-      for (final id in _externalKeys) {
+      // Guideline 3.1.1: no link to another purchasing mechanism (#2202);
+      // sharing stays.
+      for (final id in _paymentKeys) {
         expect(
           find.byKey(_key(id)),
-          findsOneWidget,
-          reason: '$id must exist in the MAS build',
+          findsNothing,
+          reason: '$id must not exist in the MAS build',
         );
       }
       expect(find.byKey(_key('support-store-card')), findsNothing);

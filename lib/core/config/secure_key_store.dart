@@ -133,6 +133,12 @@ class SecureKeysNotRemovedException implements Exception {
 /// keyring. [PlatformException.details] is `'locked'` or `'unreachable'`.
 const keyringLockedCode = 'KeyringLocked';
 
+/// Whether [error] is a call [SecureKeyStore] skipped because the keyring is
+/// locked or unreachable (Linux). A state of the user's session, not a fault:
+/// callers show it in the app and log it as a warning, not as an error.
+bool isKeyringUnavailable(Object error) =>
+    error is PlatformException && error.code == keyringLockedCode;
+
 /// Whether [error] means "no Secret Service on this machine right now", as
 /// opposed to a keyring that is merely locked.
 bool isKeyringUnreachable(Object error) =>

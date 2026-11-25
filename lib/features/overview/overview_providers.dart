@@ -39,6 +39,8 @@ const _kWhatsNewClosed = 'overview_whats_new_closed';
 const _kWhatsNewOpened = 'overview_whats_new_opened';
 const _kHiddenBlocks = 'overview_hidden_blocks';
 const _kShownBlocks = 'overview_shown_blocks';
+const _kBlockOrder = 'overview_block_order';
+const _kSideBlocks = 'overview_side_blocks';
 const _kMilestonesSeen = 'overview_milestones_seen';
 const _kAskCardDay = 'overview_ask_card_day';
 
@@ -52,9 +54,11 @@ class OverviewPrefs {
     this.openedVersion,
     this.hiddenBlocks = const {},
     this.shownBlocks = const {},
+    this.blockOrder = kOverviewDefaultBlockOrder,
+    Set<OverviewBlock>? sideBlocks,
     this.milestonesSeen = const {},
     this.askCardDay,
-  });
+  }) : sideBlocks = sideBlocks ?? kOverviewDefaultSideBlocks;
 
   /// False until the stored values were read; nothing is decided before.
   final bool loaded;
@@ -70,6 +74,18 @@ class OverviewPrefs {
 
   /// Blocks switched on in "Übersicht anpassen" (blocks off by default).
   final Set<OverviewBlock> shownBlocks;
+
+  /// The order of the blocks (#1970), shown or not, so a block switched on
+  /// again returns to its place. Stored only once the user moved a card.
+  final List<OverviewBlock> blockOrder;
+
+  /// The blocks in the side column of the wide layout (#1970).
+  final Set<OverviewBlock> sideBlocks;
+
+  /// Whether order or columns differ from the default layout.
+  bool get layoutIsCustom =>
+      overviewBlockOrderIsCustom(blockOrder) ||
+      overviewSideBlocksAreCustom(sideBlocks);
 
   /// Whether [block] is on the page.
   bool isBlockShown(OverviewBlock block) =>
@@ -91,6 +107,8 @@ class OverviewPrefs {
     String? openedVersion,
     Set<OverviewBlock>? hiddenBlocks,
     Set<OverviewBlock>? shownBlocks,
+    List<OverviewBlock>? blockOrder,
+    Set<OverviewBlock>? sideBlocks,
     Set<int>? milestonesSeen,
     String? askCardDay,
   }) => OverviewPrefs(
@@ -101,6 +119,8 @@ class OverviewPrefs {
     openedVersion: openedVersion ?? this.openedVersion,
     hiddenBlocks: hiddenBlocks ?? this.hiddenBlocks,
     shownBlocks: shownBlocks ?? this.shownBlocks,
+    blockOrder: blockOrder ?? this.blockOrder,
+    sideBlocks: sideBlocks ?? this.sideBlocks,
     milestonesSeen: milestonesSeen ?? this.milestonesSeen,
     askCardDay: askCardDay ?? this.askCardDay,
   );
@@ -142,6 +162,12 @@ class OverviewPrefsNotifier extends Notifier<OverviewPrefs> {
         ),
         shownBlocks: overviewShownBlocksFromStored(
           await db.readAppSetting(_kShownBlocks),
+        ),
+        blockOrder: overviewBlockOrderFromStored(
+          await db.readAppSetting(_kBlockOrder),
+        ),
+        sideBlocks: overviewSideBlocksFromStored(
+          await db.readAppSetting(_kSideBlocks),
         ),
         milestonesSeen: {
           for (final id
@@ -217,6 +243,32 @@ class OverviewPrefsNotifier extends Notifier<OverviewPrefs> {
     }
   }
 
+  /// Stores a new order of the blocks (#1970), from a drag or the keyboard.
+  Future<void> setBlockOrder(List<OverviewBlock> order) async {
+    state = state.copyWith(blockOrder: List.unmodifiable(order));
+    await _write(_kBlockOrder, overviewBlockOrderToStored(order));
+  }
+
+  /// Puts [block] into the side column or the main column of the wide
+  /// layout (#1970).
+  Future<void> setBlockSide(OverviewBlock block, {required bool side}) async {
+    final next = {...state.sideBlocks};
+    side ? next.add(block) : next.remove(block);
+    state = state.copyWith(sideBlocks: Set.unmodifiable(next));
+    await _write(_kSideBlocks, overviewSideBlocksToStored(next));
+  }
+
+  /// Back to the default order and columns; the stored values go back to
+  /// "default", so a later version may change the default again.
+  Future<void> resetBlockOrder() async {
+    state = state.copyWith(
+      blockOrder: kOverviewDefaultBlockOrder,
+      sideBlocks: kOverviewDefaultSideBlocks,
+    );
+    await _write(_kBlockOrder, '');
+    await _write(_kSideBlocks, kOverviewSideBlocksDefault);
+  }
+
   /// The Übersicht was opened in [version]: the nav dot goes away.
   Future<void> markOpened(String version) async {
     if (state.openedVersion == version) return;
@@ -234,7 +286,7 @@ class OverviewPrefsNotifier extends Notifier<OverviewPrefs> {
     await _write(_kAskCardDay, day);
   }
 
-  /// The rate/share or support card was answered on [now]: no other ask
+  /// The rating dialog or an ask card was answered on [now]: no other ask
   /// card follows that day (one shared day rule for all ask cards).
   Future<void> noteAskCardDay(DateTime now) async {
     final day = overviewDayKey(now);

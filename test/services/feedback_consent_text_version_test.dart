@@ -96,17 +96,25 @@ void main() {
     }
   });
 
-  test('every version covers every locale and differs from all others', () {
+  test('the current version covers every locale, every version differs '
+      'from all others', () {
     final locales = {for (final l in L10n.supportedLocales) l.languageCode};
     final entries = kFeedbackConsentTextHashes.entries.toList();
+    // A new app language adds its hash to the current version only: no text
+    // a user saw changes, and older versions keep the languages they had
+    // (#1951).
+    expect(current?.keys.toSet(), locales, reason: kFeedbackConsentTextVersion);
     for (final entry in entries) {
-      expect(entry.value.keys.toSet(), locales, reason: entry.key);
+      expect(locales.containsAll(entry.value.keys), isTrue, reason: entry.key);
     }
     for (var i = 0; i < entries.length; i++) {
       for (var j = i + 1; j < entries.length; j++) {
-        // A new version changes the text in at least one locale.
+        final shared = entries[i].value.keys.toSet().intersection(
+          entries[j].value.keys.toSet(),
+        );
+        // A new version changes the text in at least one shared locale.
         expect(
-          locales.any((l) => entries[i].value[l] != entries[j].value[l]),
+          shared.any((l) => entries[i].value[l] != entries[j].value[l]),
           isTrue,
           reason:
               '${entries[i].key} and ${entries[j].key} record the same text',
@@ -124,93 +132,6 @@ void main() {
     expect(numbers, [for (var n = 1; n <= numbers.length; n++) n]);
     expect(kFeedbackConsentTextVersion, kFeedbackConsentTextHashes.keys.last);
   });
-
-  test('the server allowlist accepts exactly the known versions', () {
-    final files =
-        Directory('supabase/migrations')
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.endsWith('.sql'))
-            .toList()
-          ..sort((a, b) => a.path.compareTo(b.path));
-    final lists = consentAllowlists(
-      [for (final f in files) f.readAsStringSync()].join('\n'),
-    );
-
-    final known = kFeedbackConsentTextHashes.keys.toSet();
-    expect(lists.check, known, reason: 'CHECK constraint allowlist');
-    expect(lists.trigger, known, reason: 'trigger allowlist');
-  });
-
-  test('only CHECK constraints and consent functions count', () {
-    const sql = """
-ALTER TABLE t ADD COLUMN consent_text_version text
-  CHECK (consent_text_version IS NULL
-         OR consent_text_version IN ('feedback-quote-v1'));
-CREATE OR REPLACE FUNCTION public.stamp_feedback_publish_consent()
-RETURNS trigger LANGUAGE plpgsql AS \$function\$
-BEGIN
-  IF NEW.consent_text_version NOT IN ('feedback-quote-v1') THEN
-    NEW.consent_text_version := NULL;
-  END IF;
-  RETURN NEW;
-END;
-\$function\$;
--- ALTER TABLE t ADD CONSTRAINT c CHECK (consent_text_version IN ('old'));
-/* CHECK (consent_text_version IN ('old')) */
--- Later backfills and queries must not count as allowlists.
-UPDATE t SET x = 1 WHERE consent_text_version NOT IN ('other');
-SELECT count(*) FROM t WHERE consent_text_version IN ('other');
-CREATE FUNCTION public.unrelated() RETURNS void AS \$function\$
-BEGIN
-  PERFORM 1 WHERE 'a' NOT IN ('b');
-END;
-\$function\$;
-""";
-    final lists = consentAllowlists(sql);
-    expect(lists.check, {'feedback-quote-v1'});
-    expect(lists.trigger, {'feedback-quote-v1'});
-  });
-}
-
-/// The consent text version allowlists as the database enforces them: the
-/// last CHECK constraint on consent_text_version and the last NOT IN list in
-/// the body of a function whose name mentions consent. Backfills, queries and
-/// other functions are ignored (DEV-258).
-({Set<String>? check, Set<String>? trigger}) consentAllowlists(String sql) {
-  // Commented-out SQL is not enforced.
-  sql = sql
-      .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), ' ')
-      .replaceAll(RegExp(r'--[^\n]*'), ' ');
-
-  Set<String>? quoted(String? list) => list == null
-      ? null
-      : {for (final m in RegExp(r"'([^']+)'").allMatches(list)) m.group(1)!};
-
-  final checks = RegExp(
-    r'CHECK\s*\((?:(?!CHECK)[^;])*?consent_text_version\s+IN\s*\(([^)]*)\)',
-    caseSensitive: false,
-  ).allMatches(sql);
-
-  String? triggerList;
-  final functions = RegExp(
-    r'CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+[\w.]*consent\w*\s*\([^)]*\)'
-    r'.*?\$function\$(.*?)\$function\$',
-    caseSensitive: false,
-    dotAll: true,
-  );
-  for (final function in functions.allMatches(sql)) {
-    final lists = RegExp(
-      r'consent_text_version\s+NOT\s+IN\s*\(([^)]*)\)',
-      caseSensitive: false,
-    ).allMatches(function.group(1)!);
-    if (lists.isNotEmpty) triggerList = lists.last.group(1);
-  }
-
-  return (
-    check: quoted(checks.isEmpty ? null : checks.last.group(1)),
-    trigger: quoted(triggerList),
-  );
 }
 
 /// Released versions from the frozen file. "_comment" is its only non-version

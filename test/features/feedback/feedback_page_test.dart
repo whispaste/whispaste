@@ -14,6 +14,7 @@ import 'package:whispaste/services/feedback_submission_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations_en.dart';
 
 // ---------------------------------------------------------------------------
 // Service factories for testing
@@ -108,6 +109,18 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('the message field says what goes in it before a type is '
+        'chosen (#1845)', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(L10nEn().feedbackPromptOther), findsOneWidget);
+    });
+
     testWidgets('submit button is disabled before inputs are filled', (
       tester,
     ) async {
@@ -174,6 +187,31 @@ void main() {
       await fillRequiredInputs(tester);
 
       expect(_submitButton(tester).onPressed, isNotNull);
+    });
+
+    // #1916: the e-mail field was named by its placeholder only; its name is
+    // the visible "Email (optional)", read once.
+    testWidgets('the email field is named like its heading', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final field = find.descendant(
+        of: find.byKey(const Key('feedbackEmailField')),
+        matching: find.byType(EditableText),
+      );
+      // Merged data: label, text-field flag and identifier share one node.
+      final node = tester.getSemantics(field).getSemanticsData();
+      expect(node.flagsCollection.isTextField, isTrue);
+      expect(node.label, startsWith('Email (optional)'));
+      expect(node.identifier, 'feedback-email-field');
+      expect(find.bySemanticsLabel('Email (optional)'), findsNothing);
+      handle.dispose();
     });
 
     testWidgets('an invalid email disables submit and shows an inline error', (

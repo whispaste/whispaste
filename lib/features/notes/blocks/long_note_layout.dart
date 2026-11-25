@@ -193,6 +193,9 @@ class NoteRows {
   /// 1 to 6 for the first row of a heading block, otherwise 0.
   int headingLevelOf(int row) => _headingLevels[row];
 
+  /// Block the row belongs to (a long block spans several rows).
+  int blockOf(int row) => _blocks[row];
+
   /// First row of [block] (rows are sorted by block).
   int firstRowOfBlock(int block) {
     var lo = 0;
@@ -267,7 +270,13 @@ class LayoutKey {
     required this.width,
     required this.textScale,
     required this.devicePixelRatio,
+    this.lineHeight = defaultLineHeight,
   });
+
+  /// Line height factor of the editor's text when nothing else is chosen —
+  /// the same as the single text field's (WpTextFieldVariant.bare), so both
+  /// editors look alike.
+  static const defaultLineHeight = 1.65;
 
   /// Width available to the text.
   final double width;
@@ -278,15 +287,20 @@ class LayoutKey {
   /// Physical zoom of the window (display scale factor).
   final double devicePixelRatio;
 
+  /// Line height factor chosen in the editor text view (#648).
+  final double lineHeight;
+
   @override
   bool operator ==(Object other) =>
       other is LayoutKey &&
       (other.width - width).abs() < 0.5 &&
       other.textScale == textScale &&
-      other.devicePixelRatio == devicePixelRatio;
+      other.devicePixelRatio == devicePixelRatio &&
+      other.lineHeight == lineHeight;
 
   @override
-  int get hashCode => Object.hash(width.round(), textScale, devicePixelRatio);
+  int get hashCode =>
+      Object.hash(width.round(), textScale, devicePixelRatio, lineHeight);
 }
 
 /// Height of every row: estimated from its text length until it is laid out
@@ -300,23 +314,52 @@ class HeightIndex {
   PrefixSums _heights = PrefixSums(const []);
   List<bool> _measured = const [];
 
+  /// Heights as estimated or measured, also for hidden rows.
+  List<double> _real = const [];
+
+  /// Rows inside a folded section (#1344): they keep their [_real] height
+  /// but take no room, so offsets, anchors and jumps skip them.
+  List<bool> _hidden = const [];
+
   int get length => _heights.length;
 
   bool isMeasured(int row) => _measured[row];
 
+  /// Height the row takes on screen: 0 while it is hidden.
   double heightOf(int row) => _heights[row];
 
+  bool isHidden(int row) => row < _hidden.length && _hidden[row];
+
   double offsetOf(int row) => _heights.sumBefore(row);
+
+  /// Hides the rows marked in [hidden] (one flag per row) and shows all
+  /// others. A mask of another length than the rows is kept for the next
+  /// layout and applied once it fits.
+  void setHidden(List<bool> hidden) {
+    _hidden = List.of(hidden);
+    if (_hidden.length != _real.length) return;
+    for (var i = 0; i < _real.length; i++) {
+      _heights.set(i, _hidden[i] ? 0 : _real[i]);
+    }
+  }
+
+  void _rebuild(List<double> real, List<bool> measured) {
+    _real = real;
+    _measured = measured;
+    final hide = _hidden.length == real.length;
+    _heights = PrefixSums([
+      for (var i = 0; i < real.length; i++) hide && _hidden[i] ? 0.0 : real[i],
+    ]);
+  }
 
   /// Re-estimates every row when [key] differs from the key the heights were
   /// taken with (zoom, window width, text scale). Returns whether it did.
   bool ensureLayout(LayoutKey key, NoteRows rows, double fontSize) {
     if (key == _key && rows.length == length) return false;
     _key = key;
-    _heights = PrefixSums([
+    _rebuild([
       for (var i = 0; i < rows.length; i++) estimate(rows, i, key, fontSize),
-    ]);
-    _measured = List.filled(rows.length, false);
+    ], List.filled(rows.length, false));
     return true;
   }
 
@@ -349,19 +392,18 @@ class HeightIndex {
     final measured = <bool>[];
     for (var i = 0; i < newRows.length; i++) {
       if (i < head) {
-        heights.add(_heights[i]);
+        heights.add(_real[i]);
         measured.add(_measured[i]);
       } else if (i >= newRows.length - tail) {
         final old = oldRows.length - (newRows.length - i);
-        heights.add(_heights[old]);
+        heights.add(_real[old]);
         measured.add(_measured[old]);
       } else {
         heights.add(estimate(newRows, i, key, fontSize));
         measured.add(false);
       }
     }
-    _heights = PrefixSums(heights);
-    _measured = measured;
+    _rebuild(heights, measured);
   }
 
   /// Records the laid-out height of [row]. Returns whether the index changed
@@ -369,7 +411,9 @@ class HeightIndex {
   bool measure(int row, double height) {
     if (row >= length) return false;
     _measured[row] = true;
-    if ((_heights[row] - height).abs() < 0.5) return false;
+    if ((_real[row] - height).abs() < 0.5) return false;
+    _real[row] = height;
+    if (isHidden(row)) return false;
     _heights.set(row, height);
     return true;
   }
@@ -379,7 +423,8 @@ class HeightIndex {
   void reestimate(NoteRows rows, int row, double fontSize) {
     final key = _key;
     if (key == null || row >= length || _measured[row]) return;
-    _heights.set(row, estimate(rows, row, key, fontSize));
+    _real[row] = estimate(rows, row, key, fontSize);
+    if (!isHidden(row)) _heights.set(row, _real[row]);
   }
 
   /// Row and offset into it at [scrollOffset].
@@ -409,12 +454,8 @@ class HeightIndex {
     // Blank lines of the separator show inside the row (see segmentEnd).
     final blank = math.max(0, rows.gapOf(row) - 1);
     final lines = math.max(1, wrapped) + rows.lineBreaksOf(row) + blank;
-    return lines * size * lineHeight;
+    return lines * size * key.lineHeight;
   }
-
-  /// Line height factor of the editor's text — the same as the single text
-  /// field's (WpTextFieldVariant.bare), so both editors look alike.
-  static const lineHeight = 1.65;
 }
 
 /// Length thresholds of a note, in characters (UTF-16 code units).

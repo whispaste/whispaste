@@ -3,9 +3,11 @@
 #include <flutter/encodable_value.h>
 
 #include "app_identity_host.h"
+#include "clipboard_receipt_policy.h"
 #include "undo_policy.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -80,6 +82,29 @@ struct ClipboardBackup {
   bool had_text = false;
   std::wstring text;
 };
+
+// Process id of `window`, 0 for no window (a reader that opened the
+// clipboard without one) or a window that is gone.
+uint32_t ProcessOfWindow(HWND window) {
+  if (window == nullptr) return 0;
+  DWORD pid = 0;
+  ::GetWindowThreadProcessId(window, &pid);
+  return static_cast<uint32_t>(pid);
+}
+
+// File name of the program behind `pid` (no path, see ExeBaseName), empty
+// when it is unknown or not readable. Log-only.
+std::wstring ProcessFileName(uint32_t pid) {
+  if (pid == 0) return std::wstring();
+  HANDLE process =
+      ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (process == nullptr) return std::wstring();
+  wchar_t path[MAX_PATH];
+  DWORD size = MAX_PATH;
+  const BOOL ok = ::QueryFullProcessImageNameW(process, 0, path, &size);
+  ::CloseHandle(process);
+  return ok ? ExeBaseName(std::wstring(path, size)) : std::wstring();
+}
 
 // OpenClipboard fails outright while any other process holds the clipboard
 // open -- routinely the case for a few ms right after every clipboard
@@ -409,6 +434,10 @@ void DesktopPasteHost::HandleMethodCall(
   if (method == "receiptDiagnostics") {
     result->Success(MakeResultMap(
         "ok", "preReads=" + std::to_string(receipt_pre_reads_) +
+                  " declined=" + std::to_string(receipt_declined_) +
+                  " earlyReaders=" +
+                  Utf8FromUtf16(
+                      JoinEarlyReaders(receipt_early_readers_).c_str()) +
                   " firstReadAfterKey=" +
                   (receipt_first_read_after_ms_ < 0
                        ? std::string("none")
@@ -491,6 +520,36 @@ void DesktopPasteHost::HandleMethodCall(
 
   if (method == "sendEnter") {
     result->Success(EncodableValue(SendEnterKey()));
+    return;
+  }
+
+  if (method == "watchUndoShortcut") {
+    // Model telemetry (#2078): watch for the user's own Ctrl+Z in another
+    // program for {seconds} after an auto-paste, on the undo watch's hooks.
+    // Answers {watching, seen} (seen: the previous watch saw one).
+    int seconds = 0;
+    if (map) {
+      const auto it = map->find(EncodableValue("seconds"));
+      if (it != map->end()) {
+        if (const auto* value = std::get_if<int32_t>(&it->second)) {
+          seconds = *value;
+        }
+      }
+    }
+    seconds = std::clamp(seconds, 0, 60);
+    if (!undo_watcher_.alive()) WakeUndoWatch();
+    const bool watching = seconds > 0 && undo_watcher_.alive();
+    const bool seen = undo_watcher_.WatchUndoShortcut(
+        watching ? ::GetTickCount64() + seconds * 1000ULL : 0);
+    EncodableMap response;
+    response[EncodableValue("watching")] = EncodableValue(watching);
+    response[EncodableValue("seen")] = EncodableValue(seen);
+    result->Success(EncodableValue(std::move(response)));
+    return;
+  }
+
+  if (method == "takeUndoShortcut") {
+    result->Success(EncodableValue(undo_watcher_.TakeUndoShortcut()));
     return;
   }
 
@@ -754,6 +813,8 @@ bool DesktopPasteHost::WriteClipboardTextWithReceipt(const std::string& text) {
   receipt_keystroke_posted_ = false;
   receipt_read_ = false;
   receipt_pre_reads_ = 0;
+  receipt_declined_ = 0;
+  receipt_early_readers_.clear();
   receipt_keystroke_tick_ = 0;
   receipt_first_read_after_ms_ = -1;
   return true;
@@ -940,13 +1001,29 @@ void DesktopPasteHost::ResolvePendingRead(const std::string& status) {
 bool DesktopPasteHost::HandleClipboardOwnerMessage(UINT message,
                                                    WPARAM wparam) {
   switch (message) {
-    case WM_RENDERFORMAT:
+    case WM_RENDERFORMAT: {
       if (wparam != CF_UNICODETEXT) return false;
-      RenderReceiptText();
-      if (receipt_active_ && !receipt_keystroke_posted_) {
-        ++receipt_pre_reads_;
+      // Windows renders only once, so a monitor reading before the keystroke
+      // would take the receipt from the target's paste (see
+      // clipboard_receipt_policy.h). The reader is the window that has the
+      // clipboard open.
+      const uint32_t reader = ProcessOfWindow(::GetOpenClipboardWindow());
+      const uint32_t own = ::GetCurrentProcessId();
+      const ReceiptRender decision =
+          DecideReceiptRender(receipt_active_, receipt_keystroke_posted_,
+                              reader, own, ProcessOfWindow(target_window_));
+      if ((decision == ReceiptRender::kDecline ||
+           decision == ReceiptRender::kRenderPreRead) &&
+          reader != own) {
+        NoteEarlyReader(&receipt_early_readers_, ProcessFileName(reader));
       }
-      if (receipt_active_ && receipt_keystroke_posted_) {
+      if (decision == ReceiptRender::kDecline) {
+        ++receipt_declined_;
+        return true;
+      }
+      RenderReceiptText();
+      if (decision == ReceiptRender::kRenderPreRead) ++receipt_pre_reads_;
+      if (decision == ReceiptRender::kRenderRead) {
         if (receipt_first_read_after_ms_ < 0) {
           receipt_first_read_after_ms_ = static_cast<long long>(
               ::GetTickCount64() - receipt_keystroke_tick_);
@@ -955,6 +1032,7 @@ bool DesktopPasteHost::HandleClipboardOwnerMessage(UINT message,
         ResolvePendingRead("read");
       }
       return true;
+    }
     case WM_RENDERALLFORMATS:
       // We are going away while still owning announced-but-unrendered
       // text -- render it so the clipboard keeps the transcript.

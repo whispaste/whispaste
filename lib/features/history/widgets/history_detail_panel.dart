@@ -14,6 +14,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/navigation/page_state.dart'
     show activePageProvider, notesEditorTargetProvider;
+import '../../help/help_shortcuts.dart';
 import '../../../core/recording/recording_helpers.dart'
     show displayNameForModel;
 import '../../../core/text/markdown_plain_text.dart';
@@ -28,7 +29,6 @@ import 'package:whispaste/core/data/entry_version_rules.dart';
 import 'package:whispaste/core/data/tag_suggestions.dart';
 
 import '../../../core/config/command_shortcut.dart';
-import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../services/history/history_exporter.dart' as history_exporter;
 import '../../../services/paste/auto_paste_blocklist.dart';
@@ -38,8 +38,9 @@ import '../../../services/pending_audio/pending_audio_queue.dart'
     show PendingRetryOutcome;
 import '../../../services/recording_orchestrator.dart'
     show recordingOrchestratorProvider;
+import '../../dictionary/term_store.dart';
+import '../../../services/dictionary/contact_terms.dart';
 import '../../dictionary/correction_term_offer.dart';
-import '../../dictionary/role_terms.dart';
 import '../../../services/replacements/correction_learning_service.dart';
 import '../../../services/replacements/correction_signal.dart';
 import '../../notes/data/notes_actions.dart';
@@ -49,6 +50,7 @@ import '../data/providers.dart' show historySearchProvider;
 import 'smart_mode_undo_actions.dart';
 import 'highlighted_text.dart';
 import 'transcript_versions_dialog.dart';
+import 'transcript_audio_section.dart';
 import 'history_notes_section.dart';
 import '../../../services/audio/encryption/recording_vault.dart';
 import '../../../services/audio/retranscribe_entry.dart';
@@ -62,6 +64,7 @@ import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/find_replace.dart';
 import '../../../widgets/tag_input.dart';
+import '../../../widgets/smart_mode_language_picker.dart';
 import '../../../widgets/wp_save_status.dart';
 import '../../../widgets/markdown_toolbar.dart' show WpMarkdownFormatting;
 import '../../snippets/snippets_page.dart' show insertSnippetAtCursor;
@@ -71,6 +74,7 @@ import '../../../widgets/wp_app_icon.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_markdown_view.dart';
+import '../../../widgets/editor_text_view_scope.dart';
 import '../../../widgets/wp_text_field.dart';
 import 'tag_management_dialog.dart';
 import '../../../core/utils/focus_helpers.dart';
@@ -80,13 +84,14 @@ import '../../../widgets/wp_copy_feedback.dart';
 
 import '../../../widgets/wp_page_notice.dart';
 import 'history_write_failure.dart';
+import '../../links/entry_link_picker.dart' show pickEntryLinkText;
+import '../../links/entry_links_section.dart';
+import '../../../core/text/entry_link.dart' show EntryLinkKind;
+import '../../../services/smart_mode/editor_smart_action.dart';
+import '../../smart_actions/editor_smart_action_flow.dart';
 import '../../../widgets/wp_banner.dart';
 import '../../../services/smart_mode/smart_mode_presets.dart'
-    show
-        SmartModePreset,
-        SmartModeTargetLanguage,
-        parseReprocessInstruction,
-        smartModeValidatedTargetLanguages;
+    show SmartModePreset, SmartModeTargetLanguage, parseReprocessInstruction;
 import '../../../services/smart_mode/smart_mode_retroactive_service.dart'
     show SmartModeRetroactiveFailureReason;
 
@@ -191,6 +196,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   /// change nothing and tells the final save whether a write is still due.
   String _lastPersisted = '';
 
+  /// The next write of the open session starts a new version (#650).
+  bool _versionBreakPending = false;
+
   /// Text last handed to [_draftSave]; a cursor move must not reschedule.
   String _lastScheduled = '';
 
@@ -237,6 +245,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
   String _savedBeforeEdit = '';
 
+  /// Learns from the session's edit; prepared when the session opens, because
+  /// the panel may be gone (no usable `ref`) when the session ends.
+  void Function(String before, String after)? _learnFromEdit;
+
   /// Shows the write-failure notice without a context; prepared when the edit
   /// opens, because the panel may be gone when the final write fails.
   VoidCallback? _reportWriteFailure;
@@ -244,13 +256,20 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   void _flushOpenEdit() {
     final save = _saveOpenEdit;
     final report = _reportWriteFailure;
+    final learn = _learnFromEdit;
+    final before = _savedBeforeEdit;
     _saveOpenEdit = null;
+    _learnFromEdit = null;
     // The pending pause timer is replaced by the write below.
     _resetDraftSave();
     final text = _transcriptController.text.trim();
-    if (!_isEditingTranscript || save == null || text == _lastPersisted) {
-      return;
-    }
+    if (!_isEditingTranscript || save == null) return;
+    // Moving to the next recording or leaving the page ends the session as
+    // well as leaving the field does, so the correction is learned here too
+    // (#1969). Before, only a blur inside the panel learned, and the
+    // learning log stayed empty for the usual "fix it, click the next one".
+    if (text != before) learn?.call(before, text);
+    if (text == _lastPersisted) return;
     // The panel is going away or another entry opens, so there is no status
     // to show. A failing write is logged and reported as the page notice, so
     // the loss is not silent; it is never thrown into the zone.
@@ -450,7 +469,10 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   /// the dictionary already holds. The action captures the notifiers, not
   /// [ref], so it still works after the panel has been closed.
   void _offerDictionaryTerms(String before, String after) {
-    final settings = ref.read(settingsProvider.notifier);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final notices = ref.read(
+      wpPageNoticeProvider(WpNoticePage.history).notifier,
+    );
     final term = termToOfferAfterCorrection(
       before: before,
       after: after,
@@ -472,25 +494,17 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           label: l10n.historyTermOfferAction,
           variant: WpButtonVariant.ghost,
           onPressed: () async {
-            await settings.updateSettings(
-              (s) => s.copyWith(
-                customVocabulary: mergeVocabulary(s.stt.customVocabulary, [
-                  term,
-                ]),
-              ),
-            );
+            // A term is a term entry in the dictionary (#1969).
+            await addDictionaryTerms(container, [term]);
             if (!actionContext.mounted) return;
-            showWpPageNotice(
+            // The confirmation stands in the notice bar (#1903); the offer
+            // it answers leaves the entry.
+            showWpConfirmation(
               actionContext,
-              page: 'history',
-              notice: WpPageNotice(
-                id: 'add-term',
-                message: l10n.historyTermAdded,
-                tone: WpBannerTone.info,
-                area: entryId,
-                autoDismiss: const Duration(seconds: 5),
-              ),
+              id: 'history-add-term',
+              message: l10n.historyTermAdded,
             );
+            notices.dismiss();
           },
         ),
       ),
@@ -503,7 +517,12 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   /// telemetry/persistence side effects in this panel: the edit itself is
   /// already saved by the time this runs, so nothing here should block or
   /// fail the save.
-  void _recordManualEditCorrectionSignal(String before, String after) {
+  void _recordManualEditCorrectionSignal(String before, String after) =>
+      _learnerForSession()(before, after);
+
+  /// The learning step of one edit session, with everything it needs read
+  /// now, so it still works after the panel went away.
+  void Function(String, String) _learnerForSession() {
     final correctionLearningEnabled =
         ref.read(
           settingsProvider.select(
@@ -511,29 +530,34 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           ),
         ) ??
         true;
-    if (!correctionLearningEnabled) return;
-
     final service = ref.read(correctionLearningServiceProvider);
     final db = ref.read(historyDatabaseProvider);
-    unawaited(
-      service
-          .recordSignal(
-            CorrectionSignal(
-              sourceText: before,
-              targetText: after,
-              timestamp: DateTime.now(),
-              source: CorrectionSignalSource.manualEdit,
-            ),
-            db,
-          )
-          // Learning is a side effect of a save that already succeeded: a
-          // failure here is logged and must never surface as an unhandled
-          // async error.
-          .catchError((Object e, StackTrace st) {
-            _correctionLog.warning('Recording correction signal failed', e, st);
-            return 0;
-          }),
-    );
+    return (before, after) {
+      if (!correctionLearningEnabled) return;
+      unawaited(
+        service
+            .recordSignal(
+              CorrectionSignal(
+                sourceText: before,
+                targetText: after,
+                timestamp: DateTime.now(),
+                source: CorrectionSignalSource.manualEdit,
+              ),
+              db,
+            )
+            // Learning is a side effect of a save that already succeeded: a
+            // failure here is logged and must never surface as an unhandled
+            // async error.
+            .catchError((Object e, StackTrace st) {
+              _correctionLog.warning(
+                'Recording correction signal failed',
+                e,
+                st,
+              );
+              return 0;
+            }),
+      );
+    };
   }
 
   /// Opens the editing session of this entry (#1498): the first focus in the
@@ -552,9 +576,18 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     final titleEdited = entry.titleEdited;
     final startText = entry.content;
     var step = EditSessionStep.start;
+    var baselined = false;
+    _versionBreakPending = false;
     _saveOpenEdit = (text) async {
       final derived = deriveHistoryTitle(text);
-      if (step == EditSessionStep.start) {
+      if (_versionBreakPending) {
+        // A Smart Mode action replaces text typed in this session (#650):
+        // its result is a version of its own, the typed one stays.
+        _versionBreakPending = false;
+        step = EditSessionStep.start;
+      }
+      if (step == EditSessionStep.start && !baselined) {
+        baselined = true;
         // The text about to be overwritten stays restorable (#635): the
         // original transcript is a version of its own, written only when the
         // session really changes something.
@@ -596,6 +629,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       entryId: entryId,
     );
     _reportWriteFailure = () => notices.show(failedNotice);
+    _learnFromEdit = _learnerForSession();
     _savedBeforeEdit = startText;
     _lastPersisted = startText;
     _lastScheduled = startText;
@@ -613,6 +647,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     final before = _savedBeforeEdit;
     final after = _lastPersisted;
     _saveOpenEdit = null;
+    _learnFromEdit = null;
     setState(() => _isEditingTranscript = false);
     if (after != before) {
       _recordManualEditCorrectionSignal(before, after);
@@ -622,6 +657,29 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
   /// Ctrl/Cmd+S and Enter-submit: writes the pending text at once and says
   /// "Saved" as soon as it is stored (#1498).
+  /// Ctrl/Cmd+Shift+P (#672): plays the kept audio from the sentence at the
+  /// caret, or at the text selected in the reading view, else from the first
+  /// sentence.
+  Future<void> _playSentenceAtCaret() async {
+    final text = _transcriptController.text;
+    final selection = _transcriptController.selection;
+    var offset = selection.isValid ? selection.baseOffset : -1;
+    final read = _readSelection;
+    if ((offset < 0 || !_editorFocusNode.hasFocus) &&
+        read != null &&
+        read.trim().isNotEmpty) {
+      final at = text.indexOf(read.trim());
+      if (at >= 0) offset = at;
+    }
+    await playTranscriptSentenceAt(
+      context,
+      ref,
+      entryId: widget.entry.id,
+      text: text,
+      offset: offset < 0 ? 0 : offset,
+    );
+  }
+
   Future<void> _saveNow() async {
     if (!_isEditingTranscript) return;
     final saved = await _draftSave.flush();
@@ -667,6 +725,25 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   }
 
   void _toggleShowOriginal() => setState(() => _showOriginal = !_showOriginal);
+
+  /// Smart Mode on the selection or the paragraph at the caret (#650). The
+  /// text typed so far is written first and stays a version; the result is
+  /// the next one.
+  void _runSmartAction(EditorSmartAction action) => unawaited(
+    runEditorSmartAction(
+      context,
+      ref,
+      controller: _transcriptController,
+      action: action,
+      lockKey: entry.id,
+      languageCode: entry.language.isNotEmpty ? entry.language : null,
+      beforeApply: () async {
+        if (!_isEditingTranscript) return;
+        await _draftSave.flush();
+        _versionBreakPending = true;
+      },
+    ),
+  );
 
   /// Opens the Textbaustein chooser and inserts the pick at the caret of the
   /// transcript being edited (#664).
@@ -714,42 +791,6 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     );
   }
 
-  /// Shows a language-picker dialog for a retroactive Translate application.
-  /// Only [smartModeValidatedTargetLanguages] are offered (currently German
-  /// only — ticket 09 validates the rest). Returns `null` if the user
-  /// cancels.
-  Future<SmartModeTargetLanguage?> _pickSmartModeTargetLanguage() {
-    final l10n = L10n.of(context);
-    return showWpDialog<SmartModeTargetLanguage>(
-      context: context,
-      title: l10n.historySmartModeSelectTargetLanguage,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final lang in smartModeValidatedTargetLanguages)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                lang == SmartModeTargetLanguage.german
-                    ? l10n.smartModeTargetLanguageGerman
-                    : lang.languageName,
-              ),
-              onTap: () => Navigator.of(context).pop(lang),
-            ),
-        ],
-      ),
-      // The rows are the answer; the footer only leaves without one.
-      actions: [
-        WpDialogAction(
-          label: l10n.actionCancel,
-          testId: 'smart-mode-language-cancel',
-          role: WpDialogActionRole.cancel,
-        ),
-      ],
-    );
-  }
-
   /// Name of a mode as the user picked it, e.g. "Translate (English)" (#680).
   String _modeLabel(
     L10n l10n,
@@ -763,10 +804,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       SmartModePreset.off => preset.name,
     };
     if (targetLanguage == null) return name;
-    final language = targetLanguage == SmartModeTargetLanguage.german
-        ? l10n.smartModeTargetLanguageGerman
-        : targetLanguage.languageName;
-    return '$name ($language)';
+    return '$name (${smartModeTargetLanguageLabel(l10n, targetLanguage)})';
   }
 
   /// [_modeLabel] of a stored reprocessing instruction; null when unknown.
@@ -808,7 +846,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   Future<void> _applySmartModePreset(SmartModePreset preset) async {
     SmartModeTargetLanguage? targetLanguage;
     if (preset == SmartModePreset.translate) {
-      targetLanguage = await _pickSmartModeTargetLanguage();
+      targetLanguage = await showWpSmartModeTargetLanguagePicker(context);
       if (targetLanguage == null) return;
     }
     if (!mounted) return;
@@ -931,6 +969,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       isTrashView: isTrashView,
       transcriptController: _transcriptController,
       onInsertSnippet: _insertSnippet,
+      onSmartAction: isTrashView ? null : _runSmartAction,
       editorFocusNode: _editorFocusNode,
       onReadSelectionChanged: (text) => _readSelection = text,
       // From the background metadata index, so a very
@@ -983,12 +1022,16 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             unawaited(_saveNow());
           }
         },
+        // Plays the recording from the sentence at the caret (#672).
+        commandActivator(LogicalKeyboardKey.keyP, shift: true): () {
+          if (!isTrashView) unawaited(_playSentenceAtCaret());
+        },
         // Formatting keys and Ctrl/Cmd+S inside the transcript come from the
         // shared editor block (WpTextEditor), bound around its field only.
-        // Shortcut help overlay
-        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
+        // Shortcut help overlay: "?" on every layout, German Shift+ß too.
+        ...shortcutOverviewKeys(() {
           if (!isTextFieldFocused()) _showShortcutHelp();
-        },
+        }),
       },
       child: Focus(
         focusNode: _panelFocusNode,
@@ -1047,6 +1090,14 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             WpPageNoticeSlot(page: WpNoticePage.history, area: entry.id),
             SmartModeUndoRow(entryId: entry.id, fallback: entry),
             if (!isTrashView) HistoryNoteLink(entryId: entry.id),
+            // Back after a jump, links to and from this recording (#660).
+            // Links are written into the raw transcript, the editable one.
+            if (!isTrashView)
+              EntryLinksSection(
+                key: ValueKey('history-detail-links-${entry.id}'),
+                entry: (kind: ContentKind.recording, id: entry.id),
+                testId: 'history-detail',
+              ),
           ],
           // ── Context zone: metadata ──
           meta: Column(
@@ -1067,6 +1118,13 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           editor: zone,
           extras: [
             if (!isTrashView) zone.editBar(),
+            // ── Transcript and audio (#672) ── sentences with their place in
+            // the kept recording; renders nothing without audio.
+            if (!isTrashView)
+              TranscriptAudioSection(
+                entryId: entry.id,
+                text: _transcriptController,
+              ),
             // ── Original transcript disclosure (ticket 12) ──
             // Final text stays the primary view; the original is
             // secondary/collapsed by default rather than shown in
@@ -1175,6 +1233,10 @@ class _ShortcutHelpContent extends StatelessWidget {
         _ShortcutRow(
           keyLabel: commandShortcutLabel('C', l10n: l10n),
           description: l10n.historyShortcutCopy,
+        ),
+        _ShortcutRow(
+          keyLabel: commandShortcutLabel('P', shift: true, l10n: l10n),
+          description: l10n.historyShortcutPlaySentence,
         ),
         _ShortcutRow(
           keyLabel: l10n.shortcutKeyEscape,
@@ -1362,7 +1424,8 @@ class _DetailPanelHeader extends StatelessWidget {
         icon: LucideIcons.copy,
         tooltip:
             '${l10n.historyCopyText} '
-            '(${formatHotkeyShortcut('ctrl', 'c', l10n: l10n)})',
+            // Cmd on macOS, as the copy key itself (#1845).
+            '(${commandShortcutLabel('C', l10n: l10n)})',
         onTap: onCopy,
       ),
       if (isTrashView) ...[
@@ -1527,7 +1590,10 @@ class _DetailOverflowMenu extends ConsumerWidget {
             applyReplacements: ref
                 .read(recordingStoreProvider)
                 .applyReplacements,
-            terms: vocabularyTerms(settings.stt.customVocabulary),
+            terms: localVocabularyTerms(
+              settings.stt.customVocabulary,
+              ref.read(contactTermsProvider),
+            ),
           );
     if (!context.mounted) return;
     if (text == null) {
@@ -1832,6 +1898,7 @@ class _DetailTranscriptZone extends StatelessWidget {
     required this.transcriptController,
     required this.editorFocusNode,
     required this.onInsertSnippet,
+    this.onSmartAction,
     required this.onReadSelectionChanged,
     required this.wordCount,
     required this.onSaveTranscript,
@@ -1856,6 +1923,9 @@ class _DetailTranscriptZone extends StatelessWidget {
   final TextEditingController transcriptController;
   final FocusNode editorFocusNode;
   final VoidCallback onInsertSnippet;
+
+  /// Smart Mode on the selection (#650); null in the trash.
+  final ValueChanged<EditorSmartAction>? onSmartAction;
 
   /// Reports what is selected in the read view (null when nothing is).
   final ValueChanged<String?> onReadSelectionChanged;
@@ -1922,13 +1992,21 @@ class _DetailTranscriptZone extends StatelessWidget {
       editable: !isTrashView && !viewingEditedVersion,
       saveStatus: draftStatus,
       onSave: onSaveTranscript,
-      // Caret, place and text size per entry and per version (#678);
+      // Caret and place per entry and per version (#678);
       // the edited version is read-only and keeps its own place.
       viewMemory: (kind: viewKind, id: entry.id),
       semanticsLabel: l10n.historyEditTranscript,
       autofocus: true,
       onSubmitted: (_) => onSaveTranscript(),
       onInsertSnippet: onInsertSnippet,
+      // `[[` opens the link chooser (#660).
+      onPickLink: isTrashView
+          ? null
+          : () => pickEntryLinkText(
+              context,
+              except: (kind: EntryLinkKind.recording, id: entry.id),
+            ),
+      onSmartAction: onSmartAction,
       // Nothing in the trash can be edited: no bar, no mode to switch.
       showToolbar: !isTrashView,
       toolbarTrailing: tags,
@@ -1957,9 +2035,13 @@ class _DetailTranscriptZone extends StatelessWidget {
               builder: (context, ref, _) => WpMarkdownView(
                 testId: 'history-transcript',
                 source: displayedContent,
-                style: WpTextField.styleFor(
-                  WpTextFieldVariant.passage,
-                  color: textPrimary,
+                // The editors' line spacing (#648).
+                style: WpEditorText.styleOf(
+                  context,
+                  WpTextField.styleFor(
+                    WpTextFieldVariant.passage,
+                    color: textPrimary,
+                  ),
                 ),
                 highlight: ref.watch(historySearchProvider),
                 // Only the raw transcript is ticked: the AI version is

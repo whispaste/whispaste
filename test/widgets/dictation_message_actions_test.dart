@@ -495,6 +495,74 @@ void main() {
       expect(n.actions, isEmpty);
     });
 
+    // #1852: "Don't show again" takes the first free place on a notice the
+    // user may mute, and never shows on a real failure.
+    testWidgets('unconfirmed offers "Don\'t show again" alone', (tester) async {
+      var muted = 0;
+      final c = await _fire(
+        tester,
+        (context, l10n) => showPasteFailureToast(
+          context: context,
+          l10n: l10n,
+          outcome: PasteOutcome.unconfirmed,
+          repaste: () {},
+          mute: () => muted++,
+        ),
+      );
+      final n = _open(c)!;
+      expect(n.actions.single.id, kPasteNoticeMuteActionId);
+      expect(n.actions.single.confirmation, isNotNull);
+      _press(c);
+      expect(muted, 1);
+    });
+
+    testWidgets('unconfirmedRestored pairs paste again with the mute button', (
+      tester,
+    ) async {
+      final c = await _fire(
+        tester,
+        (context, l10n) => showPasteFailureToast(
+          context: context,
+          l10n: l10n,
+          outcome: PasteOutcome.unconfirmedRestored,
+          repaste: () {},
+          mute: () {},
+        ),
+      );
+      expect(_open(c)!.actions.map((a) => a.id), [
+        'paste-failure-repaste',
+        kPasteNoticeMuteActionId,
+      ]);
+    });
+
+    for (final outcome in [
+      PasteOutcome.failed,
+      PasteOutcome.noTarget,
+      PasteOutcome.elevationBlocked,
+      PasteOutcome.passwordField,
+      PasteOutcome.secureInput,
+      PasteOutcome.permissionMissing,
+    ]) {
+      testWidgets('$outcome never offers the mute button', (tester) async {
+        final c = await _fire(
+          tester,
+          (context, l10n) => showPasteFailureToast(
+            context: context,
+            l10n: l10n,
+            outcome: outcome,
+            openAutoPasteSettings: () {},
+            openAccessibilitySettings: () {},
+            repaste: () {},
+            mute: () {},
+          ),
+        );
+        expect(
+          _open(c)!.actions.map((a) => a.id),
+          isNot(contains(kPasteNoticeMuteActionId)),
+        );
+      });
+    }
+
     testWidgets('on Linux only the fix is offered, paste again would fail', (
       tester,
     ) async {

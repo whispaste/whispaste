@@ -199,17 +199,7 @@ class VoiceNoteButton extends ConsumerWidget {
   }) {
     final l10n = L10n.of(context);
     if (undo == null) {
-      showWpPageNotice(
-        context,
-        page: WpNoticePage.history,
-        notice: WpPageNotice(
-          id: 'voice-done',
-          message: message,
-          tone: WpBannerTone.info,
-          area: entryId,
-          autoDismiss: const Duration(seconds: 6),
-        ),
-      );
+      showWpConfirmation(context, id: 'voice-done', message: message);
       return;
     }
     showWpNotice(

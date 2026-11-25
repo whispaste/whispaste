@@ -8,7 +8,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 
 void main() {
-  for (final code in const ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+  for (final code in const [
+    'de',
+    'en',
+    'es',
+    'pt',
+    'ru',
+    'he',
+    'fr',
+    'it',
+    'zh',
+  ]) {
     test(
       'trash hint in $code renders a real line break, no literal \\n',
       () async {

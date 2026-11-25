@@ -146,6 +146,22 @@ void main() {
 
   // #277 keyboard acceptance: Tab and Shift+Tab cycle inside the open
   // dialog (the page behind never takes focus), and Escape means cancel.
+  testWidgets('a form dialog puts the focus on its first field (#1845)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(makeTestable(_formDialogOpener()));
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+
+    final first = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byType(TextField).first,
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(first.focusNode.hasFocus, isTrue);
+  });
+
   testWidgets('Tab stays inside a dialog and Escape cancels it', (
     tester,
   ) async {

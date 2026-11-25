@@ -30,3 +30,24 @@ bool isLanguageMismatch({
   if (wordCount < minWords) return false;
   return detected.toLowerCase() != configured.toLowerCase();
 }
+
+/// Picks only among allowed codes, even when a third language scores higher.
+/// No usable probability is a failure, never permission to decode unrestricted.
+String mostLikelyExpectedLanguage(
+  Map<String, double> probabilities,
+  List<String> allowed,
+) {
+  String? best;
+  var score = -1.0;
+  for (final code in allowed) {
+    final p = probabilities[code];
+    if (p != null && p.isFinite && p >= 0 && p > score) {
+      best = code;
+      score = p;
+    }
+  }
+  if (best == null) {
+    throw StateError('whisper_expected_language_detection_failed');
+  }
+  return best;
+}

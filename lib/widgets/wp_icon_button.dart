@@ -41,6 +41,7 @@ class WpIconButton extends StatefulWidget {
     this.semanticsLabel,
     this.focusNode,
     this.selected,
+    this.expanded,
   }) : assert(
          (icon == null) != (faIcon == null),
          'Provide exactly one of icon or faIcon',
@@ -59,6 +60,7 @@ class WpIconButton extends StatefulWidget {
     this.semanticsLabel,
     this.focusNode,
     this.selected,
+    this.expanded,
     this.compact = false,
   }) : assert(
          (icon == null) != (faIcon == null),
@@ -115,6 +117,11 @@ class WpIconButton extends StatefulWidget {
   /// glyph in the accent on a washed square and is announced as toggled. Null
   /// for a plain action.
   final bool? selected;
+
+  /// Open/closed state of a disclosure (a foldable section, #1344): a
+  /// screen reader announces it as expanded or collapsed. Null for anything
+  /// that discloses nothing.
+  final bool? expanded;
 
   /// Editor-toolbar density of the ghost (#1498 F-header-actions): a 32 px
   /// square that is also the whole hit target, no 48 px touch padding, so a
@@ -231,6 +238,7 @@ class _WpIconButtonState extends State<WpIconButton> {
       button: true,
       enabled: enabled,
       toggled: widget.selected,
+      expanded: widget.expanded,
       label: widget.semanticsLabel ?? widget.tooltip,
       identifier: widget.testId,
       // The label above already names the button; the tooltip stays out of

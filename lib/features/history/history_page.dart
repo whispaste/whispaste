@@ -44,12 +44,13 @@ import 'widgets/audio_import_drop_zone.dart';
 import 'widgets/audio_import_panel.dart';
 import 'widgets/history_duration_chips.dart';
 import 'widgets/recovery_banner.dart';
-import 'widgets/history_status_row.dart';
 import 'widgets/history_pin_dialogs.dart';
 import 'widgets/widgets.dart';
 import '../../widgets/wp_copy_feedback.dart';
 import '../../widgets/wp_page_notice.dart';
 import 'widgets/history_write_failure.dart';
+import '../../core/views/smart_view.dart';
+import '../../core/views/smart_view_providers.dart';
 
 /// Signature of the export-entries seam used by [HistoryPage].
 ///
@@ -115,7 +116,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   /// Keyboard-focused entry ID (distinct from selected/detail entry).
   String? _focusedEntryId;
-  final FocusNode _listFocusNode = FocusNode();
+  final FocusNode _listFocusNode = FocusNode(debugLabel: 'history-list');
+
+  /// Rows and open entry of the last build, for the focus listener.
+  List<HistoryEntry> _shownEntries = const [];
+  HistoryEntry? _shownSelected;
 
   /// Session holder this page restores from and saves to (#1074).
   late final HistoryWorkState _work;
@@ -124,6 +129,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   void initState() {
     super.initState();
     _restoreWorkState();
+    _listFocusNode.addListener(_onListFocus);
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyOpenEntry());
   }
 
@@ -160,8 +166,26 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     _saveWorkState();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _listFocusNode.removeListener(_onListFocus);
     _listFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Reached by keyboard, the list puts its cursor on the open entry or the
+  /// first row, so the focus is visible and Enter/Delete have a target: the
+  /// single list node draws nothing itself (#1845).
+  void _onListFocus() {
+    if (!mounted ||
+        !_listFocusNode.hasPrimaryFocus ||
+        FocusManager.instance.highlightMode != FocusHighlightMode.traditional ||
+        _multiSelectMode ||
+        _focusedEntryId != null ||
+        _shownEntries.isEmpty) {
+      return;
+    }
+    setState(
+      () => _focusedEntryId = _shownSelected?.id ?? _shownEntries.first.id,
+    );
   }
 
   /// Consumes a pending deep link to one recording ([historyOpenEntryProvider])
@@ -420,6 +444,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     bool isArchiveView,
   ) {
     final flat = _flatEntries(groups);
+    _shownEntries = flat;
+    _shownSelected = selectedEntry;
 
     return CallbackShortcuts(
       // Only modifier-combo shortcuts remain here.
@@ -708,8 +734,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {
+        // Select mode stays on with 0 selected: the bar keeps its place.
         _selectedIds.removeAll(ids);
-        if (_selectedIds.isEmpty) _multiSelectMode = false;
       });
     });
   }
@@ -753,7 +779,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       child: WpCollectionPage(
         screenId: 'history',
         searchFocusNode: _searchFocusNode,
-        selectionBar: _multiSelectMode && _selectedIds.isNotEmpty
+        selectionBar: _multiSelectMode
             ? WpCopyAnchor(
                 target: kHistoryBatchCopyTarget,
                 child: WpMultiSelectBar(
@@ -762,25 +788,18 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   isTrashView: isTrashView,
                   isArchiveView: isArchiveView,
                   onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
-                  onBatchCopy: _selectedIds.isNotEmpty
-                      ? () => _copySelectedEntries(filteredEntries)
-                      : null,
-                  onBatchCopyMarkdown: _selectedIds.isNotEmpty
-                      ? () => _copySelectedEntriesAsMarkdown(filteredEntries)
-                      : null,
-                  onExport: _selectedIds.isNotEmpty
-                      ? () => _exportSelectedEntries(filteredEntries)
-                      : null,
+                  onBatchCopy: () => _copySelectedEntries(filteredEntries),
+                  onBatchCopyMarkdown: () =>
+                      _copySelectedEntriesAsMarkdown(filteredEntries),
+                  onExport: () => _exportSelectedEntries(filteredEntries),
                   onArchive: !isTrashView ? _archiveSelected : null,
                   onDelete: _deleteSelected,
                   onRestore: isTrashView ? _restoreSelected : null,
                   onSelectAll: () {
                     if (_selectedIds.length >= totalCount) {
-                      // All selected → deselect all
-                      setState(() {
-                        _selectedIds.clear();
-                        _multiSelectMode = false;
-                      });
+                      // All selected → deselect all; select mode stays on
+                      // and the bar keeps its place (0 selected).
+                      setState(_selectedIds.clear);
                     } else {
                       unawaited(_selectAll(filteredEntries));
                     }
@@ -790,7 +809,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               )
             : null,
         notices: [
-          const HistoryStatusRow(),
           WpPageNoticeSlot(
             page: WpNoticePage.history,
             // Only an entry whose detail is on screen has its own slot; one
@@ -804,6 +822,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           searchFocusNode: _searchFocusNode,
           activeFilter: activeFilter,
           onFilterChanged: (f) {
+            // Saved views apply to the live list only; Archive and Trash
+            // leave the view (#658).
+            if (f == HistoryFilter.archived || f == HistoryFilter.trash) {
+              ref
+                  .read(
+                    activeSmartViewProvider(SmartViewScope.recordings).notifier,
+                  )
+                  .clear();
+            }
             ref.read(historyFilterProvider.notifier).set(f);
             setState(() {
               _multiSelectMode = false;
@@ -901,6 +928,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             .set(HistoryDurationBucket.all),
       );
     }
+    if (ref.watch(shownHistorySmartViewProvider) != null) {
+      return WpEmptyState(
+        key: const ValueKey('history-view-empty'),
+        icon: LucideIcons.layers,
+        title: l10n.smartViewEmptyTitle,
+        hint: l10n.smartViewEmptyHint,
+        actionLabel: l10n.smartViewLeave,
+        actionTestId: 'history-view-leave',
+        onAction: ref
+            .read(activeSmartViewProvider(SmartViewScope.recordings).notifier)
+            .clear,
+      );
+    }
     if (_searchController.text.isNotEmpty) {
       return WpEmptyState.searchNoMatches(
         query: _searchController.text,
@@ -968,6 +1008,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
     return WpEmptyState(
       icon: LucideIcons.mic,
+      motif: WpEmptyMotif.recordings,
       title: l10n.historyEmpty,
       hint: l10n.historyNoRecordingsHint,
       // The history fills from a recording run, so its first action is the

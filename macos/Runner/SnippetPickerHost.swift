@@ -683,6 +683,7 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     // delegates into the render app) — same constraint as the button/overlay
     // engines.
     let engine = FlutterEngine(name: "snippet_picker", project: nil)
+    SystemMotionHost.attach(engine.binaryMessenger)
     let didRun = engine.run(withEntrypoint: "snippetPickerMain")
     os_log("bootRenderEngine: engine.run(snippetPickerMain) -> %{public}@", log: Self.logger, type: .info, didRun ? "true" : "false")
 
@@ -692,6 +693,8 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     }
 
     let vc = FlutterViewController(engine: engine, nibName: nil, bundle: nil)
+
+    RenderEngineAccessibility.replayToNewEngine()
     vc.backgroundColor = .clear
 
     let renderCh = FlutterMethodChannel(

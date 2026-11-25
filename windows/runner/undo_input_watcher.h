@@ -54,6 +54,16 @@ class UndoInputWatcher {
   double MouseIdleSeconds() const;
   double MouseIdleOutsideAppSeconds() const;
 
+  // The user's own Ctrl+Z in another program after an auto-paste (#2078):
+  // arms the check until [until_tick] (GetTickCount64) and answers whether
+  // the previous watch saw one, which is then forgotten. Only this yes/no is
+  // kept, never a key. The hook thread must run (Start). UI thread only.
+  bool WatchUndoShortcut(ULONGLONG until_tick);
+  // Whether a Ctrl+Z was seen since WatchUndoShortcut; ends the watch.
+  bool TakeUndoShortcut();
+  // Whether the hook thread runs (it may still be installing the hooks).
+  bool alive() const { return running() && !exited_.load(); }
+
  private:
   void Run();
   bool InstallHooks();
@@ -78,6 +88,9 @@ class UndoInputWatcher {
   std::atomic<ULONGLONG> last_key_{0};
   std::atomic<ULONGLONG> last_button_{0};
   std::atomic<ULONGLONG> last_foreign_button_{0};
+  // Undo shortcut watch (#2078): deadline (0 = off) and whether one was seen.
+  std::atomic<ULONGLONG> shortcut_until_{0};
+  std::atomic<bool> shortcut_seen_{false};
 };
 
 #endif  // RUNNER_UNDO_INPUT_WATCHER_H_

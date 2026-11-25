@@ -473,25 +473,11 @@
       "message": "_ModelStepState.build [kind=flutter-widget-build]: cyclomatic=26, cognitive=21 (cyclomatic 26 > 20)"
     },
     {
-      "fingerprint": "4306101e39e6fad9",
-      "ruleId": "complexity-hotspots",
-      "filePath": "lib/features/onboarding/steps/test_recording_step.dart",
-      "line": 228,
-      "message": "_TestRecordingStepState.build [kind=flutter-widget-build]: cyclomatic=24, cognitive=23 (cyclomatic 24 > 20)"
-    },
-    {
       "fingerprint": "2784162e1ca86c81",
       "ruleId": "complexity-hotspots",
       "filePath": "lib/features/onboarding/steps/trigger_step.dart",
       "line": 255,
       "message": "_TriggerStepState.build [kind=flutter-widget-build]: cyclomatic=31, cognitive=28 (cyclomatic 31 > 20)"
-    },
-    {
-      "fingerprint": "e17d410cb2c63074",
-      "ruleId": "complexity-hotspots",
-      "filePath": "lib/features/overview/overview_page.dart",
-      "line": 72,
-      "message": "_OverviewPageState.build [kind=flutter-widget-build]: cyclomatic=39, cognitive=46 (cyclomatic 39 > 20, cognitive 46 > 30)"
     },
     {
       "fingerprint": "1d7c13f4767b385e",

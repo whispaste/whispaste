@@ -32,9 +32,19 @@ import '../../core/recording/recording_state.dart'
         recordingProvider;
 import '../../core/recording/transcription_budget.dart';
 import '../audio/pcm_wav_codec.dart' show wavFileMatches;
-import '../dictionary/vocabulary_terms.dart' show vocabularyPrompt;
+import '../dictionary/term_budget.dart'
+    show vocabularyWithinBytes, vocabularyWithinTokens;
+import '../dictionary/contact_terms.dart'
+    show contactTermsProvider, localVocabularyHint;
 import '../hardware_info_service.dart' as hw;
 import '../model_download_service.dart';
+import '../model_hardware_telemetry.dart'
+    show
+        ModelCheck,
+        ModelLifecycleTelemetry,
+        modelKeyForId,
+        modelLifecycleTelemetryProvider,
+        ownModelLookupProvider;
 import '../path_service.dart';
 import 'benchmark_freshness.dart';
 import 'idle_unload_policy.dart';
@@ -47,6 +57,7 @@ import 'stt_benchmark.dart' show SttBenchmark;
 import 'stt_benchmark_run.dart';
 import 'transcription_deadline.dart';
 import 'tail_confidence.dart';
+import 'audio_silence_signal.dart';
 import 'transcript_hallucination_filter.dart';
 import 'transcript_hygiene.dart';
 import 'wav_header_repair.dart';
@@ -240,20 +251,6 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// value — it moves in lockstep with `n_max_text_ctx` and must be updated
   /// if that ever changes.
   static const int promptTokenBudget = 63;
-
-  /// Exact whisper.cpp token count of [text] with the loaded model, or null
-  /// when no model is loaded (or the count fails). The dictionary uses it to
-  /// show where the term list stops reaching the recogniser.
-  Future<int?> countPromptTokensOrNull(String text) async {
-    final engine = _engine;
-    if (engine is! PromptTokenCounter) return null;
-    try {
-      return await (engine as PromptTokenCounter).countPromptTokens(text);
-    } catch (e) {
-      _log.warning('Prompt token count failed: $e');
-      return null;
-    }
-  }
 
   /// Test override of the local time budget (#1639). `null` in production:
   /// each decode then gets [localTranscriptionBudget] for its audio length
@@ -524,11 +521,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final engine = _engine;
     if (engine is! LivePreviewEngine) return;
     final e = engine as LivePreviewEngine;
+    if (engine is ExpectedLanguageSupport) {
+      (engine as ExpectedLanguageSupport).expectedLanguages =
+          ref.read(settingsProvider).value?.stt.autoDetectLanguages ?? const [];
+    }
 
     _livePreview?.dispose();
     final previewer = LiveTranscriptPreviewer(
-      decode: (samples) =>
-          _nativeCall(() => e.decodeLivePreview(samples), preview: true),
+      decode: (samples) => _nativeCall(
+        () => e.decodeLivePreview(
+          samples,
+          language: ref.read(settingsProvider).value?.sttLanguageCode,
+        ),
+        preview: true,
+      ),
       triggerInterval:
           debugLivePreviewInterval ?? LiveTranscriptPreviewer.defaultInterval,
     );
@@ -760,6 +766,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   }
 
   Future<void> prewarm() async {
+    // An own model (#1789) loads on the first dictation only, inside the
+    // guard that names it in the crash marker (user_model_guards.dart).
+    final selected = ref.read(settingsProvider).value?.effectiveModelId ?? '';
+    if (isUserModelId(selected)) return;
     try {
       await ensureRunning();
       _log.info('STT model pre-warmed (${state.modelId})');
@@ -958,7 +968,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       text: text,
       audioMs: audioDurationMs,
       now: DateTime.now(),
-      knownPhrase: isNonSpeechTranscript(text),
+      knownPhrase:
+          isKnownHallucinationPhrase(text) || isNonSpeechTranscript(text),
     );
     if (record == null) return;
     appendTailConfidenceRecord(
@@ -967,6 +978,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       onError: (e) =>
           _log.debug('tail protocol write failed: ${e.runtimeType}'),
     );
+  }
+
+  /// Silence evidence of the last transcription (#2013): the engine's
+  /// no-speech probability and end confidence, merged with the audio's own
+  /// silence of [payload].
+  SilenceSignal _silenceSignal(List<int> payload) {
+    final engine = _engine;
+    final sample = engine is TailConfidenceSource
+        ? (engine as TailConfidenceSource).lastTailConfidence
+        : null;
+    final probs = sample?.tokenProbs ?? const <double>[];
+    final engineSignal = SilenceSignal(
+      noSpeechProb: sample?.noSpeechProb,
+      tailMinP: probs.isEmpty ? null : probs.reduce(math.min),
+    );
+    return engineSignal.merge(audioSilenceSignalOfWav(payload));
   }
 
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) =>
@@ -1061,7 +1088,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final settings = ref.read(settingsProvider).value;
     // The terms as the dictionary list counts them against the budget
     // (#145): no empty entries or stray spaces that cost tokens unseen.
-    final vocab = vocabularyPrompt(settings?.customVocabulary ?? '');
+    // Contact names (#2036) are local only and go behind the own terms, so
+    // the budget cut from the end drops contacts before own terms.
+    final vocab = localVocabularyHint(
+      settings?.customVocabulary ?? '',
+      ref.read(contactTermsProvider),
+    );
     final effectivePrompt = await _resolveEffectivePrompt(
       vocab,
       lang: lang,
@@ -1181,12 +1213,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.info('Stripped non-speech markers from transcript');
     }
     text = stripped;
-    if (isNonSpeechTranscript(text)) {
-      // The whole transcript is a stock phrase or a sound annotation from
-      // silence, not dictation.
-      // Empty output takes the same path as a blank recording.
-      _log.info('Dropped non-speech transcript');
-      text = '';
+    // Stock phrases, sound annotations and fillers the engine invented on
+    // silence (#2013): as the whole transcript, or on the silent end of a
+    // dictation when the engine or the audio reports silence there.
+    // Empty output takes the same path as a blank recording.
+    if (text.isNotEmpty) {
+      final kept = dropInventedText(text, _silenceSignal(payload));
+      if (kept.length != text.length) {
+        _log.info(
+          kept.isEmpty
+              ? 'Dropped non-speech transcript'
+              : 'Dropped invented text at the end of the transcript '
+                    '(${text.length - kept.length} chars)',
+        );
+      }
+      text = kept;
     }
     text = _collapseRepetitions(text);
 
@@ -1513,7 +1554,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   }) async {
     if (utf8.encode(combined).length <= promptTokenBudget) return combined;
     final rawEngine = _engine;
-    if (rawEngine is! PromptTokenCounter) return combined;
+    // Without a count, whisper.cpp would keep the LAST tokens, i.e. the
+    // least used terms (#1969): send only a byte-safe run of whole terms.
+    if (rawEngine is! PromptTokenCounter) {
+      return vocab == null || vocab.isEmpty
+          ? combined
+          : vocabularyWithinBytes(vocab, promptTokenBudget);
+    }
     final engine = rawEngine as PromptTokenCounter;
     try {
       if (await engine.countPromptTokens(combined) <= promptTokenBudget) {
@@ -1526,16 +1573,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           engine.countPromptTokens,
         );
       }
-      return await truncatePromptToTokenBudget(
+      // Whole terms only, most used first (#1969): a word-cut would hand
+      // on half a term such as "Mac" of "Mac Studio".
+      return await vocabularyWithinTokens(
         vocab,
         promptTokenBudget,
         engine.countPromptTokens,
       );
     } catch (e) {
-      _log.warning(
-        'Prompt token-budget check failed, using untruncated prompt: $e',
-      );
-      return combined;
+      _log.warning('Prompt token-budget check failed, using a safe prefix: $e');
+      return vocab == null || vocab.isEmpty
+          ? combined
+          : vocabularyWithinBytes(vocab, promptTokenBudget);
     }
   }
 
@@ -1731,6 +1780,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     void Function(double fraction)? onProgress,
     String? wavPath,
   }) {
+    if (engine is ExpectedLanguageSupport) {
+      (engine as ExpectedLanguageSupport).expectedLanguages =
+          ref.read(settingsProvider).value?.stt.autoDetectLanguages ?? const [];
+    }
     final reducedThreads = _isRecordingActive;
     final progress = onProgress;
     return switch (engine) {
@@ -2220,6 +2273,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   void _debouncedPrewarmOnModelChange(String newModelId) {
     _modelChangeDebounce?.cancel();
+    // An own model loads on the first dictation only (see [prewarm]).
+    if (isUserModelId(newModelId)) return;
     final generation = ++_modelChangeGeneration;
     _deferredModelChangeId = null;
     if (state.pendingModelId != null) {
@@ -2843,6 +2898,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           'platform': Platform.operatingSystem,
         },
       );
+      _modelTelemetry(
+        (t) => t.checkFailed(_modelKey(modelId), ModelCheck.size),
+      );
       _log.warning(
         'STT model file appears corrupted: $modelPath '
         '($modelFileSize bytes, expected >$minModelBytes). '
@@ -2883,6 +2941,25 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     );
   }
 
+  /// Sends one model lifecycle event (#1791); telemetry never breaks a load.
+  void _modelTelemetry(void Function(ModelLifecycleTelemetry t) send) {
+    if (!ref.mounted) return;
+    try {
+      send(ref.read(modelLifecycleTelemetryProvider));
+    } catch (e) {
+      _log.debug('model telemetry skipped: $e');
+    }
+  }
+
+  /// The telemetry key of Whisper model [modelId], own models included.
+  String _modelKey(String modelId) =>
+      modelKeyForId(ref.read(ownModelLookupProvider), modelId);
+
+  static String _loadCauseId(EngineLoadCause cause) => switch (cause) {
+    EngineLoadCause.fileDefect => 'file',
+    EngineLoadCause.hardwareIncompatible => 'hardware',
+  };
+
   /// After a load failure that points at the file (#561): checks the model
   /// against its catalog hash. A damaged file is loaded again and true is
   /// returned (the start is over); an intact one, or a model outside the
@@ -2902,6 +2979,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.info('Model $modelId is intact; the load failure is not the file');
       return false;
     }
+    _modelTelemetry((t) => t.checkFailed(_modelKey(modelId), ModelCheck.hash));
     // Same reporter as the size check: one event per session in total.
     ref.read(modelCorruptedReporterProvider).report(
       'STT model file failed its hash check after a load failure',
@@ -3012,6 +3090,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       final onGpu = failedBackend != WhisperBackend.cpu;
       final cause = classifyWhisperLoadFailure(e, onGpu: onGpu);
       _log.warning('STT model load failed on ${failedBackend.name}: $e');
+      _modelTelemetry(
+        (t) => t.loadFailed(
+          _modelKey(modelId),
+          cause: _loadCauseId(cause),
+          gpu: onGpu,
+        ),
+      );
       var fileChecked = false;
       // On the CPU no driver sits in between: check the file whatever the
       // message says (an I/O error can name a "device" too).
@@ -3039,6 +3124,15 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           vadModelPath: defaultWhisperVadModelPath(),
         );
       } catch (cpuError) {
+        _modelTelemetry(
+          (t) => t.loadFailed(
+            _modelKey(modelId),
+            cause: _loadCauseId(
+              classifyWhisperLoadFailure(cpuError, onGpu: false),
+            ),
+            gpu: false,
+          ),
+        );
         // GPU and CPU both failed: then it is most likely the file after all.
         if (!fileChecked &&
             await _repairIfModelFileDefect(modelId, modelPath)) {

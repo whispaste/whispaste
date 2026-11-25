@@ -256,25 +256,23 @@ class _OverviewNewsletterSignupState
         WpControlRow(
           children: [
             Expanded(
-              child: Semantics(
-                identifier: 'overview-newsletter-email',
-                child: WpTextField(
-                  key: const ValueKey('overview-newsletter-email'),
-                  controller: _email,
-                  variant: WpTextFieldVariant.form,
-                  hintText: l10n.overviewNewsletterEmailHint,
-                  semanticsLabel: l10n.overviewNewsletterEmailLabel,
-                  keyboardType: TextInputType.emailAddress,
-                  // An address is never a word the dictionary should
-                  // second-guess.
-                  autocorrect: false,
-                  // The longest valid address. A limit, not a readout: a
-                  // visible counter would make the field taller than the
-                  // button beside it.
-                  inputFormatters: [LengthLimitingTextInputFormatter(254)],
-                  onChanged: (_) => setState(() => _outcome = null),
-                  onSubmitted: (_) => _send(),
-                ),
+              child: WpTextField(
+                testId: 'overview-newsletter-email',
+                key: const ValueKey('overview-newsletter-email'),
+                controller: _email,
+                variant: WpTextFieldVariant.form,
+                hintText: l10n.overviewNewsletterEmailHint,
+                semanticsLabel: l10n.overviewNewsletterEmailLabel,
+                keyboardType: TextInputType.emailAddress,
+                // An address is never a word the dictionary should
+                // second-guess.
+                autocorrect: false,
+                // The longest valid address. A limit, not a readout: a
+                // visible counter would make the field taller than the
+                // button beside it.
+                inputFormatters: [LengthLimitingTextInputFormatter(254)],
+                onChanged: (_) => setState(() => _outcome = null),
+                onSubmitted: (_) => _send(),
               ),
             ),
             WpButton(

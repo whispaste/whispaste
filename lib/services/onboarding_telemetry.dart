@@ -4,7 +4,7 @@
 /// Every category, action and name comes from an enum, a fixed bucket or a
 /// value checked against a narrow pattern, so no free text, path, device
 /// name, app name or user text can reach the wire. Events go through
-/// [OnboardingTelemetryBuffer]: held in memory until the privacy choice is
+/// [OnboardingTelemetryBuffer]: held on the device until the privacy choice is
 /// committed when the onboarding completes on screen 7 ([consentDecided]),
 /// then sent or dropped; the consent gate of
 /// `TelemetryService` still apply per event.
@@ -145,11 +145,16 @@ final class OnboardingTelemetry {
   OnboardingTelemetry({
     required this._track,
     required this._decide,
+    this._heldWelcomeAt,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final OnboardingTrackFn _track;
   final void Function({required bool shareUsageStats}) _decide;
+
+  /// First welcome screen of this first run as the hold remembers it, also
+  /// from before a restart (GR-033), so `ttfd` survives a restart.
+  final DateTime? Function()? _heldWelcomeAt;
   final DateTime Function() _clock;
 
   OnboardingScreen? _current;
@@ -312,7 +317,7 @@ final class OnboardingTelemetry {
         'failed:${failureCode != null && _failureCode.hasMatch(failureCode) ? failureCode : 'other'}',
     };
     _emit('onboarding', 'first_dictation', name);
-    final welcome = _welcomeAt;
+    final welcome = _firstWelcome();
     if (result == OnboardingFirstDictation.ok &&
         !_ttfdSent &&
         welcome != null) {
@@ -321,10 +326,24 @@ final class OnboardingTelemetry {
     }
   }
 
+  DateTime? _firstWelcome() {
+    final seen = _welcomeAt;
+    final held = _heldWelcomeAt?.call();
+    if (held == null) return seen;
+    if (seen == null) return held;
+    final heldLocal = held.toLocal();
+    return heldLocal.isBefore(seen) ? heldLocal : seen;
+  }
+
   String _safeModel(String id) => _modelId.hasMatch(id) ? id : 'other';
 }
 
 final onboardingTelemetryProvider = Provider<OnboardingTelemetry>((ref) {
   final buffer = ref.read(onboardingTelemetryBufferProvider);
-  return OnboardingTelemetry(track: buffer.track, decide: buffer.decide);
+  return OnboardingTelemetry(
+    track: buffer.track,
+    decide: buffer.decide,
+    heldWelcomeAt: () =>
+        buffer.earliestHeld(action: 'step', name: OnboardingScreen.welcome.id),
+  );
 });

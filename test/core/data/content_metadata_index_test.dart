@@ -118,6 +118,12 @@ void main() {
         (kind: ContentKind.note, id: note.id),
         (kind: ContentKind.snippet, id: 'snippet'),
       });
+      // The saved-view checklist rule (#658) reads the same index rows.
+      expect(await db.contentIndex.watchWithChecklist().first, {
+        (kind: ContentKind.recording, id: 'recording'),
+        (kind: ContentKind.note, id: note.id),
+        (kind: ContentKind.snippet, id: 'snippet'),
+      });
     },
   );
 

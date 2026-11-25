@@ -9,6 +9,7 @@
 
 #include <memory>
 
+#include "system_motion_channel.h"
 #include "snippet_picker_window.h"
 
 // Native shell of the tray panel on Windows (#920, ADR 0038). Mirrors
@@ -77,6 +78,8 @@ class TrayPanelHost {
   std::unique_ptr<flutter::FlutterViewController> render_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       render_channel_;
+  // "Reduce motion" for this engine (#1756); reset with render_channel_.
+  std::unique_ptr<SystemMotionChannel> motion_channel_;
   std::unique_ptr<SnippetPickerWindow> window_;
 
   bool render_ready_ = false;

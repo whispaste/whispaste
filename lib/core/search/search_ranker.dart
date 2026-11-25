@@ -17,6 +17,9 @@ import 'bounded_edit_distance.dart';
 /// everywhere.
 abstract final class SearchWeight {
   static const title = 3.0;
+
+  /// A tag name: between title and text, as in the notes hit list (#830).
+  static const tag = 2.0;
   static const body = 1.0;
 }
 

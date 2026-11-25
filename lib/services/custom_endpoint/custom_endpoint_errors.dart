@@ -10,8 +10,10 @@ import '../../core/l10n/generated/app_localizations.dart';
 /// uses the `smart_mode_custom_*` codes of its engine.
 String? customEndpointErrorText(L10n l10n, String code) => switch (code) {
   'custom_endpoint_unreachable' ||
-  'smart_mode_custom_unreachable' ||
-  'smart_mode_custom_timeout' => l10n.errorCustomEndpointUnreachable,
+  'smart_mode_custom_unreachable' => l10n.errorCustomEndpointUnreachable,
+  // A server that answers too late is usually still loading its model
+  // (#1957), which is not the same as one that does not answer at all.
+  'smart_mode_custom_timeout' => l10n.errorCustomEndpointSlow,
   'custom_endpoint_not_configured' ||
   'smart_mode_custom_not_configured' => l10n.errorCustomEndpointNotConfigured,
   'custom_model_missing' ||

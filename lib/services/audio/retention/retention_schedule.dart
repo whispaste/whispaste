@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/settings_sections.dart' show PrivacySettings;
 import '../../../core/data/database.dart';
+import '../../../core/data/history_set_aside.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../features/notes/data/notes_actions.dart'
     show notesActionsProvider;
@@ -93,16 +94,20 @@ Timer startRetentionSchedule(
                 .privacy
                 .retainedAudioCount,
       );
-      await sweepOrphanedRetainedWavs(
-        directory: retainedAudioDir(),
-        referencedPaths: await _referencedWavPaths(container, db),
-        now: now,
-      );
-      await sweepOrphanedImportWork(
-        workDir: importWorkDir(),
-        liveJobIds: _liveImportJobIds(container),
-        now: now,
-      );
+      // A history set aside after a lost key (#1023) still refers to its
+      // recordings and import work; the current one does not know them.
+      if (!hasSetAsideHistory(appDataDir())) {
+        await sweepOrphanedRetainedWavs(
+          directory: retainedAudioDir(),
+          referencedPaths: await _referencedWavPaths(container, db),
+          now: now,
+        );
+        await sweepOrphanedImportWork(
+          workDir: importWorkDir(),
+          liveJobIds: _liveImportJobIds(container),
+          now: now,
+        );
+      }
     } on Object catch (e) {
       _log.warning('Audio retention sweep failed: $e');
     }

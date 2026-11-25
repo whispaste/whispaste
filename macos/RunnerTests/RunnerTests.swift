@@ -102,6 +102,56 @@ class RunnerTests: XCTestCase {
     XCTAssertFalse(watch.covers)
   }
 
+  // MARK: User's own Cmd+Z after an auto-paste (#2078)
+
+  func testOnlyPlainCommandZIsTheUndoShortcut() {
+    XCTAssertTrue(isUndoShortcut(flags: [.command], characters: "z"))
+    XCTAssertTrue(isUndoShortcut(flags: [.command, .capsLock], characters: "Z"))
+    XCTAssertFalse(isUndoShortcut(flags: [.command, .shift], characters: "z"))
+    XCTAssertFalse(isUndoShortcut(flags: [.command, .option], characters: "z"))
+    XCTAssertFalse(isUndoShortcut(flags: [.control], characters: "z"))
+    XCTAssertFalse(isUndoShortcut(flags: [], characters: "z"))
+    XCTAssertFalse(isUndoShortcut(flags: [.command], characters: "y"))
+    XCTAssertFalse(isUndoShortcut(flags: [.command], characters: nil))
+  }
+
+  func testUndoShortcutWatchCountsOnlyWhileWatching() {
+    var removed = 0
+    let watch = UndoShortcutWatch(trusted: { true }, install: { _ in NSObject() },
+                                  remove: { _ in removed += 1 })
+    watch.note(flags: [.command], characters: "z", isRepeat: false, fromSelf: false)
+    XCTAssertFalse(watch.seen, "no watch armed")
+    XCTAssertEqual(watch.watch(seconds: 15).watching, true)
+    watch.note(flags: [.command], characters: "z", isRepeat: false, fromSelf: true)
+    watch.note(flags: [.command], characters: "z", isRepeat: true, fromSelf: false)
+    XCTAssertFalse(watch.seen, "own keys and repeats never count")
+    watch.note(flags: [.command], characters: "z", isRepeat: false, fromSelf: false)
+    XCTAssertTrue(watch.take())
+    XCTAssertEqual(removed, 1)
+    XCTAssertFalse(watch.take(), "taken once")
+  }
+
+  func testUndoShortcutWatchReportsThePreviousWatch() {
+    let watch = UndoShortcutWatch(trusted: { true }, install: { _ in NSObject() },
+                                  remove: { _ in })
+    _ = watch.watch(seconds: 15)
+    watch.note(flags: [.command], characters: "z", isRepeat: false, fromSelf: false)
+    let next = watch.watch(seconds: 15)
+    XCTAssertTrue(next.watching)
+    XCTAssertTrue(next.seen)
+    XCTAssertFalse(watch.seen, "the new watch starts clean")
+  }
+
+  func testUndoShortcutWatchNeedsTheAccessibilityPermission() {
+    var installs = 0
+    let watch = UndoShortcutWatch(trusted: { false },
+                                  install: { _ in installs += 1; return NSObject() },
+                                  remove: { _ in })
+    XCTAssertFalse(watch.watch(seconds: 15).watching)
+    XCTAssertEqual(installs, 0, "no monitor without the permission")
+    XCTAssertFalse(watch.watch(seconds: 0).watching)
+  }
+
   func testUndoWatchWithoutAMonitorIsNeverProof() {
     let watch = UndoWatch(clock: { 5 }, install: { _ in nil })
     watch.markInsert()

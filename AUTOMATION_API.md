@@ -236,12 +236,76 @@ Dictation has priority. While a recording or a transcription is running, the
 endpoint answers `409 {"error": "busy"}` and does not queue the upload. The CLI
 reports this as a message and exits with status 1.
 
+### Writing: `POST /v1/write` and `GET /v1/write/status`
+
+Starts a Smart Mode **write** job from a written instruction, the same path
+the Smart Mode hotkey takes when nothing is selected: the instruction takes
+the place of the spoken one. The result is pasted **straight into the app in
+front**, without the preview and without the Enter step of the hotkey.
+
+These two routes need their own **write token**. Writing is off by default:
+turn on **Allow writing via the API** under the automation API in Settings to
+get the token. The write token opens only these two routes; the normal token
+cannot write (both answer `403 {"error": "insufficient_scope"}` on the other
+token's routes).
+
+Request:
+
+```json
+{ "instruction": "Write a short, polite decline to Mr. Miller", "wait": false }
+```
+
+- `instruction` (string, required, 1–4000 characters after trimming).
+- `wait` (bool, default `false`): answer only once the job has finished.
+- `context` (object, optional): `{"profile": false, "app": false,
+  "clipboard": false}` switches context sources off for this job. It can only
+  narrow what the settings allow, never switch a source on. Unknown keys are
+  a `400`.
+
+Answer: `202` (or `200` with `wait: true`) with the job, never with the
+written text:
+
+```json
+{ "id": "w1a2b3", "status": "running", "started_at": "2026-11-19T10:00:00.000Z",
+  "instruction_chars": 43, "target_checked": true }
+```
+
+`GET /v1/write/status?id=w1a2b3` reports the job later: `status` is
+`running`, `inserted` or `failed` (with `error`), plus `duration_ms` and
+`result_chars`. Only the last 20 jobs are known, and only until the app quits.
+
+Safeguards:
+
+- **Target check.** The app in front when the request arrives is the target.
+  Right before pasting it must still be in front; otherwise nothing is pasted
+  (`error: "automation_write_target_changed"`) and nothing is copied. Without
+  a checkable app in front the job ends at once
+  (`automation_write_target_unknown`). On Linux with Wayland the app cannot be
+  checked: the text is pasted and the job reports `target_checked: false`.
+- **One job at a time, at most 10 per minute.** A second job while one runs
+  gets `409 {"error": "write_busy", "id": "…"}`; the 11th start within a
+  minute gets `429 {"error": "rate_limited", "retry_after": N}` with a
+  `Retry-After` header.
+- **Dictation keeps priority.** A job never blocks dictation. If a dictation
+  is running when the result is ready, the job waits up to 30 seconds and
+  ends with `automation_write_dictation_busy` if it is still running.
+- **Instant revocation.** Switching writing (or the whole API) off, or
+  creating a new write token, stops every open job before it pastes
+  (`error: "revoked"`).
+- **Visible.** WhisPaste shows "Pasted via the automation API" each time,
+  and Settings lists the last 20 jobs (time, status, character counts; never
+  text). The log file holds the same, never instruction or result text.
+- Engine errors are reported with the codes of the hotkey path, e.g.
+  `smart_write_missing_key`, `smart_write_timeout`. Like every write, a job
+  leaves no history entry.
+
 ### Errors shared by all endpoints
 
 | Status | Body | Meaning |
 | --- | --- | --- |
 | 401 | `{"error": "unauthorized"}` | Missing or wrong token |
 | 403 | — | `Host` header is not a loopback name |
+| 403 | `{"error": "insufficient_scope"}` | Valid token, but for the other scope (write token on a normal route or the other way round) |
 | 409 | `{"error": "busy"}` | Only `POST /v1/transcriptions`: a dictation is running |
 | 413 | `{"error": "payload_too_large"}` | Body is over the endpoint's limit |
 
@@ -324,6 +388,11 @@ Tools: `notes_list`, `notes_create`, `snippets_list`, `snippets_render`,
   required.
 - **Off by default** — the API only starts once you explicitly enable it in
   Settings.
+- **Writing has its own scope** — pasting text needs the separate write
+  token, which exists only while writing is switched on. The normal token
+  cannot write, and the write token can do nothing else. A process that has
+  the write token, or controls the app in front, can paste text there; the
+  target check confirms the app, not the text field inside it.
 
 See [`NETWORK.md`](./NETWORK.md) for WhisPaste's full list of network
 connections, and [`SECURITY.md`](./SECURITY.md) for how to report a

@@ -118,7 +118,17 @@ void main() {
   });
 
   test('no app text tells the user to run an unfiltered udevadm trigger', () {
-    for (final locale in ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+    for (final locale in [
+      'de',
+      'en',
+      'es',
+      'pt',
+      'ru',
+      'he',
+      'fr',
+      'it',
+      'zh',
+    ]) {
       final arb =
           jsonDecode(File('lib/core/l10n/app_$locale.arb').readAsStringSync())
               as Map<String, Object?>;

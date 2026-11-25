@@ -1,6 +1,8 @@
 /// Audio & Recording Safety settings sections.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -10,7 +12,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/config/settings_sections.dart'
-    show maxInputGainDb, minInputGainDb;
+    show MediaWhileRecording, maxInputGainDb, minInputGainDb;
 import '../../../services/audio/speech_leveler.dart' show dbToGain, gainToDb;
 import '../../../services/audio_service.dart';
 import '../../../services/media_pause/media_pause_providers.dart';
@@ -157,7 +159,7 @@ class _AudioSectionState extends ConsumerState<AudioSection> {
           ),
         ),
         if (!settings.audioInput.autoLevel) _gainRow(l10n, settings),
-        _PauseMediaRow(settings: settings),
+        _MediaWhileRecordingRow(settings: settings),
         // Only a child while the banner has something to show: the group puts
         // a divider before each child, and the banner renders nothing otherwise,
         // which left a stray rule at the bottom of the card.
@@ -176,48 +178,72 @@ String inputGainLabel(double db) {
   return rounded > 0 ? '+$rounded dB' : '\u2212${-rounded} dB';
 }
 
-/// Opt-in switch: pause music/video while recording (#563). Shows "not
-/// available" and stays off where the system gives no media control.
-class _PauseMediaRow extends ConsumerWidget {
-  const _PauseMediaRow({required this.settings});
+/// What happens to running music/video while recording (#563, #1511):
+/// nothing, pause or turn down. A choice the system cannot do is shown but
+/// disabled with the reason, never silently ignored.
+class _MediaWhileRecordingRow extends ConsumerWidget {
+  const _MediaWhileRecordingRow({required this.settings});
 
   final AppSettings settings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
-    final available = ref.watch(mediaPauseAvailableProvider).value ?? true;
-    // macOS: Apple blocks media control for third-party apps since 15.4, so
-    // the row is permanently unavailable there. A stored `true` stays saved
-    // but has no effect (#1254).
-    final unavailableText = defaultTargetPlatform == TargetPlatform.macOS
-        ? l10n.settingsPauseMediaUnavailableMacos
-        : l10n.settingsPauseMediaUnavailable;
-    final on = available && settings.audioInput.pauseMediaWhileRecording;
+    final pauseAvailable = ref.watch(mediaPauseAvailableProvider).value ?? true;
+    final duckAvailable = ref.watch(mediaDuckAvailableProvider).value ?? true;
+    final isMac = defaultTargetPlatform == TargetPlatform.macOS;
+    final mode = settings.audioInput.mediaWhileRecording;
+    const modes = MediaWhileRecording.values;
+    // macOS pauses only the players it can address by Apple Events; the
+    // subtitle says which, so nobody expects the browser to stop.
+    final subtitle = isMac
+        ? '${l10n.settingsMediaWhileRecordingSubtitle}\n'
+              '${l10n.settingsMediaWhileRecordingMacosPause}'
+        : l10n.settingsMediaWhileRecordingSubtitle;
     return WpSettingsRow(
       rowId: 'recording-pause-media',
-      title: l10n.settingsPauseMedia,
-      subtitle: available
-          ? l10n.settingsPauseMediaSubtitle
-          : '${l10n.settingsPauseMediaSubtitle}\n$unavailableText',
-      switchNamesRow: available,
-      trailing: settingsToggle(
-        label: l10n.settingsPauseMedia,
-        key: const Key('pauseMediaToggle'),
-        testId: 'recording-pause-media-toggle',
-        value: on,
-        disabledReason: available ? null : unavailableText,
-        onChanged: available
-            ? (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      audioInput: s.audioInput.copyWith(
-                        pauseMediaWhileRecording: v,
-                      ),
-                    ),
-                  )
-            : null,
+      title: l10n.settingsMediaWhileRecording,
+      subtitle: subtitle,
+      trailing: settingsDropdown(
+        context: context,
+        keyPrefix: 'mediaWhileRecording',
+        testId: 'recording-pause-media-choice',
+        value: mode.name,
+        items: [for (final m in modes) m.name],
+        labels: [
+          for (final m in modes)
+            switch (m) {
+              MediaWhileRecording.off => l10n.settingsMediaWhileRecordingOff,
+              MediaWhileRecording.pause =>
+                l10n.settingsMediaWhileRecordingPause,
+              MediaWhileRecording.duck => l10n.settingsMediaWhileRecordingDuck,
+            },
+        ],
+        disabledItems: {
+          if (!pauseAvailable && mode != MediaWhileRecording.pause)
+            MediaWhileRecording.pause.name,
+          if (!duckAvailable && mode != MediaWhileRecording.duck)
+            MediaWhileRecording.duck.name,
+        },
+        disabledTooltip: l10n.settingsMediaWhileRecordingUnavailable,
+        onChanged: (v) {
+          final next = MediaWhileRecording.values.firstWhere(
+            (m) => m.name == v,
+            orElse: () => MediaWhileRecording.off,
+          );
+          if (next == MediaWhileRecording.pause) {
+            // Asked here, in the settings, so the one-time macOS permission
+            // dialog never appears in the middle of a dictation.
+            unawaited(requestMediaPlayerAccess());
+          }
+          ref
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                (s) => s.copyWithSections(
+                  audioInput: s.audioInput.copyWith(mediaWhileRecording: next),
+                ),
+              );
+        },
       ),
     );
   }

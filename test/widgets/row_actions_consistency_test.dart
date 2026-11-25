@@ -45,6 +45,7 @@ HistoryEntry _entry({bool pinned = false}) => HistoryEntry(
 );
 
 Note _note({bool isQuickNote = false}) => Note(
+  archived: false,
   id: 'n1',
   content: 'Note title line\nand a preview line below it',
   pinned: false,

@@ -12,6 +12,7 @@ import 'package:whispaste/features/notes/widgets/notes_list_view.dart';
 import '../../fixtures/test_helpers.dart';
 
 Note _note(String id, {bool pinned = false}) => Note(
+  archived: false,
   id: id,
   content: 'Inhalt $id',
   pinned: pinned,

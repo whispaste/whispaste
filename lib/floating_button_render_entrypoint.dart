@@ -26,6 +26,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/widgets.dart';
 
 import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/overlay_customization.dart';
 import 'core/theme/overlay_design_spec.dart';
@@ -62,7 +63,7 @@ void runFloatingButtonEngine([List<String> args = const []]) {
     '(boot state: ${boot.state?.name ?? '-'}, '
     'themed: ${boot.theme != null})',
   );
-  runApp(_ButtonRenderApp(boot: boot));
+  runApp(SystemMotionScope(child: _ButtonRenderApp(boot: boot)));
 }
 
 class _ButtonRenderApp extends StatefulWidget {
@@ -106,12 +107,12 @@ class _ButtonRenderAppState
     }
   }
 
-  /// Pointer tracking for the idle capsule (see [IdleCapsuleHover]). Hover is
-  /// not tracked under Wayland, where the capsule stays at rest.
+  /// Pointer tracking for the idle capsule (see [IdleCapsuleHover]). Hover follows the
+  /// real GDK backend, not the session type (XWayland delivers it).
   late final IdleCapsuleHover _capsuleHover = IdleCapsuleHover(
     hoverSupported: IdleCapsule.hoverSupported(
       isLinux: Platform.isLinux,
-      isWayland: IdleCapsule.isWaylandSession(Platform.environment),
+      nativeWayland: IdleCapsule.isNativeWaylandBackend(Platform.environment),
     ),
     onExpandedChanged: (_) => setState(() {}),
   );

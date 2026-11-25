@@ -116,12 +116,22 @@ void main() {
         _edit('snippets-body-field'),
         'a template worth keeping',
       );
-      // The 48 dp bar wraps in the narrow test window, so the find button
-      // can sit below the fold of the scrolling form (#652).
+      // In the narrow test window the find toggle sits under "More" (#1845).
       final findToggle = _byId('snippets-body-toolbar-find');
-      await tester.ensureVisible(findToggle);
-      await tester.pumpAndSettle();
-      await tester.tap(findToggle);
+      if (findToggle.evaluate().isEmpty) {
+        await tester.tap(
+          find.descendant(
+            of: find.byType(WpMarkdownToolbar),
+            matching: find.byTooltip('More'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('snippets-body-toolbar-more-find')),
+        );
+      } else {
+        await tester.tap(findToggle);
+      }
       await tester.pumpAndSettle();
       expect(find.byType(WpFindReplaceBar), findsOneWidget);
 
@@ -220,7 +230,8 @@ void main() {
         ('Signature', 'Best, Silvio'),
         ('Greeting', 'Hi there'),
       ]) {
-        await tester.tap(find.byIcon(LucideIcons.plus));
+        // By its id: the open editor's tag field (#662) has a plus too.
+        await tester.tap(find.bySemanticsIdentifier('snippets-add'));
         await tester.pumpAndSettle();
         await tester.enterText(_edit('snippets-title-field'), title);
         await tester.enterText(_edit('snippets-body-field'), body);

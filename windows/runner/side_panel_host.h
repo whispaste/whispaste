@@ -51,6 +51,7 @@
 #include <string>
 #include <vector>
 
+#include "system_motion_channel.h"
 #include "side_panel_edge_core.h"
 #include "side_panel_window.h"
 
@@ -153,6 +154,8 @@ class SidePanelHost {
   std::unique_ptr<flutter::FlutterViewController> render_controller_;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       render_channel_;
+  // "Reduce motion" for this engine (#1756); reset with render_channel_.
+  std::unique_ptr<SystemMotionChannel> motion_channel_;
   bool render_ready_ = false;
   std::optional<flutter::EncodableMap> latest_snapshot_args_;
 

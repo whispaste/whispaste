@@ -1,0 +1,4 @@
+LIBRARY WhisPasteShell
+EXPORTS
+  DllGetClassObject PRIVATE
+  DllCanUnloadNow PRIVATE

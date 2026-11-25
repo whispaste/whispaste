@@ -5,13 +5,15 @@
 #
 # Verified by probe build (BUILD.md): 3.3 MB DLL on v2.0.1, no espeak-ng marker,
 # Parakeet recognition checked in the test lab.
-# onnxruntime_providers_shared.dll is not needed (only onnxruntime.dll ships).
+# DirectML.dll is bundled next to onnxruntime.dll; neither needs CUDA.
 #
 # Usage (from the repo root, Visual Studio 2022+ C++ tools and CMake on PATH):
 #   pwsh -File scripts\build-sherpa-onnx.ps1
 #   powershell -File scripts\build-sherpa-onnx.ps1   (Windows PowerShell 5.1)
 param(
-  [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+  [string] $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
+  [switch] $CpuOnly,
+  [int] $Jobs = 2
 )
 $ErrorActionPreference = 'Stop'
 
@@ -51,13 +53,17 @@ $SherpaRepo = 'https://github.com/k2-fsa/sherpa-onnx'
 $src = Join-Path $RepoRoot ".build\deps\sherpa-onnx\$SherpaTag"
 $build = Join-Path $RepoRoot '.build\sherpa-onnx\windows-build'
 $stage = Join-Path $RepoRoot '.build\sherpa-onnx\windows'
+if ($CpuOnly) {
+  $build = Join-Path $RepoRoot '.build\sherpa-onnx\windows-cpu-build'
+  $stage = Join-Path $RepoRoot '.build\sherpa-onnx\windows-cpu'
+}
 # Sibling of the stage, never inside it: bundle and stage checks only know the DLLs.
-$pdbDir = Join-Path $RepoRoot '.build\sherpa-onnx\windows-pdb'
+$pdbDir = Join-Path $RepoRoot $(if ($CpuOnly) { '.build\sherpa-onnx\windows-cpu-pdb' } else { '.build\sherpa-onnx\windows-pdb' })
 
 # 1. Fetch the pinned tag and verify the commit (supply-chain guard).
 if (-not (Test-Path (Join-Path $src '.git'))) {
   New-Item -ItemType Directory -Force -Path (Split-Path $src) | Out-Null
-  git clone --depth 1 --branch $SherpaTag $SherpaRepo $src
+  git -c core.longpaths=true clone --depth 1 --branch $SherpaTag $SherpaRepo $src
   if ($LASTEXITCODE -ne 0) { throw "git clone of $SherpaTag failed" }
 }
 $actual = (git -C $src rev-parse HEAD).Trim()
@@ -65,6 +71,18 @@ if ($actual -ne $SherpaCommit) {
   throw "$src is at $actual, expected $SherpaCommit ($SherpaTag). Delete it and re-run."
 }
 
+$patch = Join-Path $RepoRoot 'scripts\sherpa-provider.patch'
+$ErrorActionPreference = 'Continue'
+git -C $src apply --reverse --check $patch 2>$null
+$patched = $LASTEXITCODE -eq 0
+$ErrorActionPreference = 'Stop'
+if (-not $patched) {
+  git -C $src apply --check $patch
+  if ($LASTEXITCODE -ne 0) { throw 'Sherpa provider patch does not apply' }
+  git -C $src apply $patch
+  if ($LASTEXITCODE -ne 0) { throw 'Sherpa provider patch failed' }
+}
+if ($CpuOnly) {
 # 1b. Microsoft supplies matching DLLs and PDBs. Verify our own Windows pin
 # before extraction (GS-008), deliberately not sherpa's different archive hash.
 $ortName = $pin['ORT_WIN_X64_MD_RELEASE']
@@ -87,8 +105,20 @@ New-Item -ItemType Directory -Force -Path $build | Out-Null
 $ortFile = Join-Path $build $ortName
 $haveOrt = (Test-Path $ortFile) -and ((Get-FileHash $ortFile -Algorithm SHA256).Hash.ToLower() -eq $ortWant)
 if (-not $haveOrt) {
-  $ortUrl = "https://github.com/microsoft/onnxruntime/releases/download/v$ortVersion/$ortName"
-  Invoke-DownloadWithRetry -Uri $ortUrl -OutFile "$ortFile.partial"
+  # Microsoft's release first, then byte-identical copies from WP_ORT_ARCHIVE_MIRRORS
+  # (';'-separated base URLs). Any source must match the same SHA-256 pin below.
+  $ortUrls = @("https://github.com/microsoft/onnxruntime/releases/download/v$ortVersion/$ortName")
+  $ortMirrors = $env:WP_ORT_ARCHIVE_MIRRORS
+  if (-not $ortMirrors) { $ortMirrors = [Environment]::GetEnvironmentVariable('WP_ORT_ARCHIVE_MIRRORS', 'User') }
+  if ($ortMirrors) {
+    $ortUrls += $ortMirrors.Split(';') | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('/') + "/$ortName" }
+  }
+  $ortFetched = $false
+  foreach ($ortUrl in $ortUrls) {
+    try { Invoke-DownloadWithRetry -Uri $ortUrl -OutFile "$ortFile.partial"; $ortFetched = $true; break }
+    catch { Write-Host "onnxruntime source $ortUrl failed: $($_.Exception.Message)" }
+  }
+  if (-not $ortFetched) { throw "onnxruntime $ortName could not be fetched from any source" }
   $got = (Get-FileHash "$ortFile.partial" -Algorithm SHA256).Hash.ToLower()
   if ($got -ne $ortWant) { Remove-Item "$ortFile.partial" -Force; throw "onnxruntime $ortName has SHA-256 $got, pinned $ortWant. Refusing to use it." }
   Move-Item "$ortFile.partial" $ortFile -Force
@@ -102,6 +132,12 @@ foreach ($file in 'include\onnxruntime_cxx_api.h', 'lib\onnxruntime.lib', 'lib\o
     'lib\onnxruntime.pdb', 'lib\onnxruntime_providers_shared.pdb') {
   if (-not (Test-Path (Join-Path $ortRoot $file))) { throw "Microsoft ORT archive lacks $file" }
 }
+
+} else {
+  & (Join-Path $PSScriptRoot 'build-onnxruntime-directml.ps1') -RepoRoot $RepoRoot -Jobs $Jobs
+  $ortRoot = Join-Path $RepoRoot '.build\onnxruntime\windows-directml'
+  $env:SHERPA_DIRECTML_DIR = Join-Path $ortRoot 'directml'
+}
 $env:SHERPA_ONNXRUNTIME_INCLUDE_DIR = Join-Path $ortRoot 'include'
 $env:SHERPA_ONNXRUNTIME_LIB_DIR = Join-Path $ortRoot 'lib'
 
@@ -111,6 +147,7 @@ $cmakeArgs = @(
   '-DCMAKE_BUILD_TYPE=Release',
   '-DBUILD_SHARED_LIBS=ON',
   '-DSHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE=ON',
+  "-DSHERPA_ONNX_ENABLE_DIRECTML=$(if ($CpuOnly) { 'OFF' } else { 'ON' })",
   # sherpa 2.0.1 omits IMPORTED_IMPLIB in the Windows CPU preinstalled path.
   # Remove this workaround when upstream sets location_onnxruntime_lib2 there.
   "-Dlocation_onnxruntime_lib2=$ortRoot/lib/onnxruntime.lib",
@@ -126,7 +163,8 @@ $cmakeArgs = @(
   # /Z7 + /DEBUG: PDB for Sentry (same flags as libwhisper/libllama). /OPT:REF
   # /OPT:ICF are restored because /DEBUG alone switches the linker to NOREF.
   '-DCMAKE_C_FLAGS=/Z7',
-  '-DCMAKE_CXX_FLAGS=/Z7',
+  # Preserve C++ unwinding so ORT errors reach the C API catch/CPU retry.
+  '-DCMAKE_CXX_FLAGS=/Z7 /EHsc',
   '-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF'
 )
 Write-Host "==> configure windows x64 ($SherpaTag, TTS=OFF)"
@@ -135,15 +173,16 @@ if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
 
 # 3. Build only the C API target.
 Write-Host '==> build sherpa-onnx-c-api'
-cmake --build $build --config Release --target sherpa-onnx-c-api --parallel
+cmake --build $build --config Release --target sherpa-onnx-c-api --parallel $Jobs
 if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }
 
 # 4. Stage the DLLs (sherpa writes them under build\bin\Release or build\lib\Release).
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 $wanted = @('sherpa-onnx-c-api.dll', 'onnxruntime.dll')
+if (-not $CpuOnly) { $wanted += 'DirectML.dll' }
 foreach ($name in $wanted) {
-  if ($name -eq 'onnxruntime.dll') {
+  if ($name -in @('onnxruntime.dll', 'DirectML.dll')) {
     Copy-Item (Join-Path $ortRoot "lib\$name") $stage -Force
     continue
   }
@@ -152,12 +191,18 @@ foreach ($name in $wanted) {
   if (-not $found) { throw "$name not found under $build (Release)" }
   Copy-Item $found.FullName $stage -Force
 }
-# Keep Microsoft symbols separate: only the local release uploads them, never
+# Keep matching ORT/DirectML symbols separate: only the local release uploads them, never
 # release.yml's existing windows-pdb upload. Neither directory enters the app.
-$ortPdbDir = Join-Path $RepoRoot '.build\sherpa-onnx\windows-ort-pdb'
+$ortPdbDir = Join-Path $RepoRoot $(if ($CpuOnly) { '.build\sherpa-onnx\windows-cpu-ort-pdb' } else { '.build\sherpa-onnx\windows-ort-pdb' })
+if (Test-Path $ortPdbDir) { Remove-Item $ortPdbDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $ortPdbDir | Out-Null
 foreach ($name in 'onnxruntime.pdb', 'onnxruntime_providers_shared.pdb') {
-  Copy-Item (Join-Path $ortRoot "lib\$name") $ortPdbDir -Force
+  if (Test-Path (Join-Path $ortRoot "lib\$name")) {
+    Copy-Item (Join-Path $ortRoot "lib\$name") $ortPdbDir -Force
+  }
+}
+if (-not $CpuOnly) {
+  Copy-Item (Join-Path $ortRoot 'directml\bin\x64-win\DirectML.pdb') $ortPdbDir -Force
 }
 # PDB of the C API DLL for Sentry and the .msixupload.
 if (Test-Path $pdbDir) { Remove-Item $pdbDir -Recurse -Force }
@@ -169,6 +214,8 @@ Copy-Item $pdb.FullName $pdbDir -Force
 $info = @(
   "sherpa-onnx $SherpaTag ($SherpaCommit)",
   'platform: windows-x64',
+  "providers: $(if ($CpuOnly) { 'cpu' } else { 'cpu directml' })",
+  "provider-patch: $((Get-FileHash $patch -Algorithm SHA256).Hash.ToLower())",
   'tts: OFF (no espeak-ng, no piper-phonemize)',
   "built: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
 )

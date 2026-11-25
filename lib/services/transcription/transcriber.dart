@@ -16,10 +16,15 @@ import '../path_service.dart' show sttModelPath;
 import '../stt/local_transcriber.dart' show LocalSttTranscriber;
 import '../stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelFilesExistSync, parakeetModelId;
+import '../stt_parakeet/parakeet_script_guard.dart';
 import '../stt_parakeet/parakeet_transcriber.dart' show ParakeetTranscriber;
 import '../system_speech/system_speech_channel.dart';
 import '../system_speech/system_speech_status.dart';
 import '../system_speech/system_speech_transcriber.dart';
+import '../user_models/user_model_guards.dart';
+import '../user_models/user_model_use.dart'
+    show ownSpeechModelIdIn, userModelUseProvider;
+import '../user_models/user_sherpa_runtime.dart' show UserSherpaTranscriber;
 import 'deepgram_transcriber.dart';
 import 'openai_transcriber.dart';
 import 'transcriber_interface.dart';
@@ -37,10 +42,35 @@ final transcriberProvider = Provider<Transcriber>((ref) {
       ref: ref,
     ),
     SttProviderType.deepgram => DeepgramTranscriber(ref: ref),
-    SttProviderType.onDevice => switch (settings?.onDeviceEngine ??
-        OnDeviceEngine.whisper) {
+    SttProviderType.onDevice => _guardedOnDevice(
+      ref,
+      settings ?? AppSettings.defaults,
+    ),
+  };
+});
+
+/// The on-device adapter; an own model (#1789) gets the guard that hands a
+/// failed recording to a checked model.
+Transcriber _guardedOnDevice(Ref ref, AppSettings settings) {
+  final plain = _onDevice(ref, settings);
+  final ownId = ownSpeechModelIdIn(settings);
+  if (ownId == null) return plain;
+  return UserModelGuardedTranscriber(
+    modelId: ownId,
+    inner: plain,
+    host: ref.read(userModelUseProvider),
+    fallback: () =>
+        _onDevice(ref, ref.read(settingsProvider).value ?? settings),
+    fallbackModelId: () =>
+        (ref.read(settingsProvider).value ?? settings).transcriptionModelId,
+  );
+}
+
+Transcriber _onDevice(Ref ref, AppSettings settings) =>
+    switch (settings.onDeviceEngine) {
       OnDeviceEngine.whisper => LocalSttTranscriber(ref: ref),
-      OnDeviceEngine.parakeet => ParakeetTranscriber(ref: ref),
+      OnDeviceEngine.parakeet => _scriptGuardedParakeet(ref),
+      OnDeviceEngine.userModel => UserSherpaTranscriber(ref: ref),
       OnDeviceEngine.system =>
         systemSpeechOsSupported()
             ? SystemSpeechTranscriber(
@@ -55,9 +85,29 @@ final transcriberProvider = Provider<Transcriber>((ref) {
                 ),
               )
             : LocalSttTranscriber(ref: ref),
-    },
-  };
-});
+    };
+
+/// Parakeet with the script check (#2168): a result in a script none of the
+/// user's languages uses goes to Whisper when its model is on disk.
+Transcriber _scriptGuardedParakeet(Ref ref) {
+  AppSettings current() =>
+      ref.read(settingsProvider).value ?? AppSettings.defaults;
+  return ParakeetScriptGuardedTranscriber(
+    inner: ParakeetTranscriber(ref: ref),
+    languagesFor: (language) =>
+        languagesForRequest(language, current().stt.autoDetectLanguages),
+    whisperInstalled: () => _whisperModelOnDisk(current()),
+    whisper: () => LocalSttTranscriber(ref: ref),
+    whisperModelId: () => current().effectiveModelId,
+    onNotice: (notice) =>
+        ref.read(parakeetScriptNoticeProvider.notifier).show(notice),
+  );
+}
+
+bool _whisperModelOnDisk(AppSettings settings) {
+  final path = sttModelPath(settings.effectiveModelId);
+  return path != null && File(path).existsSync();
+}
 
 /// The local engine that takes a recording the system engine cannot handle:
 /// Whisper when its model is on disk, otherwise Parakeet when installed,
@@ -68,10 +118,7 @@ Transcriber _localFallback(Ref ref) => _localFallbackUsesParakeet(ref)
 
 bool _localFallbackUsesParakeet(Ref ref) {
   final settings = ref.read(settingsProvider).value;
-  final whisperPath = settings == null
-      ? null
-      : sttModelPath(settings.effectiveModelId);
-  if (whisperPath != null && File(whisperPath).existsSync()) return false;
+  if (settings != null && _whisperModelOnDisk(settings)) return false;
   return parakeetModelFilesExistSync();
 }
 

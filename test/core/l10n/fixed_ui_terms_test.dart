@@ -38,6 +38,40 @@ const _fixedTerms = <String, Map<String, String>>{
     'settingsSttEngine': 'Модель распознавания речи',
   },
   'he': {'dockDictate': 'הכתבה', 'settingsSttEngine': 'מודל זיהוי דיבור'},
+  // #1951: the terms of the website translations (internal-notes §5.3a).
+  'fr': {
+    'navOverview': "Vue d'ensemble",
+    'navHistory': 'Enregistrements',
+    'navReplacements': 'Dictionnaire',
+    'navSnippets': 'Snippets',
+    'navAnalytics': 'Statistiques',
+    'dockDictate': 'Dicter',
+    'settingsAreaShortcuts': 'Raccourcis clavier',
+    'settingsSpeechRecognition': 'Reconnaissance vocale',
+    'settingsSttEngine': 'Modèle vocal',
+  },
+  'it': {
+    'navOverview': 'Panoramica',
+    'navHistory': 'Registrazioni',
+    'navReplacements': 'Dizionario',
+    'navSnippets': 'Snippet',
+    'navAnalytics': 'Statistiche',
+    'dockDictate': 'Detta',
+    'settingsAreaShortcuts': 'Scorciatoie da tastiera',
+    'settingsSpeechRecognition': 'Riconoscimento vocale',
+    'settingsSttEngine': 'Modello vocale',
+  },
+  'zh': {
+    'navOverview': '概览',
+    'navHistory': '录音',
+    'navReplacements': '词典',
+    'navSnippets': '文本片段',
+    'navAnalytics': '统计',
+    'dockDictate': '听写',
+    'settingsAreaShortcuts': '快捷键',
+    'settingsSpeechRecognition': '语音识别',
+    'settingsSttEngine': '语音模型',
+  },
 };
 
 void main() {
@@ -148,6 +182,9 @@ void main() {
       'pt': 'estimativa',
       'he': 'הערכה',
       'ru': 'оценка',
+      'fr': 'estimation',
+      'it': 'stima',
+      'zh': '估算',
     };
     for (final MapEntry(key: lang, value: marker) in markers.entries) {
       final arb =

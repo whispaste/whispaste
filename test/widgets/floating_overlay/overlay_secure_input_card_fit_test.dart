@@ -44,7 +44,7 @@ const _holders = <String, SecureInputHolder?>{
   'unknown': null,
 };
 
-const _measured = ['de', 'en', 'es', 'pt', 'ru'];
+const _measured = ['de', 'en', 'es', 'pt', 'ru', 'fr', 'it', 'zh'];
 
 Future<void> _loadInter() async {
   final loader = FontLoader('Inter');

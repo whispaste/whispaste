@@ -200,7 +200,25 @@ extern "C" char* smart_mode_generate(
     int top_k,
     const volatile int32_t* abort_flag
 ) {
-  if (session == nullptr || user_text == nullptr) return nullptr;
+  smart_mode_sampling sampling{};
+  sampling.temperature = temperature;
+  sampling.top_p = top_p;
+  sampling.top_k = top_k;
+  sampling.min_p = 0.0f;
+  sampling.penalty_repeat = 1.0f;
+  sampling.penalty_last_n = 0;
+  sampling.penalty_present = 0.0f;
+  return smart_mode_generate_sampled(session, system_prompt, user_text, &sampling, abort_flag);
+}
+
+extern "C" char* smart_mode_generate_sampled(
+    smart_mode_session* session,
+    const char* system_prompt,
+    const char* user_text,
+    const smart_mode_sampling* sampling,
+    const volatile int32_t* abort_flag
+) {
+  if (session == nullptr || user_text == nullptr || sampling == nullptr) return nullptr;
   if (is_aborted(abort_flag)) return nullptr;
   session->last_output_incomplete = false;
 
@@ -231,11 +249,31 @@ extern "C" char* smart_mode_generate(
   common_chat_params chat_params = common_chat_templates_apply(session->tmpls.get(), inputs);
   const std::string prompt = chat_params.prompt.str();
 
-  // --- sampler chain (temperature -> top_k -> top_p -> dist) ---------------
+  // --- sampler chain ---------------------------------------------------------
+  // llama.cpp's default order (common.h `samplers`): penalties -> top_k ->
+  // top_p -> min_p -> temperature -> dist. Penalties and min_p join only when
+  // they change something, so the WhisPaste default keeps the exact chain
+  // (top_k -> top_p -> temp -> dist) the catalog model was measured with.
   llama_sampler* smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
-  llama_sampler_chain_add(smpl, llama_sampler_init_top_k(top_k));
-  llama_sampler_chain_add(smpl, llama_sampler_init_top_p(top_p, 1));
-  llama_sampler_chain_add(smpl, llama_sampler_init_temp(temperature));
+  const bool penalties_on =
+      sampling->penalty_last_n != 0 &&
+      (sampling->penalty_repeat != 1.0f || sampling->penalty_present != 0.0f);
+  if (penalties_on) {
+    llama_sampler_chain_add(
+        smpl,
+        llama_sampler_init_penalties(
+            llama_vocab_n_tokens(vocab),
+            sampling->penalty_last_n,
+            sampling->penalty_repeat,
+            0.0f,
+            sampling->penalty_present));
+  }
+  llama_sampler_chain_add(smpl, llama_sampler_init_top_k(sampling->top_k));
+  llama_sampler_chain_add(smpl, llama_sampler_init_top_p(sampling->top_p, 1));
+  if (sampling->min_p > 0.0f) {
+    llama_sampler_chain_add(smpl, llama_sampler_init_min_p(sampling->min_p, 1));
+  }
+  llama_sampler_chain_add(smpl, llama_sampler_init_temp(sampling->temperature));
   llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
   // --- tokenize --------------------------------------------------------------
@@ -254,7 +292,9 @@ extern "C" char* smart_mode_generate(
   std::string response;
   llama_batch batch = llama_batch_get_one(prompt_tokens.data(), static_cast<int32_t>(prompt_tokens.size()));
   llama_token new_token_id;
-  const int max_new_tokens = 512;
+  // 1024 leaves room for a written text (#251); the context window
+  // (kSmartModeContextLength) stays the same, so the RAM budget does too.
+  const int max_new_tokens = 1024;
   int n_generated = 0;
   bool aborted = false;
   // Every early exit below that is not EOS sets this, so the caller can keep

@@ -16,6 +16,7 @@ import '../../../widgets/wp_editor_pane.dart';
 import '../../../widgets/wp_head_actions.dart';
 import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_text_editor.dart';
+import '../../../widgets/editor_text_view_scope.dart';
 import '../../../widgets/wp_text_field.dart';
 
 /// A snippet in the trash, the right-hand side of the Snippets split view
@@ -34,9 +35,13 @@ class SnippetDetailPanel extends ConsumerStatefulWidget {
     required this.onClose,
     this.onRestore,
     this.onDeleteForever,
+    this.tags,
   });
 
   final SnippetItem snippet;
+
+  /// The snippet's tags, read-only (#662); null when it carries none.
+  final Widget? tags;
   final VoidCallback onClose;
   final VoidCallback? onRestore;
   final VoidCallback? onDeleteForever;
@@ -201,6 +206,7 @@ class _SnippetDetailPanelState extends ConsumerState<SnippetDetailPanel> {
     expands: true,
     semanticsLabel: l10n.snippetsBodyLabel,
     showToolbar: false,
+    toolbarTrailing: widget.tags,
     readText: snippet.body,
     readView: Semantics(
       container: true,
@@ -209,11 +215,17 @@ class _SnippetDetailPanelState extends ConsumerState<SnippetDetailPanel> {
         variant: WpTextFieldVariant.passage,
         liftsOnHover: false,
         child: SingleChildScrollView(
-          child: Text(
-            snippet.body,
-            style: WpTextField.styleFor(
-              WpTextFieldVariant.passage,
-              color: WpColors.textPrimary,
+          // The editors' line spacing (#648).
+          child: Builder(
+            builder: (context) => Text(
+              snippet.body,
+              style: WpEditorText.styleOf(
+                context,
+                WpTextField.styleFor(
+                  WpTextFieldVariant.passage,
+                  color: WpColors.textPrimary,
+                ),
+              ),
             ),
           ),
         ),

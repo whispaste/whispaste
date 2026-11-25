@@ -175,6 +175,23 @@ Future<void> presentSparkleUpdate() async {
   }
 }
 
+/// Runs a user-triggered check without the native result window (#1881).
+///
+/// Same as the scheduled background check: Sparkle/WinSparkle report the
+/// outcome through the listener ([registerSparkleListener]) into
+/// `updateProvider`, and the app shows "up to date" or the error in its own
+/// UI. A found update still brings up the native install dialog. Failures are
+/// logged, never thrown.
+Future<void> checkSparkleUpdateQuietly() async {
+  try {
+    await setFeedUrlFn(appcastFeedUrl());
+    await checkForUpdatesFn(inBackground: true);
+    _log.info('Sparkle quiet update check started');
+  } on Exception catch (e) {
+    _log.warning('Sparkle quiet check failed: $e');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mirroring native events into the app's own update state
 // ---------------------------------------------------------------------------

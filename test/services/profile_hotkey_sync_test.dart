@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:whispaste/core/config/favorite_language_hotkeys.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/app_profiles/app_profile.dart';
 import 'package:whispaste/services/hotkey_key_resolver.dart';
@@ -80,6 +81,73 @@ void main() {
       );
       expect(plan.entries, isEmpty);
       expect(plan.refusedIds, isEmpty);
+    });
+  });
+
+  group('planFavoriteLanguageHotkeys (#2137)', () {
+    AppSettings withLanguages(
+      Map<String, FavoriteLanguageHotkey> hotkeys, {
+      List<String> favorites = const ['de', 'en', 'fa'],
+    }) => AppSettings.defaults.copyWithSections(
+      stt: AppSettings.defaults.stt.copyWith(
+        favoriteLanguages: favorites,
+        favoriteLanguageHotkeys: hotkeys,
+      ),
+    );
+
+    test('registers one key per favorite that has one', () {
+      final plan = planFavoriteLanguageHotkeys(
+        withLanguages(const {
+          'de': FavoriteLanguageHotkey(key: '1', modifiers: 'ctrl+alt'),
+          'fa': FavoriteLanguageHotkey(key: '3', modifiers: 'ctrl+alt'),
+        }),
+      );
+      expect(plan.entries.map((e) => e.code), ['de', 'fa']);
+      expect(plan.refusedCodes, isEmpty);
+    });
+
+    test('a language that is no favorite any more registers nothing', () {
+      final plan = planFavoriteLanguageHotkeys(
+        withLanguages(const {
+          'ru': FavoriteLanguageHotkey(key: '1', modifiers: 'ctrl+alt'),
+        }),
+      );
+      expect(plan.entries, isEmpty);
+      expect(plan.refusedCodes, isEmpty);
+    });
+
+    test('a fixed app hotkey keeps its combination', () {
+      final base = withLanguages(const {
+        'de': FavoriteLanguageHotkey(key: 'L', modifiers: 'shift+ctrl'),
+      });
+      final settings = base.copyWithSections(
+        stt: base.stt.copyWith(languageCycleHotkeyEnabled: true),
+      );
+      final plan = planFavoriteLanguageHotkeys(settings);
+      expect(plan.entries, isEmpty);
+      expect(plan.refusedCodes, {'de'});
+    });
+
+    test('the earlier favorite wins a duplicate', () {
+      final plan = planFavoriteLanguageHotkeys(
+        withLanguages(const {
+          'de': FavoriteLanguageHotkey(key: '1', modifiers: 'ctrl+alt'),
+          'en': FavoriteLanguageHotkey(key: '1', modifiers: 'alt+ctrl'),
+        }),
+      );
+      expect(plan.entries.map((e) => e.code), ['de']);
+      expect(plan.refusedCodes, {'en'});
+    });
+
+    test('a profile yields to a favorite-language key', () {
+      final settings = withLanguages(const {
+        'de': FavoriteLanguageHotkey(key: 'F5', modifiers: 'ctrl+alt'),
+      });
+      final plan = planProfileHotkeys(
+        profiles: [_profile('a', key: 'F5', mods: 'ctrl+alt')],
+        reserved: reservedHotkeysOf(settings),
+      );
+      expect(plan.refusedIds, {'a'});
     });
   });
 
@@ -170,6 +238,42 @@ void main() {
         expect(registrar.registered, isEmpty);
       },
     );
+
+    test(
+      'favorite-language and profile keys do not touch each other',
+      () async {
+        await service.syncProfileHotkeys([_entry('a', 'F5', 'ctrl+alt')]);
+        await service.syncFavoriteLanguageHotkeys(const [
+          (code: 'de', key: 'F6', modifiers: 'ctrl+alt'),
+        ]);
+        // Syncing one list with nothing in it leaves the other list registered.
+        await service.syncFavoriteLanguageHotkeys(const []);
+        expect(registrar.registered.map((h) => h.logicalKey.keyId), [
+          resolveKey('F5').keyId,
+        ]);
+        await service.syncFavoriteLanguageHotkeys(const [
+          (code: 'de', key: 'F6', modifiers: 'ctrl+alt'),
+        ]);
+        await service.syncProfileHotkeys(const []);
+        expect(registrar.registered.map((h) => h.logicalKey.keyId), [
+          resolveKey('F6').keyId,
+        ]);
+      },
+    );
+
+    test('pressing a favorite-language key reports its language', () async {
+      final pressed = <String>[];
+      service.onFavoriteLanguageHotkeyPressed = pressed.add;
+      final refused = await service.syncFavoriteLanguageHotkeys(const [
+        (code: 'fa', key: '2', modifiers: 'ctrl+alt'),
+      ]);
+      expect(refused, isEmpty);
+
+      registrar.capturedKeyDownHandler!(
+        HotKey(key: resolveKey('2'), modifiers: resolveModifiers('ctrl+alt')),
+      );
+      expect(pressed, ['fa']);
+    });
 
     test('pressing a profile hotkey reports its profile id', () async {
       final pressed = <String>[];

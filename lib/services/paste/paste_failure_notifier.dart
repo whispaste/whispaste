@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_provider.dart';
 import '../desktop_paste/desktop_paste_controller_interface.dart';
+import 'paste_notice_mute.dart';
 import 'paster.dart';
 
 /// One paste-failure event observed by the UI.
@@ -37,6 +39,15 @@ class PasteFailureNotifier extends Notifier<PasteFailureEvent?> {
     SecureInputHolder? secureInputHolder,
     FocusedFieldType fieldType = FocusedFieldType.unknown,
   }) {
+    // A notice the user switched off (#1852) never reaches the card, also on
+    // the paths that report here directly (repaste from the card, a retried
+    // dictation).
+    if (pasteNoticeMuted(
+      outcome,
+      ref.read(settingsProvider).value?.interface_,
+    )) {
+      return;
+    }
     state = PasteFailureEvent(
       outcome: outcome,
       secureInputHolder: secureInputHolder,

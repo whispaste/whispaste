@@ -23,7 +23,7 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/automation_api/automation_api_token_store.dart'
-    show automationApiTokenKey;
+    show automationApiTokenKey, automationWriteTokenKey;
 import '../../services/feedback_consent_store.dart' show kSecureConsentStateKey;
 import 'data_key_store.dart';
 import 'keychain_migration.dart';
@@ -38,6 +38,7 @@ final legacyMigrationKeys = <String>[
   dataKeyStorageName,
   ...allSecureKeys,
   automationApiTokenKey,
+  automationWriteTokenKey,
   kSecureConsentStateKey,
 ];
 

@@ -48,6 +48,34 @@ void main() {
   setUp(() => WpColors.activate(wpLightColors));
   tearDown(() => WpColors.activate(wpLightColors));
 
+  testWidgets(
+    'expected languages toggle independently and allow clearing all',
+    (tester) async {
+      WpLanguageSelection? saved;
+      await tester.pumpWidget(
+        makeTestable(
+          WpLanguageDialog(
+            multiple: true,
+            options: _options,
+            initial: const WpLanguageSelection(autoDetect: false),
+            onSave: (s) => saved = s,
+            onCancel: () {},
+          ),
+        ),
+      );
+      await tester.tap(_tile('de'));
+      await tester.tap(_tile('en'));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('stt-language-dialog-save')));
+      expect(saved!.codes, ['de', 'en']);
+      await tester.tap(_tile('de'));
+      await tester.tap(_tile('en'));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('stt-language-dialog-save')));
+      expect(saved!.codes, isEmpty);
+    },
+  );
+
   testWidgets('shows one tile per language with name and endonym', (
     tester,
   ) async {
@@ -64,7 +92,7 @@ void main() {
       find.descendant(of: _tile('de'), matching: find.text('Deutsch')),
       findsOneWidget,
     );
-    expect(find.text('Recognition language'), findsOneWidget);
+    expect(find.text('Languages'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('stt-language-dialog-auto')),
       findsOneWidget,

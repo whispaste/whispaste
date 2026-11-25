@@ -48,6 +48,7 @@ Future<void> importAudioFiles(
   WidgetRef ref,
   List<String> paths, {
   List<String>? extensions,
+  ImportStartSource source = ImportStartSource.picker,
 }) async {
   final allowed = (extensions ?? supportedImportExtensions()).toSet();
   final accepted = <String>[];
@@ -72,7 +73,7 @@ Future<void> importAudioFiles(
   // missing files) are known by then.
   final result = await ref
       .read(audioImportQueueProvider.notifier)
-      .addFiles(accepted);
+      .addFiles(accepted, source: source);
   if (result.rejections.isNotEmpty) {
     rejections.set([...refused, ...result.rejections]);
   }

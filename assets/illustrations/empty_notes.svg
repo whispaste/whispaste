@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+<!-- Empty state "no notes yet": a document card with text bars and a cursor, resting pill on its top edge. Paper-cut style, design-tokens/illustration/STYLE.md; no text, no figure. -->
+<defs><clipPath id="tile"><rect width="800" height="800" rx="64"/></clipPath></defs>
+<g clip-path="url(#tile)">
+<rect width="800" height="800" fill="#F3F7FB"/>
+<path d="M150 690 A250 250 0 0 1 650 690 Z" fill="#D6E2F0"/>
+<rect x="230" y="190" width="340" height="440" rx="28" fill="#FFFFFF"/>
+<rect x="285" y="300" width="220" height="24" rx="12" fill="#52607A"/>
+<rect x="285" y="364" width="250" height="24" rx="12" fill="#52607A"/>
+<rect x="285" y="428" width="190" height="24" rx="12" fill="#52607A"/>
+<rect x="285" y="492" width="250" height="24" rx="12" fill="#52607A"/>
+<rect x="285" y="556" width="120" height="24" rx="12" fill="#52607A"/>
+<rect x="420" y="540" width="14" height="72" rx="7" fill="#52607A"/>
+<circle cx="527" cy="245" r="16" fill="#FFB547"/>
+<rect x="290" y="148" width="220" height="84" rx="42" fill="#BFCFE3"/>
+<rect x="324.4" y="180.76" width="10.08" height="18.48" rx="5.04" fill="#FFFFFF"/>
+<rect x="347.92" y="177.4" width="10.08" height="25.2" rx="5.04" fill="#FFFFFF"/>
+<rect x="371.44" y="180.76" width="10.08" height="18.48" rx="5.04" fill="#FFFFFF"/>
+<rect x="394.96" y="177.4" width="10.08" height="25.2" rx="5.04" fill="#FFFFFF"/>
+<rect x="418.48" y="180.76" width="10.08" height="18.48" rx="5.04" fill="#FFFFFF"/>
+<rect x="442" y="177.4" width="10.08" height="25.2" rx="5.04" fill="#FFFFFF"/>
+<rect x="465.52" y="180.76" width="10.08" height="18.48" rx="5.04" fill="#FFFFFF"/>
+</g>
+</svg>

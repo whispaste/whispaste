@@ -228,4 +228,79 @@ void main() {
       );
     });
   });
+
+  group('customEndpointApiBase (#1957)', () {
+    String base(String raw) => checkCustomEndpointUrl(raw).uri.toString();
+
+    test('a bare server root gets /v1', () {
+      expect(base('http://localhost:11434'), 'http://localhost:11434/v1');
+      expect(base('http://127.0.0.1:1234/'), 'http://127.0.0.1:1234/v1');
+    });
+
+    test('a copied request URL is cut back to its base', () {
+      expect(
+        base('http://127.0.0.1:1234/v1/chat/completions'),
+        'http://127.0.0.1:1234/v1',
+      );
+      expect(
+        base('http://127.0.0.1:9931/v1/models/'),
+        'http://127.0.0.1:9931/v1',
+      );
+      expect(
+        base('http://127.0.0.1:8000/v1/audio/transcriptions'),
+        'http://127.0.0.1:8000/v1',
+      );
+    });
+
+    test('another path of a provider stays as entered', () {
+      expect(
+        base('https://openrouter.ai/api/v1/'),
+        'https://openrouter.ai/api/v1',
+      );
+      expect(
+        base('http://192.168.1.5/ollama/v1'),
+        'http://192.168.1.5/ollama/v1',
+      );
+    });
+  });
+
+  group('kCustomEndpointServerPresets (#1957)', () {
+    test('every preset is a valid address on this device ending in /v1', () {
+      for (final preset in kCustomEndpointServerPresets) {
+        final uri = checkCustomEndpointUrl(preset.url).uri;
+        expect(uri, isNotNull, reason: preset.name);
+        expect(uri.toString(), preset.url, reason: preset.name);
+        expect(
+          customEndpointNetworkOf(uri!.host),
+          CustomEndpointNetwork.device,
+          reason: preset.name,
+        );
+      }
+    });
+
+    test('names and ports are unique, so the choice shows one server', () {
+      final ports = {
+        for (final p in kCustomEndpointServerPresets) Uri.parse(p.url).port,
+      };
+      final names = {for (final p in kCustomEndpointServerPresets) p.name};
+      expect(ports.length, kCustomEndpointServerPresets.length);
+      expect(names.length, kCustomEndpointServerPresets.length);
+    });
+
+    test('the entered address names its preset, however it is written', () {
+      expect(
+        customEndpointServerPresetFor('http://127.0.0.1:11434')?.name,
+        'Ollama',
+      );
+      expect(
+        customEndpointServerPresetFor('http://127.0.0.1:1234/v1/')?.name,
+        'LM Studio',
+      );
+      expect(
+        customEndpointServerPresetFor('http://localhost:11434/v1'),
+        isNull,
+      );
+      expect(customEndpointServerPresetFor(''), isNull);
+    });
+  });
 }

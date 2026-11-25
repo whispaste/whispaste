@@ -82,7 +82,13 @@ enum OnDeviceEngine {
 
   /// Apple's SpeechAnalyzer (macOS 26+), see `lib/services/system_speech/`.
   /// Offered only where the OS supports it.
-  system('system');
+  system('system'),
+
+  /// A sherpa-onnx model the user added themselves (#1789), named by the
+  /// `user-…` id in `sttModel`; see `lib/services/user_models/`. Chosen only
+  /// on the "Modelle" page, never offered in onboarding or the engine
+  /// dropdown. The user's own whisper.cpp models run on [whisper] instead.
+  userModel('user_model');
 
   const OnDeviceEngine(this.value);
   final String value;
@@ -324,6 +330,31 @@ enum QuickNoteTimestampStyle {
       if (e.value == v) return e;
     }
     return marginMark;
+  }
+}
+
+/// Which note a quick-note dictation goes to (#661). Read only after the
+/// transcript exists, so the hotkey path up to the text never waits on it.
+enum QuickNoteDestination {
+  /// The one marked quick note, created on the first dictation (default,
+  /// the behaviour before #661).
+  markedNote('marked_note'),
+
+  /// The most recently edited active note; a fresh one when there is none.
+  lastNote('last_note'),
+
+  /// A fresh note for every dictation. It is not marked: the mark stays
+  /// where the user put it.
+  newNote('new_note');
+
+  const QuickNoteDestination(this.value);
+  final String value;
+
+  static QuickNoteDestination fromValue(String? v) {
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    return markedNote;
   }
 }
 

@@ -25,8 +25,10 @@
 library;
 
 import 'core/accessibility/accessibility_reply_binding.dart';
+import 'core/accessibility/system_motion.dart';
 import 'core/search/search_ranker.dart';
 import 'core/sorting/list_sort.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show Bidi;
@@ -45,6 +47,7 @@ import 'shared_render_engine_helpers.dart'
 import 'snippet_picker_field_preview.dart';
 import 'widgets/wp_icon_button.dart';
 import 'widgets/wp_search_field.dart';
+import 'widgets/empty_state.dart';
 
 /// Private channel between the native picker shell and this render engine.
 ///
@@ -71,7 +74,7 @@ void runSnippetPickerEngine() {
   // animation gating lives in [SnippetPickerBody.visible].
   detachFromEmbedderAppLifecycle();
   debugPrint('[snippet-picker-engine] runSnippetPickerEngine booted');
-  runApp(const SnippetPickerRenderApp());
+  runApp(const SystemMotionScope(child: SnippetPickerRenderApp()));
 }
 
 /// The picker engine's root widget. Public only so a test can pump it with
@@ -678,13 +681,13 @@ class _SnippetPickerBodyState extends State<SnippetPickerBody>
     int highlight,
   ) {
     if (widget.items.isEmpty) {
-      return _EmptyState(
+      return WpEmptyState.panel(
         icon: LucideIcons.notebookText,
         title: l10n.snippetsEmpty,
       );
     }
     if (filtered.isEmpty) {
-      return _EmptyState(
+      return WpEmptyState.panel(
         icon: LucideIcons.searchX,
         title: l10n.searchNoMatches,
         hint: l10n.searchNoMatchesHint(_query.trim()),
@@ -909,54 +912,6 @@ class _PickerTile extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Compact empty-state treatment for the panel (no snippets relayed, or an
-/// active search without matches) — a small sibling of the main window's
-/// `WpEmptyState`, sized for a 360-pt floating surface.
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.icon, required this.title, this.hint});
-
-  final IconData icon;
-  final String title;
-  final String? hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final textMuted = WpColors.textMuted;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(WpSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: WpIconSize.xl, color: textMuted),
-            const SizedBox(height: WpSpacing.sm),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: WpColors.textSecondary,
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (hint case final hint?) ...[
-              const SizedBox(height: WpSpacing.xxs),
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: textMuted,
-                  fontSize: WpTypography.small,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

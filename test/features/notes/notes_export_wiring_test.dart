@@ -34,6 +34,7 @@ List<Object> get _noTagOverrides => [
 Note _sampleNote({required String id, required String content}) {
   final t = DateTime(2025, 6, 1);
   return Note(
+    archived: false,
     id: id,
     content: content,
     pinned: false,

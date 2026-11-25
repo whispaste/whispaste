@@ -21,6 +21,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/floating_surface.dart';
 import '../core/theme/tokens.dart';
+import 'focus_first_in.dart';
 import 'wp_button.dart';
 import 'wp_hero_button.dart';
 
@@ -329,23 +330,59 @@ Future<T?> _showWpRoute<T>({
   bool useRootNavigator = false,
   Duration transition = WpMotion.smooth,
 }) {
-  return showGeneralDialog<T>(
-    context: context,
-    barrierDismissible: dismissible,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: Colors.transparent, // painted by the transition builder
-    transitionDuration: WpMotion.durationFor(context, transition),
-    useRootNavigator: useRootNavigator,
-    pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
-    transitionBuilder: (ctx, animation, secondaryAnimation, child) {
-      return PopScope(
-        canPop: dismissible,
-        child: _WpDialogBarrier(
-          animation: animation,
-          child: builder(ctx, animation),
-        ),
-      );
-    },
+  // Not showGeneralDialog: its route exposes the barrier to assistive tech
+  // on macOS as a window-wide "Schließen" element (the dismiss label), and
+  // the desktop engines turn that into stray static text in front of every
+  // dialog (#1924). Escape and Cancel still close the dialog.
+  return Navigator.of(context, rootNavigator: useRootNavigator).push<T>(
+    _WpDialogRoute<T>(
+      barrierDismissible: dismissible,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.transparent, // painted by the transition builder
+      transitionDuration: WpMotion.durationFor(context, transition),
+      pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, animation, secondaryAnimation, child) {
+        return PopScope(
+          canPop: dismissible,
+          child: _WpDialogBarrier(
+            animation: animation,
+            child: builder(ctx, animation),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// The dialog route: a [RawDialogRoute] whose barrier stays out of the
+/// semantics tree (see [_showWpRoute]).
+class _WpDialogRoute<T> extends RawDialogRoute<T> {
+  _WpDialogRoute({
+    required super.pageBuilder,
+    super.barrierDismissible,
+    super.barrierColor,
+    super.barrierLabel,
+    super.transitionDuration,
+    super.transitionBuilder,
+  });
+
+  @override
+  bool get semanticsDismissible => false;
+}
+
+/// A dialog's title: the heading that names the dialog for assistive tech
+/// (#1924), its own node so it never merges into the content.
+class _WpDialogTitle extends StatelessWidget {
+  const _WpDialogTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    header: true,
+    namesRoute: true,
+    child: Text(title, style: Theme.of(context).textTheme.titleLarge),
   );
 }
 
@@ -503,7 +540,7 @@ class _WpDialogContainer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleLarge),
+          _WpDialogTitle(title),
           const SizedBox(height: WpSpacing.sm),
 
           // Body — scrolls rather than overflowing once the card hits the
@@ -614,7 +651,7 @@ class WpFormDialogShell extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleLarge),
+          _WpDialogTitle(title),
           const SizedBox(height: WpSpacing.xxs),
           Text(
             subtitle,
@@ -625,10 +662,12 @@ class WpFormDialogShell extends StatelessWidget {
           const SizedBox(height: WpSpacing.lg),
           Flexible(
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: fields,
+              child: _FocusFirstField(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: fields,
+                ),
               ),
             ),
           ),
@@ -638,6 +677,47 @@ class WpFormDialogShell extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Puts the focus on the first field of a form dialog when it opens, unless a
+/// field already took it (autofocus). Without it, "Neues Profil" opened with
+/// nothing focused: typed text was lost and the first Tab landed on Cancel
+/// (#1845).
+class _FocusFirstField extends StatefulWidget {
+  const _FocusFirstField({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FocusFirstField> createState() => _FocusFirstFieldState();
+}
+
+class _FocusFirstFieldState extends State<_FocusFirstField> {
+  final FocusNode _area = FocusNode(
+    debugLabel: 'form dialog fields',
+    skipTraversal: true,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final current = FocusManager.instance.primaryFocus;
+      if (current != null && current.ancestors.contains(_area)) return;
+      focusFirstIn(_area);
+    });
+  }
+
+  @override
+  void dispose() {
+    _area.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Focus(focusNode: _area, skipTraversal: true, child: widget.child);
 }
 
 // ---------------------------------------------------------------------------
